@@ -439,6 +439,20 @@ export function advanceStateRef(repoRoot, { expectedRevision, revision } = {}, r
   return snapshot;
 }
 
+// Creates the local state ref from a revision the repo already holds (a
+// remote-tracking copy, typically): CAS create against absence, with the same
+// untrusted-input discipline as `advanceStateRef` — the tree is read in full
+// BEFORE the ref exists, so a foreign or invalid tree never becomes the ledger.
+export function seedStateRef(repoRoot, { revision } = {}, run = capturedRun) {
+  if (typeof revision !== 'string' || revision === '') {
+    throw new Error('seedStateRef requires a revision');
+  }
+  assertCommitObject(repoRoot, revision, run);
+  const snapshot = readSnapshot(repoRoot, { revision }, run);
+  casUpdateStateRef(repoRoot, revision, '0'.repeat(revision.length), run);
+  return snapshot;
+}
+
 // Lands a reconciled state tree as ONE commit with BOTH parents: the local tip
 // this CAS is taken against, and the other side's tip, whose history is
 // preserved whole rather than replayed. A rebase would rewrite commits every

@@ -11,7 +11,15 @@
 import path from 'node:path';
 import { findChangeledgerDir } from '../config.mjs';
 import { capturedRun } from '../git.mjs';
-import { ACTIVATION_REF, readStateRef, STATE_REF, writeActivation } from '../state-store.mjs';
+import {
+  ACTIVATION_REF,
+  optionalRefOid,
+  readStateRef,
+  STATE_REF,
+  seedStateRef,
+  writeActivation,
+} from '../state-store.mjs';
+import { resolveRemote } from './sync.mjs';
 
 export function activate(cwd = process.cwd(), output = console, run = capturedRun) {
   const changeledgerDir = findChangeledgerDir(cwd);
@@ -25,11 +33,30 @@ export function activate(cwd = process.cwd(), output = console, run = capturedRu
   // `readStateRef` asserts the ref names a commit OBJECT via `cat-file -t`,
   // never a `^{commit}` peel — an annotated tag under the state ref must be
   // refused, not silently followed to the commit it wraps (MIG-04).
-  const revision = readStateRef(repoRoot, run);
+  let revision = readStateRef(repoRoot, run);
   if (revision === null) {
-    throw new Error(
-      `no state to activate: ${STATE_REF} does not exist in this repo — fetch it, or run \`changeledger cutover\` on the integration branch to publish it`,
-    );
+    // A fresh clone holds the state ref only as a remote-tracking copy: seed
+    // the local ref from it (tree validated before the ref exists) instead of
+    // demanding a manual `git update-ref`. Absent that copy too, the original
+    // actionable error stands — activate never publishes or initializes state.
+    const remote = resolveRemote(repoRoot, run);
+    const tracking =
+      remote === null
+        ? null
+        : optionalRefOid(
+            repoRoot,
+            `refs/remotes/${remote}/${STATE_REF.slice('refs/heads/'.length)}`,
+            run,
+          );
+    if (tracking !== null) {
+      seedStateRef(repoRoot, { revision: tracking }, run);
+      output.log(`Seeded ${STATE_REF} from refs/remotes/${remote} at ${tracking}`);
+      revision = readStateRef(repoRoot, run);
+    } else {
+      throw new Error(
+        `no state to activate: ${STATE_REF} does not exist in this repo — fetch it, or run \`changeledger cutover\` on the integration branch to publish it`,
+      );
+    }
   }
 
   // `repaired` is an activation written before it recorded the ledger it owns:
