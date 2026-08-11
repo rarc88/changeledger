@@ -2,7 +2,7 @@
 id: "20260810-181802"
 title: Abaratar y simplificar la verificación del undo
 type: refactor
-status: in-validation
+status: done
 created: 2026-08-10T18:18:02Z
 depends_on: []
 branch: refactor/20260810-181802
@@ -80,3 +80,4 @@ Escenario: undo del cutover real de este repo (319 documentos) — hoy paga
 - **2026-08-10T22:55:40Z** `[note]` Mandato del review: superficie que gobierna el change — assertRevertRestoresSnapshot y su suite adversarial; escrutinio de que ningún mensaje de refuse ni aserción existente cambió
 - **2026-08-10T23:02:13Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-08-10T23:02:14Z** `[note]` Corrección del review (F3): el mutante de revisión-equivocada lo matan CR1 y todos los tests de undo del camino feliz, no los fixtures de 'cannot be read' — ningún fixture asevera ese mensaje. La nota anterior lo atribuía mal
+- **2026-08-11T00:35:20Z** `[validation]` in-validation → done (human accepted via conversation)
