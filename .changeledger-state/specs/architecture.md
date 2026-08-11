@@ -161,7 +161,9 @@ resuelve la activación y enumera el snapshot exactamente UNA vez
 lectura — misma revisión para ambos, 9 subprocesos por carga activada, cero
 fuera de un repo git — y `loadRepoWithConfig` acepta ese snapshot con un
 contrato tri-estado (ausente = resuélvelo tú; null = inactivo; objeto =
-sírvelo) que ningún caller externo puede usar para inyectar un snapshot
+sírvelo) decidido por identidad estricta — un valor falsy que no es null es
+un bug del caller y falla explícito, nunca carga inactivo en silencio — y
+que ningún caller externo puede usar para inyectar un snapshot
 obsoleto: la staleness la sigue cazando el CAS porque la revisión reportada
 es la del snapshot realmente servido. Una activación
 presente cuya ref de estado es ilegible o ausente propaga el error
@@ -189,8 +191,10 @@ el layout completo con las mismas garantías de blob regular y UTF-8 que
 los antiguos callers frontera enrutan por él: `register`, el bootstrap de
 `check`, las capturas sin id de `context`/`agent-context`, el propio
 bootstrap de `loadRepo*`, las lecturas de config del visor y el listado del
-registry (que además conserva el nombre cacheado cuando la ruta registrada no
-es un directorio utilizable, sin propagar fallos del probe). `loadConfig`
+registry (que conserva el nombre cacheado cuando la ruta registrada no
+es un directorio utilizable, pero distingue "no activado" de "activación
+ilegible": un fallo del probe de activación sale en la entrada como
+`activationError` en vez de listarse como inactivo). `loadConfig`
 queda como primitiva interna del camino inactivo; `new.mjs` mantiene su gate
 propio y `resolveChange` sigue siendo por diseño el camino de mutación sobre
 worktree en modo inactivo. La autoridad que este camino devuelve la decide el mismo ancla de propiedad
