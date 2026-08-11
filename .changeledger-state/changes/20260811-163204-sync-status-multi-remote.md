@@ -2,7 +2,7 @@
 id: "20260811-163204"
 title: sync --status no exige resolver el remoto
 type: quick
-status: draft
+status: approved
 created: 2026-08-11T16:32:04Z
 depends_on: []
 related_to: ["20260811-151426"]
@@ -20,3 +20,4 @@ responder desde las copias remote-tracking existentes de la ref de estado
 decirlo), sin resolver ningún remoto ni ejecutar red.
 
 ## Log
+- **2026-08-11T16:32:33Z** `[status]` draft → approved (human via conversation)
