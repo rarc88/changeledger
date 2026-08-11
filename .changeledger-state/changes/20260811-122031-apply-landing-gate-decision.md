@@ -2,9 +2,10 @@
 id: "20260811-122031"
 title: Decidir si el aterrizaje de apply gatea errores del candidato
 type: quick
-status: approved
+status: in-progress
 created: 2026-08-11T12:20:31Z
 depends_on: []
+branch: quick/20260811-122031
 related_to: ["20260811-110629"]
 owner: rarc88
 ---
@@ -26,3 +27,5 @@ descarta este change con esa razón.
 
 ## Log
 - **2026-08-11T14:16:18Z** `[status]` draft → approved (human via conversation)
+- **2026-08-11T14:17:06Z** `[status]` approved → in-progress
+- **2026-08-11T14:17:06Z** `[branch]` set: quick/20260811-122031 (auto)
