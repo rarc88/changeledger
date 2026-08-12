@@ -2,7 +2,7 @@
 id: "20260812-025623"
 title: El contador de spawns del undo se salta Windows con razón
 type: quick
-status: draft
+status: approved
 created: 2026-08-12T02:56:23Z
 depends_on: []
 related_to: ["20260810-181802"]
@@ -21,3 +21,4 @@ win32 con `skip` y razón explícita, en vez de portar el shim a
 cmd/PATHEXT — coste sin beneficio de cobertura real.
 
 ## Log
+- **2026-08-12T02:56:25Z** `[status]` draft → approved (human via conversation)
