@@ -3344,6 +3344,13 @@ const CONCEPT_GUARDS = [
         /\bsync\b[^.;]{0,160}\b(never|not)\b[^.;]{0,30}\bblock\w*/i,
         'core no longer declares sync non-blocking',
       );
+      // 20260812-003313: the adoption entry point — a clean-context agent found
+      // `cutover` only by listing help; core must name how the state is adopted.
+      assert.match(
+        pack('core'),
+        /\bnot yet activated\b[^.;]{0,90}\bcutover\b|\bcutover\b[^.;]{0,80}\bintegration branch\b/i,
+        'core no longer names cutover as the adoption entry point',
+      );
     },
   },
 ];

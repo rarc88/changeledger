@@ -192,7 +192,10 @@ it never repeats it.
 
 ## Synchronizing the global state
 
-In an activated repo with a remote, `changeledger sync` compares before it
+A repo that is not yet activated adopts the global state once with
+`changeledger cutover` on its integration branch; every later clone joins with
+`changeledger activate`. In an activated repo with a remote, `changeledger
+sync` compares before it
 moves: fast-forward or publish when the histories are linear, automatic
 reconciliation when the divergent journals touch disjoint documents, and a
 fail-closed report when the same document changed on both sides — the human
