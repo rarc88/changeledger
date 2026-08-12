@@ -57,10 +57,11 @@ falla sus precondiciones en cualquier cwd corto.
   - **Verify:** `pnpm test`
   - **Criteria:** CR2
   - **Resolved:** `2026-08-12T02:25:36Z`
-- [ ] Gate completo
+- [x] Gate completo
   - **Target:** `test/cutover.test.mjs`
   - **Verify:** `pnpm test`
   - **Criteria:** CR1, CR2
+  - **Resolved:** `2026-08-12T02:25:37Z`
 
 ## Log
 - **2026-08-12T02:22:50Z** `[status]` draft → approved (human via conversation)
