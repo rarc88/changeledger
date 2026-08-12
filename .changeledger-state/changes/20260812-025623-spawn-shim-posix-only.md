@@ -2,7 +2,7 @@
 id: "20260812-025623"
 title: El contador de spawns del undo se salta Windows con razón
 type: quick
-status: in-validation
+status: in-progress
 created: 2026-08-12T02:56:23Z
 depends_on: []
 branch: quick/20260812-025623
@@ -33,3 +33,4 @@ cmd/PATHEXT — coste sin beneficio de cobertura real.
 - **2026-08-12T03:17:18Z** `[validation]` in-validation → in-progress (agent rejected): Tercer asiento de la clase: import.test 004608 CR1 escenifica la carrera CAS con 'command -v git' (POSIX); skip con razón en win32 — censo barrido: es el último shim sin guardar (cutover/edit ya guardados, repo.test pasa empíricamente en Windows)
 - **2026-08-12T03:18:30Z** `[note]` Tercer asiento: skip en import.test 004608 CR1 (shim de carrera con command -v). Censo de la clase cerrado: cutover CR1-spawns, edit CR8 e import CR1 guardados; repo.test countGitSpawns pasa en Windows empíricamente y queda fuera
 - **2026-08-12T03:18:30Z** `[status]` in-progress → in-validation
+- **2026-08-12T03:26:06Z** `[validation]` in-validation → in-progress (agent rejected): Cuarto asiento: los 3 tests de 194235 CR1 en repo.test usan el mismo shim (count 0 en win32). Mi nota anterior 'repo.test pasa empíricamente en Windows' era evidencia vacua — ausencia en un grep truncado, no un run verificado
