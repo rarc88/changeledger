@@ -16,6 +16,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { sanitizedEnv } from './helpers/git-env.mjs';
 
 // Extracts the full text of every `<name>(` call in `source`, balancing
 // parentheses so a call spread over several lines is read whole. Mirrors
@@ -116,4 +117,19 @@ test('20260810-010554 CR: the sweep itself catches a literal unsanitized invocat
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
+});
+
+// 20260812-011851 — the CI class: git's identity auto-detection is
+// environment luck (valid `user@host` on dev machines, fatal
+// `runneradmin@…(none)` on runners). Every fixture git call already routes
+// through `sanitizedEnv` (the 20260810-010554 static sweep enforces it), so
+// the deterministic identity lives there and nowhere else.
+test('20260812-011851: sanitizedEnv carries the deterministic test identity', () => {
+  const env = sanitizedEnv();
+  assert.equal(env.GIT_AUTHOR_NAME, 'Test User');
+  assert.equal(env.GIT_AUTHOR_EMAIL, 'test@example.com');
+  assert.equal(env.GIT_COMMITTER_NAME, 'Test User');
+  assert.equal(env.GIT_COMMITTER_EMAIL, 'test@example.com');
+  // `extra` still wins, so identity-resolution tests can opt out on purpose.
+  assert.equal(sanitizedEnv({ GIT_AUTHOR_NAME: 'Someone' }).GIT_AUTHOR_NAME, 'Someone');
 });
