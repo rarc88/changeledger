@@ -2,7 +2,7 @@
 id: "20260812-022248"
 title: Los pathspecs del cutover mezclan formas de ruta en Windows
 type: bug
-status: in-progress
+status: in-review
 created: 2026-08-12T02:22:48Z
 depends_on: []
 branch: bug/20260812-022248
@@ -70,3 +70,4 @@ falla sus precondiciones en cualquier cwd corto.
 - **2026-08-12T02:25:37Z** `[note]` CR1 reproducido en macOS con cwd por symlink (el gemelo POSIX del 8.3) — mismo error 'outside repository' del CI; fix: realpath nativo de ambos lados en ledgerLayout, pathspecs derivados del layout (ledgerDirRel). CR2: realpath en el asiento del mkdtemp. Mandato del review: spot check del diff
 - **2026-08-12T02:25:37Z** `[status]` in-progress → in-review
 - **2026-08-12T02:30:54Z** `[review]` in-review → in-progress (retry): Residuo del refactor: changeledgerDir quedó como parámetro muerto en assertCleanLedger y exactStagedCleanup (biome noUnusedFunctionParameters) con 5 call sites pasándolo — retirarlo de firmas y llamadas
+- **2026-08-12T02:32:04Z** `[status]` in-progress → in-review
