@@ -24,3 +24,4 @@ budgets vigente y el concept guard 15 intacto.
 - **2026-08-12T00:33:46Z** `[status]` draft → approved (human via conversation)
 - **2026-08-12T00:37:05Z** `[status]` approved → in-progress
 - **2026-08-12T00:37:05Z** `[branch]` set: quick/20260812-003313 (auto)
+- **2026-08-12T00:39:31Z** `[note]` Línea de adopción en el bloque de sync de core (cutover una vez desde la rama de integración; clones con activate); guard 15 ampliado con la obligación, visto fallar antes de la prosa (y una vez más por exigir el backtick exacto — afinado a la palabra)
