@@ -5,6 +5,7 @@ type: quick
 status: done
 created: 2026-08-12T01:18:51Z
 depends_on: []
+archived: true
 reviewed: true
 branch: quick/20260812-011851
 related_to: ["20260810-010554"]
@@ -40,3 +41,4 @@ helper + suite verde con la config global deshabilitada.
 - **2026-08-12T01:46:00Z** `[status]` in-progress → in-validation
 - **2026-08-12T10:17:42Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-08-12T10:18:45Z** `[graduation]` skipped: test-only: identidad determinista en los asientos de fixture
+- **2026-08-12T10:18:47Z** `[archive]` archived

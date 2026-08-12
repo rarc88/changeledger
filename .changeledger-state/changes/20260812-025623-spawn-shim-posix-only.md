@@ -5,6 +5,7 @@ type: quick
 status: done
 created: 2026-08-12T02:56:23Z
 depends_on: []
+archived: true
 reviewed: true
 branch: quick/20260812-025623
 related_to: ["20260810-181802"]
@@ -39,3 +40,4 @@ cmd/PATHEXT — coste sin beneficio de cobertura real.
 - **2026-08-12T03:27:17Z** `[status]` in-progress → in-validation
 - **2026-08-12T10:17:44Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-08-12T10:18:46Z** `[graduation]` skipped: test-only: skips razonados de shims POSIX
+- **2026-08-12T10:18:47Z** `[archive]` archived

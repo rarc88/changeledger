@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-08-12T02:04:49Z
 depends_on: []
+archived: true
 reviewed: true
 branch: bug/20260812-020449
 related_to: ["20260812-003311", "20260809-113240"]
@@ -81,3 +82,4 @@ solo pasan stdout).
 - **2026-08-12T02:14:54Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-08-12T10:17:43Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-08-12T10:18:45Z** `[graduation]` spec: `architecture.md`
+- **2026-08-12T10:18:47Z** `[archive]` archived
