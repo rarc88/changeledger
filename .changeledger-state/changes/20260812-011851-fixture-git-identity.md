@@ -2,7 +2,7 @@
 id: "20260812-011851"
 title: Los fixtures llevan identidad git determinista
 type: quick
-status: draft
+status: approved
 created: 2026-08-12T01:18:51Z
 depends_on: []
 related_to: ["20260810-010554"]
@@ -28,3 +28,4 @@ tests que prueban resolución de identidad. Pin unitario del contrato del
 helper + suite verde con la config global deshabilitada.
 
 ## Log
+- **2026-08-12T01:19:07Z** `[status]` draft → approved (human via conversation)
