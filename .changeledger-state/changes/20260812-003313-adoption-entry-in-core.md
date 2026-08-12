@@ -2,9 +2,10 @@
 id: "20260812-003313"
 title: El contrato nombra cómo se adopta el estado por primera vez
 type: quick
-status: approved
+status: in-progress
 created: 2026-08-12T00:33:13Z
 depends_on: []
+branch: quick/20260812-003313
 related_to: ["20260811-151426"]
 owner: rarc88
 ---
@@ -21,3 +22,5 @@ budgets vigente y el concept guard 15 intacto.
 
 ## Log
 - **2026-08-12T00:33:46Z** `[status]` draft → approved (human via conversation)
+- **2026-08-12T00:37:05Z** `[status]` approved → in-progress
+- **2026-08-12T00:37:05Z** `[branch]` set: quick/20260812-003313 (auto)
