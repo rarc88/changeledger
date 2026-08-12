@@ -28,3 +28,4 @@ todos los SO por construcción.
 - **2026-08-12T02:45:55Z** `[status]` draft → approved (human via conversation)
 - **2026-08-12T02:45:55Z** `[status]` approved → in-progress
 - **2026-08-12T02:45:55Z** `[branch]` set: quick/20260812-024553 (auto)
+- **2026-08-12T02:48:17Z** `[note]` core.autocrlf=false en initGitFixture (mismo asiento que la identidad), pin visto fallar antes; los 8 tests de undo que comparan bytes del worktree quedan deterministas en todos los SO. Producción intacta: la puerta del undo ya comparaba blobs normalizados
