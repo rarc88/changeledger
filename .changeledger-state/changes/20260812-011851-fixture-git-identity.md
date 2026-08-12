@@ -5,6 +5,7 @@ type: quick
 status: done
 created: 2026-08-12T01:18:51Z
 depends_on: []
+reviewed: true
 branch: quick/20260812-011851
 related_to: ["20260810-010554"]
 owner: rarc88
@@ -38,3 +39,4 @@ helper + suite verde con la config global deshabilitada.
 - **2026-08-12T01:44:07Z** `[note]` Segunda mitad cerrada: initGitFixture (test/helpers/git-env.mjs) enruta git init + config user.name/user.email repo-local en un asiento; ruta 39 sitios crudos en 19 archivos de test/**, dedup initStateRepo. Dejado crudo a propósito: test/git.test.mjs:365 scratchGitRepo — el test 131022 exige que 'host' NO tenga user.name local (para probar aislamiento GIT_DIR), añadir config por defecto rompería esa negativa; identidad se sigue fijando explícitamente en cada test que allí commitea. Reproducción CI: bajo HOME/XDG_CONFIG_HOME/GIT_CONFIG_GLOBAL=dev-null aislados, git.ident.c sigue resolviendo autor vía passwd/hostname reales de esta máquina incluso pre-sweep (1456/1456 verde en un worktree del HEAD previo) — el fallo 'Author identity unknown' es específico de runners sin entrada passwd para el UID, no reproducible localmente; confirmado por diseño del propio change (autodetección es suerte de entorno). Post-sweep: 1456/1456 bajo el mismo entorno endurecido, más pnpm lint y changeledger check limpios. 20 archivos tocados.
 - **2026-08-12T01:46:00Z** `[status]` in-progress → in-validation
 - **2026-08-12T10:17:42Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-08-12T10:18:45Z** `[graduation]` skipped: test-only: identidad determinista en los asientos de fixture
