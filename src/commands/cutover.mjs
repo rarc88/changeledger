@@ -17,6 +17,7 @@
 // (never peeled from an annotated tag), and the undo must be a first-class path
 // rather than a manual procedure.
 
+import fs from 'node:fs';
 import path from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { parseChange } from '../change.mjs';
@@ -502,6 +503,21 @@ function initializedPublicationMatches(repoRoot, tip, config, projectId, run) {
 function commitCleanup({ repoRoot }, layout, baseline) {
   const paths = layout.collections.map((c) => c.prefix.slice(0, -1));
   mutatingRun(['rm', '-r', '-q', '--ignore-unmatch', '--', ...paths], layout.topLevel);
+  // `git rm` only sees tracked files, so a collection directory that is empty
+  // on disk — either emptied by the rm or already empty before the cut —
+  // survives it and contradicts "keeps only config.yml" literally. Remove the
+  // leftovers; `rmdirSync` refuses non-empty dirs, which is exactly the guard:
+  // anything still carrying files was not ours to delete.
+  for (const rel of paths) {
+    const dir = path.join(layout.topLevel, rel);
+    try {
+      fs.rmdirSync(dir);
+    } catch (e) {
+      // Absent (git rm pruned it) or non-empty (not ours to delete): fine.
+      // Anything else is a real failure and must surface, never be swallowed.
+      if (e.code !== 'ENOENT' && e.code !== 'ENOTEMPTY') throw e;
+    }
+  }
   mutatingRun(
     [
       'commit',
