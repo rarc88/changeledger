@@ -19,7 +19,7 @@ import { checkContract } from '../src/contract.mjs';
 import { contractTemplatesDir, templatesDir } from '../src/paths.mjs';
 import { readSnapshot, STATE_REF, writeActivation } from '../src/state-store.mjs';
 import { contractFragmentNames } from './contract-support.mjs';
-import { sanitizedEnv } from './helpers/git-env.mjs';
+import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
 const execFileAsync = promisify(execFile);
@@ -47,12 +47,7 @@ function tmp() {
 // change document `new` itself is responsible for creating.
 function activate(root) {
   const configText = fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8');
-  execFileSync('git', ['init', '-q'], { cwd: root, env: sanitizedEnv(), stdio: 'ignore' });
-  execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: root, env: sanitizedEnv() });
-  execFileSync('git', ['config', 'user.email', 'test@example.com'], {
-    cwd: root,
-    env: sanitizedEnv(),
-  });
+  initGitFixture(root);
   const tree = buildTree(root, {
     '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
     '.changeledger-state/config.yml': configText,
@@ -136,9 +131,7 @@ function gitFor(root, args) {
 // (commit.mjs resolves the active change via loadRepo).
 function commitFixtureRepo() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-cli-commit-'));
-  gitFor(root, ['init', '-q']);
-  gitFor(root, ['config', 'user.email', 'test@example.com']);
-  gitFor(root, ['config', 'user.name', 'Test']);
+  initGitFixture(root);
   gitFor(root, ['config', 'commit.gpgsign', 'false']);
   fs.mkdirSync(path.join(root, '.changeledger', 'changes'), { recursive: true });
   fs.writeFileSync(

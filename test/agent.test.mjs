@@ -35,7 +35,7 @@ import {
   writeActivation,
 } from '../src/state-store.mjs';
 import { setBranch } from '../src/writer.mjs';
-import { sanitizedEnv } from './helpers/git-env.mjs';
+import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
 const execFileAsync = promisify(execFile);
@@ -101,7 +101,7 @@ function activatedRepoWithChange() {
   const configText = fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8');
   fs.rmSync(file);
 
-  execFileSync('git', ['init', '-q'], { cwd: root, env: sanitizedEnv(), stdio: 'ignore' });
+  initGitFixture(root);
   const tree = buildTree(root, {
     '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
     '.changeledger-state/config.yml': configText,
@@ -159,9 +159,7 @@ function git(root, args) {
 function gitBackedApprovedChange({ branch, unrelated = false }) {
   const fixture = repoWithChange();
   configureChangeBranches(fixture.root);
-  git(fixture.root, ['init', '-q', '-b', 'dev']);
-  git(fixture.root, ['config', 'user.email', 'test@example.com']);
-  git(fixture.root, ['config', 'user.name', 'Test']);
+  initGitFixture(fixture.root, { args: ['-b', 'dev'] });
   git(fixture.root, ['config', 'commit.gpgsign', 'false']);
   git(fixture.root, ['add', '.']);
   git(fixture.root, ['commit', '-q', '-m', 'chore: baseline']);

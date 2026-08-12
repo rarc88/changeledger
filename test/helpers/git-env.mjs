@@ -8,6 +8,8 @@
 // invocation must route through `sanitizedEnv` (or `gitEnv`, its cwd-scoped
 // alias below) so `cwd` is the only thing that decides which repo it hits.
 
+import { execFileSync } from 'node:child_process';
+
 export const GIT_LOCATION_ENV_VARS = [
   'GIT_DIR',
   'GIT_WORK_TREE',
@@ -34,4 +36,28 @@ export function sanitizedEnv(extra) {
   env.GIT_COMMITTER_NAME = 'Test User';
   env.GIT_COMMITTER_EMAIL = 'test@example.com';
   return extra ? { ...env, ...extra } : env;
+}
+
+// 20260812-011851 (second half): `sanitizedEnv`'s injected identity only
+// reaches fixture SUBPROCESS git calls — it is passed as the `env` of one
+// `execFileSync` invocation, never set on `process.env` itself. Production
+// code invoked IN-PROCESS by a test (e.g. `writeActivation`, `mutateState`,
+// `initState`, all routing through `capturedRun` in src/git.mjs) calls its own
+// production `sanitizedEnv`, which spreads the real `process.env` and carries
+// none of the fixture's identity. Its git commits therefore fall back to git's
+// own identity resolution: repo-local config, then global config, then
+// environment autodetection — a valid `user@host` on dev machines, a fatal
+// "Author identity unknown" on CI runners with no global config. Every
+// fixture that a test's in-process production call may later commit into must
+// carry REPO-LOCAL identity, not just an env override on the `init` call
+// itself — hence this one seat: `git init` plus repo-local `user.name`/
+// `user.email`, the same convention `test/helpers/state-repo.mjs`'s
+// `initStateRepo` already used.
+export function initGitFixture(root, { args = [] } = {}) {
+  execFileSync('git', ['init', '-q', ...args], { cwd: root, env: sanitizedEnv(), stdio: 'ignore' });
+  execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: root, env: sanitizedEnv() });
+  execFileSync('git', ['config', 'user.email', 'test@example.com'], {
+    cwd: root,
+    env: sanitizedEnv(),
+  });
 }

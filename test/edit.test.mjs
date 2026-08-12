@@ -17,7 +17,7 @@ import { edit } from '../src/commands/edit.mjs';
 import { init as initializeRepo } from '../src/commands/init.mjs';
 import { newChange, newChangeFrom, scaffoldChange } from '../src/commands/new.mjs';
 import { readSnapshot, STATE_REF, STATE_ROOT, writeActivation } from '../src/state-store.mjs';
-import { sanitizedEnv } from './helpers/git-env.mjs';
+import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
 process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
@@ -63,7 +63,7 @@ function activatedRepo() {
   fs.rmSync(file);
   fs.rmSync(path.join(root, '.changeledger', 'specs'), { recursive: true, force: true });
 
-  execFileSync('git', ['init', '-q'], { cwd: root, env: sanitizedEnv(), stdio: 'ignore' });
+  initGitFixture(root);
   const tree = buildTree(root, {
     '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
     '.changeledger-state/config.yml': configText,
@@ -210,7 +210,7 @@ test('CR5: an inactive repo gets the same semantics and creates no commit at all
   const { root, file, text, id } = inactiveRepo();
   // A real git repo on purpose: "commits nothing" is only a claim worth making
   // where a commit could have been created.
-  execFileSync('git', ['init', '-q'], { cwd: root, env: sanitizedEnv(), stdio: 'ignore' });
+  initGitFixture(root);
   const incoming = filled(text);
 
   assert.throws(
@@ -434,7 +434,7 @@ function activatedRepoWithSibling({ siblingDependsOn = [] } = {}) {
   fs.rmSync(file);
   fs.rmSync(path.join(root, '.changeledger', 'specs'), { recursive: true, force: true });
 
-  execFileSync('git', ['init', '-q'], { cwd: root, env: sanitizedEnv(), stdio: 'ignore' });
+  initGitFixture(root);
   const tree = buildTree(root, {
     '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
     '.changeledger-state/config.yml': configText,

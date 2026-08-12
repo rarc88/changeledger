@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { status, task, validation } from '../src/commands/agent.mjs';
 import { buildMigration } from '../src/config-migration.mjs';
 import { STATE_REF, writeActivation } from '../src/state-store.mjs';
-import { sanitizedEnv } from './helpers/git-env.mjs';
+import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
 const bin = path.resolve(
@@ -134,12 +134,7 @@ function activatedCliRepo() {
   const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
   assert.equal(runIn(root, env, 'init').code, 0);
 
-  execFileSync('git', ['init', '-q'], { cwd: root, env: sanitizedEnv() });
-  execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: root, env: sanitizedEnv() });
-  execFileSync('git', ['config', 'user.email', 'test@example.com'], {
-    cwd: root,
-    env: sanitizedEnv(),
-  });
+  initGitFixture(root);
 
   const changeDoc = (id, title) =>
     `---\nid: "${id}"\ntitle: ${title}\ntype: feature\nstatus: draft\ncreated: 2026-08-08T00:00:00Z\ndepends_on: []\n---\n\n## Request\n\nHi.\n`;
@@ -172,12 +167,7 @@ function activatedMigrationCliRepo({ marker = 'statuses: [\n', stateConfig } = {
   const authority =
     stateConfig ?? initialized.replace(/^schema_version: \d+$/m, 'schema_version: 1');
   fs.writeFileSync(configFile, marker);
-  execFileSync('git', ['init', '-q'], { cwd: root, env: sanitizedEnv() });
-  execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: root, env: sanitizedEnv() });
-  execFileSync('git', ['config', 'user.email', 'test@example.com'], {
-    cwd: root,
-    env: sanitizedEnv(),
-  });
+  initGitFixture(root);
   const tree = buildTree(root, {
     '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
     '.changeledger-state/config.yml': authority,
@@ -1153,9 +1143,7 @@ function noChangeGit(root, args) {
 function noChangeRepo() {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
-  noChangeGit(root, ['init', '-q']);
-  noChangeGit(root, ['config', 'user.email', 'test@example.com']);
-  noChangeGit(root, ['config', 'user.name', 'Test']);
+  initGitFixture(root);
   noChangeGit(root, ['config', 'commit.gpgsign', 'false']);
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
   const env = sanitizedEnv({ CHANGELEDGER_HOME: home });

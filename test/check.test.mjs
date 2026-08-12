@@ -12,7 +12,7 @@ import { integrationBranch, renderChangeBranch } from '../src/config.mjs';
 import { ensureReference } from '../src/contract.mjs';
 import { templatesDir } from '../src/paths.mjs';
 import { STATE_REF, writeActivation } from '../src/state-store.mjs';
-import { sanitizedEnv } from './helpers/git-env.mjs';
+import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
 const config = {
@@ -2319,9 +2319,7 @@ function gitFixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-check-commits-'));
   const git = (args) =>
     execFileSync('git', args, { cwd: root, env: GIT_FIXTURE_ENV, encoding: 'utf8' });
-  git(['init', '-q', '-b', 'main']);
-  git(['config', 'user.email', 'test@example.com']);
-  git(['config', 'user.name', 'Test']);
+  initGitFixture(root, { args: ['-b', 'main'] });
   git(['config', 'commit.gpgsign', 'false']);
   fs.writeFileSync(path.join(root, 'README.md'), 'x\n');
   git(['add', 'README.md']);
