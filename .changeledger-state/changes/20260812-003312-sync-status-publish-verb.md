@@ -25,3 +25,4 @@ ejecutarlo.
 - **2026-08-12T00:33:46Z** `[status]` draft → approved (human via conversation)
 - **2026-08-12T00:33:47Z** `[status]` approved → in-progress
 - **2026-08-12T00:33:47Z** `[branch]` set: quick/20260812-003312 (auto)
+- **2026-08-12T00:35:55Z** `[note]` Mensaje del caso sin copias reescrito con ambas salidas honestas (publicar si el remoto no la tiene, traer si existe); pin endurecido con doesNotMatch de 'to fetch one', visto fallar antes del cambio
