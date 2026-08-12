@@ -5,6 +5,7 @@ type: quick
 status: done
 created: 2026-08-12T00:33:12Z
 depends_on: []
+reviewed: true
 branch: quick/20260812-003312
 related_to: ["20260811-151426"]
 owner: rarc88
@@ -28,3 +29,4 @@ ejecutarlo.
 - **2026-08-12T00:35:55Z** `[note]` Mensaje del caso sin copias reescrito con ambas salidas honestas (publicar si el remoto no la tiene, traer si existe); pin endurecido con doesNotMatch de 'to fetch one', visto fallar antes del cambio
 - **2026-08-12T00:35:56Z** `[status]` in-progress → in-validation
 - **2026-08-12T00:50:14Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-08-12T00:50:15Z** `[graduation]` skipped: corrección de mensaje; la verdad del comando vive en la sección de sync ya graduada
