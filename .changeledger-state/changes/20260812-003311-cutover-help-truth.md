@@ -31,3 +31,4 @@ enumeradas, el fail-closed existente ya nombra el bloqueo real.
 - **2026-08-12T00:33:45Z** `[status]` draft → approved (human via conversation)
 - **2026-08-12T00:40:38Z** `[status]` approved → in-progress
 - **2026-08-12T00:40:38Z** `[branch]` set: quick/20260812-003311 (auto)
+- **2026-08-12T00:45:13Z** `[note]` Precondiciones enumeradas en el help (rama, no activado, ledger limpio con su definición operativa); commitCleanup borra los directorios de colección vacíos del worktree (rmdirSync con catch estrecho ENOENT/ENOTEMPTY — el catch amplio inicial se tragó un ReferenceError de fs sin importar, lección anotada). El shape exacto de ranchops (releases/ vacío pre-corte) reproducido en test y visto fallar
