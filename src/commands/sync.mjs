@@ -234,7 +234,7 @@ function reportStatus(repoRoot, { local }, output, run) {
   output.log(`Local  ${STATE_REF} ${local}`);
   if (copies.length === 0) {
     output.log(
-      `Relation: unknown — no remote-tracking copy of the state ref yet; run \`changeledger sync\` to fetch one`,
+      `Relation: unknown — no remote-tracking copy of the state ref yet; \`changeledger sync\` will publish the local journal if the remote has none, or fetch the remote's if it exists`,
     );
     return 0;
   }
