@@ -24,5 +24,14 @@ export const GIT_LOCATION_ENV_VARS = [
 export function sanitizedEnv(extra) {
   const env = { ...process.env, LC_ALL: 'C' };
   for (const key of GIT_LOCATION_ENV_VARS) delete env[key];
+  // Deterministic identity for every fixture git call (20260812-011851): git's
+  // auto-detection is environment luck — a valid `user@host` on dev machines,
+  // a fatal `runneradmin@…(none)` on CI runners — so no fixture may depend on
+  // it. Same convention the repo-config helper uses; `extra` still overrides,
+  // so identity-resolution tests can opt out on purpose.
+  env.GIT_AUTHOR_NAME = 'Test User';
+  env.GIT_AUTHOR_EMAIL = 'test@example.com';
+  env.GIT_COMMITTER_NAME = 'Test User';
+  env.GIT_COMMITTER_EMAIL = 'test@example.com';
   return extra ? { ...env, ...extra } : env;
 }
