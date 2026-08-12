@@ -1416,7 +1416,12 @@ function lsTreeSpawnCount(spawns) {
   return spawns.filter((line) => line.startsWith('ls-tree ')).length;
 }
 
-test('20260810-181802 CR1: the undo verification enumeration does not grow with document count', () => {
+// 20260812-025623 — the PATH-shim spawn counter is POSIX-only (sh script +
+// `sh -c`), and the criterion it measures is OS-independent logic already
+// covered on macOS/linux; porting the shim to cmd/PATHEXT buys no coverage.
+test('20260810-181802 CR1: the undo verification enumeration does not grow with document count', {
+  skip: process.platform === 'win32' && 'PATH-shim spawn counting is POSIX-only',
+}, () => {
   const small = seedLedgerRepo({ files: ledgerFilesWithChangeCount(2) });
   const large = seedLedgerRepo({ files: ledgerFilesWithChangeCount(5) });
   const smallBefore = fs.readFileSync(
