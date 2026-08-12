@@ -29,7 +29,13 @@ export function git(root, args, { input, indexFile } = {}) {
 }
 
 export function initStateRepo({ objectFormat = 'sha1' } = {}) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-state-repo-'));
+  // Native realpath at the single seat every fixture repo is born from
+  // (20260812-022248 CR2): os.tmpdir() is a symlink on macOS and an 8.3 short
+  // name on Windows runners, and a root that differs from git's own path form
+  // reproduces the mixed-pathspec class in every suite downstream.
+  const root = fs.realpathSync.native(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-state-repo-')),
+  );
   const args = objectFormat === 'sha1' ? [] : [`--object-format=${objectFormat}`];
   initGitFixture(root, { args });
   return root;
