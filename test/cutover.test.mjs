@@ -145,8 +145,8 @@ test('20260809-113240 CR1: cutover publishes the ledger, activates the repo and 
   const { root } = seedLedgerRepo();
   const before = head(root);
 
-  const { code, out } = cli(root, 'cutover');
-  assert.equal(code, 0, out);
+  const { code, out, err } = cli(root, 'cutover');
+  assert.equal(code, 0, err || out);
 
   const snapshot = readSnapshot(root);
   assert.deepEqual(Object.keys(snapshot.documents).sort(), [CHANGE_DOC, RELEASE_DOC, SPEC_DOC]);
@@ -225,9 +225,9 @@ test('20260809-113240 CR4: re-running cutover over an identical cut is a no-op o
   const revision = git(root, ['rev-parse', STATE_REF]);
   const after = head(root);
 
-  const { code, out } = cli(root, 'cutover');
+  const { code, out, err } = cli(root, 'cutover');
 
-  assert.equal(code, 0, out);
+  assert.equal(code, 0, err || out);
   assert.match(out, /already cut over/i);
   assert.equal(git(root, ['rev-parse', STATE_REF]), revision);
   assert.equal(head(root), after);
@@ -1113,9 +1113,9 @@ test('20260809-113240 CR7: undo restores the worktree byte for byte and drops bo
   const files = defaultLedgerFiles();
   assert.equal(cli(root, 'cutover').code, 0);
 
-  const { code, out } = cli(root, 'cutover', '--undo');
+  const { code, out, err } = cli(root, 'cutover', '--undo');
 
-  assert.equal(code, 0, out);
+  assert.equal(code, 0, err || out);
   assert.equal(refExists(root, STATE_REF), false);
   assert.equal(refExists(root, ACTIVATION_REF), false);
   for (const [rel, text] of Object.entries(files)) {
@@ -1463,8 +1463,8 @@ test('20260812-003311: the cleanup leaves no empty collection directory behind',
   const { root } = seedLedgerRepo();
   fs.mkdirSync(path.join(root, '.changeledger', 'empty-extra'), { recursive: true });
 
-  const { code, out } = cli(root, 'cutover');
-  assert.equal(code, 0, out);
+  const { code, out, err } = cli(root, 'cutover');
+  assert.equal(code, 0, err || out);
   // Only the extra untracked dir may linger (out of the collections' scope);
   // the COLLECTION directories themselves must be gone along with their files.
   const left = fs.readdirSync(path.join(root, '.changeledger')).sort();
@@ -1484,7 +1484,41 @@ test('20260812-003311: an empty collection directory before the cut is removed t
   });
   fs.mkdirSync(path.join(root, '.changeledger', 'releases'), { recursive: true });
 
-  const { code, out } = cli(root, 'cutover');
-  assert.equal(code, 0, out);
+  const { code, out, err } = cli(root, 'cutover');
+  assert.equal(code, 0, err || out);
   assert.deepEqual(fs.readdirSync(path.join(root, '.changeledger')).sort(), ['config.yml']);
+});
+
+// 20260812-020449 CR1 — the cosmetic directory removal must never abort a cut
+// that is already published: the throw sat between `git rm` and the cleanup
+// commit, stranding the cut in its interrupted window (Windows delete-pending
+// semantics hit exactly this). Any rmdir failure other than ENOENT degrades to
+// a warning naming the directory and the code.
+test('20260812-020449 CR1: a failing cleanup rmdir warns and the cut still lands', async () => {
+  const { cutover } = await import('../src/commands/cutover.mjs');
+  const root = fs.realpathSync(seedLedgerRepo().root);
+  const warnings = [];
+  const output = { log: () => {}, warn: (m) => warnings.push(m) };
+  const realRmdir = fs.rmdirSync;
+  fs.rmdirSync = () => {
+    const e = new Error('EPERM: operation not permitted');
+    e.code = 'EPERM';
+    throw e;
+  };
+  try {
+    const exit = cutover({}, root, output);
+    assert.equal(exit, 0);
+  } finally {
+    fs.rmdirSync = realRmdir;
+  }
+  assert.ok(
+    warnings.some((m) => /could not remove/.test(m) && /EPERM/.test(m)),
+    `expected the EPERM warning, got: ${warnings}`,
+  );
+  const subject = execFileSync('git', ['log', '-1', '--format=%s'], {
+    cwd: root,
+    env: CLI_ENV,
+    encoding: 'utf8',
+  }).trim();
+  assert.equal(subject, 'chore(state): cut the ledger over to the state ref');
 });
