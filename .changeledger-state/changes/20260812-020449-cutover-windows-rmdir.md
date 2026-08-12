@@ -2,7 +2,7 @@
 id: "20260812-020449"
 title: El cutover aborta en Windows por la limpieza cosmética
 type: bug
-status: draft
+status: approved
 created: 2026-08-12T02:04:49Z
 depends_on: []
 related_to: ["20260812-003311", "20260809-113240"]
@@ -68,3 +68,4 @@ solo pasan stdout).
   - **Criteria:** CR1, CR2
 
 ## Log
+- **2026-08-12T02:05:28Z** `[status]` draft → approved (human via conversation)
