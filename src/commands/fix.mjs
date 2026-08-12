@@ -1,10 +1,23 @@
 import fs from 'node:fs';
-import { writeFileAtomic } from '../atomic-write.mjs';
+import { writeLedgerFiles } from '../change-store.mjs';
 import { assertSupportedSchema } from '../config-migration.mjs';
 import { computeFixes, migratePlanTags, migrateStructuredSections } from '../fix.mjs';
 import { parseLogEvent } from '../lifecycle.mjs';
 import { loadRepo } from '../repo.mjs';
+import { readSnapshot } from '../state-store.mjs';
 import { setSpecGraduatedFromList } from '../writer.mjs';
+
+// Delegates unconditionally to `writeLedgerFiles` — the single seam decides
+// the worktree-vs-ref branch by `repo.state` (one invocation = one CAS
+// commit when active; the original per-file loop, unchanged, when
+// inactive). The empty-entries guard stays: a no-op call must not force a
+// CAS check against a possibly-stale `repo.state.revision` when there is
+// truly nothing to write, mirroring `mutateLedgerFile`'s own
+// skip-on-`undefined` contract.
+function writeFixedFiles(repo, entries, message) {
+  if (!entries.length) return;
+  writeLedgerFiles(repo, entries, { message });
+}
 
 // Repairs mechanical, unambiguous format defects (`changeledger fix [id] [--dry-run]`).
 // Ambiguous defects are never touched — they are listed under "requires manual fix".
@@ -59,6 +72,7 @@ export function fix(args = [], cwd = process.cwd(), output = console) {
 
   let anyChanged = false;
   let anyManual = false;
+  const entries = [];
 
   for (const c of targets) {
     const { text: fixedText, applied, manual, changed } = computeFixes(c.text);
@@ -81,11 +95,12 @@ export function fix(args = [], cwd = process.cwd(), output = console) {
       continue;
     }
 
-    writeFileAtomic(c.file, fixedText);
+    entries.push({ file: c.file, relPath: `changes/${c.name}`, text: fixedText });
     output.log(`fixed — ${c.name}:`);
     for (const a of applied) output.log(`  - ${a}`);
   }
 
+  writeFixedFiles(repo, entries, id ? `fix: ${id}` : 'fix: all changes');
   if (!anyChanged && !anyManual) output.log('nothing to fix');
   return 0;
 }
@@ -97,6 +112,7 @@ export function fix(args = [], cwd = process.cwd(), output = console) {
 function fixPlanTags(repo, { dryRun, output }) {
   let anyChanged = false;
   let anyManual = false;
+  const entries = [];
   for (const change of repo.changes) {
     const result = migratePlanTags(change.text);
     if (result.manual.length) {
@@ -110,11 +126,12 @@ function fixPlanTags(repo, { dryRun, output }) {
       output.log(`--- ${change.name} (dry run)`);
       for (const line of diffLines(change.text, result.text)) output.log(line);
     } else {
-      writeFileAtomic(change.file, result.text);
+      entries.push({ file: change.file, relPath: `changes/${change.name}`, text: result.text });
       output.log(`fixed — ${change.name}:`);
       for (const message of result.applied) output.log(`  - ${message}`);
     }
   }
+  writeFixedFiles(repo, entries, 'fix: --plan-tags');
   if (!anyChanged && !anyManual) output.log('nothing to fix');
   return 0;
 }
@@ -122,6 +139,7 @@ function fixPlanTags(repo, { dryRun, output }) {
 function fixStructuredSections(repo, { dryRun, output }) {
   let anyChanged = false;
   let anyManual = false;
+  const entries = [];
   for (const change of repo.changes) {
     const result = migrateStructuredSections(change.text);
     if (result.manual.length) {
@@ -136,22 +154,33 @@ function fixStructuredSections(repo, { dryRun, output }) {
       output.log(`--- ${change.name} (dry run)`);
       for (const line of diffLines(change.text, result.text)) output.log(line);
     } else {
-      writeFileAtomic(change.file, result.text);
+      entries.push({ file: change.file, relPath: `changes/${change.name}`, text: result.text });
       output.log(`fixed — ${change.name}:`);
       for (const message of result.applied) output.log(`  - ${message}`);
     }
   }
+  writeFixedFiles(repo, entries, 'fix: --structured-sections');
   if (!anyChanged && !anyManual) output.log('nothing to fix');
   return 0;
+}
+
+// Active mode needs each spec's raw text (`repo.specs` only carries the
+// parsed frontmatter/body, the same gap `graduate.mjs` has), so it is read
+// directly from the same snapshot `loadRepo` already resolved instead of a
+// second full read.
+function specRawTexts(repo) {
+  if (!repo.state) return null;
+  return readSnapshot(repo.repoRoot, { revision: repo.state.revision }).documents;
 }
 
 function fixGraduationLinks(repo, { dryRun, output }) {
   const eventsBySpec = graduationEventsBySpec(repo.changes);
   const candidates = [];
   const errors = [];
+  const rawTexts = specRawTexts(repo);
 
   for (const spec of repo.specs) {
-    const before = fs.readFileSync(spec.file, 'utf8');
+    const before = rawTexts ? rawTexts[`specs/${spec.name}`] : fs.readFileSync(spec.file, 'utf8');
     const existing = spec.frontmatter?.graduated_from;
     if (existing !== undefined && !Array.isArray(existing)) {
       errors.push(`${spec.name}: graduated_from must be a list`);
@@ -192,16 +221,18 @@ function fixGraduationLinks(repo, { dryRun, output }) {
     output.log('nothing to fix');
     return 0;
   }
+  const entries = [];
   for (const { spec, before, after } of candidates) {
     if (dryRun) {
       output.log(`--- ${spec.name} (dry run)`);
       for (const line of diffLines(before, after)) output.log(line);
     } else {
-      writeFileAtomic(spec.file, after);
+      entries.push({ file: spec.file, relPath: `specs/${spec.name}`, text: after });
       output.log(`fixed — ${spec.name}:`);
       output.log('  - migrated graduation provenance to graduated_from');
     }
   }
+  writeFixedFiles(repo, entries, 'fix: --graduation-links');
   return 0;
 }
 

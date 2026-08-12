@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import crypto from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import fs from 'node:fs';
 import http from 'node:http';
@@ -6,7 +8,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { parseChange } from '../src/change.mjs';
-import { review, status, validation } from '../src/commands/agent.mjs';
+import { writeLedgerFiles } from '../src/change-store.mjs';
+import { review, status, task, validation } from '../src/commands/agent.mjs';
 import { init } from '../src/commands/init.mjs';
 import { newChange } from '../src/commands/new.mjs';
 import {
@@ -21,13 +24,20 @@ import {
   resolveProjects,
   saveProjectConfig,
   searchProjects,
+  staticFile,
   unregisterProject,
   view,
 } from '../src/commands/view.mjs';
+import { buildMigration } from '../src/config-migration.mjs';
+import { capturedRun } from '../src/git.mjs';
 import { publicDir } from '../src/paths.mjs';
 import { readRegistry, register, registryPath } from '../src/registry.mjs';
 import { loadRepoAsync } from '../src/repo.mjs';
+import { STATE_REF, writeActivation } from '../src/state-store.mjs';
 import { readLedgerDocument } from '../src/viewer/domain.mjs';
+import { setBranch } from '../src/writer.mjs';
+import { sanitizedEnv } from './helpers/git-env.mjs';
+import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
 const TOKEN = 'test-token';
 
@@ -85,13 +95,33 @@ function lowerHeaders(headers) {
   return Object.fromEntries(Object.entries(headers).map(([k, v]) => [k.toLowerCase(), v]));
 }
 
+// 20260810-213633: approve refuses a feature whose active stages are blank
+// (real incident: 20260810-181801). One shared fill for every fixture in this
+// file that walks a scaffolded feature change to `approved` or beyond.
+function fillNarrativeStages(text) {
+  return text
+    .replace('## Request\n', '## Request\n\nR\n')
+    .replace('## Investigation\n', '## Investigation\n\nI\n')
+    .replace('## Proposal\n', '## Proposal\n\nP\n')
+    .replace('## Specification\n', '## Specification\n\nS\n');
+}
+
+function fillFeatureStages(text) {
+  return fillNarrativeStages(text).replace(
+    '## Plan\n',
+    '## Plan\n\n- [ ] do it\n  - **Support:**\n',
+  );
+}
+
 function draftChange(root) {
   const file = newChange(
     { type: 'feature', slug: 'x', title: 'X', now: '2026-06-13T12:00:00Z' },
     root,
     { ownerHandle: () => '' },
   );
-  const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
+  const text = fillFeatureStages(fs.readFileSync(file, 'utf8'));
+  fs.writeFileSync(file, text);
+  const { id } = parseChange(text).frontmatter;
   const { current } = resolveProjects(root, true);
   return { file, id, project: current };
 }
@@ -286,35 +316,53 @@ test('222618: lit-html vendor modules are served for browser import maps', async
   assert.match(unsafe.body, /unsafeHTML/);
 });
 
-test('151234 CR1: encoded traversal does not read outside public assets', async () => {
-  isolatedHome();
-  const secret = path.join(publicDir, '..', 'public-sibling-secret.txt');
-  fs.writeFileSync(secret, 'outside-public');
-  const root = newRepo();
+function temporaryStaticFixture() {
+  const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-static-'));
+  const root = path.join(temporaryRoot, 'public');
+  const asset = path.join(root, 'asset.txt');
+  const sibling = path.join(temporaryRoot, 'public-sibling-secret.txt');
+  fs.mkdirSync(root);
+  fs.writeFileSync(asset, 'inside-public');
+  fs.writeFileSync(sibling, 'outside-public');
+  return { temporaryRoot, root, asset, sibling };
+}
+
+test('151234 CR1: encoded traversal stays inside an injected temporary root', () => {
+  const fixture = temporaryStaticFixture();
   try {
-    const res = await memoryRequest(root, { path: '/..%2Fpublic-sibling-secret.txt' });
-    assert.equal(res.status, 404);
-    assert.ok(!res.body.includes('outside-public'));
+    assert.equal(staticFile('/asset.txt', fixture.root), fixture.asset);
+    assert.equal(staticFile('/..%2Fpublic-sibling-secret.txt', fixture.root), null);
   } finally {
-    fs.rmSync(secret, { force: true });
+    fs.rmSync(fixture.temporaryRoot, { recursive: true, force: true });
   }
 });
 
-test('151234 CR2: sibling paths with a shared prefix are not served', async () => {
-  isolatedHome();
-  const sibling = path.join(publicDir, '..', 'public-sibling-secret.txt');
-  fs.writeFileSync(sibling, 'prefix escape');
-  const root = newRepo();
+test('151234 CR2: sibling paths with a shared prefix stay outside an injected root', () => {
+  const fixture = temporaryStaticFixture();
   try {
-    const res = await memoryRequest(root, { path: '/../public-sibling-secret.txt' });
-    assert.equal(res.status, 404);
-    assert.ok(!res.body.includes('prefix escape'));
+    assert.equal(staticFile('/asset.txt', fixture.root), fixture.asset);
+    assert.equal(staticFile('/../public-sibling-secret.txt', fixture.root), null);
   } finally {
-    fs.rmSync(sibling, { force: true });
+    fs.rmSync(fixture.temporaryRoot, { recursive: true, force: true });
   }
 });
 
-test('151234 CR3: valid static assets are still served with MIME', async () => {
+test('151234 CR3: static resolver fixtures mutate only temporary paths', () => {
+  const fixture = temporaryStaticFixture();
+  const checkoutSrc = path.resolve(publicDir, '..', '..');
+  try {
+    for (const mutatedPath of [fixture.root, fixture.asset, fixture.sibling]) {
+      const fromTemporaryRoot = path.relative(fixture.temporaryRoot, mutatedPath);
+      assert.ok(!fromTemporaryRoot.startsWith('..') && !path.isAbsolute(fromTemporaryRoot));
+      const fromCheckoutSrc = path.relative(checkoutSrc, mutatedPath);
+      assert.ok(fromCheckoutSrc.startsWith('..') || path.isAbsolute(fromCheckoutSrc));
+    }
+  } finally {
+    fs.rmSync(fixture.temporaryRoot, { recursive: true, force: true });
+  }
+});
+
+test('151234 CR4: production listener serves the real app.js with MIME', async () => {
   isolatedHome();
   const res = await memoryRequest(newRepo(), { path: '/app.js' });
   assert.equal(res.status, 200);
@@ -363,6 +411,71 @@ The viewer serializes specs.
   assert.deepEqual(body.specs[0].graduated_from, [id]);
   assert.deepEqual(body.changes[0].related_to, []);
   assert.match(body.specs[0].body, /serializes specs/);
+  // 20260805-052741 CR7: branch is exposed alongside owner, null when unset.
+  assert.equal(body.changes[0].branch, null);
+});
+
+test('20260805-052741 CR7: /api/repo exposes a set branch', async () => {
+  isolatedHome();
+  const root = newRepo();
+  const file = newChange(
+    { type: 'bug', slug: 'branch-api', title: 'Branch API', now: '2026-06-13T12:00:00Z' },
+    root,
+    { ownerHandle: () => '' },
+  );
+  fs.writeFileSync(file, setBranch(fs.readFileSync(file, 'utf8'), 'feature/x'));
+  const { current } = resolveProjects(root, true);
+  const res = await memoryRequest(root, { path: `/api/repo?project=${current}` });
+  const body = JSON.parse(res.body);
+  assert.equal(body.changes[0].branch, 'feature/x');
+});
+
+// 20260808-151641 CR5 — the viewer has no read path of its own: `router.mjs`
+// calls the same `loadRepoAsync` the CLI uses, so an activated repo's snapshot
+// must reach `/api/repo` exactly as it reaches `loadRepo`. Builds a real git
+// repo (via `newRepo()` + `git init`) with a worktree-only change
+// (`only-worktree`) and a state ref carrying a different one (`only-ref`) —
+// the same doc-only-in-ref-vs-only-in-worktree shape as repo.test.mjs's CR2.
+function activatedViewerFixture() {
+  isolatedHome();
+  const root = newRepo();
+  execFileSync('git', ['init', '-q'], { cwd: root, env: sanitizedEnv() });
+  execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: root, env: sanitizedEnv() });
+  execFileSync('git', ['config', 'user.email', 'test@example.com'], {
+    cwd: root,
+    env: sanitizedEnv(),
+  });
+
+  const changeDoc = (id, title) =>
+    `---\nid: "${id}"\ntitle: ${title}\ntype: feature\nstatus: draft\ncreated: 2026-08-08T00:00:00Z\ndepends_on: []\n---\n\n## Request\n\nHi.\n`;
+
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'changes', 'only-worktree.md'),
+    changeDoc('only-worktree', 'Only worktree'),
+  );
+
+  const tree = buildTree(root, {
+    '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
+    '.changeledger-state/config.yml': 'project_id: demo\nlanguage: en\n',
+    '.changeledger-state/changes/only-ref.md': changeDoc('only-ref', 'Only ref'),
+  });
+  const revision = commitTree(root, tree, { message: 'chore: state' });
+  updateRef(root, STATE_REF, revision);
+  writeActivation(root, { stateRef: STATE_REF });
+
+  const { current } = resolveProjects(root, true);
+  return { root, current };
+}
+
+test('20260808-151641 CR5: /api/repo serves the state-ref snapshot, not the worktree', async () => {
+  const { root, current } = activatedViewerFixture();
+  const res = await memoryRequest(root, { path: `/api/repo?project=${current}` });
+  const body = JSON.parse(res.body);
+  assert.equal(res.status, 200);
+  assert.deepEqual(
+    body.changes.map((c) => c.id),
+    ['only-ref'],
+  );
 });
 
 test('152809 CR1/CR4: /api/repo isolates invalid changes in deterministic order', async () => {
@@ -1122,6 +1235,7 @@ test('CR1: changeStatus moves the lifecycle and logs it', () => {
     root,
     { ownerHandle: () => '' },
   );
+  fs.writeFileSync(file, fillFeatureStages(fs.readFileSync(file, 'utf8')));
   const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
   const { projects, current } = resolveProjects(root, false);
   const res = changeStatus(projects, { project: current, id, status: 'approved' });
@@ -1143,6 +1257,8 @@ test('171002 CR2/CR3: viewer accepts or rejects only a change in validation', ()
     root,
     { ownerHandle: () => '' },
   );
+  fs.writeFileSync(acceptedFile, fillFeatureStages(fs.readFileSync(acceptedFile, 'utf8')));
+  fs.writeFileSync(rejectedFile, fillFeatureStages(fs.readFileSync(rejectedFile, 'utf8')));
   const acceptedId = parseChange(fs.readFileSync(acceptedFile, 'utf8')).frontmatter.id;
   const rejectedId = parseChange(fs.readFileSync(rejectedFile, 'utf8')).frontmatter.id;
   for (const id of [acceptedId, rejectedId]) {
@@ -1151,6 +1267,7 @@ test('171002 CR2/CR3: viewer accepts or rejects only a change in validation', ()
     status(id, 'in-review', root);
     review(id, 'pass', {}, root);
   }
+  task(acceptedId, 'done', 1, '', root);
   const { projects, current } = resolveProjects(root, false);
 
   const accepted = changeStatus(projects, { project: current, id: acceptedId, status: 'done' });
@@ -1186,9 +1303,10 @@ test('150231 CR2: viewer reports an incomplete acceptance and preserves validati
   );
   fs.writeFileSync(
     file,
-    fs
-      .readFileSync(file, 'utf8')
-      .replace('## Plan\n', '## Plan\n\n- [ ] pending\n  - **Support:**\n'),
+    fillNarrativeStages(fs.readFileSync(file, 'utf8')).replace(
+      '## Plan\n',
+      '## Plan\n\n- [ ] pending\n  - **Support:**\n',
+    ),
   );
   const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
   status(id, 'approved', root);
@@ -1214,11 +1332,13 @@ test('150231 CR6: viewer acceptance ignores an unrelated unparseable change', ()
     root,
     { ownerHandle: () => '' },
   );
+  fs.writeFileSync(file, fillFeatureStages(fs.readFileSync(file, 'utf8')));
   const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
   status(id, 'approved', root);
   status(id, 'in-progress', root, { ownerHandle: () => '' });
   status(id, 'in-review', root);
   review(id, 'pass', {}, root);
+  task(id, 'done', 1, '', root);
   fs.writeFileSync(path.join(root, '.changeledger', 'changes', 'broken.md'), 'broken\n');
   const { projects, current } = resolveProjects(root, false);
 
@@ -1237,11 +1357,13 @@ test('150232 CR1/CR2: viewer reopens provisional done only with a reason', () =>
     root,
     { ownerHandle: () => '' },
   );
+  fs.writeFileSync(file, fillFeatureStages(fs.readFileSync(file, 'utf8')));
   const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
   status(id, 'approved', root);
   status(id, 'in-progress', root, { ownerHandle: () => '' });
   status(id, 'in-review', root);
   review(id, 'pass', {}, root);
+  task(id, 'done', 1, '', root);
   validation(id, 'pass', {}, root);
   const { projects, current } = resolveProjects(root, false);
   const before = fs.readFileSync(file, 'utf8');
@@ -1265,6 +1387,7 @@ test('171002 CR2: changeStatus rejects agent-owned or premature moves without wr
     root,
     { ownerHandle: () => '' },
   );
+  fs.writeFileSync(file, fillFeatureStages(fs.readFileSync(file, 'utf8')));
   const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
   const { projects, current } = resolveProjects(root, false);
 
@@ -1344,6 +1467,47 @@ test('local mode returns only the current repo', () => {
   const { projects } = resolveProjects(here, true);
   assert.equal(projects.length, 1);
   assert.equal(path.resolve(projects[0].path), path.resolve(here));
+});
+
+test('20260809-113242 CR11: local mode and path repair use active ref identity', () => {
+  isolatedHome();
+  const root = newRepo();
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  const refConfig = fs
+    .readFileSync(configFile, 'utf8')
+    .replace(/^project_name:.*$/m, 'project_name: ref-name');
+  const projectId = /^project_id:\s*["']?([^\n"']+)/m.exec(refConfig)[1];
+  fs.writeFileSync(
+    configFile,
+    refConfig
+      .replace(/^project_id:.*$/m, 'project_id: stale-id')
+      .replace(/^project_name:.*$/m, 'project_name: stale-name'),
+  );
+  execFileSync('git', ['init', '-q'], { cwd: root, env: sanitizedEnv(), stdio: 'ignore' });
+  const tree = buildTree(root, {
+    '.changeledger-state/manifest.yml': `format_version: 1\nproject_id: ${projectId}\n`,
+    '.changeledger-state/config.yml': refConfig,
+  });
+  const revision = commitTree(root, tree, { message: 'chore: state' });
+  updateRef(root, STATE_REF, revision);
+  writeActivation(root, { stateRef: STATE_REF });
+
+  const local = resolveProjects(root, true);
+  assert.equal(local.current, projectId);
+  assert.equal(local.projects[0].name, 'ref-name');
+
+  const oldPath = path.join(root, '..', 'old-location');
+  register({ id: projectId, name: 'cached-name', path: oldPath });
+  const repaired = repairProjectPath(
+    [{ id: projectId, name: 'cached-name', path: oldPath, alive: false }],
+    {
+      project: projectId,
+      repository_path: path.resolve(oldPath),
+      path: root,
+    },
+  );
+  assert.equal(repaired.code, 200, repaired.body.error);
+  assert.deepEqual(readRegistry()[projectId], { name: 'ref-name', path: root });
 });
 
 test('111218 CR2/CR3: project config reads exact YAML and saves a valid renamed config', () => {
@@ -2322,4 +2486,296 @@ test('162556 CR4: previewConfigMigration offers the current schema with quick ad
   assert.match(after, /quick: patch/);
   const again = previewConfigMigration(projects, current);
   assert.equal(again.body.already_current, true);
+});
+
+// 20260808-151643 CR6 — the viewer's config writes land where the read
+// routing (20260808-151641 CR4) already reads from: the state ref's
+// snapshot, not the worktree, when the project is activated.
+
+// Real, schema-valid config (the worktree's own, from `newRepo()`'s `init()`)
+// seeded as the state ref's `config.yml` — a minimal fixture config would
+// fail every write's own schema check before reaching the seam under test.
+function activatedConfigFixture() {
+  isolatedHome();
+  const root = newRepo();
+  const configText = fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8');
+  execFileSync('git', ['init', '-q'], { cwd: root, env: sanitizedEnv(), stdio: 'ignore' });
+  const tree = buildTree(root, {
+    '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
+    '.changeledger-state/config.yml': configText,
+  });
+  const revision = commitTree(root, tree, { message: 'chore: state' });
+  updateRef(root, STATE_REF, revision);
+  writeActivation(root, { stateRef: STATE_REF });
+  const { projects, current } = resolveProjects(root, false);
+  return { root, projects, current, configText };
+}
+
+function stateRefTip(root) {
+  return execFileSync('git', ['rev-parse', STATE_REF], {
+    encoding: 'utf8',
+    cwd: root,
+    env: sanitizedEnv(),
+  }).trim();
+}
+
+// `readProjectConfig` still reads the worktree unconditionally (out of this
+// change's scope; see the delegation report), so its revision would not
+// match the state ref's content for these fixtures — hash the known text
+// directly instead, the same formula `viewer/domain.mjs`'s own `revision`
+// uses.
+function revisionOf(text) {
+  return crypto.createHash('sha256').update(text).digest('hex');
+}
+
+function stateConfigText(root, revision) {
+  return execFileSync('git', ['cat-file', 'blob', `${revision}:.changeledger-state/config.yml`], {
+    encoding: 'utf8',
+    cwd: root,
+    env: sanitizedEnv(),
+  });
+}
+
+test('CR6: saveProjectConfig on an activated project writes the ref, worktree stays intact', () => {
+  const { root, projects, current, configText } = activatedConfigFixture();
+  const before = stateRefTip(root);
+  const candidate = configText.replace(/^project_name:.*$/m, 'project_name: Renamed');
+
+  const result = saveProjectConfig(projects, {
+    project: current,
+    content: candidate,
+    revision: revisionOf(configText),
+  });
+
+  assert.equal(result.code, 200);
+  const tip = stateRefTip(root);
+  assert.notEqual(tip, before);
+  assert.match(stateConfigText(root, tip), /project_name: Renamed/);
+  assert.equal(fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8'), configText);
+});
+
+test('CR6: patchProjectConfig on an activated project writes the ref, worktree stays intact', () => {
+  const { root, projects, current, configText } = activatedConfigFixture();
+  const before = stateRefTip(root);
+
+  const result = patchProjectConfig(projects, {
+    project: current,
+    revision: revisionOf(configText),
+    patch: { language: 'fr' },
+  });
+
+  assert.equal(result.code, 200);
+  const tip = stateRefTip(root);
+  assert.notEqual(tip, before);
+  assert.match(stateConfigText(root, tip), /language: fr/);
+  assert.equal(fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8'), configText);
+});
+
+test('CR6: applyConfigMigration on an activated project writes the ref, worktree stays intact', () => {
+  const { root, projects, current, configText } = activatedConfigFixture();
+  const downgraded = configText.replace(/^schema_version: \d+$/m, 'schema_version: 1');
+  // Re-seed the ref at the downgraded config so there is a migration to
+  // apply, through the real store seam so the tree bases on the current tip
+  // (a raw `buildTree` here would replace the whole tree, dropping the
+  // manifest).
+  writeLedgerFiles(
+    { repoRoot: root, state: { revision: stateRefTip(root) } },
+    [{ relPath: 'config.yml', text: downgraded }],
+    { message: 'chore: downgrade' },
+  );
+  const before = stateRefTip(root);
+
+  const result = applyConfigMigration(projects, {
+    project: current,
+    revision: revisionOf(downgraded),
+  });
+
+  assert.equal(result.code, 200);
+  const tip = stateRefTip(root);
+  assert.notEqual(tip, before);
+  assert.match(stateConfigText(root, tip), /^schema_version: 5$/m);
+  assert.equal(fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8'), configText);
+});
+
+test('20260809-113242 CR4: activated raw and structured config reads serve state-ref content', () => {
+  const { root, projects, current, configText } = activatedConfigFixture();
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'config.yml'),
+    configText.replace(/^project_name:.*$/m, 'project_name: stale-name'),
+  );
+  const refConfig = configText.replace(/^project_name:.*$/m, 'project_name: ref-name');
+  writeLedgerFiles(
+    { repoRoot: root, state: { revision: stateRefTip(root) } },
+    [{ relPath: 'config.yml', text: refConfig }],
+    { message: 'config: diverge fixture' },
+  );
+
+  const raw = readProjectConfig(projects, current);
+  const structured = readProjectConfigStructured(projects, current);
+
+  assert.match(raw.body.content, /project_name: ref-name/);
+  assert.doesNotMatch(raw.body.content, /stale-name/);
+  assert.equal(structured.body.config.project_name, 'ref-name');
+  assert.match(structured.body.content, /project_name: ref-name/);
+  assert.doesNotMatch(structured.body.content, /stale-name/);
+});
+
+test('234920 CR6: activated migration preview uses the structured-read revision and ref content, not the malformed marker', () => {
+  const { root, projects, current, configText } = activatedConfigFixture();
+  const downgraded = configText.replace(/^schema_version: \d+$/m, 'schema_version: 1');
+  writeLedgerFiles(
+    { repoRoot: root, state: { revision: stateRefTip(root) } },
+    [{ relPath: 'config.yml', text: downgraded }],
+    { message: 'chore: downgrade' },
+  );
+  const markerFile = path.join(root, '.changeledger', 'config.yml');
+  const marker = 'statuses: [\n';
+  fs.writeFileSync(markerFile, marker);
+  const before = stateRefTip(root);
+  const structured = readProjectConfigStructured(projects, current);
+
+  const result = previewConfigMigration(projects, current, structured.body.revision);
+
+  assert.equal(result.code, 200, result.body.error);
+  assert.match(result.body.summary, /Config migration 1 → 5 \(dry run\)/);
+  assert.equal(result.body.yaml, buildMigration(downgraded).yaml);
+  assert.equal(stateRefTip(root), before);
+  assert.equal(stateConfigText(root, before), downgraded);
+  assert.equal(fs.readFileSync(markerFile, 'utf8'), marker);
+});
+
+test('20260809-113242 CR6/CR10: viewer status transition ignores a malformed stale marker', () => {
+  isolatedHome();
+  const root = newRepo();
+  const file = newChange(
+    { type: 'feature', slug: 'ref-only', title: 'Ref only', now: '2026-08-09T12:00:00Z' },
+    root,
+    { ownerHandle: () => '' },
+  );
+  const text = fillFeatureStages(fs.readFileSync(file, 'utf8'));
+  fs.writeFileSync(file, text);
+  const id = parseChange(text).frontmatter.id;
+  const configText = fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8');
+  const projectId = resolveProjects(root, false).current;
+  execFileSync('git', ['init', '-q'], { cwd: root, env: sanitizedEnv(), stdio: 'ignore' });
+  const tree = buildTree(root, {
+    '.changeledger-state/manifest.yml': `format_version: 1\nproject_id: ${projectId}\n`,
+    '.changeledger-state/config.yml': configText,
+    [`.changeledger-state/changes/${path.basename(file)}`]: text,
+  });
+  const revision = commitTree(root, tree, { message: 'chore: state' });
+  updateRef(root, STATE_REF, revision);
+  writeActivation(root, { stateRef: STATE_REF });
+  fs.rmSync(path.join(root, '.changeledger', 'changes'), { recursive: true });
+  fs.writeFileSync(path.join(root, '.changeledger', 'config.yml'), 'statuses: [\n');
+  const { projects, current } = resolveProjects(root, false);
+
+  const result = changeStatus(projects, { project: current, id, status: 'approved' });
+
+  assert.equal(result.code, 200, result.body.error);
+  const updated = execFileSync(
+    'git',
+    ['cat-file', 'blob', `${STATE_REF}:.changeledger-state/changes/${path.basename(file)}`],
+    { cwd: root, env: sanitizedEnv(), encoding: 'utf8' },
+  );
+  assert.equal(parseChange(updated).frontmatter.status, 'approved');
+});
+
+// 20260808-151643 CR8 (post-validation fold-in) — a CAS conflict on a
+// viewer config write must surface as an actionable 409, never a generic
+// 400 and never the store's own raw "state ref moved" wording. `racingRun`
+// fires a genuine, unrelated write against the *real* ref on the first
+// subprocess call the injected `run` sees — which is always the first call
+// `writeLedgerFiles`'s own `mutateState` makes, strictly after this call's
+// `repo.state.revision` was already captured by its own (unracing) initial
+// `loadRepo` — so the actual CAS `update-ref` this call attempts genuinely
+// fails against the ref the racer already moved. No timing, no subprocess
+// race: the conflict is real, not simulated.
+function racingRun(root, revision, configText) {
+  let fired = false;
+  return (args, cwd, options) => {
+    if (!fired) {
+      fired = true;
+      const tree = buildTree(root, {
+        '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
+        '.changeledger-state/config.yml': configText.replace(
+          /^project_name:.*$/m,
+          'project_name: Concurrent',
+        ),
+      });
+      const concurrent = commitTree(root, tree, {
+        parents: [revision],
+        message: 'concurrent write',
+      });
+      updateRef(root, STATE_REF, concurrent, revision);
+    }
+    return capturedRun(args, cwd, options);
+  };
+}
+
+test('CR8: saveProjectConfig on an activated project surfaces a stale write as 409, ref and snapshot untouched by the loser', () => {
+  const { root, projects, current, configText } = activatedConfigFixture();
+  const before = stateRefTip(root);
+  const candidate = configText.replace(/^project_name:.*$/m, 'project_name: Renamed');
+
+  const result = saveProjectConfig(
+    projects,
+    { project: current, content: candidate, revision: revisionOf(configText) },
+    { run: racingRun(root, before, configText) },
+  );
+
+  assert.equal(result.code, 409);
+  assert.equal(result.body.error, 'state changed since load — reload and save again');
+  assert.doesNotMatch(result.body.error, /state ref moved/);
+
+  const tip = stateRefTip(root);
+  assert.notEqual(tip, before, 'only the racer advanced the ref');
+  assert.match(stateConfigText(root, tip), /project_name: Concurrent/);
+  assert.doesNotMatch(stateConfigText(root, tip), /Renamed/);
+});
+
+test('CR8: patchProjectConfig on an activated project surfaces a stale write as 409, ref and snapshot untouched by the loser', () => {
+  const { root, projects, current, configText } = activatedConfigFixture();
+  const before = stateRefTip(root);
+
+  const result = patchProjectConfig(
+    projects,
+    { project: current, revision: revisionOf(configText), patch: { language: 'fr' } },
+    { run: racingRun(root, before, configText) },
+  );
+
+  assert.equal(result.code, 409);
+  assert.equal(result.body.error, 'state changed since load — reload and save again');
+  assert.doesNotMatch(result.body.error, /state ref moved/);
+
+  const tip = stateRefTip(root);
+  assert.notEqual(tip, before, 'only the racer advanced the ref');
+  assert.match(stateConfigText(root, tip), /project_name: Concurrent/);
+  assert.doesNotMatch(stateConfigText(root, tip), /language: fr/);
+});
+
+test('CR8: applyConfigMigration on an activated project surfaces a stale write as 409, ref and snapshot untouched by the loser', () => {
+  const { root, projects, current, configText } = activatedConfigFixture();
+  const downgraded = configText.replace(/^schema_version: \d+$/m, 'schema_version: 1');
+  writeLedgerFiles(
+    { repoRoot: root, state: { revision: stateRefTip(root) } },
+    [{ relPath: 'config.yml', text: downgraded }],
+    { message: 'chore: downgrade' },
+  );
+  const before = stateRefTip(root);
+
+  const result = applyConfigMigration(
+    projects,
+    { project: current, revision: revisionOf(downgraded) },
+    { run: racingRun(root, before, downgraded) },
+  );
+
+  assert.equal(result.code, 409);
+  assert.equal(result.body.error, 'state changed since load — reload and save again');
+  assert.doesNotMatch(result.body.error, /state ref moved/);
+
+  const tip = stateRefTip(root);
+  assert.notEqual(tip, before, 'only the racer advanced the ref');
+  assert.match(stateConfigText(root, tip), /project_name: Concurrent/);
+  assert.match(stateConfigText(root, tip), /^schema_version: 1$/m);
 });

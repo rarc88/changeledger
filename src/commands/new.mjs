@@ -1,10 +1,15 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { parseChange } from '../change.mjs';
+import { repoIsActivated, writeLedgerFiles } from '../change-store.mjs';
+import { checkRepo, newErrors } from '../check.mjs';
 import { findChangeledgerDir, loadConfig, resolveRepoPath } from '../config.mjs';
 import { assertSupportedSchema } from '../config-migration.mjs';
 import { ownerHandle as defaultOwnerHandle } from '../git.mjs';
+import { loadRepo } from '../repo.mjs';
 import { slugify } from '../slug.mjs';
 import { serializeScalar } from '../yaml.mjs';
+import { readSource } from './edit.mjs';
 
 // Applied only when JSON parse fails — governs mtime-based staleness fallback.
 // Not the primary timeout: the main strategy is PID liveness (process.kill 0),
@@ -21,15 +26,22 @@ export function newChange(
 ) {
   const changeledgerDir = findChangeledgerDir(cwd);
   if (!changeledgerDir) throw new Error('Not a ChangeLedger repo. Run `changeledger init` first.');
+  const repoRoot = path.dirname(changeledgerDir);
+
+  // An activated repo publishes to a permanent journal, so a scaffold with
+  // nothing in it would spend a commit on a document nobody can fill from here
+  // — which is exactly what happened to `20260810-180434` before this gate
+  // existed. Compose first, land once.
+  if (repoIsActivated(repoRoot)) {
+    throw new Error(
+      'this repo is activated: `new` never publishes an empty scaffold to the state ref — compose the document first (`changeledger new <type> <slug> "<title>" --print > draft.md`), then land it whole with `--from draft.md`',
+    );
+  }
 
   const config = loadConfig(changeledgerDir);
   assertSupportedSchema(config);
-  const typeDef = config.types?.[type];
-  if (!typeDef) {
-    throw new Error(`Unknown type "${type}". Valid: ${Object.keys(config.types ?? {}).join(', ')}`);
-  }
+  const typeDef = requireType(config, type);
 
-  const repoRoot = path.dirname(changeledgerDir);
   // Born with an owner: an explicit --owner always wins; otherwise resolve the
   // local git identity. Tolerant — an unresolvable identity (ownerHandle
   // returns '') falls through to render()'s existing falsy-owner gate, so no
@@ -86,6 +98,134 @@ export function newChange(
       releaseIdLock(lock);
     }
   }
+}
+
+function requireType(config, type) {
+  const typeDef = config.types?.[type];
+  if (!typeDef) {
+    throw new Error(`Unknown type "${type}". Valid: ${Object.keys(config.types ?? {}).join(', ')}`);
+  }
+  return typeDef;
+}
+
+// Renders the scaffold — id, frontmatter and the active stage headings — and
+// writes nothing anywhere. This is what `--print` emits so an author can
+// compose the whole document before it exists in either store, and what
+// `--from` is expected to be built from. The id is allocated against the
+// documents the repo currently holds (snapshot when activated, worktree when
+// not); the write path re-checks it, so this reservation is advisory by
+// design and never blocks.
+export function scaffoldChange(
+  { type, slug, title, owner, now },
+  cwd = process.cwd(),
+  { ownerHandle = defaultOwnerHandle } = {},
+) {
+  const repo = loadRepo(cwd);
+  assertSupportedSchema(repo.config);
+  const typeDef = requireType(repo.config, type);
+  let created = now;
+  let id = idFromTimestamp(created);
+  while (idTakenInRepo(repo, id)) {
+    created = bumpSecond(created);
+    id = idFromTimestamp(created);
+  }
+  const resolvedOwner = owner !== undefined ? owner : ownerHandle(repo.repoRoot);
+  return {
+    id,
+    name: `${id}-${slugify(slug)}.md`,
+    text: render({ id, title, type, owner: resolvedOwner, stages: typeDef.stages, now: created }),
+  };
+}
+
+// Creation from an already composed document: the whole thing lands in one
+// write (one CAS commit when activated), never a scaffold followed by edits.
+// The document is the authority for its own frontmatter — `id` and `created`
+// included, so the text an author reviewed is the text that lands, byte for
+// byte — and the command line must agree with it rather than silently losing
+// to it. A CAS conflict propagates instead of retrying under a fresh id: the
+// id is the author's, not this function's, so re-running is the caller's call.
+export function newChangeFrom({ type, slug, title, from }, cwd = process.cwd()) {
+  const text = readSource(from);
+  const repo = loadRepo(cwd);
+  assertSupportedSchema(repo.config);
+  requireType(repo.config, type);
+
+  let parsed;
+  try {
+    parsed = parseChange(text);
+  } catch (e) {
+    throw new Error(`the incoming document does not parse — ${e.message}`);
+  }
+  const fm = parsed.frontmatter ?? {};
+  if (fm.type !== type) {
+    throw new Error(`the incoming document declares type "${fm.type}", not "${type}"`);
+  }
+  if (fm.title !== title) {
+    throw new Error(`the incoming document declares title "${fm.title}", not "${title}"`);
+  }
+
+  const prepared = prepareNewChange(repo, text, { slug, parsed });
+  if (prepared.file) fs.mkdirSync(path.dirname(prepared.file), { recursive: true });
+  writeLedgerFiles(repo, [{ relPath: prepared.relPath, file: prepared.file, text }], {
+    message: prepared.message,
+  });
+  return repo.state ? prepared.relPath : prepared.file;
+}
+
+// Every guard creation runs on an already composed document, plus the address
+// the write needs, and no write at all. `newChangeFrom` is this seat followed
+// by the one write; `apply` runs the same seat against its accumulated
+// candidate repo, so a batch inherits creation policy instead of copying it.
+// The document is the authority for its own frontmatter, so `slug` is the only
+// thing the caller still supplies — it names the file, not the content.
+export function prepareNewChange(repo, text, { slug, parsed } = {}) {
+  const document = parsed ?? parseChange(text);
+  const fm = document.frontmatter ?? {};
+  const id = String(fm.id ?? '');
+  const created = String(fm.created ?? '');
+  requireType(repo.config, fm.type);
+  if (fm.status !== 'draft') {
+    throw new Error(
+      `a new change starts in "draft"; the incoming document declares "${fm.status}" — move it with \`changeledger status\` after it lands`,
+    );
+  }
+  if (!created || idFromTimestamp(created) !== id) {
+    throw new Error(`the incoming document's created "${created}" does not derive its id "${id}"`);
+  }
+  if (idTakenInRepo(repo, id)) {
+    throw new Error(`id "${id}" is already taken — re-run \`--print\` for a free one`);
+  }
+
+  const name = `${id}-${slugify(slug)}.md`;
+  const relPath = `changes/${name}`;
+  const file = repo.state
+    ? null
+    : path.join(resolveRepoPath(repo.repoRoot, repo.config.changes_dir, 'changes_dir'), name);
+  const candidate = { file, name, text, ...document };
+  // Repo-wide, not just the new document's own scope — same seat and same
+  // reasoning as `edit`'s candidate gate (20260811-122031): scoped to one id,
+  // the old check stopped before every aggregate check (duplicate ids, the
+  // dependency graph, spec graduations), so a repo-wide break the new document
+  // introduces used to land silently. Diffed against the repo's OWN current
+  // errors so a pre-existing, unrelated break elsewhere never blocks creating
+  // an unrelated, clean document.
+  const introduced = newErrors(
+    checkRepo(repo).errors,
+    checkRepo({ ...repo, changes: [...repo.changes, candidate] }).errors,
+  );
+  if (introduced.length) {
+    throw new Error(
+      `the incoming document is invalid, nothing was written:\n${introduced
+        .map((e) => `  ${e.file}: ${e.message}`)
+        .join('\n')}`,
+    );
+  }
+
+  return { id, name, relPath, file, text, message: `new: ${id}` };
+}
+
+function idTakenInRepo(repo, id) {
+  return repo.changes.some((c) => c.name.startsWith(`${id}-`));
 }
 
 function acquireIdLock(changesDir, id) {

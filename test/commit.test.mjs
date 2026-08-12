@@ -5,23 +5,15 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { commit } from '../src/commands/commit.mjs';
+import { STATE_REF, writeActivation } from '../src/state-store.mjs';
+import { sanitizedEnv } from './helpers/git-env.mjs';
+import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
 // This suite may itself run inside this repo's own pre-commit hook, which
 // exports GIT_DIR/GIT_WORK_TREE/GIT_INDEX_FILE for the outer repo. Left
 // inherited, every git call below would silently operate on the outer repo
 // instead of the scratch fixture — strip them so tests are hook-safe.
-const GIT_ENV = { ...process.env };
-for (const key of [
-  'GIT_DIR',
-  'GIT_WORK_TREE',
-  'GIT_INDEX_FILE',
-  'GIT_OBJECT_DIRECTORY',
-  'GIT_ALTERNATE_OBJECT_DIRECTORIES',
-  'GIT_COMMON_DIR',
-  'GIT_CEILING_DIRECTORIES',
-]) {
-  delete GIT_ENV[key];
-}
+const GIT_ENV = sanitizedEnv();
 function git(root, args) {
   return execFileSync('git', args, { cwd: root, env: GIT_ENV, encoding: 'utf8' });
 }
@@ -40,6 +32,21 @@ function gitRepo() {
     'changes_dir: .changeledger/changes\n',
   );
   return root;
+}
+
+function activatedGitRepo() {
+  const root = gitRepo();
+  const id = '20260809-113242';
+  const tree = buildTree(root, {
+    '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
+    '.changeledger-state/config.yml': 'project_id: demo\nchanges_dir: .changeledger/changes\n',
+    '.changeledger-state/changes/ref-only.md': `---\nid: "${id}"\ntitle: Ref only\ntype: feature\nstatus: in-progress\ncreated: 2026-08-09T00:00:00Z\ndepends_on: []\n---\n\n## Request\n`,
+  });
+  const revision = commitTree(root, tree);
+  updateRef(root, STATE_REF, revision);
+  writeActivation(root, { stateRef: STATE_REF });
+  fs.rmSync(path.join(root, '.changeledger', 'changes'), { recursive: true });
+  return { root, id };
 }
 
 function writeChange(root, id, status) {
@@ -208,6 +215,53 @@ test('CR1: a single in-progress change auto-resolves the marker', () => {
 
   assert.equal(subject, 'feat(cli): add helper [#20260711-000001]');
   assert.equal(lastSubject(root), 'feat(cli): add helper [#20260711-000001]');
+});
+
+test('20260809-113242 CR7: activated commit resolves the marker without a worktree staged guard', () => {
+  const { root, id } = activatedGitRepo();
+  stageFile(root, 'a.txt', 'x');
+  const calls = [];
+  const run = (args, cwd) => {
+    calls.push(args);
+    return execFileSync('git', args, { cwd, env: GIT_ENV, encoding: 'utf8' });
+  };
+
+  const subject = commit({ message: 'feat(core): x' }, root, run, noop);
+
+  assert.equal(subject, `feat(core): x [#${id}]`);
+  assert.equal(lastSubject(root), subject);
+  assert.equal(
+    calls.some((args) => args.includes('--show-prefix')),
+    true,
+    'activated commits still derive the effective changes_dir boundary for the staged guard',
+  );
+});
+
+test('20260809-113242 CR13: activated commit rejects a foreign staged change document', () => {
+  const { root } = activatedGitRepo();
+  stageFile(root, 'a.txt', 'x');
+  fs.mkdirSync(path.join(root, '.changeledger', 'changes'), { recursive: true });
+  stageFile(root, '.changeledger/changes/foreign.md', 'foreign');
+
+  assert.throws(
+    () => commit({ message: 'feat(core): x' }, root, undefined, noop),
+    (error) =>
+      error.message ===
+      'Staged path(s) under the changes directory not declared for this commit: .changeledger/changes/foreign.md',
+  );
+  assert.equal(commitCount(root), 0);
+});
+
+test('20260809-113242 CR13: activated commit retains the .gitkeep exception', () => {
+  const { root, id } = activatedGitRepo();
+  stageFile(root, 'a.txt', 'x');
+  fs.mkdirSync(path.join(root, '.changeledger', 'changes'), { recursive: true });
+  stageFile(root, '.changeledger/changes/.gitkeep', '');
+
+  const subject = commit({ message: 'feat(core): x' }, root, undefined, noop);
+
+  assert.equal(subject, `feat(core): x [#${id}]`);
+  assert.equal(commitCount(root), 1);
 });
 
 test('CR2: ambiguity without --id creates no commit and lists candidates', () => {

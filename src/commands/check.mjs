@@ -1,5 +1,6 @@
+import path from 'node:path';
 import { checkRepo, frozenReason } from '../check.mjs';
-import { findChangeledgerDir, integrationBranch, loadConfig } from '../config.mjs';
+import { findChangeledgerDir, integrationBranch, loadEffectiveConfig } from '../config.mjs';
 import { getSchemaVersion, SUPPORTED_SCHEMA_VERSION } from '../config-migration.mjs';
 import { checkContract } from '../contract.mjs';
 import { defaultBaseBranch, lintCommitRange } from '../git.mjs';
@@ -12,7 +13,7 @@ import { loadRepo } from '../repo.mjs';
 function configuredIntegrationBranch(cwd) {
   const changeledgerDir = findChangeledgerDir(cwd);
   if (!changeledgerDir) return undefined;
-  return integrationBranch(loadConfig(changeledgerDir));
+  return integrationBranch(loadEffectiveConfig(path.dirname(changeledgerDir), changeledgerDir));
 }
 
 // Lints `base..HEAD` for the canonical `[#id]` commit marker (merges and

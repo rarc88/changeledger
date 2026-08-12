@@ -6,6 +6,8 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import {
+  assertCommitObject,
+  checkoutBranch,
   currentBranch,
   defaultGhRun,
   githubLogin,
@@ -16,6 +18,7 @@ import {
   mutatingRun,
   ownerHandle,
 } from '../src/git.mjs';
+import { sanitizedEnv } from './helpers/git-env.mjs';
 
 const SEP = String.fromCharCode(31);
 const RECORD_SEP = String.fromCharCode(30);
@@ -336,25 +339,30 @@ test('CR4: ownerHandle is empty when neither is available', () => {
   assert.equal(ownerHandle('/x', boom, boom), '');
 });
 
+test('20260805-052741 CR1: checkoutBranch returns the trimmed branch name', () => {
+  const git = () => 'feature/x\n';
+  assert.equal(checkoutBranch('/x', git), 'feature/x');
+});
+
+test('20260805-052741 CR3: checkoutBranch is empty on detached HEAD', () => {
+  const git = () => 'HEAD\n';
+  assert.equal(checkoutBranch('/x', git), '');
+});
+
+test('20260805-052741 CR3: checkoutBranch is empty when the subprocess fails', () => {
+  const boom = () => {
+    throw new Error('not a git repository');
+  };
+  assert.equal(checkoutBranch('/x', boom), '');
+});
+
 // --- mutatingRun (git run variant that surfaces stderr on failure) ---
 
 // Hook-safety: strip the repo-location vars git exports inside hooks so the
 // scratch repo below is the real target (same rationale as commit.test.mjs).
 function scratchGitRepo() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-git-'));
-  const env = { ...process.env };
-  for (const key of [
-    'GIT_DIR',
-    'GIT_WORK_TREE',
-    'GIT_INDEX_FILE',
-    'GIT_OBJECT_DIRECTORY',
-    'GIT_ALTERNATE_OBJECT_DIRECTORIES',
-    'GIT_COMMON_DIR',
-    'GIT_CEILING_DIRECTORIES',
-  ]) {
-    delete env[key];
-  }
-  execFileSync('git', ['init', '-q'], { cwd: root, env, encoding: 'utf8' });
+  execFileSync('git', ['init', '-q'], { cwd: root, env: sanitizedEnv(), encoding: 'utf8' });
   return root;
 }
 
@@ -497,4 +505,56 @@ test('002341 CR2: a marker that does not close the subject does not attribute', 
     gitRefs(root, 'Q').commits.map((c) => c.subject),
     ['feat: proper close [#Q]'],
   );
+});
+
+// --- assertCommitObject (CR5: never accept a non-commit via a silent peel) --
+
+test('151640 CR5: assertCommitObject accepts a ref that resolves directly to a commit', () => {
+  const root = scratchGitRepo();
+  execFileSync('git', ['commit', '--allow-empty', '-qm', 'root'], {
+    cwd: root,
+    env: sanitizedEnv(),
+  });
+  assert.doesNotThrow(() => assertCommitObject(root, 'HEAD'));
+});
+
+test('151640 CR5: assertCommitObject rejects a ref resolving to an annotated tag, naming the real type', () => {
+  const root = scratchGitRepo();
+  execFileSync('git', ['commit', '--allow-empty', '-qm', 'root'], {
+    cwd: root,
+    env: sanitizedEnv(),
+  });
+  execFileSync('git', ['tag', '-a', '-m', 'tag', 'v1'], { cwd: root, env: sanitizedEnv() });
+
+  assert.throws(() => assertCommitObject(root, 'refs/tags/v1'), /resolves to a tag, not a commit/);
+});
+
+test('151640 CR5: assertCommitObject rejects a ref resolving to a blob, naming the real type', () => {
+  const root = scratchGitRepo();
+  const blob = execFileSync('git', ['hash-object', '-w', '--stdin'], {
+    cwd: root,
+    env: sanitizedEnv(),
+    input: 'not a commit',
+    encoding: 'utf8',
+  }).trim();
+  execFileSync('git', ['update-ref', 'refs/changeledger/blob-ref', blob], {
+    cwd: root,
+    env: sanitizedEnv(),
+  });
+
+  assert.throws(
+    () => assertCommitObject(root, 'refs/changeledger/blob-ref'),
+    /resolves to a blob, not a commit/,
+  );
+});
+
+test('151640 CR5: assertCommitObject never peels through ^{commit} (rejects a tree directly)', () => {
+  const root = scratchGitRepo();
+  const tree = execFileSync('git', ['write-tree'], {
+    cwd: root,
+    env: sanitizedEnv(),
+    encoding: 'utf8',
+  }).trim();
+
+  assert.throws(() => assertCommitObject(root, tree), /resolves to a tree, not a commit/);
 });

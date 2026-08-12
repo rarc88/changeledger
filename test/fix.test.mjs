@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -6,7 +7,10 @@ import { test } from 'node:test';
 import { fix } from '../src/commands/fix.mjs';
 import { init } from '../src/commands/init.mjs';
 import * as fixModule from '../src/fix.mjs';
+import { STATE_REF, STATE_ROOT, writeActivation } from '../src/state-store.mjs';
 import * as taskModule from '../src/task.mjs';
+import { sanitizedEnv } from './helpers/git-env.mjs';
+import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
 // Isolate the global registry so init() doesn't touch the real home.
 process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
@@ -65,6 +69,44 @@ ${planLine}
 `,
   );
   return { root, file, id };
+}
+
+// Activates a fresh copy of `repo(planLine)`: the change document is moved
+// from the worktree into the state ref's snapshot before activation, so
+// `fix` can only succeed by routing through the ref.
+function activatedRepo(planLine) {
+  const { root, file, id } = repo(planLine);
+  const name = path.basename(file);
+  const text = fs.readFileSync(file, 'utf8');
+  fs.rmSync(file);
+  const configText = fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8');
+
+  execFileSync('git', ['init', '-q'], { cwd: root, env: sanitizedEnv(), stdio: 'ignore' });
+  const tree = buildTree(root, {
+    '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
+    '.changeledger-state/config.yml': configText,
+    [`.changeledger-state/changes/${name}`]: text,
+  });
+  const revision = commitTree(root, tree, { message: 'chore: state' });
+  updateRef(root, STATE_REF, revision);
+  writeActivation(root, { stateRef: STATE_REF });
+  return { root, id, name };
+}
+
+function stateRefTip(root) {
+  return execFileSync('git', ['rev-parse', STATE_REF], {
+    encoding: 'utf8',
+    cwd: root,
+    env: sanitizedEnv(),
+  }).trim();
+}
+
+function stateDocText(root, revision, relPath) {
+  return execFileSync('git', ['cat-file', 'blob', `${revision}:${STATE_ROOT}/${relPath}`], {
+    encoding: 'utf8',
+    cwd: root,
+    env: sanitizedEnv(),
+  });
 }
 
 function output() {
@@ -354,4 +396,41 @@ test('111457 CR7: ambiguous legacy provenance fails without modifying any spec',
   assert.equal(fs.readFileSync(specFile, 'utf8'), before);
   assert.ok(out.lines.some((line) => line.includes('arch.md')));
   assert.ok(out.lines.some((line) => line.includes('20260614-090000')));
+});
+
+// 20260808-151643 — active-mode routing: one invocation of `fix` lands as
+// exactly one CAS commit on the state ref.
+
+test('CR3: fix on an active repo repairs the mechanical defect in one commit', () => {
+  const { root, id, name } = activatedRepo('- [x] Update src/foo.mjs (CR1) - 2026-01-01T12:00:00Z');
+  const before = stateRefTip(root);
+
+  const out = output();
+  assert.equal(fix([id], root, out), 0);
+
+  const tip = stateRefTip(root);
+  assert.notEqual(tip, before);
+  assert.equal(
+    execFileSync('git', ['rev-list', '--count', `${before}..${tip}`], {
+      encoding: 'utf8',
+      cwd: root,
+      env: sanitizedEnv(),
+    }).trim(),
+    '1',
+  );
+  const fixedText = stateDocText(root, tip, `changes/${name}`);
+  assert.match(fixedText, /2026-01-01T12:00:00Z$/m);
+  assert.doesNotMatch(fixedText, / - 2026-01-01T12:00:00Z/);
+  assert.equal(fs.existsSync(path.join(root, STATE_ROOT)), false);
+});
+
+test('CR3: fix --dry-run on an active repo writes nothing', () => {
+  const { root, id } = activatedRepo('- [x] Update src/foo.mjs (CR1) - 2026-01-01T12:00:00Z');
+  const before = stateRefTip(root);
+
+  const out = output();
+  assert.equal(fix([id, '--dry-run'], root, out), 0);
+
+  assert.equal(stateRefTip(root), before);
+  assert.ok(out.lines.some((line) => line.includes('dry run')));
 });

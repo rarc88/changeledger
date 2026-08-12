@@ -8,10 +8,12 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 import { parseChange } from '../src/change.mjs';
+import { writeLedgerFiles } from '../src/change-store.mjs';
 import {
   approve,
   archive,
   archiveGraduated,
+  branch,
   discard,
   isPendingGraduation,
   list,
@@ -26,6 +28,15 @@ import {
 } from '../src/commands/agent.mjs';
 import { init as initializeRepo } from '../src/commands/init.mjs';
 import { newChange } from '../src/commands/new.mjs';
+import {
+  LedgerConflictError,
+  STATE_REF,
+  STATE_ROOT,
+  writeActivation,
+} from '../src/state-store.mjs';
+import { setBranch } from '../src/writer.mjs';
+import { sanitizedEnv } from './helpers/git-env.mjs';
+import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -61,13 +72,70 @@ function repoWithChange() {
   // Give it a task to operate on. `(support)` because that is what this task
   // honestly is — scaffolding for the lifecycle tests below, which declare no
   // criteria — and since 20260729-185200 an unmarked task with no CR blocks
-  // approval, which these tests cross on their way to later statuses.
+  // approval, which these tests cross on their way to later statuses. Since
+  // 20260810-213633 an approve also refuses any active stage left blank
+  // (Request/Investigation/Proposal/Specification), so each gets one minimal
+  // line here too — a single seat for the whole file's approve()/status(…,
+  // 'approved') fixtures rather than patching every call site.
   const text = fs
     .readFileSync(file, 'utf8')
+    .replace('## Request\n', '## Request\n\nR\n')
+    .replace('## Investigation\n', '## Investigation\n\nI\n')
+    .replace('## Proposal\n', '## Proposal\n\nP\n')
+    .replace('## Specification\n', '## Specification\n\nS\n')
     .replace('## Plan\n', '## Plan\n\n- [ ] do it\n  - **Support:**\n');
   fs.writeFileSync(file, text);
   const id = parseChange(text).frontmatter.id;
   return { root, file, id };
+}
+
+// Activated variant of `repoWithChange()`: the same document, but living
+// only in the state ref's snapshot — the worktree copy used to build its
+// text is removed before activation, so any mutator that fell back to a
+// worktree read would fail outright rather than silently succeed against
+// stale content.
+function activatedRepoWithChange() {
+  const { root, file, id } = repoWithChange();
+  const name = path.basename(file);
+  const text = fs.readFileSync(file, 'utf8');
+  const configText = fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8');
+  fs.rmSync(file);
+
+  execFileSync('git', ['init', '-q'], { cwd: root, env: sanitizedEnv(), stdio: 'ignore' });
+  const tree = buildTree(root, {
+    '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
+    '.changeledger-state/config.yml': configText,
+    [`.changeledger-state/changes/${name}`]: text,
+  });
+  const revision = commitTree(root, tree, { message: 'chore: state' });
+  updateRef(root, STATE_REF, revision);
+  writeActivation(root, { stateRef: STATE_REF });
+
+  return { root, id, name, revision };
+}
+
+function stateRefTip(root) {
+  return execFileSync('git', ['rev-parse', STATE_REF], {
+    encoding: 'utf8',
+    cwd: root,
+    env: sanitizedEnv(),
+  }).trim();
+}
+
+function stateDocText(root, revision, relPath) {
+  return execFileSync('git', ['cat-file', 'blob', `${revision}:${STATE_ROOT}/${relPath}`], {
+    encoding: 'utf8',
+    cwd: root,
+    env: sanitizedEnv(),
+  });
+}
+
+function lastCommitMessage(root) {
+  return execFileSync('git', ['log', '-1', '--format=%s', STATE_REF], {
+    encoding: 'utf8',
+    cwd: root,
+    env: sanitizedEnv(),
+  }).trim();
 }
 
 function configureChangeBranches(root, { integration = 'dev', format = 'work/{id}' } = {}) {
@@ -82,6 +150,7 @@ function configureChangeBranches(root, { integration = 'dev', format = 'work/{id
 function git(root, args) {
   return execFileSync('git', args, {
     cwd: root,
+    env: sanitizedEnv(),
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -376,6 +445,89 @@ test('185200 CR2: a ready draft approves exactly as before', () => {
   );
 });
 
+// 20260810-213633 — the empty-stage gate on the draft→approved transition
+// itself (real incident: 20260810-181801 approved with every narrative stage
+// blank). `checkCoverage`'s referential checks pass vacuously on an empty
+// Specification/Plan — no criteria declared, so nothing is uncovered — so this
+// is a distinct assertion from the 185200 CR1 gate above, not a duplicate.
+function emptySpecAndPlanDraft(id) {
+  return `---
+id: "${id}"
+title: Empty spec and plan
+type: feature
+status: draft
+created: 2026-06-13T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+R
+
+## Investigation
+
+I
+
+## Proposal
+
+P
+
+## Specification
+
+## Plan
+
+## Log
+
+- **2026-06-13T12:00:00Z** \`[note]\` Draft.
+`;
+}
+
+function emptyRequestQuickDraft(id) {
+  return `---
+id: "${id}"
+title: Empty request
+type: quick
+status: draft
+created: 2026-06-13T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+## Log
+
+- **2026-06-13T12:00:00Z** \`[note]\` Draft.
+`;
+}
+
+test('213633 CR1: approve refuses a feature draft with empty Specification and Plan, naming both', () => {
+  const root = emptyRepo();
+  const id = '20260810-213700';
+  const file = writeDraft(root, id, emptySpecAndPlanDraft(id));
+  const before = fs.readFileSync(file, 'utf8');
+
+  assert.throws(() => approve(id, root), {
+    message: 'cannot approve: "## Specification", "## Plan" are empty',
+  });
+
+  assert.equal(fs.readFileSync(file, 'utf8'), before, 'a rejected approve must not write');
+  assert.equal(parseChange(before).frontmatter.status, 'draft');
+});
+
+test('213633 CR2: approve refuses a quick draft with an empty Request', () => {
+  const root = emptyRepo();
+  const id = '20260810-213701';
+  const file = writeDraft(root, id, emptyRequestQuickDraft(id));
+  const before = fs.readFileSync(file, 'utf8');
+
+  assert.throws(() => approve(id, root), {
+    message: 'cannot approve: "## Request" is empty',
+  });
+
+  assert.equal(fs.readFileSync(file, 'utf8'), before, 'a rejected approve must not write');
+  assert.equal(parseChange(before).frontmatter.status, 'draft');
+});
+
 test('status rejects an invalid value without writing', () => {
   const { root, file, id } = repoWithChange();
   const before = fs.readFileSync(file, 'utf8');
@@ -449,6 +601,87 @@ test('status to in-progress tolerates a missing owner handle', () => {
   status(id, 'approved', root);
   status(id, 'in-progress', root, { ownerHandle: () => '' });
   assert.equal('owner' in parseChange(fs.readFileSync(file, 'utf8')).frontmatter, false);
+});
+
+test('20260805-052741 CR1: status to in-progress auto-assigns the current branch when empty', () => {
+  const { root, file, id } = repoWithChange();
+  status(id, 'approved', root, { ownerHandle: () => '' });
+  status(id, 'in-progress', root, { ownerHandle: () => '', checkoutBranch: () => 'feature/x' });
+  const c = parseChange(fs.readFileSync(file, 'utf8'));
+  assert.equal(c.frontmatter.branch, 'feature/x');
+  assert.match(c.stages.find((s) => s.key === 'log').body, /`\[branch\]` set: feature\/x \(auto\)/);
+});
+
+test('20260805-052741 CR2: status to in-progress does not overwrite an explicit branch', () => {
+  const { root, file, id } = repoWithChange();
+  fs.writeFileSync(file, setBranch(fs.readFileSync(file, 'utf8'), 'manual-branch'));
+  status(id, 'approved', root, { ownerHandle: () => '' });
+  status(id, 'in-progress', root, { ownerHandle: () => '', checkoutBranch: () => 'otra-rama' });
+  assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.branch, 'manual-branch');
+});
+
+test('20260805-052741 CR3: status to in-progress tolerates a missing branch', () => {
+  const { root, file, id } = repoWithChange();
+  status(id, 'approved', root, { ownerHandle: () => '' });
+  status(id, 'in-progress', root, { ownerHandle: () => '', checkoutBranch: () => '' });
+  assert.equal('branch' in parseChange(fs.readFileSync(file, 'utf8')).frontmatter, false);
+});
+
+test('20260808-141944 CR1: a branch mismatch on transition produces a non-blocking warning', () => {
+  const { root, file, id } = repoWithChange();
+  fs.writeFileSync(file, setBranch(fs.readFileSync(file, 'utf8'), 'feature/x'));
+  status(id, 'approved', root, { ownerHandle: () => '' });
+  status(id, 'in-progress', root, { ownerHandle: () => '', checkoutBranch: () => 'feature/x' });
+  const result = status(id, 'in-review', root, { checkoutBranch: () => 'feature/y' });
+  assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'in-review');
+  assert.equal(result.warnings.length, 1);
+  assert.match(result.warnings[0], /feature\/x/);
+  assert.match(result.warnings[0], /feature\/y/);
+  assert.match(result.warnings[0], /changeledger branch/);
+});
+
+test('20260808-141944 CR2: no mismatch means no warning', () => {
+  const { root, file, id } = repoWithChange();
+  fs.writeFileSync(file, setBranch(fs.readFileSync(file, 'utf8'), 'feature/x'));
+  status(id, 'approved', root, { ownerHandle: () => '' });
+  status(id, 'in-progress', root, { ownerHandle: () => '', checkoutBranch: () => 'feature/x' });
+  const result = status(id, 'in-review', root, { checkoutBranch: () => 'feature/x' });
+  assert.deepEqual(result.warnings, []);
+});
+
+test('20260808-141944 CR3: an unresolvable checkout produces no warning and does not throw', () => {
+  const { root, file, id } = repoWithChange();
+  fs.writeFileSync(file, setBranch(fs.readFileSync(file, 'utf8'), 'feature/x'));
+  status(id, 'approved', root, { ownerHandle: () => '' });
+  status(id, 'in-progress', root, { ownerHandle: () => '', checkoutBranch: () => 'feature/x' });
+  const result = status(id, 'in-review', root, { checkoutBranch: () => '' });
+  assert.deepEqual(result.warnings, []);
+});
+
+test('20260808-141944 CR4: no branch field means no comparison', () => {
+  const { root, file, id } = repoWithChange();
+  status(id, 'approved', root, { ownerHandle: () => '' });
+  const result = status(id, 'in-progress', root, {
+    ownerHandle: () => '',
+    checkoutBranch: () => 'feature/y',
+  });
+  assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.branch, 'feature/y');
+  assert.deepEqual(result.warnings, []);
+});
+
+test('20260808-141944 CR5: the warning does not mutate the document', () => {
+  const { root, file, id } = repoWithChange();
+  fs.writeFileSync(file, setBranch(fs.readFileSync(file, 'utf8'), 'feature/x'));
+  status(id, 'approved', root, { ownerHandle: () => '' });
+  status(id, 'in-progress', root, { ownerHandle: () => '', checkoutBranch: () => 'feature/x' });
+  status(id, 'in-review', root, { checkoutBranch: () => 'feature/y' });
+  const c = parseChange(fs.readFileSync(file, 'utf8'));
+  assert.equal(c.frontmatter.branch, 'feature/x');
+  const logBody = c.stages.find((s) => s.key === 'log').body;
+  const statusEvents = logBody.split('\n').filter((l) => l.includes('[status]'));
+  const branchEvents = logBody.split('\n').filter((l) => l.includes('[branch]'));
+  assert.equal(statusEvents.length, 3);
+  assert.equal(branchEvents.length, 0);
 });
 
 test('144812 CR1: an assigned owner skips resolution entirely', () => {
@@ -727,7 +960,14 @@ function repoWithChore() {
     root,
     { ownerHandle: () => '' },
   );
-  const id = parseChange(fs.readFileSync(file, 'utf8')).frontmatter.id;
+  // 20260810-213633: approve refuses a chore whose active stages (request,
+  // plan) are blank, so this shared fixture back-fills both minimally.
+  const text = fs
+    .readFileSync(file, 'utf8')
+    .replace('## Request\n', '## Request\n\nR\n')
+    .replace('## Plan\n', '## Plan\n\n- [ ] do it\n  - **Support:**\n');
+  fs.writeFileSync(file, text);
+  const id = parseChange(text).frontmatter.id;
   return { root, file, id };
 }
 
@@ -766,7 +1006,14 @@ function repoWithAudit() {
     root,
     { ownerHandle: () => '' },
   );
-  const id = parseChange(fs.readFileSync(file, 'utf8')).frontmatter.id;
+  // 20260810-213633: approve refuses an audit whose active stages (request,
+  // investigation) are blank, so this shared fixture back-fills both minimally.
+  const text = fs
+    .readFileSync(file, 'utf8')
+    .replace('## Request\n', '## Request\n\nR\n')
+    .replace('## Investigation\n', '## Investigation\n\nI\n');
+  fs.writeFileSync(file, text);
+  const id = parseChange(text).frontmatter.id;
   status(id, 'approved', root);
   status(id, 'in-progress', root, { ownerHandle: () => '' });
   return { root, file, id };
@@ -820,6 +1067,9 @@ function repoWithUnreadyChange() {
   // is the in-review gate, not approval.
   const ready = fs
     .readFileSync(file, 'utf8')
+    .replace('## Request\n', '## Request\n\nR\n')
+    .replace('## Investigation\n', '## Investigation\n\nI\n')
+    .replace('## Proposal\n', '## Proposal\n\nP\n')
     .replace(
       '## Specification\n',
       '## Specification\n\n### CR1 — Something\n- **Given** a thing\n- **When** it runs\n- **Then** it holds\n',
@@ -1254,6 +1504,18 @@ function repoWithTwoSamePrefix() {
     root,
     { ownerHandle: () => '' },
   );
+  // 20260810-213633: fileB reaches approved in CR1 below, so its active stages
+  // need minimal content; fileA is filled the same way to keep both siblings
+  // uniform (it never itself moves past draft in these tests).
+  const fillStages = (text) =>
+    text
+      .replace('## Request\n', '## Request\n\nR\n')
+      .replace('## Investigation\n', '## Investigation\n\nI\n')
+      .replace('## Proposal\n', '## Proposal\n\nP\n')
+      .replace('## Specification\n', '## Specification\n\nS\n')
+      .replace('## Plan\n', '## Plan\n\n- [ ] do it\n  - **Support:**\n');
+  fs.writeFileSync(fileA, fillStages(fs.readFileSync(fileA, 'utf8')));
+  fs.writeFileSync(fileB, fillStages(fs.readFileSync(fileB, 'utf8')));
   const idA = parseChange(fs.readFileSync(fileA, 'utf8')).frontmatter.id;
   const idB = parseChange(fs.readFileSync(fileB, 'utf8')).frontmatter.id;
   return { root, fileA, fileB, idA, idB };
@@ -1420,4 +1682,244 @@ test('212314 CR2: a lock on one change does not block mutating another change', 
   } finally {
     fs.rmSync(heldLock, { force: true });
   }
+});
+
+// 20260808-151643 — active-mode routing: a mutation on an activated repo
+// writes a CAS commit on the state ref instead of the worktree, and every
+// mutator in the battery still recognizes a document that only exists there.
+
+test('CR1: task/owner/branch/log mutate the state ref, never the worktree, one commit each', () => {
+  const { root, id, name } = activatedRepoWithChange();
+  const relPath = `changes/${name}`;
+
+  task(id, 'done', 1, '', root);
+  assert.equal(parseChange(stateDocText(root, stateRefTip(root), relPath)).tasks[0].state, 'done');
+  assert.equal(lastCommitMessage(root), `task: ${id} 1 done`);
+
+  owner(id, 'octocat', root);
+  assert.equal(
+    parseChange(stateDocText(root, stateRefTip(root), relPath)).frontmatter.owner,
+    'octocat',
+  );
+  assert.equal(lastCommitMessage(root), `owner: ${id} octocat`);
+
+  branch(id, 'work/x', root);
+  assert.equal(
+    parseChange(stateDocText(root, stateRefTip(root), relPath)).frontmatter.branch,
+    'work/x',
+  );
+  assert.equal(lastCommitMessage(root), `branch: ${id} work/x`);
+
+  log(id, 'a note', root);
+  assert.match(stateDocText(root, stateRefTip(root), relPath), /a note/);
+  assert.equal(lastCommitMessage(root), `log: ${id}`);
+
+  // Never a worktree write: the whole state tree root never existed on disk.
+  assert.equal(fs.existsSync(path.join(root, STATE_ROOT)), false);
+});
+
+test('20260809-113242 CR10: active status ignores a malformed stale marker', () => {
+  const { root, id, name } = activatedRepoWithChange();
+  const before = stateRefTip(root);
+  fs.writeFileSync(path.join(root, '.changeledger', 'config.yml'), 'statuses: [\n');
+
+  const { warnings } = status(id, 'approved', root, { actor: 'human', channel: 'conversation' });
+
+  assert.deepEqual(warnings, []);
+  const tip = stateRefTip(root);
+  assert.notEqual(tip, before);
+  const fm = parseChange(stateDocText(root, tip, `changes/${name}`)).frontmatter;
+  assert.equal(fm.status, 'approved');
+  assert.equal(lastCommitMessage(root), `status: ${id} → approved`);
+  assert.equal(fs.existsSync(path.join(root, STATE_ROOT)), false);
+});
+
+// 20260808-151643 CR9 (post-validation fold-in) — the converted mutators
+// return the written path in both modes: inactive unchanged (the worktree
+// file, byte-identical to before this change), active the state-tree path
+// (`changes/<file>`), never `undefined`. `status` is CR9's named example;
+// one representative assertion per mode is the criterion's own scope.
+test('CR9: status returns the worktree path when inactive and the state-tree path when active', () => {
+  const inactive = repoWithChange();
+  const inactiveResult = status(inactive.id, 'approved', inactive.root, {
+    actor: 'human',
+    channel: 'conversation',
+  });
+  assert.equal(inactiveResult.file, inactive.file);
+
+  const active = activatedRepoWithChange();
+  const activeResult = status(active.id, 'approved', active.root, {
+    actor: 'human',
+    channel: 'conversation',
+  });
+  assert.equal(activeResult.file, `changes/${active.name}`);
+});
+
+test('CR1: full lifecycle through review/validation/reopen/discard stays on the ref', () => {
+  const { root, id, name } = activatedRepoWithChange();
+  const relPath = `changes/${name}`;
+  task(id, 'done', 1, '', root);
+  status(id, 'approved', root, { actor: 'human', channel: 'conversation' });
+  status(id, 'in-progress', root, { ownerHandle: () => '' });
+  status(id, 'in-review', root);
+
+  review(id, 'pass', {}, root);
+  assert.equal(
+    parseChange(stateDocText(root, stateRefTip(root), relPath)).frontmatter.status,
+    'in-validation',
+  );
+
+  validation(id, 'pass', {}, root);
+  assert.equal(
+    parseChange(stateDocText(root, stateRefTip(root), relPath)).frontmatter.status,
+    'done',
+  );
+
+  reopen(id, 'needs a fix', root);
+  assert.equal(
+    parseChange(stateDocText(root, stateRefTip(root), relPath)).frontmatter.status,
+    'in-progress',
+  );
+  assert.equal(lastCommitMessage(root), `reopen: ${id}`);
+
+  status(id, 'in-review', root);
+  review(id, 'fail', { mode: 'retry', reason: 'oops' }, root);
+  assert.equal(
+    parseChange(stateDocText(root, stateRefTip(root), relPath)).frontmatter.status,
+    'in-progress',
+  );
+
+  discard(id, 'not needed', root);
+  const fm = parseChange(stateDocText(root, stateRefTip(root), relPath)).frontmatter;
+  assert.equal(fm.status, 'discarded');
+  assert.equal(lastCommitMessage(root), `discard: ${id}`);
+  assert.equal(fs.existsSync(path.join(root, STATE_ROOT)), false);
+});
+
+test('CR1: archive and archiveGraduated commit through the ref', () => {
+  const { root, id, name } = activatedRepoWithChange();
+  const relPath = `changes/${name}`;
+  task(id, 'done', 1, '', root);
+  status(id, 'approved', root, { actor: 'human', channel: 'conversation' });
+  status(id, 'in-progress', root, { ownerHandle: () => '' });
+  status(id, 'in-review', root);
+  review(id, 'pass', {}, root);
+  validation(id, 'pass', {}, root);
+
+  archive(id, root);
+  assert.equal(
+    parseChange(stateDocText(root, stateRefTip(root), relPath)).frontmatter.archived,
+    true,
+  );
+});
+
+function archiveCandidateText(id, log) {
+  const fm = [
+    '---',
+    `id: "${id}"`,
+    'title: Candidate',
+    'type: feature',
+    'status: done',
+    'created: 2026-06-13T12:00:00Z',
+    'reviewed: true',
+    'depends_on: []',
+    '---',
+  ].join('\n');
+  return `${fm}\n\n## Request\n\nR\n\n## Investigation\n\nI\n\n## Proposal\n\nP\n\n## Specification\n\n### CR1 — C\n- **Given** x\n- **When** y\n- **Then** z\n\n## Plan\n\n- [x] do it (CR1) — 2026-06-13T12:00:00Z\n\n## Log\n${log}\n`;
+}
+
+test('CR1: archiveGraduated commits every archived change in one commit, active mode', () => {
+  const { root } = activatedRepoWithChange();
+  const graduatedText = archiveCandidateText(
+    '20260613-120001',
+    '- **2026-06-13T12:00:00Z** `[graduation]` spec: `arch.md`',
+  );
+  const skippedText = archiveCandidateText(
+    '20260613-120002',
+    '- **2026-06-13T12:00:00Z** `[graduation]` skipped: no durable truth',
+  );
+  writeLedgerFiles(
+    { repoRoot: root, state: { revision: stateRefTip(root) } },
+    [
+      { relPath: 'changes/20260613-120001-candidate.md', text: graduatedText },
+      { relPath: 'changes/20260613-120002-candidate.md', text: skippedText },
+    ],
+    { message: 'chore: seed candidates' },
+  );
+
+  const before = stateRefTip(root);
+  const result = archiveGraduated({}, root);
+
+  assert.deepEqual(result.map((c) => c.id).sort(), ['20260613-120001', '20260613-120002']);
+  // CR9 fold-in: archiveGraduated's own return also names the written path
+  // in active mode, never the `null` `repo.changes` carries there.
+  assert.deepEqual(result.map((c) => c.file).sort(), [
+    'changes/20260613-120001-candidate.md',
+    'changes/20260613-120002-candidate.md',
+  ]);
+  const tip = stateRefTip(root);
+  assert.equal(git(root, ['rev-list', '--count', `${before}..${tip}`]).trim(), '1');
+  for (const relPath of [
+    'changes/20260613-120001-candidate.md',
+    'changes/20260613-120002-candidate.md',
+  ]) {
+    const fm = parseChange(stateDocText(root, tip, relPath)).frontmatter;
+    assert.equal(fm.archived, true);
+  }
+});
+
+test('CR7: an active mutation preserves every other document identity in the child snapshot', () => {
+  const { root, id, revision } = activatedRepoWithChange();
+  const before = execFileSync('git', ['ls-tree', '-r', '--name-only', revision], {
+    encoding: 'utf8',
+    cwd: root,
+    env: sanitizedEnv(),
+  })
+    .trim()
+    .split('\n')
+    .filter(Boolean);
+
+  log(id, 'a note', root);
+
+  const after = execFileSync('git', ['ls-tree', '-r', '--name-only', stateRefTip(root)], {
+    encoding: 'utf8',
+    cwd: root,
+    env: sanitizedEnv(),
+  })
+    .trim()
+    .split('\n')
+    .filter(Boolean);
+
+  for (const p of before) assert.ok(after.includes(p), `${p} disappeared from the child snapshot`);
+});
+
+test('CR2: a concurrent write between load and write surfaces LedgerConflictError, no partial write', () => {
+  const { root, id, name } = activatedRepoWithChange();
+  const relPath = `changes/${name}`;
+  task(id, 'done', 1, '', root);
+  status(id, 'approved', root, { actor: 'human', channel: 'conversation' });
+
+  // `status(..., 'in-progress')` calls `ownerHandle` (owner is unset here)
+  // strictly after `locate()` already captured `repo.state.revision`, and
+  // strictly before this call's own write — the exact window CR2 describes.
+  // The racer performs a real, unrelated write through the same seam
+  // (`log`) to advance the ref out from under the in-flight call, entirely
+  // deterministically (no timing, no subprocess race).
+  const racer = () => {
+    log(id, 'concurrent note', root);
+    return '';
+  };
+
+  assert.throws(
+    () => status(id, 'in-progress', root, { ownerHandle: racer }),
+    (err) => err instanceof LedgerConflictError && /state ref moved/.test(err.message),
+  );
+
+  const tip = stateRefTip(root);
+  const fm = parseChange(stateDocText(root, tip, relPath)).frontmatter;
+  // The ref sits exactly where the racer left it: the racer's write is
+  // there, the failed call's write is not.
+  assert.match(stateDocText(root, tip, relPath), /concurrent note/);
+  assert.equal(fm.status, 'approved');
+  assert.equal(fs.existsSync(path.join(root, STATE_ROOT)), false);
 });

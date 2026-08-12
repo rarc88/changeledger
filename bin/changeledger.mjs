@@ -1,10 +1,13 @@
 #!/usr/bin/env node
 import { createRequire } from 'node:module';
+import path from 'node:path';
 import { Command } from 'commander';
+import { activate } from '../src/commands/activate.mjs';
 import {
   approve,
   archive,
   archiveGraduated,
+  branch,
   discard,
   list,
   log,
@@ -18,20 +21,26 @@ import {
 } from '../src/commands/agent.mjs';
 import { agentContext } from '../src/commands/agent-context.mjs';
 import { agentPrompt } from '../src/commands/agent-prompt.mjs';
+import { apply } from '../src/commands/apply.mjs';
 import { check } from '../src/commands/check.mjs';
 import { commit } from '../src/commands/commit.mjs';
 import { context } from '../src/commands/context.mjs';
+import { cutover } from '../src/commands/cutover.mjs';
+import { edit } from '../src/commands/edit.mjs';
 import { fix } from '../src/commands/fix.mjs';
 import { graduate, scaffoldSpec, skipGraduation } from '../src/commands/graduate.mjs';
+import { importFromRef } from '../src/commands/import.mjs';
 import { init } from '../src/commands/init.mjs';
-import { newChange } from '../src/commands/new.mjs';
+import { newChange, newChangeFrom, scaffoldChange } from '../src/commands/new.mjs';
 import { registerRepo } from '../src/commands/register.mjs';
 import { initReleaseHistory, recordRelease, releasePlan } from '../src/commands/release.mjs';
 import { runSearch } from '../src/commands/search.mjs';
+import { sync } from '../src/commands/sync.mjs';
 import { view } from '../src/commands/view.mjs';
 import { findChangeledgerDir } from '../src/config.mjs';
 import { applyMigration } from '../src/config-migration.mjs';
 import { nowUtc } from '../src/paths.mjs';
+import { CAS_CONFLICT_MESSAGE, LedgerConflictError } from '../src/state-store.mjs';
 
 const { version } = createRequire(import.meta.url)('../package.json');
 
@@ -40,9 +49,10 @@ const USAGE = `ChangeLedger (changeledger)
 Run \`changeledger context\` first in any repo unless a ChangeLedger delegation
 prompt identifies your role and tells you to run \`agent-context\` instead.
 
-  changeledger init | register | new | view | check | fix | context | agent-context
+  changeledger init | register | new | edit | apply | view | check | fix | context | agent-context
   changeledger commit | status | approve | validation | discard | review | owner
   changeledger archive | log | task | list | show | search | graduate | config | release
+  changeledger cutover | activate | import | sync
 
 Run \`changeledger <command> --help\` for that command's syntax, values and examples.`;
 
@@ -53,7 +63,16 @@ function action(fn) {
     try {
       await fn(...args);
     } catch (e) {
-      console.error(`Error: ${e.message}`);
+      // A CAS conflict from the state store (`change-store.mjs`/
+      // `state-store.mjs`) is presented with its own actionable message —
+      // the store already guarantees no partial write, so the bin's only
+      // job is to tell the caller to reload and re-run, not to relay the
+      // store's own "state ref moved: expected X, found Y" internals.
+      if (e instanceof LedgerConflictError) {
+        console.error(`${CAS_CONFLICT_MESSAGE} — re-run the command`);
+      } else {
+        console.error(`Error: ${e.message}`);
+      }
       process.exit(1);
     }
   };
@@ -102,18 +121,38 @@ program
   .argument('<slug>', 'English filename slug, e.g. self-describing-cli-help')
   .argument('<title...>', 'content title, written in the repo language (config.yml: language)')
   .option('--owner <name>', 'set the initial owner (defaults to the local git identity)')
+  .option('--print', 'emit the scaffold to stdout and write nothing, in either mode')
+  .option('--from <file>', 'land this already composed document ("-" reads stdin)')
   .addHelpText(
     'after',
     [
       '',
-      'Example:',
+      'An activated repo publishes to a permanent journal, so it refuses to create an',
+      'empty scaffold there: compose the document with `--print`, fill it, and land it',
+      'whole with `--from`. An inactive repo still scaffolds into the worktree.',
+      '',
+      'Examples:',
       '  changeledger new feature self-describing-cli-help "Self-describing CLI help"',
+      '  changeledger new feature seam "Costura" --print > draft.md',
+      '  changeledger new feature seam "Costura" --from draft.md',
     ].join('\n'),
   )
   .action(
     action((type, slug, titleParts, options) => {
       const title = titleParts.join(' ').trim();
-      const file = newChange({ type, slug, title, owner: options.owner, now: nowUtc() });
+      if (options.print && options.from) throw new Error('use --print or --from, not both');
+      if (options.owner && options.from) {
+        throw new Error('the document passed to --from declares its own owner; drop --owner');
+      }
+      if (options.print) {
+        process.stdout.write(
+          scaffoldChange({ type, slug, title, owner: options.owner, now: nowUtc() }).text,
+        );
+        return;
+      }
+      const file = options.from
+        ? newChangeFrom({ type, slug, title, from: options.from })
+        : newChange({ type, slug, title, owner: options.owner, now: nowUtc() });
       console.log(`Created ${file}`);
     }),
   );
@@ -185,10 +224,90 @@ program
       ];
       process.exit(fix(args));
     } catch (e) {
-      console.error(`Error: ${e.message}`);
+      if (e instanceof LedgerConflictError) {
+        console.error(`${CAS_CONFLICT_MESSAGE} — re-run the command`);
+      } else {
+        console.error(`Error: ${e.message}`);
+      }
       process.exit(1);
     }
   });
+
+program
+  .command('edit')
+  .description('replace one document (change or spec) with a complete one, in a single write')
+  .argument('<target>', 'a change id, or `spec:<slug>` for a spec')
+  .requiredOption('--from <file>', 'the complete document to write ("-" reads stdin)')
+  .addHelpText(
+    'after',
+    [
+      '',
+      'The unit is the whole document: `edit` writes CONTENT (body, title,',
+      'depends_on, related_to, release_impact) and never lifecycle — `id` and',
+      '`created` are immutable, and `status`, `owner`, `branch`, `archived` and',
+      '`reviewed` must match the current values, each named with the command that',
+      'owns it. The incoming document is validated whole before anything is',
+      'written, and a byte-identical document is a no-op.',
+      '',
+      'Activated repos land it as exactly one commit on the state ref; inactive',
+      'repos replace the worktree file atomically and commit nothing.',
+      '',
+      'Examples:',
+      '  changeledger edit 20260810-180434 --from draft.md',
+      '  changeledger edit spec:global-state-scope --from spec.md',
+    ].join('\n'),
+  )
+  .action(
+    action((target, options) => {
+      const { path: written, changed } = edit(target, { from: options.from });
+      console.log(changed ? `Edited ${written}` : `Unchanged ${written} (byte-identical)`);
+    }),
+  );
+
+program
+  .command('apply')
+  .description('land a JSON manifest of documents and agent events as one journal entry')
+  .requiredOption('--from <file>', 'the manifest to apply ("-" reads stdin)')
+  .option('--dry-run', 'validate the whole manifest and write nothing, in either mode')
+  .addHelpText(
+    'after',
+    [
+      '',
+      'The manifest is a JSON array of entries applied IN ORDER against one',
+      'accumulated candidate, landing as exactly one commit — or, if any entry is',
+      'invalid, as nothing at all. A document entry is',
+      '{"target": "new"|"change:<id>"|"spec:<slug>", "content": "<full markdown>"}',
+      'and runs every guard `new --from`/`edit` run, byte-identical included; a',
+      '`new` entry may add "slug" to name the file (derived from the title if absent).',
+      'An event entry is {"op": "status"|"log"|"task"|"owner", "id": "<id>", ...} and',
+      "runs its own command's validations. `approve`, `validation`, `review` and",
+      '`discard` stay individual commands and are refused here by name.',
+      '',
+      'Examples:',
+      '  changeledger apply --from batch.json --dry-run',
+      '  changeledger apply --from batch.json',
+      '  changeledger apply --from -',
+    ].join('\n'),
+  )
+  .action(
+    action((options) => {
+      const result = apply({ from: options.from, dryRun: Boolean(options.dryRun) });
+      for (const w of result.warnings) console.warn(`  warn   ${w.file}: ${w.message}`);
+      for (const e of result.errors) console.error(`  error  ${e.file}: ${e.message}`);
+      for (const w of result.statusWarnings) console.warn(`  warn   ${w}`);
+      if (result.dryRun) {
+        console.log(
+          `Dry run: ${result.changed.length} document(s) would change — ${result.message}`,
+        );
+        return;
+      }
+      console.log(
+        result.changed.length
+          ? `Applied ${result.changed.length} document(s): ${result.changed.join(', ')}`
+          : 'Unchanged (the manifest lands nothing new)',
+      );
+    }),
+  );
 
 program
   .command('commit')
@@ -243,6 +362,102 @@ program
       console.log(`Committed: ${subject}`);
     }),
   );
+
+program
+  .command('cutover')
+  .description("publish this repo's ledger to the state ref and activate it (one shot)")
+  .option('--undo', 'revert the cutover while the state ref still points at the published baseline')
+  .addHelpText(
+    'after',
+    [
+      '',
+      'Preconditions, all checked fail-closed before anything is written:',
+      '  - HEAD is the integration branch (git.integration_branch, or the default);',
+      '  - the repo is not activated yet and carries no state ref;',
+      '  - the ledger is clean: no modified, staged, untracked or ignored files under',
+      '    the collection directories (changes/, specs/, releases/), and an empty index.',
+      'It then validates the whole ledger, publishes it to the state ref, activates the',
+      'repo and commits the worktree cleanup that keeps only config.yml.',
+      'A re-run over an identical cut is a no-op; a divergent state ref is refused.',
+      '',
+      '--undo reverses all of it while the state ref still points at the published',
+      'baseline. Once the ledger has moved past it, the undo refuses: dropping that',
+      'history is a human decision, not a tool default.',
+      '',
+      'Examples:',
+      '  changeledger cutover',
+      '  changeledger cutover --undo',
+    ].join('\n'),
+  )
+  .action(action((options) => cutover({ undo: Boolean(options.undo) })));
+
+program
+  .command('activate')
+  .description('activate this checkout against an already published state ref')
+  .addHelpText(
+    'after',
+    [
+      '',
+      'For a clone or worktree of a repo that was already cut over: it takes the',
+      'local activation decision against the existing state ref and nothing else.',
+      'Re-running over the same state is a no-op; an activation that already names',
+      'a different state ref is refused, never overwritten.',
+      '',
+      'Example:',
+      '  changeledger activate',
+    ].join('\n'),
+  )
+  .action(action(() => activate()));
+
+program
+  .command('sync')
+  .description("compare this repo's state ref with the remote, advance it safely, then publish")
+  .option('--status', 'report the local↔remote-tracking relation offline, with no network call')
+  .addHelpText(
+    'after',
+    [
+      '',
+      'Pure git over the remote the repo already configures (origin, or the single',
+      'configured one). It always compares first: identical is a no-op, a remote ahead',
+      'fast-forwards the local ref, a local ahead is published, and a divergence whose',
+      'two sides touched different documents is reconciled as one commit preserving',
+      'both journals. When both sides changed the SAME document differently, nothing is',
+      'written and every colliding document is reported for the human to resolve.',
+      '',
+      'It never blocks the local flow: no remote, no remote ref, an unreachable remote',
+      'or a checkout that is not activated are informative no-ops. Activation never',
+      'travels — each clone takes it locally with `changeledger activate`.',
+      '',
+      'Examples:',
+      '  changeledger sync',
+      '  changeledger sync --status',
+    ].join('\n'),
+  )
+  .action(action((options) => sync({ status: Boolean(options.status) })));
+
+program
+  .command('import')
+  .description('absorb one worktree-layout ref into this activated repo, all or nothing')
+  .requiredOption('--from <ref>', 'the ref whose tree holds the ledger to absorb')
+  .addHelpText(
+    'after',
+    [
+      '',
+      'For the branches that were in flight when the repo was cut over, and for the',
+      'documents that land on them afterwards: it validates every document visible',
+      'under that layout, then adds what is missing and updates every change whose',
+      'Log strictly extends the published one. Re-running the same ref is a no-op.',
+      '',
+      'The ref must BE a commit (an annotated tag is refused, never peeled), and the',
+      "state ref's config defines the layout and validation rules. The source's",
+      'config.yml is never imported. Any conflict aborts the whole import and is',
+      'yours to resolve.',
+      '',
+      'Example:',
+      '  changeledger import --from feature/in-flight',
+    ].join('\n'),
+  )
+  .action(action((options) => importFromRef({ from: options.from })));
 
 program
   .command('context')
@@ -359,7 +574,8 @@ program
   )
   .action(
     action((id, st) => {
-      status(id, st, process.cwd(), { actor: 'agent' });
+      const { warnings } = status(id, st, process.cwd(), { actor: 'agent' });
+      for (const warning of warnings) console.error(warning);
       console.log(`#${id} → ${st}`);
     }),
   );
@@ -496,6 +712,27 @@ program
     action((id, name) => {
       owner(id, name);
       console.log(`#${id} owner → ${name === '-' ? '(cleared)' : name}`);
+    }),
+  );
+
+program
+  .command('branch')
+  .description("set or clear a change's branch")
+  .argument('<id>')
+  .argument('<name>', 'branch name, or "-" to clear it')
+  .addHelpText(
+    'after',
+    [
+      '',
+      'Examples:',
+      '  changeledger branch <id> feature/x',
+      '  changeledger branch <id> -   # clears the branch',
+    ].join('\n'),
+  )
+  .action(
+    action((id, name) => {
+      branch(id, name);
+      console.log(`#${id} branch → ${name === '-' ? '(cleared)' : name}`);
     }),
   );
 
@@ -722,7 +959,10 @@ configCommand
       const changeledgerDir = findChangeledgerDir();
       if (!changeledgerDir) throw new Error('Not a ChangeLedger repo.');
       const configFile = `${changeledgerDir}/config.yml`;
-      const result = applyMigration(configFile, { dryRun: options.dryRun ?? false });
+      const result = applyMigration(configFile, {
+        dryRun: options.dryRun ?? false,
+        repoRoot: path.dirname(changeledgerDir),
+      });
       console.log(result);
     }),
   );

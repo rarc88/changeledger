@@ -14,6 +14,8 @@ import {
 import { init } from '../src/commands/init.mjs';
 import { REFERENCE } from '../src/contract.mjs';
 import { assertTransition, CANONICAL_STATUSES, canTransition } from '../src/lifecycle.mjs';
+import { loadRepo } from '../src/repo.mjs';
+import { STATE_REF, writeActivation } from '../src/state-store.mjs';
 import {
   assertWithinBudget,
   contextBudgets,
@@ -23,6 +25,8 @@ import {
   tokenCount,
 } from './budget-support.mjs';
 import { contractFragmentNames } from './contract-support.mjs';
+import { sanitizedEnv } from './helpers/git-env.mjs';
+import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
 process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'context-home-'));
 
@@ -65,7 +69,11 @@ function headOutput(root, args, n) {
 }
 
 function cliContext(root, args) {
-  return execFileSync('node', [bin, 'context', ...args], { cwd: root, encoding: 'utf8' });
+  return execFileSync('node', [bin, 'context', ...args], {
+    cwd: root,
+    env: sanitizedEnv(),
+    encoding: 'utf8',
+  });
 }
 
 // Asserts the published N is the exact size of the CLI output: `head -N` keeps
@@ -429,6 +437,207 @@ test('CR2: change id infers implement and includes complete actionable stages', 
   assert.match(output, /\*\*Then\*\* exact criterion text is present/);
   assert.match(output, /## Plan[\s\S]*src\/example\.mjs/);
   assert.match(output, /## Log[\s\S]*Decision retained/);
+});
+
+// 20260808-151641 CR7 (correction round) — context is a read-only consumer of
+// `resolveChange`; on an activated repo it must resolve the change-id capture
+// from the state-ref snapshot, never a worktree phantom. Turns `repo()` into
+// a real git repo, writes a worktree-only change (`worktreeId`, never in the
+// snapshot) and seeds the state ref with a different one (`refId`) — the same
+// doc-only-in-ref-vs-only-in-worktree shape as repo.test.mjs's CR2, reusing
+// the worktree's own `config.yml` (byte-identical) as the snapshot config so
+// `types.feature` stays resolvable.
+function activatedContextFixture({ broken = false, malformedId } = {}) {
+  const root = repo();
+  execFileSync('git', ['init', '-q'], { cwd: root, env: sanitizedEnv() });
+  execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: root, env: sanitizedEnv() });
+  execFileSync('git', ['config', 'user.email', 'test@example.com'], {
+    cwd: root,
+    env: sanitizedEnv(),
+  });
+
+  const refId = '20260808-000001';
+  const worktreeId = '20260808-000002';
+  addChange(root, 'draft', worktreeId);
+
+  const configText = fs
+    .readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8')
+    .replace(/^language: en$/m, 'language: es');
+  const files = {
+    '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
+    '.changeledger-state/config.yml': configText,
+    '.changeledger-state/changes/context-fixture.md': `---
+id: "${refId}"
+title: Context fixture
+type: feature
+status: draft
+created: 2026-06-27T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+Need exact context.
+`,
+  };
+  if (broken) files['.changeledger-state/changes/broken.md'] = 'no frontmatter here\n';
+  // The activated loader (`loadActiveContent`) never has a real `file` path —
+  // its `changeErrors` entries carry only the snapshot-relative `name`
+  // (20260809-194236 defect 1: a mutant that drops the `entry.file ? ... :
+  // ...` branch and always returns the bare `entry.message` stays green
+  // against the on-disk fixtures, because on disk `readChangeFile` already
+  // bakes the file path into that same field).
+  if (malformedId)
+    files[`.changeledger-state/changes/${malformedId}-self.md`] = 'no frontmatter here\n';
+  const tree = buildTree(root, files);
+  const revision = commitTree(root, tree, { message: 'chore: state' });
+  updateRef(root, STATE_REF, revision);
+  writeActivation(root, { stateRef: STATE_REF });
+
+  return { root, refId, worktreeId };
+}
+
+test('20260808-151641 CR7: context resolves the snapshot change, not a worktree phantom, in an activated repo', () => {
+  const { root, refId, worktreeId } = activatedContextFixture();
+
+  const output = buildContext(refId, root);
+  assert.match(output, new RegExp(`change: #${refId}`));
+  assert.match(output, /## Request[\s\S]*Need exact context/);
+
+  assert.throws(
+    () => buildContext(worktreeId, root),
+    new RegExp(`Unknown context "${worktreeId}"`),
+  );
+});
+
+test('20260809-113242 CR3: changeless context captures use activated config policy', () => {
+  const { root } = activatedContextFixture();
+
+  assert.match(buildContext(undefined, root), /Effective policy: language=es/);
+  assert.match(buildContext('implement', root), /Effective policy: language=es/);
+});
+
+test('20260808-171107 CR5: activated context resolves an unknown id before an unrelated malformed change', () => {
+  const { root } = activatedContextFixture({ broken: true });
+
+  assert.throws(
+    () => buildContext('20990101-000000', root),
+    /Unknown context "20990101-000000" — valid modes: implement, review, spec, release \(or pass a change id\)/,
+  );
+  assert.throws(() => loadRepo(root), /broken\.md/);
+});
+
+// 20260809-194236 CR1/CR2 — post-review of 171107's CR5: that fix covers an
+// unrelated malformed sibling, but never the case where the malformed
+// document IS the id the human asked for. `loadRepoWithConfig` already
+// collects the exact parse diagnostic in `repo.changeErrors`; before this
+// change neither `context` nor `agent-context` consulted it on that id's own
+// resolution failure, so the better diagnosis was discarded for a generic
+// "unknown id".
+test('20260809-194236 CR1: the malformed document requested by id is named, not reported as unknown', () => {
+  const root = repo();
+  const id = '20990101-000000';
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'changes', `${id}-self.md`),
+    'no frontmatter here\n',
+  );
+
+  assert.throws(
+    () => buildContext(id, root),
+    (error) => {
+      assert.match(error.message, /Change is missing its frontmatter block/);
+      assert.doesNotMatch(error.message, /Unknown context/);
+      assert.match(error.message, new RegExp(`${id}-self\\.md`));
+      return true;
+    },
+  );
+});
+
+test('20260809-194236 CR2: a genuinely unknown id keeps the "Unknown context" message byte for byte', () => {
+  const root = repo();
+  const id = '20990101-000000';
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'changes', `${id}-self.md`),
+    'no frontmatter here\n',
+  );
+
+  assert.throws(
+    () => buildContext('20990101-999999', root),
+    (error) => {
+      assert.equal(
+        error.message,
+        'Unknown context "20990101-999999" — valid modes: implement, review, spec, release (or pass a change id)',
+      );
+      return true;
+    },
+  );
+});
+
+// Post-review defect 1: on the activated-snapshot shape, a changeError's
+// `file` is always `null` — naming the file falls entirely to the
+// `entry.name` branch of `changeParseFailureMessage`. A mutant that collapses
+// that branch to always `return entry.message` stays green against every
+// on-disk fixture above (there, `readChangeFile` already bakes the path into
+// `message`), so only an activated fixture pins it.
+test('20260809-194236 CR1 (activated): the malformed snapshot document requested by id is named, not reported as unknown', () => {
+  const id = '20990101-000000';
+  const { root } = activatedContextFixture({ malformedId: id });
+
+  assert.throws(
+    () => buildContext(id, root),
+    (error) => {
+      assert.match(error.message, /Change is missing its frontmatter block/);
+      assert.doesNotMatch(error.message, /Unknown context/);
+      assert.match(error.message, new RegExp(`${id}-self\\.md`));
+      return true;
+    },
+  );
+});
+
+// Post-review defect 2: matching by `name.startsWith(\`${id}-\`)` treats any
+// id that is a dash-prefix of a real filename's id as a match, so a
+// genuinely nonexistent partial id (here "20990101", a strict prefix of the
+// malformed sibling's real id "20990101-000000") wrongly inherited that
+// sibling's parse diagnosis instead of CR2's unknown-id message. Fixed by
+// extracting the filename's own id with its canonical `\d{8}-\d{6}` shape and
+// comparing exactly, rather than substring-matching the raw name.
+test('20260809-194236 CR2 (defect 2): a dash-prefix partial id is not confused with the real id it prefixes', () => {
+  const root = repo();
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'changes', '20990101-000000-self.md'),
+    'no frontmatter here\n',
+  );
+
+  assert.throws(
+    () => buildContext('20990101', root),
+    (error) => {
+      assert.equal(
+        error.message,
+        'Unknown context "20990101" — valid modes: implement, review, spec, release (or pass a change id)',
+      );
+      return true;
+    },
+  );
+});
+
+// 20260808-151641 R1 (correction round 2) — a regression the confirmation
+// review found: routing the change-id path through `loadRepo` made the
+// changeless paths (no input, or a mode keyword) call it too, and the sync
+// loader throws on the first unparseable change document. Before this change
+// (ccbb1148), `context` with no input or a mode never touched the changes
+// directory at all — a broken change document could not deny the mandatory
+// AGENTS.md bootstrap. Only the change-id path needs `repo.changes`.
+test('20260808-151641 R1: a legacy repo with one unparseable change still serves core and mode captures', () => {
+  const root = repo();
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'changes', 'broken.md'),
+    'no frontmatter here, just prose\n',
+  );
+
+  assert.doesNotThrow(() => buildContext(undefined, root));
+  assert.match(buildContext(undefined, root), /mode: core/);
+  assert.doesNotThrow(() => buildContext('implement', root));
+  assert.match(buildContext('implement', root), /mode: implement/);
 });
 
 test('20260629-210543 CR2: every supported status produces incremental change context', () => {
@@ -1716,8 +1925,8 @@ function declaredCeilings() {
 // not in a second copy.
 const PINNED_CEILINGS = {
   'base.core': { tokens: 4000, lines: 400 },
-  'base.spec': { tokens: 2500, lines: 250 },
-  'base.implement': { tokens: 2500, lines: 250 },
+  'base.spec': { tokens: 3000, lines: 300 },
+  'base.implement': { tokens: 3000, lines: 300 },
   'base.review': { tokens: 2500, lines: 250 },
   'base.release': { tokens: 2500, lines: 250 },
   agent: { tokens: 1250, lines: 125 },
@@ -1774,18 +1983,23 @@ test('20260728-212043 CR1: every lines ceiling is exactly its tokens ceiling div
   assert.equal(contextBudgets.base.core.lines, 400, 'base.core.lines must derive to 400');
 });
 
-// 20260728-212043 CR7: the token ceilings themselves are three decided values —
+// 20260728-212043 CR7: the token ceilings themselves are a few decided values —
 // core, contexts, everything else — not eleven independent numbers.
 //
 // 20260730-002908 removed the last exception: `base.spec` sat on a 3450 scaffold
-// whose exit condition was the authoring pack's refactor, and that refactor landed,
-// so spec now takes the same 2500 contexts share as the others. There is no scaffold
-// key left in the file and no entry outside the three values — the loop below sweeps
-// every context including spec, so a future widening cannot reintroduce a private
-// number without failing here.
-test('20260728-212043 CR7: token ceilings are the three decided values, with no scaffolded exception', () => {
+// whose exit condition was the authoring pack's refactor, and that refactor landed.
+// 20260811-122030 (human decision, 2026-08-11): the authoring and execution packs
+// — spec and implement — sat at 11 tokens of headroom, so both moved to a decided
+// 3000 while review/release keep 2500; headroom is still never licence to spend.
+// There is no scaffold key left in the file and no entry outside the decided
+// values — the loop below sweeps every context including spec, so a future
+// widening cannot reintroduce a private number without failing here.
+test('20260728-212043 CR7: token ceilings are the decided values, with no scaffolded exception', () => {
   assert.equal(contextBudgets.base.core.tokens, 4000, 'core token ceiling moved');
-  for (const context of ['spec', 'implement', 'review', 'release']) {
+  for (const context of ['spec', 'implement']) {
+    assert.equal(contextBudgets.base[context].tokens, 3000, `${context} token ceiling moved`);
+  }
+  for (const context of ['review', 'release']) {
     assert.equal(contextBudgets.base[context].tokens, 2500, `${context} token ceiling moved`);
   }
   assert.equal(contextBudgets.agent.tokens, 1250, 'agent token ceiling moved');
@@ -1956,7 +2170,7 @@ function composedCore() {
   return buildContext(undefined, repo()).replace(/\s+/g, ' ');
 }
 
-test('124835 CR1: core exposes the eleven blocks in the decided order', () => {
+test('124835 CR1: core exposes the twelve blocks in the decided order', () => {
   const core = buildContext(undefined, repo());
   const blocks = [
     '# ChangeLedger — Core Contract',
@@ -1969,6 +2183,8 @@ test('124835 CR1: core exposes the eleven blocks in the decided order', () => {
     '## Commits',
     '## Lifecycle',
     '## Context modes',
+    // 20260811-151427: the sync obligation joined core as its own decided block.
+    '## Synchronizing the global state',
     '## Operational discovery',
   ];
   const positions = blocks.map((block) => {
@@ -2671,10 +2887,16 @@ test('111349 CR1/CR2/CR3/CR5: no fragment fixes the number of implementation com
 // superseded formulations, plus the two-formulation miscount, must never come back. That
 // is the retired-phrase sweep the decision keeps, and it is also what still holds when
 // the surrounding prose is rewritten.
+// 20260810-175519: resolved through the product's own read authority (`loadRepo`),
+// not `readFileSync` — after a cutover this repo's specs live only in the state ref,
+// and a direct worktree read reports the spec as missing instead of sweeping it. The
+// existence assert keeps what the ENOENT used to guarantee: a deleted spec fails the
+// sweep rather than passing it vacuously.
 function graduatedGitSpec() {
-  return fs
-    .readFileSync(new URL('../.changeledger/specs/git-traceability.md', import.meta.url), 'utf8')
-    .replace(/\s+/g, ' ');
+  const repo = loadRepo(fileURLToPath(new URL('../', import.meta.url)));
+  const spec = repo.specs.find((s) => s.name === 'git-traceability.md');
+  assert.ok(spec, 'the graduated spec git-traceability.md is missing from the ledger');
+  return spec.body.replace(/\s+/g, ' ');
 }
 
 test('111349 CR6: the graduated spec regrows no superseded commit formulation', () => {
@@ -2808,7 +3030,7 @@ test('162015 CR3/CR4: delegation.md points at the unit instead of redefining it'
 //
 // The phrase-level pins over `templates/contract/` prose are retired: every one of
 // them charged a retarget, a mutant and review scrutiny to each rewrite of a
-// sentence, and that cost is what the decision removes. Thirteen carrier obligations
+// sentence, and that cost is what the decision removes. Fifteen carrier obligations
 // keep a guard anyway, because losing one in silence is a different failure class
 // from rewording one (finding 38: normative prose lost with nothing noticing, three
 // times, exploit proven live).
@@ -3082,6 +3304,52 @@ const CONCEPT_GUARDS = [
         close,
         /\bCR\b.{0,50}\b(headings?|identifiers?)\b.{0,120}\b(never|not|must not|do not)\b.{0,50}\bspecs?\b|\b(never|not|must not|do not)\b.{0,50}\bCR\b.{0,50}\b(headings?|identifiers?)\b/i,
         'the close fragment no longer excludes change-local CR structure from specs',
+      );
+    },
+  },
+  {
+    entry: 14,
+    obligation:
+      'the correction cycle returns to the human at the third round, and adversarial probes are measured against the trust model',
+    verify: (pack) => {
+      assert.match(
+        pack('review'),
+        /\bthird\b[^.;]{0,40}\bround\b[^.;]{0,110}\bhuman\b|\bhuman\b[^.;]{0,110}\bthird\b[^.;]{0,40}\bround\b/i,
+        'review no longer bounds the correction cycle at the third round',
+      );
+      assert.match(
+        pack('review'),
+        /\b(probes?|adversar\w+)\b[^.;]{0,140}\b(trust model|INTENT)\b/i,
+        'review no longer measures adversarial probes against the trust model',
+      );
+    },
+  },
+  {
+    entry: 15,
+    obligation:
+      'sync runs at the strategic points and a same-document conflict goes to the human, never blocking the local flow',
+    verify: (pack) => {
+      assert.match(
+        pack('core'),
+        /`?sync`?[^.;]{0,200}\b(session|review|closure|handoff)\b/i,
+        'core no longer obliges running sync at the strategic points',
+      );
+      assert.match(
+        pack('core'),
+        /\bsame document\b[^.;]{0,160}\bhuman\b|\bhuman\b[^.;]{0,160}\bsame document\b/i,
+        'core no longer routes same-document sync conflicts to the human',
+      );
+      assert.match(
+        pack('core'),
+        /\bsync\b[^.;]{0,160}\b(never|not)\b[^.;]{0,30}\bblock\w*/i,
+        'core no longer declares sync non-blocking',
+      );
+      // 20260812-003313: the adoption entry point — a clean-context agent found
+      // `cutover` only by listing help; core must name how the state is adopted.
+      assert.match(
+        pack('core'),
+        /\bnot yet activated\b[^.;]{0,90}\bcutover\b|\bcutover\b[^.;]{0,80}\bintegration branch\b/i,
+        'core no longer names cutover as the adoption entry point',
       );
     },
   },

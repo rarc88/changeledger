@@ -6,11 +6,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { mutateFileAtomic, withFileLock } from '../atomic-write.mjs';
 import { parseChange } from '../change.mjs';
-import { assertChangeTextValid } from '../check.mjs';
-import { integrationBranch, renderChangeBranch } from '../config.mjs';
+import { mutateLedgerFile, repoIsActivated, writeLedgerFiles } from '../change-store.mjs';
+import { assertChangeTextValid, assertStagesNotEmpty } from '../check.mjs';
+import { findChangeledgerDir, integrationBranch, renderChangeBranch } from '../config.mjs';
 import { assertSupportedSchema } from '../config-migration.mjs';
 import {
   currentBranch,
+  checkoutBranch as defaultCheckoutBranch,
   defaultRun as defaultGitRun,
   ownerHandle as defaultOwnerHandle,
   isAncestor,
@@ -18,13 +20,56 @@ import {
 import { assertTransition, parseLogEvent } from '../lifecycle.mjs';
 import { nowUtc } from '../paths.mjs';
 import { resolveReleasesDir } from '../release.mjs';
-import { loadRepo, resolveChange } from '../repo.mjs';
-import { appendLogEvent, setArchived, setOwner, setStatus, setTask } from '../writer.mjs';
+import { loadRepo, resolveChange, resolveChangeInRepo } from '../repo.mjs';
+import {
+  appendLogEvent,
+  setArchived,
+  setBranch,
+  setOwner,
+  setStatus,
+  setTask,
+} from '../writer.mjs';
 
+// Locates a change and the ledger it lives in. Inactive: unchanged —
+// `resolveChange` scans the worktree, tolerant of unrelated unparseable
+// siblings (150231 CR6). Active: the document may not exist on disk at all,
+// so it is resolved from the loaded repo's snapshot (`resolveChangeInRepo`),
+// and the mutation target carries the state-tree relative path plus the text
+// already read at `repo.state.revision` instead of a worktree file.
 function locate(cwd, id) {
-  const { config, file, repoRoot } = resolveChange(cwd, id);
+  const changeledgerDir = findChangeledgerDir(cwd);
+  if (!changeledgerDir) throw new Error('Not a ChangeLedger repo. Run `changeledger init` first.');
+  const repoRoot = path.dirname(changeledgerDir);
+
+  if (repoIsActivated(repoRoot)) {
+    const repo = loadRepo(cwd);
+    assertSupportedSchema(repo.config);
+    const change = resolveChangeInRepo(repo, id);
+    const relPath = `changes/${change.name}`;
+    return {
+      config: repo.config,
+      repoRoot: repo.repoRoot,
+      repo,
+      // `file` here is the written path callers return (CR9), not a
+      // worktree location — `mutateLedgerFile`'s active branch never reads
+      // it, only `target.relPath`/`target.text`; it decides its branch by
+      // `repo.state`, not by this field's shape.
+      target: { relPath, text: change.text, file: relPath },
+      gitCwd: repo.repoRoot,
+      name: change.name,
+    };
+  }
+
+  const { config, file, repoRoot: rr } = resolveChange(cwd, id);
   assertSupportedSchema(config);
-  return { config, file, repoRoot };
+  return {
+    config,
+    repoRoot: rr,
+    repo: { state: null, repoRoot: rr },
+    target: { file },
+    gitCwd: path.dirname(file),
+    name: path.basename(file),
+  };
 }
 
 function assertImplementationBranch(config, change, repoRoot, gitRun) {
@@ -44,18 +89,11 @@ function assertImplementationBranch(config, change, repoRoot, gitRun) {
   }
 }
 
-export function status(
-  id,
-  newStatus,
-  cwd = process.cwd(),
-  {
-    ownerHandle = defaultOwnerHandle,
-    gitRun = defaultGitRun,
-    actor = 'human',
-    channel = 'viewer',
-  } = {},
-) {
-  const { config, file, repoRoot } = locate(cwd, id);
+// The pre-text guards of `status`: which destinations this actor may ask for at
+// all, before any document is read. Each terminal or human-owned destination
+// names the command that owns it, so a caller that is not a human — `apply`'s
+// batch included — is told where the move actually belongs.
+export function assertStatusDestinationAllowed(config, newStatus, actor) {
   if (newStatus === 'discarded') {
     throw new Error(
       'to discard a change use `changeledger discard <id> "<reason>"` (a reason is required)',
@@ -72,7 +110,22 @@ export function status(
   if (!(config.statuses ?? []).includes(newStatus)) {
     throw new Error(`Invalid status "${newStatus}". Valid: ${(config.statuses ?? []).join(', ')}`);
   }
-  mutateFileAtomic(file, (text) => {
+}
+
+// The whole text transform of `status`, lifted out of its `mutateLedgerFile`
+// call so `apply` can run it against an accumulated candidate instead of a
+// stored document. `warnings` is the caller's array — the branch-drift warning
+// is collected, never thrown.
+export function statusMutation(
+  newStatus,
+  { config, repoRoot, gitCwd, name, warnings, actor = 'human', channel = 'viewer' },
+  {
+    ownerHandle = defaultOwnerHandle,
+    checkoutBranch = defaultCheckoutBranch,
+    gitRun = defaultGitRun,
+  } = {},
+) {
+  return (text) => {
     const fm = parseChange(text).frontmatter;
     if (fm.status === 'done' && newStatus === 'in-progress') {
       throw new Error('to reopen a done change use `changeledger reopen <id> "<reason>"`');
@@ -84,6 +137,24 @@ export function status(
       type: fm.type,
       reviewRequired: Boolean(config.types?.[fm.type]?.review_required),
     });
+
+    // Enforceability guard (20260808-141944): the `branch` field is set once
+    // and never rewritten (20260805-052741), so a later move to another branch
+    // leaves it silently stale. Compare it against the real checkout on every
+    // transition and surface a non-blocking warning — never rewrite, never
+    // block: the move is legitimate, the invisibility is the defect. Only
+    // meaningful when both values are known; checkoutBranch() returns '' for
+    // detached HEAD, unborn branch or a failed subprocess, and there is
+    // nothing to compare against an unset field.
+    if (fm.branch) {
+      const actualBranch = checkoutBranch(gitCwd);
+      if (actualBranch && actualBranch !== fm.branch) {
+        warnings.push(
+          `change #${fm.id} records branch "${fm.branch}" but this checkout is on "${actualBranch}" — if the work moved, run: changeledger branch ${fm.id} ${actualBranch}`,
+        );
+      }
+    }
+
     if (fm.status === 'approved' && newStatus === 'in-progress') {
       assertImplementationBranch(config, fm, repoRoot, gitRun);
     }
@@ -91,7 +162,7 @@ export function status(
     // Validate the document as it still stands, before the status flip: readiness
     // defects are errors only while the change is pre-review, so checking the
     // post-flip text would silently exempt the very candidate under judgment.
-    if (newStatus === 'in-review') assertChangeTextValid(config, path.basename(file), text);
+    if (newStatus === 'in-review') assertChangeTextValid(config, name, text);
     // Leaving draft asserts a ready candidate exists (20260729-185200 CR1). Same
     // shape as the in-review gate — validate the pre-flip text — but the severity
     // has to be projected: a draft's readiness and coverage diagnostics are
@@ -99,7 +170,12 @@ export function status(
     // would exempt every defect the approval is supposed to catch. `approved` is
     // reachable only from `draft`, so this is the single seat for the gate.
     if (newStatus === 'approved') {
-      assertChangeTextValid(config, path.basename(file), text, { asStatus: 'approved' });
+      assertChangeTextValid(config, name, text, { asStatus: 'approved' });
+      // Emptiness of an active stage's body is a defect coverage checks alone
+      // cannot see — an empty Specification declares no criteria, so nothing
+      // references an unknown one and nothing goes uncovered (real incident:
+      // 20260810-181801). Transition-scoped on purpose; see assertStagesNotEmpty.
+      assertStagesNotEmpty(config, text);
     }
     text = setStatus(text, newStatus);
     const detail =
@@ -122,7 +198,7 @@ export function status(
     // actually needed — an assigned owner must never trigger the resolver's network
     // call just to discard the result (20260729-144812).
     if (newStatus === 'in-progress' && !fm.owner) {
-      const autoOwner = ownerHandle(path.dirname(file));
+      const autoOwner = ownerHandle(gitCwd);
       if (autoOwner) {
         text = setOwner(text, autoOwner);
         text = appendLogEvent(text, {
@@ -133,9 +209,52 @@ export function status(
         });
       }
     }
+
+    // Same pattern as owner above (20260805-052741): record the real branch of
+    // the checkout that starts the work, unless one is already set — manually
+    // or from a previous in-progress entry. Resolution runs only when needed.
+    if (newStatus === 'in-progress' && !fm.branch) {
+      const autoBranch = checkoutBranch(gitCwd);
+      if (autoBranch) {
+        text = setBranch(text, autoBranch);
+        text = appendLogEvent(text, {
+          at: nowUtc(),
+          type: 'branch',
+          branch: autoBranch,
+          automatic: true,
+        });
+      }
+    }
     return text;
-  });
-  return file;
+  };
+}
+
+export function status(
+  id,
+  newStatus,
+  cwd = process.cwd(),
+  {
+    ownerHandle = defaultOwnerHandle,
+    checkoutBranch = defaultCheckoutBranch,
+    gitRun = defaultGitRun,
+    actor = 'human',
+    channel = 'viewer',
+  } = {},
+) {
+  const { config, repo, target, repoRoot, gitCwd, name } = locate(cwd, id);
+  const warnings = [];
+  assertStatusDestinationAllowed(config, newStatus, actor);
+  mutateLedgerFile(
+    repo,
+    target,
+    statusMutation(
+      newStatus,
+      { config, repoRoot, gitCwd, name, warnings, actor, channel },
+      { ownerHandle, checkoutBranch, gitRun },
+    ),
+    { message: `status: ${id} → ${newStatus}` },
+  );
+  return { file: target.file, warnings };
 }
 
 // Transmits an explicit human approval received through the host conversation.
@@ -150,69 +269,74 @@ export function approve(id, cwd = process.cwd()) {
 // implementer fixes), `block` for one that escalates to a human. Requires the
 // change to be in-review.
 export function review(id, verdict, { mode, reason } = {}, cwd = process.cwd()) {
-  const { config, file } = locate(cwd, id);
-  mutateFileAtomic(file, (text) => {
-    const fm = parseChange(text).frontmatter;
-    const current = fm.status;
-    if (current !== 'in-review') {
-      throw new Error(`review requires status in-review (current: ${current})`);
-    }
-    // Validate before any mutation, same contract as status()/validation()/
-    // discard()/reopen(): assertTransition is the single lifecycle authority,
-    // even though every in-review edge is legal today (the graph's three
-    // in-review destinations mirror review()'s three outcomes by design).
-    const opts = {
-      type: fm.type,
-      reviewRequired: Boolean(config.types?.[fm.type]?.review_required),
-    };
-
-    if (verdict === 'pass') {
-      assertTransition(current, 'in-validation', opts);
-      text = setStatus(text, 'in-validation');
-      text = appendLogEvent(text, {
-        at: nowUtc(),
-        type: 'review',
-        from: 'in-review',
-        to: 'in-validation',
-        detail: 'delegated subagent, clean context',
-      });
-    } else if (verdict === 'fail') {
-      if (!reason) {
-        throw new Error(
-          'fail requires a reason — changeledger review <id> fail --retry|--block "<reason>"',
-        );
+  const { config, repo, target } = locate(cwd, id);
+  mutateLedgerFile(
+    repo,
+    target,
+    (text) => {
+      const fm = parseChange(text).frontmatter;
+      const current = fm.status;
+      if (current !== 'in-review') {
+        throw new Error(`review requires status in-review (current: ${current})`);
       }
-      if (mode === 'retry') {
-        assertTransition(current, 'in-progress', opts);
-        text = setStatus(text, 'in-progress');
+      // Validate before any mutation, same contract as status()/validation()/
+      // discard()/reopen(): assertTransition is the single lifecycle authority,
+      // even though every in-review edge is legal today (the graph's three
+      // in-review destinations mirror review()'s three outcomes by design).
+      const opts = {
+        type: fm.type,
+        reviewRequired: Boolean(config.types?.[fm.type]?.review_required),
+      };
+
+      if (verdict === 'pass') {
+        assertTransition(current, 'in-validation', opts);
+        text = setStatus(text, 'in-validation');
         text = appendLogEvent(text, {
           at: nowUtc(),
           type: 'review',
           from: 'in-review',
-          to: 'in-progress',
-          detail: 'retry',
-          reason,
+          to: 'in-validation',
+          detail: 'delegated subagent, clean context',
         });
-      } else if (mode === 'block') {
-        assertTransition(current, 'blocked', opts);
-        text = setStatus(text, 'blocked');
-        text = appendLogEvent(text, {
-          at: nowUtc(),
-          type: 'review',
-          from: 'in-review',
-          to: 'blocked',
-          reason,
-        });
+      } else if (verdict === 'fail') {
+        if (!reason) {
+          throw new Error(
+            'fail requires a reason — changeledger review <id> fail --retry|--block "<reason>"',
+          );
+        }
+        if (mode === 'retry') {
+          assertTransition(current, 'in-progress', opts);
+          text = setStatus(text, 'in-progress');
+          text = appendLogEvent(text, {
+            at: nowUtc(),
+            type: 'review',
+            from: 'in-review',
+            to: 'in-progress',
+            detail: 'retry',
+            reason,
+          });
+        } else if (mode === 'block') {
+          assertTransition(current, 'blocked', opts);
+          text = setStatus(text, 'blocked');
+          text = appendLogEvent(text, {
+            at: nowUtc(),
+            type: 'review',
+            from: 'in-review',
+            to: 'blocked',
+            reason,
+          });
+        } else {
+          throw new Error('fail requires --retry or --block');
+        }
       } else {
-        throw new Error('fail requires --retry or --block');
+        throw new Error(`Unknown review verdict "${verdict}" (use pass|fail)`);
       }
-    } else {
-      throw new Error(`Unknown review verdict "${verdict}" (use pass|fail)`);
-    }
 
-    return text;
-  });
-  return file;
+      return text;
+    },
+    { message: `review: ${id} ${verdict}` },
+  );
+  return target.file;
 }
 
 // Records a validation verdict while keeping the deciding actor and interaction
@@ -223,97 +347,150 @@ export function validation(
   { reason, actor = 'human', channel = 'viewer' } = {},
   cwd = process.cwd(),
 ) {
-  const { config, file } = locate(cwd, id);
-  mutateFileAtomic(file, (text) => {
-    const fm = parseChange(text).frontmatter;
-    const current = fm.status;
-    let target;
-    if (verdict === 'pass') {
-      target = 'done';
-    } else if (verdict === 'fail') {
-      if (!String(reason ?? '').trim()) throw new Error('validation fail requires a reason');
-      target = 'in-progress';
-    } else {
-      throw new Error(`Unknown validation verdict "${verdict}" (use pass|fail)`);
-    }
-    if (current !== 'in-validation') {
-      throw new Error(`validation requires status in-validation (current: ${current})`);
-    }
-    assertTransition(current, target, {
-      type: fm.type,
-      reviewRequired: Boolean(config.types?.[fm.type]?.review_required),
-    });
-    text = setStatus(text, target);
-    const detail =
-      verdict === 'pass'
-        ? channel === 'conversation'
-          ? 'human accepted via conversation'
-          : 'human accepted'
-        : channel === 'conversation' && actor === 'human'
-          ? 'human rejected via conversation'
-          : `${actor} rejected`;
-    text = appendLogEvent(text, {
-      at: nowUtc(),
-      type: 'validation',
-      from: 'in-validation',
-      to: target,
-      detail,
-      reason: verdict === 'fail' ? reason : undefined,
-    });
-    if (verdict === 'pass') assertChangeTextValid(config, path.basename(file), text);
-    return text;
-  });
-  return file;
+  const { config, repo, target, name } = locate(cwd, id);
+  mutateLedgerFile(
+    repo,
+    target,
+    (text) => {
+      const fm = parseChange(text).frontmatter;
+      const current = fm.status;
+      let to;
+      if (verdict === 'pass') {
+        to = 'done';
+      } else if (verdict === 'fail') {
+        if (!String(reason ?? '').trim()) throw new Error('validation fail requires a reason');
+        to = 'in-progress';
+      } else {
+        throw new Error(`Unknown validation verdict "${verdict}" (use pass|fail)`);
+      }
+      if (current !== 'in-validation') {
+        throw new Error(`validation requires status in-validation (current: ${current})`);
+      }
+      assertTransition(current, to, {
+        type: fm.type,
+        reviewRequired: Boolean(config.types?.[fm.type]?.review_required),
+      });
+      text = setStatus(text, to);
+      const detail =
+        verdict === 'pass'
+          ? channel === 'conversation'
+            ? 'human accepted via conversation'
+            : 'human accepted'
+          : channel === 'conversation' && actor === 'human'
+            ? 'human rejected via conversation'
+            : `${actor} rejected`;
+      text = appendLogEvent(text, {
+        at: nowUtc(),
+        type: 'validation',
+        from: 'in-validation',
+        to,
+        detail,
+        reason: verdict === 'fail' ? reason : undefined,
+      });
+      if (verdict === 'pass') assertChangeTextValid(config, name, text);
+      return text;
+    },
+    { message: `validation: ${id} ${verdict}` },
+  );
+  return target.file;
 }
 
 // Correction path while `done` is still provisional. Graduation,
 // skip, archive and release membership are durable boundaries and fail closed.
+function reopenMutation({ config, actor, reason, released }) {
+  return (text) => {
+    const change = { ...parseChange(text), text };
+    const fm = change.frontmatter;
+    if (fm.status !== 'done')
+      throw new Error(`reopen requires status done (current: ${fm.status})`);
+    if (fm.reviewed === true) throw new Error('cannot reopen: graduation is already reviewed');
+    if (hasGraduationResolution(change))
+      throw new Error('cannot reopen: graduation is already resolved');
+    if (fm.archived === true) throw new Error('cannot reopen: change is archived');
+    if (released) throw new Error('cannot reopen: change belongs to a recorded release');
+    assertTransition('done', 'in-progress', {
+      type: fm.type,
+      reviewRequired: Boolean(config.types?.[fm.type]?.review_required),
+    });
+    text = setStatus(text, 'in-progress');
+    return appendLogEvent(text, {
+      at: nowUtc(),
+      type: 'status',
+      from: 'done',
+      to: 'in-progress',
+      detail: `${actor} reopened`,
+      reason,
+    });
+  };
+}
+
 export function reopen(id, reason, cwd = process.cwd(), { actor = 'human' } = {}) {
   if (!String(reason ?? '').trim()) throw new Error('reopen requires a reason');
-  const { config, file, repoRoot } = locate(cwd, id);
+  const { config, repo, target, repoRoot } = locate(cwd, id);
+
+  // Active: the released-check/write pair needs no worktree lock — any
+  // concurrent write (a release included) advances the state ref, so the
+  // write below's CAS on `repo.state.revision` (captured by `locate()`
+  // before this check) conflicts on its own. A lock file here would touch
+  // the worktree for no protection this repo doesn't already have.
+  if (repo.state) {
+    const released = loadRepo(cwd).releases.some((release) =>
+      (release.changes ?? []).some((changeId) => String(changeId) === String(id)),
+    );
+    mutateLedgerFile(repo, target, reopenMutation({ config, actor, reason, released }), {
+      message: `reopen: ${id}`,
+    });
+    return target.file;
+  }
+
   const releasesDir = resolveReleasesDir(repoRoot);
   fs.mkdirSync(releasesDir, { recursive: true });
   return withFileLock(path.join(releasesDir, '.history'), () => {
     const released = loadRepo(cwd).releases.some((release) =>
       (release.changes ?? []).some((changeId) => String(changeId) === String(id)),
     );
-    mutateFileAtomic(file, (text) => {
-      const change = { ...parseChange(text), text };
-      const fm = change.frontmatter;
-      if (fm.status !== 'done')
-        throw new Error(`reopen requires status done (current: ${fm.status})`);
-      if (fm.reviewed === true) throw new Error('cannot reopen: graduation is already reviewed');
-      if (hasGraduationResolution(change))
-        throw new Error('cannot reopen: graduation is already resolved');
-      if (fm.archived === true) throw new Error('cannot reopen: change is archived');
-      if (released) throw new Error('cannot reopen: change belongs to a recorded release');
-      assertTransition('done', 'in-progress', {
-        type: fm.type,
-        reviewRequired: Boolean(config.types?.[fm.type]?.review_required),
-      });
-      text = setStatus(text, 'in-progress');
-      return appendLogEvent(text, {
-        at: nowUtc(),
-        type: 'status',
-        from: 'done',
-        to: 'in-progress',
-        detail: `${actor} reopened`,
-        reason,
-      });
+    mutateLedgerFile(repo, target, reopenMutation({ config, actor, reason, released }), {
+      message: `reopen: ${id}`,
     });
-    return file;
+    return target.file;
   });
+}
+
+// Text transform of `owner`, lifted out for the same reason as
+// `statusMutation`: `apply` runs it against an accumulated candidate.
+export function ownerMutation(next) {
+  return (text) => {
+    text = setOwner(text, next);
+    return appendLogEvent(text, { at: nowUtc(), type: 'owner', owner: next });
+  };
 }
 
 // name '-' clears the owner.
 export function owner(id, name, cwd = process.cwd()) {
-  const { file } = locate(cwd, id);
+  const { repo, target } = locate(cwd, id);
   const next = name === '-' ? null : name;
-  mutateFileAtomic(file, (text) => {
-    text = setOwner(text, next);
-    return appendLogEvent(text, { at: nowUtc(), type: 'owner', owner: next });
+  mutateLedgerFile(repo, target, ownerMutation(next), {
+    message: `owner: ${id} ${next ?? '-'}`,
   });
-  return file;
+  return target.file;
+}
+
+// Explicit correction for the branch auto-assigned at in-progress (20260805-052741):
+// covers a rename or a cherry-pick to another branch, which the auto-assignment
+// never detects on its own. name '-' clears the branch.
+export function branch(id, name, cwd = process.cwd()) {
+  const { repo, target } = locate(cwd, id);
+  const next = name === '-' ? null : name;
+  mutateLedgerFile(
+    repo,
+    target,
+    (text) => {
+      text = setBranch(text, next);
+      return appendLogEvent(text, { at: nowUtc(), type: 'branch', branch: next });
+    },
+    { message: `branch: ${id} ${next ?? '-'}` },
+  );
+  return target.file;
 }
 
 // Discards a change: a terminal lifecycle move that keeps the file and its
@@ -323,33 +500,43 @@ export function discard(id, reason, cwd = process.cwd()) {
   if (!reason) {
     throw new Error('discard requires a reason — changeledger discard <id> "<reason>"');
   }
-  const { config, file } = locate(cwd, id);
-  mutateFileAtomic(file, (text) => {
-    const fm = parseChange(text).frontmatter;
-    // Validate before any mutation so an illegal discard leaves the file untouched.
-    assertTransition(fm.status, 'discarded', {
-      type: fm.type,
-      reviewRequired: Boolean(config.types?.[fm.type]?.review_required),
-    });
-    text = setStatus(text, 'discarded');
-    return appendLogEvent(text, {
-      at: nowUtc(),
-      type: 'status',
-      from: fm.status,
-      to: 'discarded',
-      reason,
-    });
-  });
-  return file;
+  const { config, repo, target } = locate(cwd, id);
+  mutateLedgerFile(
+    repo,
+    target,
+    (text) => {
+      const fm = parseChange(text).frontmatter;
+      // Validate before any mutation so an illegal discard leaves the file untouched.
+      assertTransition(fm.status, 'discarded', {
+        type: fm.type,
+        reviewRequired: Boolean(config.types?.[fm.type]?.review_required),
+      });
+      text = setStatus(text, 'discarded');
+      return appendLogEvent(text, {
+        at: nowUtc(),
+        type: 'status',
+        from: fm.status,
+        to: 'discarded',
+        reason,
+      });
+    },
+    { message: `discard: ${id}` },
+  );
+  return target.file;
 }
 
 export function archive(id, cwd = process.cwd()) {
-  const { file } = locate(cwd, id);
-  mutateFileAtomic(file, (text) => {
-    text = setArchived(text, true);
-    return appendLogEvent(text, { at: nowUtc(), type: 'archive' });
-  });
-  return file;
+  const { repo, target } = locate(cwd, id);
+  mutateLedgerFile(
+    repo,
+    target,
+    (text) => {
+      text = setArchived(text, true);
+      return appendLogEvent(text, { at: nowUtc(), type: 'archive' });
+    },
+    { message: `archive: ${id}` },
+  );
+  return target.file;
 }
 
 function assertOwnerFilter({ owner: byOwner, unowned = false } = {}) {
@@ -373,22 +560,50 @@ export function selectArchivableGraduated(changes, filters = {}) {
   return changes.filter((c) => isArchivableGraduated(c) && matchesOwner(c, filters));
 }
 
+// Archives every change the filters select. Inactive: one write per file,
+// same as before — order and cross-file atomicity were never guaranteed
+// here. Active: every write is staged first (each transform re-checked
+// against the text it would actually see, exactly as the per-file loop
+// would) and landed in exactly one CAS commit, since `repo.state.revision`
+// is fixed at load time and a per-file `mutateLedgerFile` sequence would
+// stale-conflict on its own second write.
 export function archiveGraduated(filters = {}, cwd = process.cwd()) {
-  const { changes, config } = loadRepo(cwd);
-  assertSupportedSchema(config);
-  const selected = selectArchivableGraduated(changes, filters);
-  for (const c of selected) {
-    mutateFileAtomic(c.file, (text) => {
-      const current = { ...parseChange(text), text };
-      if (!isArchivableGraduated(current) || !matchesOwner(current, filters)) return undefined;
-      text = setArchived(text, true);
-      return appendLogEvent(text, { at: nowUtc(), type: 'archive' });
-    });
+  const repo = loadRepo(cwd);
+  assertSupportedSchema(repo.config);
+  const selected = selectArchivableGraduated(repo.changes, filters);
+
+  if (repo.state) {
+    const entries = [];
+    for (const c of selected) {
+      const current = { ...parseChange(c.text), text: c.text };
+      if (!isArchivableGraduated(current) || !matchesOwner(current, filters)) continue;
+      let text = setArchived(c.text, true);
+      text = appendLogEvent(text, { at: nowUtc(), type: 'archive' });
+      entries.push({ relPath: `changes/${c.name}`, text });
+    }
+    if (entries.length) {
+      writeLedgerFiles(repo, entries, {
+        message: `archive: ${selected.map((c) => c.frontmatter.id).join(', ')}`,
+      });
+    }
+  } else {
+    for (const c of selected) {
+      mutateFileAtomic(c.file, (text) => {
+        const current = { ...parseChange(text), text };
+        if (!isArchivableGraduated(current) || !matchesOwner(current, filters)) return undefined;
+        text = setArchived(text, true);
+        return appendLogEvent(text, { at: nowUtc(), type: 'archive' });
+      });
+    }
   }
+
   return selected.map((c) => ({
     id: c.frontmatter.id,
     title: c.frontmatter.title,
-    file: c.file,
+    // `c.file` is `null` in active mode (`repo.changes` never carries a
+    // worktree path there, per `repo.mjs`'s `loadActiveContent`) — CR9
+    // wants the written path in both modes, never `null`/`undefined`.
+    file: c.file ?? `changes/${c.name}`,
   }));
 }
 
@@ -406,20 +621,32 @@ function hasGraduationResolution(c) {
   return logBody.split('\n').some((line) => parseLogEvent(line)?.type === 'graduation');
 }
 
-export function log(id, message, cwd = process.cwd()) {
-  const { file } = locate(cwd, id);
-  mutateFileAtomic(file, (text) => appendLogEvent(text, { at: nowUtc(), type: 'note', message }));
-  return file;
+// Text transform of `log` — see `statusMutation` for why it is a seat.
+export function logMutation(message) {
+  return (text) => appendLogEvent(text, { at: nowUtc(), type: 'note', message });
 }
 
-export function task(id, action, n, reason, cwd = process.cwd()) {
-  const { file } = locate(cwd, id);
-  mutateFileAtomic(file, (text) => {
+export function log(id, message, cwd = process.cwd()) {
+  const { repo, target } = locate(cwd, id);
+  mutateLedgerFile(repo, target, logMutation(message), { message: `log: ${id}` });
+  return target.file;
+}
+
+// Text transform of `task` — see `statusMutation` for why it is a seat.
+export function taskMutation(action, n, reason) {
+  return (text) => {
     if (action === 'done') return setTask(text, n, 'done', { iso: nowUtc() });
     if (action === 'block') return setTask(text, n, 'blocked', { reason });
     throw new Error(`Unknown task action "${action}" (use done|block)`);
+  };
+}
+
+export function task(id, action, n, reason, cwd = process.cwd()) {
+  const { repo, target } = locate(cwd, id);
+  mutateLedgerFile(repo, target, taskMutation(action, n, reason), {
+    message: `task: ${id} ${n} ${action}`,
   });
-  return file;
+  return target.file;
 }
 
 export function list(
@@ -462,6 +689,7 @@ export function list(
       type: c.frontmatter.type,
       status: c.frontmatter.status,
       owner: c.frontmatter.owner ?? null,
+      branch: c.frontmatter.branch ?? null,
       archived: c.frontmatter.archived === true,
       progress: c.progress,
     }));

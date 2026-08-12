@@ -22,6 +22,14 @@ export function setOwner(text, owner) {
   });
 }
 
+// Sets, updates or removes the optional `branch:` frontmatter line. A falsy
+// branch removes it. New lines are placed right after `depends_on`.
+export function setBranch(text, branch) {
+  return mutateFrontmatter(text, (fm, doc) => {
+    return patchOptionalPair(fm, doc, 'branch', branch || null);
+  });
+}
+
 // Sets or removes the optional `archived: true` frontmatter line.
 export function setArchived(text, archived) {
   return mutateFrontmatter(text, (fm, doc) => {

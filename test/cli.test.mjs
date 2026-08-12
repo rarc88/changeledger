@@ -8,16 +8,19 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 import { parseChange } from '../src/change.mjs';
-import { approve } from '../src/commands/agent.mjs';
+import { approve, list, show } from '../src/commands/agent.mjs';
 import { check } from '../src/commands/check.mjs';
 import { commit } from '../src/commands/commit.mjs';
 import { init } from '../src/commands/init.mjs';
-import { idFromTimestamp, newChange } from '../src/commands/new.mjs';
+import { idFromTimestamp, newChange, newChangeFrom, scaffoldChange } from '../src/commands/new.mjs';
 import { registerRepo } from '../src/commands/register.mjs';
 import { findChangeledgerDir, loadConfig } from '../src/config.mjs';
 import { checkContract } from '../src/contract.mjs';
 import { contractTemplatesDir, templatesDir } from '../src/paths.mjs';
+import { readSnapshot, STATE_REF, writeActivation } from '../src/state-store.mjs';
 import { contractFragmentNames } from './contract-support.mjs';
+import { sanitizedEnv } from './helpers/git-env.mjs';
+import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -35,6 +38,29 @@ function tmp() {
   const root = bare();
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# Project rules\nOwn project contract.\n');
   return root;
+}
+
+// Activates an already-`init()`ed repo: a real git repo whose state ref holds
+// the worktree's own config.yml (no changes yet) plus an activation record —
+// the minimal fixture for CR4 (`new` on an activated repo). Mirrors
+// `agent.test.mjs`'s `activatedRepoWithChange()`, without the pre-existing
+// change document `new` itself is responsible for creating.
+function activate(root) {
+  const configText = fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8');
+  execFileSync('git', ['init', '-q'], { cwd: root, env: sanitizedEnv(), stdio: 'ignore' });
+  execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: root, env: sanitizedEnv() });
+  execFileSync('git', ['config', 'user.email', 'test@example.com'], {
+    cwd: root,
+    env: sanitizedEnv(),
+  });
+  const tree = buildTree(root, {
+    '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
+    '.changeledger-state/config.yml': configText,
+  });
+  const revision = commitTree(root, tree, { message: 'chore: state' });
+  updateRef(root, STATE_REF, revision);
+  writeActivation(root, { stateRef: STATE_REF });
+  return revision;
 }
 
 test('161652 CR3: new rejects a future schema before creating files or locks', () => {
@@ -101,18 +127,7 @@ function fragmentsCarrying(pattern) {
 // exports GIT_DIR/GIT_WORK_TREE/GIT_INDEX_FILE for the outer repo. Left
 // inherited, every git call below would silently operate on the outer repo
 // instead of the scratch fixture — strip them so tests are hook-safe.
-const COMMIT_GIT_ENV = { ...process.env };
-for (const key of [
-  'GIT_DIR',
-  'GIT_WORK_TREE',
-  'GIT_INDEX_FILE',
-  'GIT_OBJECT_DIRECTORY',
-  'GIT_ALTERNATE_OBJECT_DIRECTORIES',
-  'GIT_COMMON_DIR',
-  'GIT_CEILING_DIRECTORIES',
-]) {
-  delete COMMIT_GIT_ENV[key];
-}
+const COMMIT_GIT_ENV = sanitizedEnv();
 function gitFor(root, args) {
   return execFileSync('git', args, { cwd: root, env: COMMIT_GIT_ENV, encoding: 'utf8' });
 }
@@ -902,6 +917,71 @@ test('new reserves ids atomically across concurrent processes', async () => {
   assert.equal(check([], root, silentOutput()), 0);
 });
 
+// 20260810-182641 CR6 supersedes 20260808-151643 CR4/CR10 here: an activated
+// repo no longer publishes an empty scaffold at all, so creation is composed
+// first (`scaffoldChange`, which writes nothing) and landed whole by
+// `newChangeFrom`. With the id now coming from the document rather than from
+// the allocator, the bumped-id retry that CR4/CR10 pinned cannot exist — a CAS
+// conflict propagates, which `change-store.test.mjs` CR2 already pins at the
+// seam `newChangeFrom` writes through.
+test('CR4: creation on an activated repo lands the composed document in the state ref, not the worktree', () => {
+  const root = tmp();
+  init(root);
+  const revision = activate(root);
+  const changesDirWorktree = path.join(root, '.changeledger', 'changes');
+  const worktreeBefore = fs.existsSync(changesDirWorktree)
+    ? fs.readdirSync(changesDirWorktree)
+    : [];
+
+  assert.throws(
+    () =>
+      newChange(
+        { type: 'chore', slug: 'active-new', title: 'Active new', now: '2026-08-08T15:00:00Z' },
+        root,
+        { ownerHandle: () => '' },
+      ),
+    /--from/,
+    'an activated repo refuses to publish an empty scaffold',
+  );
+
+  const scaffold = scaffoldChange(
+    { type: 'chore', slug: 'active-new', title: 'Active new', now: '2026-08-08T15:00:00Z' },
+    root,
+    { ownerHandle: () => '' },
+  );
+  const document = scaffold.text.replace('## Request\n', '## Request\n\nCuerpo completo.\n');
+  const relPath = newChangeFrom(
+    { type: 'chore', slug: 'active-new', title: 'Active new', from: sourceFile(root, document) },
+    root,
+  );
+
+  assert.equal(relPath, 'changes/20260808-150000-active-new.md');
+  const tip = execFileSync('git', ['rev-parse', STATE_REF], {
+    cwd: root,
+    env: sanitizedEnv(),
+    encoding: 'utf8',
+  }).trim();
+  assert.notEqual(tip, revision, 'the state ref advanced a commit');
+  const snapshot = readSnapshot(root, { revision: tip });
+  assert.equal(snapshot.documents[relPath], document);
+  assert.match(snapshot.documents[relPath], /## Plan/);
+  // The working tree never sees the new document.
+  assert.equal(fs.existsSync(path.join(root, '.changeledger', relPath)), false);
+  assert.deepEqual(
+    fs.existsSync(changesDirWorktree) ? fs.readdirSync(changesDirWorktree) : [],
+    worktreeBefore,
+    'the worktree changes/ directory is untouched',
+  );
+});
+
+// Writes the `--from` source outside the ledger layout, so it is never mistaken
+// for a document of the repo under test.
+function sourceFile(root, text) {
+  const file = path.join(root, 'incoming.md');
+  fs.writeFileSync(file, text);
+  return file;
+}
+
 test('new rejects an unknown type', () => {
   const root = tmp();
   init(root);
@@ -1057,6 +1137,9 @@ test('124656 CR3: `status <id> in-review` exits non-zero and names every readine
     file,
     fs
       .readFileSync(file, 'utf8')
+      .replace('## Request\n', '## Request\n\nR\n')
+      .replace('## Investigation\n', '## Investigation\n\nI\n')
+      .replace('## Proposal\n', '## Proposal\n\nP\n')
       .replace(
         '## Specification\n',
         '## Specification\n\n### CR1 — Something\n- **Given** a thing\n- **When** it runs\n- **Then** it holds\n',
@@ -1251,4 +1334,63 @@ test('203257 correction: no raw control bytes in source files', () => {
   };
   for (const dir of ['src', 'bin', 'test', 'templates', 'hooks']) sweep(path.join(repoRoot, dir));
   assert.deepEqual(offenders, [], `raw control bytes found: ${offenders.join(', ')}`);
+});
+
+// --- 20260810-120457 CR2: the content seam routes by the anchor --------------
+//
+// A nested ChangeLedger project with no `.git` of its own probes as activated:
+// the host's activation ref is repo-wide. Before the anchor, `list` and `show`
+// served the host's snapshot from the nested directory (its own documents
+// invisible) and `new` wrote the document into the host's ref. The activation
+// names the ledger it owns, so the nested project falls back to its worktree.
+
+function nestedLedger(hostRoot) {
+  const repoRoot = path.join(hostRoot, 'nested');
+  const changesDir = path.join(repoRoot, '.changeledger', 'changes');
+  fs.mkdirSync(changesDir, { recursive: true });
+  const hostConfig = fs.readFileSync(path.join(hostRoot, '.changeledger', 'config.yml'), 'utf8');
+  fs.writeFileSync(
+    path.join(repoRoot, '.changeledger', 'config.yml'),
+    hostConfig.replace(/^project_name:.*$/m, 'project_name: nested'),
+  );
+  fs.writeFileSync(
+    path.join(changesDir, '20260810-000001-nested.md'),
+    '---\nid: "20260810-000001"\ntitle: Nested own change\ntype: feature\nstatus: draft\ncreated: 2026-08-10T00:00:00Z\ndepends_on: []\n---\n\n## Request\n\nMía.\n',
+  );
+  return { repoRoot, changesDir };
+}
+
+test('20260810-120457 CR2: list, show and new from a nested project use its own ledger', () => {
+  const host = tmp();
+  init(host);
+  const hostRevision = activate(host);
+  const nested = nestedLedger(host);
+
+  assert.deepEqual(
+    list({}, nested.repoRoot).map((c) => c.id),
+    ['20260810-000001'],
+  );
+  assert.equal(show('20260810-000001', nested.repoRoot).frontmatter.title, 'Nested own change');
+
+  const file = newChange(
+    {
+      type: 'feature',
+      slug: 'from-nested',
+      title: 'Desde el anidado',
+      owner: 'nested-owner',
+      now: '2026-08-10T12:00:00Z',
+    },
+    nested.repoRoot,
+  );
+
+  assert.equal(path.dirname(file), nested.changesDir);
+  assert.equal(fs.existsSync(file), true);
+  assert.equal(
+    execFileSync('git', ['rev-parse', STATE_REF], {
+      cwd: host,
+      env: sanitizedEnv(),
+      encoding: 'utf8',
+    }).trim(),
+    hostRevision,
+  );
 });

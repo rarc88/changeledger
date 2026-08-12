@@ -72,6 +72,7 @@ export const LOG_EVENT_TYPES = [
   'review',
   'validation',
   'owner',
+  'branch',
   'graduation',
   'archive',
   'note',
@@ -110,6 +111,15 @@ export function parseLogEvent(line) {
     return automatic ? { at, type, owner, automatic: true } : { at, type, owner };
   }
 
+  if (type === 'branch') {
+    if (payload === 'cleared') return { at, type, branch: null };
+    if (!payload.startsWith('set: ') || payload.length === 5) return null;
+    const automatic = payload.endsWith(' (auto)');
+    const branch = payload.slice(5, automatic ? -7 : undefined);
+    if (!branch) return null;
+    return automatic ? { at, type, branch, automatic: true } : { at, type, branch };
+  }
+
   if (type === 'graduation') {
     const spec = payload.match(/^spec: `([^`]+)`(?: \((.*)\))?$/);
     if (spec) {
@@ -141,6 +151,9 @@ export function serializeLogEvent(event) {
   } else if (type === 'owner') {
     payload =
       event.owner == null ? 'cleared' : `set: ${event.owner}${event.automatic ? ' (auto)' : ''}`;
+  } else if (type === 'branch') {
+    payload =
+      event.branch == null ? 'cleared' : `set: ${event.branch}${event.automatic ? ' (auto)' : ''}`;
   } else if (type === 'graduation') {
     payload =
       event.outcome === 'spec'

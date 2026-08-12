@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { findChangeledgerDir, loadConfig } from '../config.mjs';
+import { findChangeledgerDir, loadEffectiveConfig } from '../config.mjs';
 import { getSchemaVersion, SUPPORTED_SCHEMA_VERSION } from '../config-migration.mjs';
 import {
   ensureReference,
@@ -28,7 +28,8 @@ export function registerRepo(cwd = process.cwd(), output = console) {
   const changeledgerDir = findChangeledgerDir(cwd);
   if (!changeledgerDir) throw new Error('Not a ChangeLedger repo. Run `changeledger init` first.');
 
-  const config = loadConfig(changeledgerDir);
+  const repoRoot = path.dirname(changeledgerDir);
+  const config = loadEffectiveConfig(repoRoot, changeledgerDir);
   if (!config.project_id) {
     throw new Error('config.yml has no project_id. Run `changeledger init` to create one.');
   }
@@ -40,7 +41,6 @@ export function registerRepo(cwd = process.cwd(), output = console) {
     );
   }
 
-  const repoRoot = path.dirname(changeledgerDir);
   const name = config.project_name || path.basename(repoRoot);
 
   removeLegacyContract(changeledgerDir);

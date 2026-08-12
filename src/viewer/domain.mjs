@@ -4,6 +4,7 @@ import path from 'node:path';
 import { parseDocument } from 'yaml';
 import { mutateFileAtomic } from '../atomic-write.mjs';
 import { parseChange } from '../change.mjs';
+import { mutateLedgerFile, repoIsActivated } from '../change-store.mjs';
 import { checkRepo } from '../check.mjs';
 import {
   reopen as applyReopen,
@@ -11,18 +12,63 @@ import {
   validation as applyValidation,
   isPendingGraduation,
 } from '../commands/agent.mjs';
-import { findChangeledgerDir, loadConfig, resolveRepoPath, resolveSpecsDir } from '../config.mjs';
+import {
+  findChangeledgerDir,
+  loadEffectiveConfig,
+  resolveRepoPath,
+  resolveSpecsDir,
+} from '../config.mjs';
 import {
   assertSupportedSchema,
   buildMigration,
   getSchemaVersion,
   SUPPORTED_SCHEMA_VERSION,
 } from '../config-migration.mjs';
+import { capturedRun } from '../git.mjs';
 import { computeMetrics } from '../metrics.mjs';
 import { nowUtc, templatesDir } from '../paths.mjs';
 import { listProjects, remove, update } from '../registry.mjs';
-import { loadRepo, loadRepoWithConfig, resolveChange } from '../repo.mjs';
+import { loadRepo, loadRepoWithConfig, resolveChange, resolveChangeInRepo } from '../repo.mjs';
+import { CAS_CONFLICT_MESSAGE, LedgerConflictError, STATE_ROOT } from '../state-store.mjs';
 import { parseYaml } from '../yaml.mjs';
+
+// Presented for a real CAS conflict on the state ref (`LedgerConflictError`,
+// `state-store.mjs`) — never the store's own internal "state ref moved:
+// expected X, found Y" wording, and never folded into a generic 400. Mirrors
+// `bin/changeledger.mjs`'s own CLI presentation of the same error class.
+const VIEWER_CAS_CONFLICT_MESSAGE = `${CAS_CONFLICT_MESSAGE} — reload and save again`;
+
+// Locates the config document for a project's write path: inactive, the
+// worktree `file` `mutateConfig` already operates on (unchanged); active,
+// the state-tree `config.yml` — a top-level path outside every collection —
+// plus its current raw text (config's schema-preserving writers need the
+// exact bytes, not a re-stringified parse, so it is read directly from the
+// snapshot's tree rather than through `repo.config`, which only carries the
+// parsed object).
+function locateProjectConfig(projectPath) {
+  if (repoIsActivated(projectPath)) {
+    const repo = loadRepo(projectPath);
+    return { repo, target: configTarget(repo) };
+  }
+  return {
+    repo: { state: null, repoRoot: projectPath },
+    target: { file: path.join(projectPath, '.changeledger', 'config.yml') },
+  };
+}
+
+// Builds the write target from an already-loaded `repo` (the common case:
+// every caller here already called `loadRepo` for its own config-shape
+// checks before reaching the write).
+function configTarget(repo) {
+  if (!repo.state) {
+    return { file: path.join(repo.changeledgerDir, 'config.yml') };
+  }
+  const text = capturedRun(
+    ['cat-file', 'blob', `${repo.state.revision}:${STATE_ROOT}/config.yml`],
+    repo.repoRoot,
+  );
+  return { relPath: 'config.yml', text };
+}
 
 // Serializes a loaded repo into the flat shape the UI consumes.
 export function serialize(repo) {
@@ -37,6 +83,7 @@ export function serialize(repo) {
       type: c.frontmatter.type,
       status: c.frontmatter.status,
       owner: c.frontmatter.owner ?? null,
+      branch: c.frontmatter.branch ?? null,
       archived: c.frontmatter.archived === true,
       pending_graduation: isPendingGraduation(c),
       created: c.frontmatter.created,
@@ -295,7 +342,7 @@ export function resolveProjects(cwd, localOnly) {
 
   if (localOnly) {
     if (!repoRoot) throw new Error('Not a ChangeLedger repo. Run `changeledger init` first.');
-    const config = loadConfig(changeledgerDir);
+    const config = loadEffectiveConfig(repoRoot, changeledgerDir);
     const id = config.project_id ?? 'local';
     const name = config.project_name ?? path.basename(repoRoot);
     return { projects: [{ id, name, path: repoRoot, alive: true }], current: id };
@@ -368,8 +415,12 @@ function changeStatusImpl(projects, { project, id, status, reason }) {
   // the UI is bypassable.
   let current;
   try {
-    const { file } = resolveChange(proj.path, id);
-    current = parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status;
+    if (repoIsActivated(proj.path)) {
+      current = resolveChangeInRepo(loadRepo(proj.path), id).frontmatter.status;
+    } else {
+      const { file } = resolveChange(proj.path, id);
+      current = parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status;
+    }
   } catch (e) {
     if (/^No change with id /.test(e.message)) {
       return { code: 404, body: { error: `no change with id "${id}"` } };
@@ -417,8 +468,8 @@ function projectFor(projects, id) {
 function readProjectConfigImpl(projects, id) {
   const found = projectFor(projects, id);
   if (!found.project) return found;
-  const file = path.join(found.project.path, '.changeledger', 'config.yml');
-  const content = fs.readFileSync(file, 'utf8');
+  const changeledgerDir = path.join(found.project.path, '.changeledger');
+  const content = loadEffectiveConfig(found.project.path, changeledgerDir, { raw: true });
   return { code: 200, body: { content, revision: revision(content) } };
 }
 
@@ -427,7 +478,7 @@ export const readProjectConfig = withProjectIdentity(
   readProjectConfigImpl,
 );
 
-function saveProjectConfigImpl(projects, payload, { mutateConfig = mutateFileAtomic } = {}) {
+function saveProjectConfigImpl(projects, payload, { mutateConfig = mutateFileAtomic, run } = {}) {
   const found = projectFor(projects, payload.project);
   if (!found.project) return found;
   if (typeof payload.content !== 'string' || typeof payload.revision !== 'string') {
@@ -478,20 +529,27 @@ function saveProjectConfigImpl(projects, payload, { mutateConfig = mutateFileAto
   }
   if (errors.length) return { code: 400, body: { error: errors[0].message } };
 
-  const file = path.join(repo.changeledgerDir, 'config.yml');
   const projectName =
     typeof candidate.project_name === 'string' && candidate.project_name.trim()
       ? candidate.project_name
       : found.project.name;
   try {
-    mutateConfig(file, (before) => {
+    const write = (before) => {
       assertSupportedSchema(parseYaml(before));
       if (revision(before) !== payload.revision) {
         throw new Error('configuration changed on disk; reload before saving');
       }
       return payload.content;
-    });
+    };
+    if (repo.state) {
+      mutateLedgerFile(repo, configTarget(repo), write, { message: 'config: save', run });
+    } else {
+      mutateConfig(path.join(repo.changeledgerDir, 'config.yml'), write);
+    }
   } catch (error) {
+    if (error instanceof LedgerConflictError) {
+      return { code: 409, body: { error: VIEWER_CAS_CONFLICT_MESSAGE } };
+    }
     if (error.message === 'configuration changed on disk; reload before saving') {
       return { code: 409, body: { error: error.message } };
     }
@@ -529,7 +587,7 @@ function repairProjectPathImpl(projects, payload, { localOnly = false } = {}) {
   const root = path.resolve(payload.path);
   let config;
   try {
-    config = loadConfig(path.join(root, '.changeledger'));
+    config = loadEffectiveConfig(root, path.join(root, '.changeledger'));
   } catch {
     return { code: 400, body: { error: 'project path is not a ChangeLedger repository' } };
   }
@@ -590,8 +648,8 @@ export const unregisterProject = withProjectIdentity(
 function readProjectConfigStructuredImpl(projects, id) {
   const found = projectFor(projects, id);
   if (!found.project) return found;
-  const file = path.join(found.project.path, '.changeledger', 'config.yml');
-  const content = fs.readFileSync(file, 'utf8');
+  const changeledgerDir = path.join(found.project.path, '.changeledger');
+  const content = loadEffectiveConfig(found.project.path, changeledgerDir, { raw: true });
   const config = parseYaml(content);
   const schemaVersion = getSchemaVersion(config);
   return {
@@ -613,7 +671,7 @@ export const readProjectConfigStructured = withProjectIdentity(
 
 // Applies a semantic patch (allowlisted fields only) to the YAML AST, preserving
 // comments, unknown keys and fields the form does not represent.
-function patchProjectConfigImpl(projects, payload, { mutateConfig = mutateFileAtomic } = {}) {
+function patchProjectConfigImpl(projects, payload, { mutateConfig = mutateFileAtomic, run } = {}) {
   const found = projectFor(projects, payload.project);
   if (!found.project) return found;
   if (!payload.patch || typeof payload.patch !== 'object' || Array.isArray(payload.patch)) {
@@ -630,12 +688,14 @@ function patchProjectConfigImpl(projects, payload, { mutateConfig = mutateFileAt
     return { code: 400, body: { error: 'schema_version cannot be changed via patch' } };
   }
 
-  const file = path.join(found.project.path, '.changeledger', 'config.yml');
+  const { repo, target } = locateProjectConfig(found.project.path);
 
   let result;
   try {
-    assertSupportedSchema(parseYaml(fs.readFileSync(file, 'utf8')));
-    mutateConfig(file, (before) => {
+    assertSupportedSchema(
+      parseYaml(target.file ? fs.readFileSync(target.file, 'utf8') : target.text),
+    );
+    const patchFn = (before) => {
       if (revision(before) !== payload.revision) {
         throw new Error('configuration changed on disk; reload before saving');
       }
@@ -655,17 +715,29 @@ function patchProjectConfigImpl(projects, payload, { mutateConfig = mutateFileAt
       }
 
       // Structural validation
-      const repo = loadRepo(found.project.path);
-      resolveRepoPath(repo.repoRoot, candidate.changes_dir, 'changes_dir');
-      resolveSpecsDir(repo.repoRoot, candidate);
-      const candidateRepo = loadRepoWithConfig(repo.repoRoot, repo.changeledgerDir, candidate);
+      const freshRepo = loadRepo(found.project.path);
+      resolveRepoPath(freshRepo.repoRoot, candidate.changes_dir, 'changes_dir');
+      resolveSpecsDir(freshRepo.repoRoot, candidate);
+      const candidateRepo = loadRepoWithConfig(
+        freshRepo.repoRoot,
+        freshRepo.changeledgerDir,
+        candidate,
+      );
       const { errors } = checkRepo(candidateRepo);
       if (errors.length) throw new Error(errors[0].message);
 
       result = { content: patched, rev: revision(patched) };
       return patched;
-    });
+    };
+    if (repo.state) {
+      mutateLedgerFile(repo, target, patchFn, { message: 'config: patch', run });
+    } else {
+      mutateConfig(target.file, patchFn);
+    }
   } catch (error) {
+    if (error instanceof LedgerConflictError) {
+      return { code: 409, body: { error: VIEWER_CAS_CONFLICT_MESSAGE } };
+    }
     if (error.message === 'configuration changed on disk; reload before saving') {
       return { code: 409, body: { error: error.message } };
     }
@@ -684,8 +756,8 @@ export const patchProjectConfig = withProjectIdentity(
 function previewConfigMigrationImpl(projects, id, rev) {
   const found = projectFor(projects, id);
   if (!found.project) return found;
-  const file = path.join(found.project.path, '.changeledger', 'config.yml');
-  const content = fs.readFileSync(file, 'utf8');
+  const changeledgerDir = path.join(found.project.path, '.changeledger');
+  const content = loadEffectiveConfig(found.project.path, changeledgerDir, { raw: true });
   if (rev && revision(content) !== rev) {
     return { code: 409, body: { error: 'configuration changed on disk; reload before saving' } };
   }
@@ -721,18 +793,24 @@ export const previewConfigMigration = withProjectIdentity(
 
 // Apply the migration atomically. Uses the same engine as `changeledger config migrate`.
 // Revision check and write are inside mutateFileAtomic to avoid TOCTOU races.
-function applyConfigMigrationImpl(projects, payload, { mutateConfig = mutateFileAtomic } = {}) {
+function applyConfigMigrationImpl(
+  projects,
+  payload,
+  { mutateConfig = mutateFileAtomic, run } = {},
+) {
   const found = projectFor(projects, payload.project);
   if (!found.project) return found;
   if (typeof payload.revision !== 'string') {
     return { code: 400, body: { error: 'revision is required' } };
   }
-  const file = path.join(found.project.path, '.changeledger', 'config.yml');
+  const { repo, target } = locateProjectConfig(found.project.path);
 
   let result;
   try {
-    assertSupportedSchema(parseYaml(fs.readFileSync(file, 'utf8')));
-    mutateConfig(file, (before) => {
+    assertSupportedSchema(
+      parseYaml(target.file ? fs.readFileSync(target.file, 'utf8') : target.text),
+    );
+    const migrateFn = (before) => {
       if (revision(before) !== payload.revision) {
         throw new Error('configuration changed on disk; reload before saving');
       }
@@ -748,8 +826,16 @@ function applyConfigMigrationImpl(projects, payload, { mutateConfig = mutateFile
       }
       result = { ok: true, rev: revision(migrationResult.yaml) };
       return migrationResult.yaml;
-    });
+    };
+    if (repo.state) {
+      mutateLedgerFile(repo, target, migrateFn, { message: 'config: migrate', run });
+    } else {
+      mutateConfig(target.file, migrateFn);
+    }
   } catch (error) {
+    if (error instanceof LedgerConflictError) {
+      return { code: 409, body: { error: VIEWER_CAS_CONFLICT_MESSAGE } };
+    }
     if (error.message === 'configuration changed on disk; reload before saving') {
       return { code: 409, body: { error: error.message } };
     }

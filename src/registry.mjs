@@ -7,7 +7,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { withFileLock, writeFileAtomic } from './atomic-write.mjs';
-import { loadConfig } from './config.mjs';
+import { repoIsActivated } from './change-store.mjs';
+import { loadEffectiveConfig } from './config.mjs';
 
 export function registryDir() {
   return path.join(process.env.CHANGELEDGER_HOME || os.homedir(), '.changeledger');
@@ -45,13 +46,33 @@ export function register({ id, name, path: repoPath }) {
 export function listProjects() {
   return Object.entries(readRegistry()).map(([id, value]) => {
     let name = value.name;
+    // Only an entry we managed to probe as activated owes a fail-closed error;
+    // every probe (`statSync` included) runs inside the guard, because a path we
+    // are not allowed to look at — an unreadable ancestor makes both the stat
+    // and the activation probe throw EACCES — must not take the whole listing
+    // down with it.
+    let activated = false;
     try {
-      const config = loadConfig(path.join(value.path, '.changeledger'));
+      const stats = fs.statSync(value.path, { throwIfNoEntry: false });
+      if (!stats?.isDirectory()) return { id, name, path: value.path };
+      // Past this point the path itself is a usable directory: any error the
+      // activation probe raises now is about the activation, not the path, so
+      // it must not fold into the "unusable path" tolerance below. A legacy
+      // activation (no `ledger_dir`) is the case that motivates this — it is
+      // neither "not activated" nor an unreadable path, so it gets its own
+      // diagnostic instead of silently reading as inactive.
+      try {
+        activated = repoIsActivated(value.path);
+      } catch (error) {
+        return { id, name, path: value.path, activationError: error.message };
+      }
+      const config = loadEffectiveConfig(value.path, path.join(value.path, '.changeledger'));
       if (String(config.project_id) === id && typeof config.project_name === 'string') {
         name = config.project_name;
       }
-    } catch {
-      // Missing projects keep their last registered display name.
+    } catch (error) {
+      if (activated) throw error;
+      // Missing or unreadable projects keep their last registered display name.
     }
     return { id, name, path: value.path };
   });

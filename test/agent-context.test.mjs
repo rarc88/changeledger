@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { execFile } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -10,7 +10,10 @@ import { buildAgentContext } from '../src/commands/agent-context.mjs';
 import { buildAgentPrompt } from '../src/commands/agent-prompt.mjs';
 import { init } from '../src/commands/init.mjs';
 import { VERSION } from '../src/framing.mjs';
+import { STATE_REF, writeActivation } from '../src/state-store.mjs';
 import { assertWithinBudget, contextBudgets } from './budget-support.mjs';
+import { sanitizedEnv } from './helpers/git-env.mjs';
+import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
 process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-context-home-'));
 const execFileAsync = promisify(execFile);
@@ -67,6 +70,144 @@ Chosen approach.
   fs.writeFileSync(path.join(root, '.changeledger', 'changes', `${id}-delegated-work.md`), text);
   return text;
 }
+
+// 20260808-151641 CR7 (correction round) — agent-context is a read-only
+// consumer of `resolveChange` too; on an activated repo it must resolve the
+// role's change from the state-ref snapshot, never a worktree phantom. Same
+// doc-only-in-ref-vs-only-in-worktree shape as context.test.mjs's CR7:
+// `worktreeId` only exists on disk, `refId` only in the seeded state ref, and
+// the snapshot config is the worktree's own (byte-identical) so `types` stays
+// resolvable.
+function activatedAgentContextFixture({ broken = false } = {}) {
+  const root = repo();
+  execFileSync('git', ['init', '-q'], { cwd: root, env: sanitizedEnv() });
+  execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: root, env: sanitizedEnv() });
+  execFileSync('git', ['config', 'user.email', 'test@example.com'], {
+    cwd: root,
+    env: sanitizedEnv(),
+  });
+
+  const refId = '20260808-000005';
+  const worktreeId = '20260808-000006';
+  addChange(root, 'in-progress', worktreeId);
+
+  const refText = `---
+id: "${refId}"
+title: Delegated work
+type: feature
+status: approved
+created: 2026-07-05T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+Do the delegated work.
+`;
+
+  const configText = fs
+    .readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8')
+    .replace(/^language: en$/m, 'language: es');
+  const files = {
+    '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
+    '.changeledger-state/config.yml': configText,
+    '.changeledger-state/changes/delegated-work.md': refText,
+  };
+  if (broken) files['.changeledger-state/changes/broken.md'] = 'no frontmatter here\n';
+  const tree = buildTree(root, files);
+  const revision = commitTree(root, tree, { message: 'chore: state' });
+  updateRef(root, STATE_REF, revision);
+  writeActivation(root, { stateRef: STATE_REF });
+
+  return { root, refId, worktreeId, refText };
+}
+
+test('20260808-151641 CR7: agent-context resolves the snapshot change, not a worktree phantom, in an activated repo', () => {
+  const { root, refId, worktreeId, refText } = activatedAgentContextFixture();
+
+  const out = buildAgentContext('implementation', refId, root);
+  assert.match(out, new RegExp(`change: #${refId}`));
+  assert.ok(out.includes(refText.trim()));
+
+  assert.throws(() => buildAgentContext('implementation', worktreeId, root), /No change with id/);
+});
+
+test('20260809-113242 CR3: changeless agent-context uses activated config policy', () => {
+  const { root } = activatedAgentContextFixture();
+
+  assert.match(
+    buildAgentContext('investigation', undefined, root),
+    /Effective policy: language=es/,
+  );
+});
+
+test('20260808-171107 CR5: activated agent-context resolves an unknown id before an unrelated malformed change', () => {
+  const { root } = activatedAgentContextFixture({ broken: true });
+
+  assert.throws(
+    () => buildAgentContext('implementation', '20990101-000000', root),
+    /No change with id "20990101-000000"/,
+  );
+});
+
+// 20260809-194236 CR1/CR2 — post-review of 171107's CR5: that fix covers an
+// unrelated malformed sibling, but never the case where the malformed
+// document IS the id the human asked for. `loadRepo`'s `repo.changeErrors`
+// already carries the exact parse diagnostic; before this change
+// `agent-context` never consulted it on that id's own resolution failure.
+test('20260809-194236 CR1: the malformed document requested by id is named, not reported as unknown', () => {
+  const root = repo();
+  const id = '20990101-000000';
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'changes', `${id}-self.md`),
+    'no frontmatter here\n',
+  );
+
+  assert.throws(
+    () => buildAgentContext('implementation', id, root),
+    (error) => {
+      assert.match(error.message, /Change is missing its frontmatter block/);
+      assert.doesNotMatch(error.message, /No change with id/);
+      assert.match(error.message, new RegExp(`${id}-self\\.md`));
+      return true;
+    },
+  );
+});
+
+test('20260809-194236 CR2: a genuinely unknown id keeps the "No change with id" message byte for byte', () => {
+  const root = repo();
+  const id = '20990101-000000';
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'changes', `${id}-self.md`),
+    'no frontmatter here\n',
+  );
+
+  assert.throws(
+    () => buildAgentContext('implementation', '20990101-999999', root),
+    (error) => {
+      assert.equal(
+        error.message,
+        'No change with id "20990101-999999" (use the exact id; run `changeledger check` if a filename\'s id looks wrong)',
+      );
+      return true;
+    },
+  );
+});
+
+// 20260808-151641 R1 (correction round 2) — same regression as
+// context.test.mjs's R1: `investigation` with no change id never needed
+// `repo.changes` before this change, so a broken change document elsewhere in
+// the repo must not deny it. Only a change-id role load needs the full repo.
+test('20260808-151641 R1: a legacy repo with one unparseable change still serves the investigation capsule', () => {
+  const root = repo();
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'changes', 'broken.md'),
+    'no frontmatter here, just prose\n',
+  );
+
+  assert.doesNotThrow(() => buildAgentContext('investigation', undefined, root));
+  assert.match(buildAgentContext('investigation', undefined, root), /role: investigation/);
+});
 
 test('144327 CR7: role context is framed, self-contained and carries effective policy', () => {
   const root = repo();

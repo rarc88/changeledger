@@ -23,11 +23,14 @@ const GIT_LOCATION_ENV_VARS = [
 
 // Git localizes its diagnostics, but `mutatingRun` hands that stderr to an agent
 // that classifies failures by message. Pin the locale so the text a caller reads
-// never depends on the host's language.
-function sanitizedEnv() {
+// never depends on the host's language. `extra` merges in caller-specific
+// overrides on top (e.g. state-store.mjs's `GIT_INDEX_FILE` for a private temp
+// index) — exported so this env policy has exactly one definition instead of
+// drifting between this module and its consumers.
+export function sanitizedEnv(extra) {
   const env = { ...process.env, LC_ALL: 'C' };
   for (const key of GIT_LOCATION_ENV_VARS) delete env[key];
-  return env;
+  return extra ? { ...env, ...extra } : env;
 }
 
 // Exported so other commands (e.g. `changeledger commit`) share the same
@@ -59,6 +62,45 @@ export function mutatingRun(args, cwd) {
       .filter(Boolean)
       .join('\n');
     throw new Error(detail ? `${e.message}\n${detail}` : e.message, { cause: e });
+  }
+}
+
+// Read/subprocess variant of `mutatingRun` for callers (state-store.mjs,
+// git-batch.mjs) that need stdin input, a custom maxBuffer or a raw Buffer
+// (`encoding: null`) — shapes `mutatingRun`'s fixed utf8/no-stdin signature
+// cannot express. Same fail-closed contract: git's stderr is captured and
+// folded into the thrown error instead of discarded, so a fail-closed reader
+// built on top of this can tell "the object does not exist" apart from "the
+// subprocess failed" by inspecting the thrown error rather than losing the
+// diagnostic.
+export function capturedRun(args, cwd, { encoding = 'utf8', input, maxBuffer } = {}) {
+  try {
+    return execFileSync('git', args, {
+      cwd,
+      env: sanitizedEnv(),
+      encoding,
+      input,
+      maxBuffer,
+      stdio: [input === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'],
+    });
+  } catch (e) {
+    const raw = e.stderr;
+    const text = typeof raw === 'string' ? raw : Buffer.isBuffer(raw) ? raw.toString('utf8') : '';
+    const detail = text.trim();
+    throw new Error(detail ? `${e.message}\n${detail}` : e.message, { cause: e });
+  }
+}
+
+// Resolves `ref` and asserts it names a commit object — via `cat-file -t`,
+// never a `^{commit}` peel. A peel silently accepts an annotated tag pointing
+// at a commit as if the ref itself were a commit, which is exactly the defect
+// class this closes (a state/activation ref must itself be a commit, not
+// merely resolve to one through a tag). Message names the real type so a
+// caller reading it can tell a tag from a blob from a tree.
+export function assertCommitObject(repoRoot, ref, run = capturedRun) {
+  const type = run(['cat-file', '-t', ref], repoRoot).trim();
+  if (type !== 'commit') {
+    throw new Error(`${ref} resolves to a ${type}, not a commit`);
   }
 }
 
@@ -215,6 +257,21 @@ export function githubLogin(run = defaultGhRun) {
 // local git user.name. Empty if neither is available.
 export function ownerHandle(cwd, run = defaultRun, ghRun = defaultGhRun) {
   return githubLogin(ghRun) || gitUser(cwd, run);
+}
+
+// Current branch name of the checkout, or '' if unresolvable: detached HEAD
+// (git prints the literal `HEAD`), an unborn branch, or any subprocess
+// failure. Tolerant by design, same shape as `ownerHandle`. Distinct from
+// `currentBranch` (20260731-161655): that one asserts an exact match against
+// a required format and is allowed to throw; this one only records what the
+// checkout actually is and never blocks a transition on failure.
+export function checkoutBranch(cwd, run = defaultRun) {
+  try {
+    const name = run(['rev-parse', '--abbrev-ref', 'HEAD'], cwd).trim();
+    return name === 'HEAD' ? '' : name;
+  } catch {
+    return '';
+  }
 }
 
 // Detects the branch `changeledger check --commits` should diff against when
