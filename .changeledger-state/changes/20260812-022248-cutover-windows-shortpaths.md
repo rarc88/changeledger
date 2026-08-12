@@ -2,9 +2,10 @@
 id: "20260812-022248"
 title: Los pathspecs del cutover mezclan formas de ruta en Windows
 type: bug
-status: approved
+status: in-progress
 created: 2026-08-12T02:22:48Z
 depends_on: []
+branch: bug/20260812-022248
 related_to: ["20260812-020449", "20260809-113240"]
 owner: rarc88
 ---
@@ -61,3 +62,5 @@ falla sus precondiciones en cualquier cwd corto.
 
 ## Log
 - **2026-08-12T02:22:50Z** `[status]` draft → approved (human via conversation)
+- **2026-08-12T02:22:50Z** `[status]` approved → in-progress
+- **2026-08-12T02:22:50Z** `[branch]` set: bug/20260812-022248 (auto)
