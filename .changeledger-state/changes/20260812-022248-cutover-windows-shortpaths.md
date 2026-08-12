@@ -52,10 +52,11 @@ falla sus precondiciones en cualquier cwd corto.
   - **Verify:** `node --test test/cutover.test.mjs`
   - **Criteria:** CR1
   - **Resolved:** `2026-08-12T02:25:36Z`
-- [ ] Realpath nativo en el mkdtemp de los helpers
+- [x] Realpath nativo en el mkdtemp de los helpers
   - **Target:** `test/helpers/state-repo.mjs`
   - **Verify:** `pnpm test`
   - **Criteria:** CR2
+  - **Resolved:** `2026-08-12T02:25:36Z`
 - [ ] Gate completo
   - **Target:** `test/cutover.test.mjs`
   - **Verify:** `pnpm test`
