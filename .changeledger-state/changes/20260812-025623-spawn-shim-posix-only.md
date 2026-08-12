@@ -2,7 +2,7 @@
 id: "20260812-025623"
 title: El contador de spawns del undo se salta Windows con razón
 type: quick
-status: in-validation
+status: in-progress
 created: 2026-08-12T02:56:23Z
 depends_on: []
 branch: quick/20260812-025623
@@ -27,3 +27,4 @@ cmd/PATHEXT — coste sin beneficio de cobertura real.
 - **2026-08-12T02:56:26Z** `[branch]` set: quick/20260812-025623 (auto)
 - **2026-08-12T02:58:25Z** `[note]` Skip con razón en win32 para el contador de spawns (técnica sh/PATH POSIX-only; en Windows además el env del hijo perdía git por la clave PATH vs Path). El criterio queda medido en macOS/linux; en local sigue corriendo (skip no dispara)
 - **2026-08-12T02:58:25Z** `[status]` in-progress → in-validation
+- **2026-08-12T03:07:56Z** `[validation]` in-validation → in-progress (agent rejected): Mismo concern, segundo asiento: el shim sh de edit.test CR8 (carrera CAS de newChangeFrom) tampoco ejecuta en win32 — Missing expected exception; extender el skip con razón
