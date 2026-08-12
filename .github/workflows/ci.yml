@@ -27,6 +27,11 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # `activate` records its decision as a git commit (commit-tree), and
+      # linux/windows runners carry no git identity to author it with.
+      - run: |
+          git config user.name "changeledger-ci"
+          git config user.email "ci@changeledger.invalid"
       # Seeds the local state ref from the remote-tracking copy and activates
       # this checkout, so `changeledger check` validates the real ledger.
       - run: node bin/changeledger.mjs activate
