@@ -71,3 +71,4 @@ falla sus precondiciones en cualquier cwd corto.
 - **2026-08-12T02:25:37Z** `[status]` in-progress → in-review
 - **2026-08-12T02:30:54Z** `[review]` in-review → in-progress (retry): Residuo del refactor: changeledgerDir quedó como parámetro muerto en assertCleanLedger y exactStagedCleanup (biome noUnusedFunctionParameters) con 5 call sites pasándolo — retirarlo de firmas y llamadas
 - **2026-08-12T02:32:04Z** `[status]` in-progress → in-review
+- **2026-08-12T02:32:04Z** `[note]` Mandato de la confirmación: mínimo — parámetro muerto retirado de ambas firmas y 5 call sites, biome limpio en el archivo, sin regresión
