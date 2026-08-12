@@ -68,28 +68,37 @@ const BASELINE_MESSAGE = 'chore: publish the cutover baseline';
 // (a cloned repo's config is untrusted input), then are expressed relative to
 // git's own top-level — which is not necessarily the ChangeLedger repo root.
 function ledgerLayout(repoRoot, changeledgerDir, config, run) {
-  const topLevel = gitTopLevel(repoRoot, run);
+  // One path form for everything derived here (20260812-022248): the caller's
+  // cwd may reach the repo through a symlink or a Windows 8.3 short name,
+  // while git reports its top-level in resolved long form — mixing the two
+  // makes `path.relative` fabricate ../-climbing pathspecs that git rejects
+  // as outside the repository. Both inputs are realpathed once, so every
+  // relative below shares git's own form.
+  const realRoot = fs.realpathSync.native(repoRoot);
+  const realDir = fs.realpathSync.native(changeledgerDir);
+  const topLevel = gitTopLevel(realRoot, run);
   const rel = (absolute) => toPosix(path.relative(topLevel, absolute));
   return {
     topLevel,
-    configPath: rel(path.join(changeledgerDir, 'config.yml')),
+    ledgerDirRel: rel(realDir),
+    configPath: rel(path.join(realDir, 'config.yml')),
     nestedSubject: 'the ledger',
     missingConfigSubject: 'the integration commit',
     collections: [
       {
         name: 'changes',
         extension: '.md',
-        prefix: `${rel(resolveRepoPath(repoRoot, config.changes_dir, 'changes_dir'))}/`,
+        prefix: `${rel(resolveRepoPath(realRoot, config.changes_dir, 'changes_dir'))}/`,
       },
       {
         name: 'specs',
         extension: '.md',
-        prefix: `${rel(resolveSpecsDir(repoRoot, config))}/`,
+        prefix: `${rel(resolveSpecsDir(realRoot, config))}/`,
       },
       {
         name: 'releases',
         extension: '.yml',
-        prefix: `${rel(resolveReleasesDir(repoRoot))}/`,
+        prefix: `${rel(resolveReleasesDir(realRoot))}/`,
       },
     ],
   };
@@ -306,9 +315,9 @@ function findCutover(repoRoot, { tip = null, activated = false }, output, run) {
 // cleanup). Resuming an interrupted cut is the one path that skips it: there the
 // index already holds exactly the pending cleanup, verified entry by entry by
 // `exactStagedCleanup`, and the commit to produce is that very cleanup.
-function ledgerPathspecs(changeledgerDir, layout) {
+function ledgerPathspecs(layout) {
   return [
-    toPosix(path.relative(layout.topLevel, changeledgerDir)),
+    layout.ledgerDirRel,
     ...layout.collections.map((collection) => collection.prefix.slice(0, -1)),
   ].filter((value, index, paths) => value !== '' && paths.indexOf(value) === index);
 }
@@ -321,7 +330,7 @@ function assertCleanLedger(repoRoot, changeledgerDir, layout, operation, run) {
     );
   }
   const dirty = run(
-    ['status', '--porcelain', '--', ...ledgerPathspecs(changeledgerDir, layout)],
+    ['status', '--porcelain', '--', ...ledgerPathspecs(layout)],
     layout.topLevel,
   ).trim();
   if (dirty !== '') {
@@ -357,7 +366,7 @@ function exactStagedCleanup(repoRoot, changeledgerDir, layout, run) {
   );
   if (!sameNames(staged, expected) || !sameNames(staged, stagedDeletions)) return false;
 
-  const ledgerPaths = ledgerPathspecs(changeledgerDir, layout);
+  const ledgerPaths = ledgerPathspecs(layout);
   const unstaged = run(['diff', '--name-only', '-z', '--', ...ledgerPaths], layout.topLevel, {
     encoding: 'utf8',
   });

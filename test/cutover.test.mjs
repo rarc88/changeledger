@@ -1522,3 +1522,26 @@ test('20260812-020449 CR1: a failing cleanup rmdir warns and the cut still lands
   }).trim();
   assert.equal(subject, 'chore(state): cut the ledger over to the state ref');
 });
+
+// 20260812-022248 CR1 — one path form for every pathspec. A cwd that reaches
+// the repo through a symlink (POSIX twin of Windows 8.3 short names: the CI
+// failure mixed RUNNER~1 with git's long-form top-level) must not make
+// `path.relative` fabricate ../-climbing pathspecs that git rejects as
+// "outside repository".
+test('20260812-022248 CR1: a symlinked cwd still cuts over with correct pathspecs', async () => {
+  const { cutover } = await import('../src/commands/cutover.mjs');
+  const { root } = seedLedgerRepo();
+  const link = path.join(
+    fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'cl-link-'))),
+    'repo',
+  );
+  fs.symlinkSync(root, link);
+  const exit = cutover({}, link, { log: () => {}, warn: () => {} });
+  assert.equal(exit, 0);
+  const subject = execFileSync('git', ['log', '-1', '--format=%s'], {
+    cwd: root,
+    env: CLI_ENV,
+    encoding: 'utf8',
+  }).trim();
+  assert.equal(subject, 'chore(state): cut the ledger over to the state ref');
+});
