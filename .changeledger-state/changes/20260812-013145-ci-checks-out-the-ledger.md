@@ -28,3 +28,4 @@ check validando de verdad.
 - **2026-08-12T01:31:47Z** `[status]` draft → approved (human via conversation)
 - **2026-08-12T01:47:05Z** `[status]` approved → in-progress
 - **2026-08-12T01:47:05Z** `[branch]` set: quick/20260812-013145 (auto)
+- **2026-08-12T01:48:52Z** `[note]` fetch-depth: 0 en el checkout (trae refs/heads/changeledger/state como remote-tracking... como todas las ramas) + paso activate antes del verify (siembra desde remote-tracking, dogfood de 163203 en cada run); check del CI pasa a validar el ledger real. La verificación definitiva es el propio run del PR 4
