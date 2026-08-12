@@ -2,7 +2,7 @@
 id: "20260812-003311"
 title: El cutover enumera sus precondiciones y deja solo config.yml
 type: quick
-status: draft
+status: approved
 created: 2026-08-12T00:33:11Z
 depends_on: []
 related_to: ["20260809-113240"]
@@ -27,3 +27,4 @@ texto al pie de la letra. Sin --dry-run por ahora: con las precondiciones
 enumeradas, el fail-closed existente ya nombra el bloqueo real.
 
 ## Log
+- **2026-08-12T00:33:45Z** `[status]` draft → approved (human via conversation)
