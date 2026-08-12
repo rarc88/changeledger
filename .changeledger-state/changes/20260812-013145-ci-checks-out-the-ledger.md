@@ -2,7 +2,7 @@
 id: "20260812-013145"
 title: El CI trae y activa el ledger del repo
 type: quick
-status: in-validation
+status: in-progress
 created: 2026-08-12T01:31:45Z
 depends_on: []
 branch: quick/20260812-013145
@@ -30,3 +30,4 @@ check validando de verdad.
 - **2026-08-12T01:47:05Z** `[branch]` set: quick/20260812-013145 (auto)
 - **2026-08-12T01:48:52Z** `[note]` fetch-depth: 0 en el checkout (trae refs/heads/changeledger/state como remote-tracking... como todas las ramas) + paso activate antes del verify (siembra desde remote-tracking, dogfood de 163203 en cada run); check del CI pasa a validar el ledger real. La verificación definitiva es el propio run del PR 4
 - **2026-08-12T01:48:52Z** `[status]` in-progress → in-validation
+- **2026-08-12T01:54:07Z** `[validation]` in-validation → in-progress (agent rejected): El paso activate necesita identidad git en el runner: writeActivation crea el commit de activación via commit-tree y linux/windows no autodetectan (macOS sí). Falta el paso convencional de identidad en el workflow
