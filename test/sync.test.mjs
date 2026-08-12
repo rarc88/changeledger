@@ -431,9 +431,12 @@ test('20260811-151426 CR6: --status before any fetch says so instead of guessing
   const { code, out, err } = cli(root, 'sync', '--status');
 
   assert.equal(code, 0, err);
-  // 20260811-163204 rephrased the no-copy report (it no longer names a single
-  // tracking ref); the obligation — say so instead of guessing — is unchanged.
+  // 20260812-003312: the no-copy report names both honest outcomes — publish
+  // if the remote lacks the ref, fetch if it exists — instead of promising a
+  // fetch that a freshly cut repo has nothing to receive from.
   assert.match(out, /no remote-tracking copy/);
+  assert.match(out, /publish/i);
+  assert.doesNotMatch(out, /to fetch one/);
 });
 
 // 20260811-163204 — `--status` answers from the existing remote-tracking
