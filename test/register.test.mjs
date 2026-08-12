@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -8,7 +7,7 @@ import { registerRepo } from '../src/commands/register.mjs';
 import { BOOTSTRAP_VERSION, REFERENCE } from '../src/contract.mjs';
 import { readRegistry } from '../src/registry.mjs';
 import { STATE_REF, writeActivation } from '../src/state-store.mjs';
-import { sanitizedEnv } from './helpers/git-env.mjs';
+import { initGitFixture } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
 process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'register-home-'));
@@ -47,7 +46,7 @@ test('20260809-113242 CR1: register uses project_name from the activated state r
     configFile,
     fs.readFileSync(configFile, 'utf8').replace('project_name: test', 'project_name: stale-name'),
   );
-  execFileSync('git', ['init', '-q'], { cwd: dir, env: sanitizedEnv() });
+  initGitFixture(dir);
   const tree = buildTree(dir, {
     '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: abc1234567\n',
     '.changeledger-state/config.yml':

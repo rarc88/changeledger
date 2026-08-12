@@ -11,7 +11,7 @@ import {
   GIT_MAX_BUFFER,
   treeEntries,
 } from '../src/git-batch.mjs';
-import { sanitizedEnv } from './helpers/git-env.mjs';
+import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 
 const OID_A = 'a'.repeat(40);
 const OID_B = 'b'.repeat(40);
@@ -180,12 +180,7 @@ const MiB = 1024 * 1024;
 
 function initRepo(objectFormat) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cl-git-batch-'));
-  execFileSync('git', ['init', '-q', `--object-format=${objectFormat}`], {
-    cwd: dir,
-    env: sanitizedEnv(),
-  });
-  execFileSync('git', ['config', 'user.email', 't@example.com'], { cwd: dir, env: sanitizedEnv() });
-  execFileSync('git', ['config', 'user.name', 'Test'], { cwd: dir, env: sanitizedEnv() });
+  initGitFixture(dir, { args: [`--object-format=${objectFormat}`] });
   return dir;
 }
 

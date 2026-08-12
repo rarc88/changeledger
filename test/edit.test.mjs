@@ -17,7 +17,7 @@ import { edit } from '../src/commands/edit.mjs';
 import { init as initializeRepo } from '../src/commands/init.mjs';
 import { newChange, newChangeFrom, scaffoldChange } from '../src/commands/new.mjs';
 import { readSnapshot, STATE_REF, STATE_ROOT, writeActivation } from '../src/state-store.mjs';
-import { sanitizedEnv } from './helpers/git-env.mjs';
+import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
 process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
@@ -63,7 +63,7 @@ function activatedRepo() {
   fs.rmSync(file);
   fs.rmSync(path.join(root, '.changeledger', 'specs'), { recursive: true, force: true });
 
-  execFileSync('git', ['init', '-q'], { cwd: root, env: sanitizedEnv(), stdio: 'ignore' });
+  initGitFixture(root);
   const tree = buildTree(root, {
     '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
     '.changeledger-state/config.yml': configText,
@@ -210,7 +210,7 @@ test('CR5: an inactive repo gets the same semantics and creates no commit at all
   const { root, file, text, id } = inactiveRepo();
   // A real git repo on purpose: "commits nothing" is only a claim worth making
   // where a commit could have been created.
-  execFileSync('git', ['init', '-q'], { cwd: root, env: sanitizedEnv(), stdio: 'ignore' });
+  initGitFixture(root);
   const incoming = filled(text);
 
   assert.throws(
@@ -315,7 +315,12 @@ test('CR6: --from refuses a document whose id is already published', () => {
 // an unrelated commit that advances STATE_REF past the revision `newChangeFrom`
 // already committed to — the same race a second concurrent `changeledger`
 // process would cause. The final CAS `update-ref` then finds the ref moved.
-test('CR8: a CAS conflict during `newChangeFrom` propagates undisguised, no retry, no partial write', () => {
+// 20260812-025623 — the race is staged by a POSIX sh shim; on win32 it never
+// executes, no conflict is staged and the expected throw cannot happen. The
+// propagation itself is OS-independent and stays pinned on macOS/linux.
+test('CR8: a CAS conflict during `newChangeFrom` propagates undisguised, no retry, no partial write', {
+  skip: process.platform === 'win32' && 'the race-staging sh shim is POSIX-only',
+}, () => {
   const { root, revision } = activatedRepo();
   const scaffold = scaffoldChange(
     { type: 'quick', slug: 'z', title: 'Z', now: '2026-06-15T12:00:00Z' },
@@ -434,7 +439,7 @@ function activatedRepoWithSibling({ siblingDependsOn = [] } = {}) {
   fs.rmSync(file);
   fs.rmSync(path.join(root, '.changeledger', 'specs'), { recursive: true, force: true });
 
-  execFileSync('git', ['init', '-q'], { cwd: root, env: sanitizedEnv(), stdio: 'ignore' });
+  initGitFixture(root);
   const tree = buildTree(root, {
     '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
     '.changeledger-state/config.yml': configText,

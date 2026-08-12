@@ -16,12 +16,25 @@ jobs:
         node: [24, 26]
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The repo's ledger lives in refs/heads/changeledger/state; a
+          # single-branch checkout runs the suite against a deactivated repo
+          # with no ledger (20260812-013145).
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # `activate` records its decision as a git commit (commit-tree), and
+      # linux/windows runners carry no git identity to author it with.
+      - run: |
+          git config user.name "changeledger-ci"
+          git config user.email "ci@changeledger.invalid"
+      # Seeds the local state ref from the remote-tracking copy and activates
+      # this checkout, so `changeledger check` validates the real ledger.
+      - run: node bin/changeledger.mjs activate
       - run: node bin/changeledger.mjs register
       - run: pnpm verify
 

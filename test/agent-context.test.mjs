@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { execFile, execFileSync } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -12,7 +12,7 @@ import { init } from '../src/commands/init.mjs';
 import { VERSION } from '../src/framing.mjs';
 import { STATE_REF, writeActivation } from '../src/state-store.mjs';
 import { assertWithinBudget, contextBudgets } from './budget-support.mjs';
-import { sanitizedEnv } from './helpers/git-env.mjs';
+import { initGitFixture } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
 process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-context-home-'));
@@ -80,12 +80,7 @@ Chosen approach.
 // resolvable.
 function activatedAgentContextFixture({ broken = false } = {}) {
   const root = repo();
-  execFileSync('git', ['init', '-q'], { cwd: root, env: sanitizedEnv() });
-  execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: root, env: sanitizedEnv() });
-  execFileSync('git', ['config', 'user.email', 'test@example.com'], {
-    cwd: root,
-    env: sanitizedEnv(),
-  });
+  initGitFixture(root);
 
   const refId = '20260808-000005';
   const worktreeId = '20260808-000006';

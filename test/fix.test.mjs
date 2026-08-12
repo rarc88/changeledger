@@ -9,7 +9,7 @@ import { init } from '../src/commands/init.mjs';
 import * as fixModule from '../src/fix.mjs';
 import { STATE_REF, STATE_ROOT, writeActivation } from '../src/state-store.mjs';
 import * as taskModule from '../src/task.mjs';
-import { sanitizedEnv } from './helpers/git-env.mjs';
+import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
 // Isolate the global registry so init() doesn't touch the real home.
@@ -81,7 +81,7 @@ function activatedRepo(planLine) {
   fs.rmSync(file);
   const configText = fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8');
 
-  execFileSync('git', ['init', '-q'], { cwd: root, env: sanitizedEnv(), stdio: 'ignore' });
+  initGitFixture(root);
   const tree = buildTree(root, {
     '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
     '.changeledger-state/config.yml': configText,

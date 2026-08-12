@@ -8,7 +8,7 @@ import { commit } from '../src/commands/commit.mjs';
 import { findChangeledgerDir, resolveRepoPath } from '../src/config.mjs';
 import { loadRepo, loadRepoAsync, loadRepoWithConfig } from '../src/repo.mjs';
 import { STATE_REF, writeActivation } from '../src/state-store.mjs';
-import { sanitizedEnv } from './helpers/git-env.mjs';
+import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 import {
   buildTree,
   commitTree,
@@ -193,9 +193,7 @@ function git(root, args) {
 
 test('183807 CR5: the realistic `commit` route reaches the collapse message, not the frontmatter one', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-collapsed-commit-'));
-  git(root, ['init', '-q']);
-  git(root, ['config', 'user.email', 'test@example.com']);
-  git(root, ['config', 'user.name', 'Test']);
+  initGitFixture(root);
   git(root, ['config', 'commit.gpgsign', 'false']);
   fs.mkdirSync(path.join(root, '.changeledger'), { recursive: true });
   fs.writeFileSync(path.join(root, '.changeledger', 'config.yml'), 'changes_dir: "."\n');
@@ -421,7 +419,10 @@ test('20260810-181803: a falsy non-null options.snapshot fails loudly instead of
   }
 });
 
-test('20260809-194235 CR1: an activated loadRepo reads the state tree exactly once', async () => {
+test('20260809-194235 CR1: an activated loadRepo reads the state tree exactly once', {
+  skip:
+    process.platform === 'win32' && 'the PATH-shim spawn counter is POSIX-only (20260812-025623)',
+}, async () => {
   const { root, revision } = activatedFixture();
   let repo;
   const spawns = await countGitSpawns(() => {
@@ -440,7 +441,10 @@ test('20260809-194235 CR1: an activated loadRepo reads the state tree exactly on
   assert.equal(repo.state.revision, revision);
 });
 
-test('20260809-194235 CR1: an activated loadRepoAsync reads the state tree exactly once', async () => {
+test('20260809-194235 CR1: an activated loadRepoAsync reads the state tree exactly once', {
+  skip:
+    process.platform === 'win32' && 'the PATH-shim spawn counter is POSIX-only (20260812-025623)',
+}, async () => {
   const { root, revision } = activatedFixture();
   let repo;
   const spawns = await countGitSpawns(async () => {
@@ -456,7 +460,10 @@ test('20260809-194235 CR1: an activated loadRepoAsync reads the state tree exact
   assert.equal(repo.state.revision, revision);
 });
 
-test('20260809-194235 CR1: the single read holds for a ledger below the git top-level', async () => {
+test('20260809-194235 CR1: the single read holds for a ledger below the git top-level', {
+  skip:
+    process.platform === 'win32' && 'the PATH-shim spawn counter is POSIX-only (20260812-025623)',
+}, async () => {
   const { root, revision } = activatedFixture({ subdir: 'apps/proj' });
   let repo;
   const spawns = await countGitSpawns(() => {
