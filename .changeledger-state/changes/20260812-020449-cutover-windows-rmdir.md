@@ -65,10 +65,11 @@ solo pasan stdout).
   - **Verify:** `node --test test/cutover.test.mjs`
   - **Criteria:** CR2
   - **Resolved:** `2026-08-12T02:10:05Z`
-- [ ] Gate completo
+- [x] Gate completo
   - **Target:** `test/cutover.test.mjs`
   - **Verify:** `pnpm test`
   - **Criteria:** CR1, CR2
+  - **Resolved:** `2026-08-12T02:10:05Z`
 
 ## Log
 - **2026-08-12T02:05:28Z** `[status]` draft → approved (human via conversation)
