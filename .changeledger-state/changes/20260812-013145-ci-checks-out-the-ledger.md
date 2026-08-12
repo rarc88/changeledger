@@ -5,6 +5,7 @@ type: quick
 status: done
 created: 2026-08-12T01:31:45Z
 depends_on: []
+reviewed: true
 branch: quick/20260812-013145
 related_to: ["20260812-011851", "20260811-163203"]
 owner: rarc88
@@ -34,3 +35,4 @@ check validando de verdad.
 - **2026-08-12T01:54:07Z** `[note]` Capa 4 (producción observada en CI): activate committea la activación y el runner linux/windows no tiene identidad — paso convencional de git config en el workflow (changeledger-ci). Anotado follow-up de producto: ¿debe writeActivation/mutateState llevar identidad fallback de herramienta para máquinas sin identidad? Decisión de Roberto pendiente
 - **2026-08-12T01:54:08Z** `[status]` in-progress → in-validation
 - **2026-08-12T10:17:42Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-08-12T10:18:46Z** `[graduation]` skipped: la verdad duradera es el propio ci.yml versionado
