@@ -28,3 +28,4 @@ cmd/PATHEXT — coste sin beneficio de cobertura real.
 - **2026-08-12T02:58:25Z** `[note]` Skip con razón en win32 para el contador de spawns (técnica sh/PATH POSIX-only; en Windows además el env del hijo perdía git por la clave PATH vs Path). El criterio queda medido en macOS/linux; en local sigue corriendo (skip no dispara)
 - **2026-08-12T02:58:25Z** `[status]` in-progress → in-validation
 - **2026-08-12T03:07:56Z** `[validation]` in-validation → in-progress (agent rejected): Mismo concern, segundo asiento: el shim sh de edit.test CR8 (carrera CAS de newChangeFrom) tampoco ejecuta en win32 — Missing expected exception; extender el skip con razón
+- **2026-08-12T03:09:40Z** `[note]` Segundo asiento del mismo concern: skip con razón en edit.test CR8 (el shim sh que escenifica la carrera CAS no ejecuta en win32); la propagación queda pineada en POSIX. Los shims de repo.test pasan en Windows empíricamente y no se tocan
