@@ -322,7 +322,7 @@ function ledgerPathspecs(layout) {
   ].filter((value, index, paths) => value !== '' && paths.indexOf(value) === index);
 }
 
-function assertCleanLedger(repoRoot, changeledgerDir, layout, operation, run) {
+function assertCleanLedger(repoRoot, layout, operation, run) {
   const staged = run(['diff', '--cached', '--name-only'], repoRoot).trim();
   if (staged !== '') {
     throw new Error(
@@ -348,7 +348,7 @@ function sameNames(left, right) {
   return left.length === right.length && left.every((name, index) => name === right[index]);
 }
 
-function exactStagedCleanup(repoRoot, changeledgerDir, layout, run) {
+function exactStagedCleanup(repoRoot, layout, run) {
   const cleanupPaths = layout.collections.map((collection) => collection.prefix.slice(0, -1));
   const staged = nulNames(
     run(['diff', '--cached', '--name-only', '-z'], repoRoot, { encoding: 'utf8' }),
@@ -441,7 +441,7 @@ function runCutover(ctx, output, run) {
     );
   }
   const layout = ledgerLayout(repoRoot, changeledgerDir, config, run);
-  if (activation === null) assertCleanLedger(repoRoot, changeledgerDir, layout, 'cutover', run);
+  if (activation === null) assertCleanLedger(repoRoot, layout, 'cutover', run);
   const source = readLedgerAt(repoRoot, head, layout, run);
   const ledgerConfig = validateLedger(source);
   const projectId = ledgerConfig.project_id;
@@ -457,8 +457,8 @@ function runCutover(ctx, output, run) {
         `this repo is already activated (${ACTIVATION_REF}) — cutover only resumes when ${STATE_REF} matches the integration commit`,
       );
     }
-    if (!exactStagedCleanup(repoRoot, changeledgerDir, layout, run)) {
-      assertCleanLedger(repoRoot, changeledgerDir, layout, 'cutover', run);
+    if (!exactStagedCleanup(repoRoot, layout, run)) {
+      assertCleanLedger(repoRoot, layout, 'cutover', run);
     }
     commitCleanup(ctx, layout, tip, output);
     output.log(`Cut over ${source.documents.size} document(s) — ${STATE_REF} at ${tip}`);
@@ -761,12 +761,12 @@ function undoCutover(ctx, output, run) {
         `the interrupted undo ${completedUndo} cannot be completed automatically — its restored ledger paths changed afterward; resolve that content by hand`,
       );
     }
-    assertCleanLedger(repoRoot, changeledgerDir, layout, 'cutover --undo', run);
+    assertCleanLedger(repoRoot, layout, 'cutover --undo', run);
     deleteCutoverRefs(repoRoot, tip, activation.oid, run);
     output.log(`Undid the cutover — the ledger is back in the worktree, ${STATE_REF} deleted`);
     return 0;
   }
-  assertCleanLedger(repoRoot, changeledgerDir, layout, 'cutover --undo', run);
+  assertCleanLedger(repoRoot, layout, 'cutover --undo', run);
 
   // Worktree first, refs after: an interrupted undo that has restored the
   // documents but not yet dropped the refs is still a consistent activated
