@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-08-12T02:22:48Z
 depends_on: []
+reviewed: true
 branch: bug/20260812-022248
 related_to: ["20260812-020449", "20260809-113240", "20260810-120457"]
 owner: rarc88
@@ -74,3 +75,4 @@ falla sus precondiciones en cualquier cwd corto.
 - **2026-08-12T02:32:04Z** `[note]` Mandato de la confirmación: mínimo — parámetro muerto retirado de ambas firmas y 5 call sites, biome limpio en el archivo, sin regresión
 - **2026-08-12T02:34:27Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-08-12T10:17:43Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-08-12T10:18:44Z** `[graduation]` spec: `architecture.md`
