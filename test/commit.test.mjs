@@ -6,7 +6,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { commit } from '../src/commands/commit.mjs';
 import { STATE_REF, writeActivation } from '../src/state-store.mjs';
-import { sanitizedEnv } from './helpers/git-env.mjs';
+import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
 // This suite may itself run inside this repo's own pre-commit hook, which
@@ -22,9 +22,7 @@ function git(root, args) {
 // (commit.mjs resolves the active change via loadRepo).
 function gitRepo() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-commit-'));
-  git(root, ['init', '-q']);
-  git(root, ['config', 'user.email', 'test@example.com']);
-  git(root, ['config', 'user.name', 'Test']);
+  initGitFixture(root);
   git(root, ['config', 'commit.gpgsign', 'false']);
   fs.mkdirSync(path.join(root, '.changeledger', 'changes'), { recursive: true });
   fs.writeFileSync(
@@ -109,9 +107,7 @@ const noop = () => {};
 // sits.
 function gitRepoWithNestedLedger() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-commit-nested-'));
-  git(root, ['init', '-q']);
-  git(root, ['config', 'user.email', 'test@example.com']);
-  git(root, ['config', 'user.name', 'Test']);
+  initGitFixture(root);
   git(root, ['config', 'commit.gpgsign', 'false']);
   const pkg = path.join(root, 'pkg');
   fs.mkdirSync(path.join(pkg, '.changeledger', 'changes'), { recursive: true });
@@ -168,9 +164,7 @@ function gitRepoWithSymlinkedLedger() {
   const root = fs.realpathSync(
     fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-commit-symlink-')),
   );
-  git(root, ['init', '-q']);
-  git(root, ['config', 'user.email', 'test@example.com']);
-  git(root, ['config', 'user.name', 'Test']);
+  initGitFixture(root);
   git(root, ['config', 'commit.gpgsign', 'false']);
   fs.mkdirSync(path.join(root, 'ledger', 'changes'), { recursive: true });
   fs.writeFileSync(path.join(root, 'ledger', 'config.yml'), 'changes_dir: .changeledger/changes\n');
@@ -187,15 +181,13 @@ function gitRepoWithNestedGitLedger({ symlink = false } = {}) {
   const root = fs.realpathSync(
     fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-commit-nested-git-')),
   );
-  git(root, ['init', '-q']);
-  git(root, ['config', 'user.email', 'test@example.com']);
-  git(root, ['config', 'user.name', 'Test']);
+  initGitFixture(root);
   git(root, ['config', 'commit.gpgsign', 'false']);
   const ledgerName = symlink ? 'ledger' : '.changeledger';
   const ledger = path.join(root, ledgerName);
   fs.mkdirSync(path.join(ledger, 'changes'), { recursive: true });
   fs.writeFileSync(path.join(ledger, 'config.yml'), 'changes_dir: .changeledger/changes\n');
-  git(ledger, ['init', '-q']);
+  initGitFixture(ledger);
   if (symlink) fs.symlinkSync(ledgerName, path.join(root, '.changeledger'));
   return { root, ledgerName };
 }
@@ -501,9 +493,7 @@ test('CR10 (20260726-141124): a declared document is allowed in either Unicode f
 
 test('CR10 (20260726-141124): a non-ASCII changes_dir keeps the boundary byte-exact', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-commit-nfd-'));
-  git(root, ['init', '-q']);
-  git(root, ['config', 'user.email', 'test@example.com']);
-  git(root, ['config', 'user.name', 'Test']);
+  initGitFixture(root);
   git(root, ['config', 'commit.gpgsign', 'false']);
   // Git may report the decomposed directory in a platform-configured Unicode
   // form, so the byte-exact diagnostic must follow the pinned index output.
@@ -534,9 +524,7 @@ test('CR10 (20260726-141124): a non-ASCII changes_dir keeps the boundary byte-ex
 
 test('CR10 (20260726-141124): a raw-byte platform (core.precomposeunicode=false) with a mixed-composition changes_dir does not hide a foreign document', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-commit-raw-'));
-  git(root, ['init', '-q']);
-  git(root, ['config', 'user.email', 'test@example.com']);
-  git(root, ['config', 'user.name', 'Test']);
+  initGitFixture(root);
   git(root, ['config', 'commit.gpgsign', 'false']);
   git(root, ['config', 'core.precomposeunicode', 'false']);
   // Mixed composition: 'o' is precomposed (U+00F3) while 'n' is decomposed
@@ -822,9 +810,7 @@ test('162616 CR8: a mis-cased twin of a declared document is rejected, never whi
 
 test('162616 CR9: changes_dir resolving to the repo root aborts naming the collapse instead of muting the guard', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-commit-collapsed-'));
-  git(root, ['init', '-q']);
-  git(root, ['config', 'user.email', 'test@example.com']);
-  git(root, ['config', 'user.name', 'Test']);
+  initGitFixture(root);
   git(root, ['config', 'commit.gpgsign', 'false']);
   fs.mkdirSync(path.join(root, '.changeledger'), { recursive: true });
   fs.writeFileSync(path.join(root, '.changeledger', 'config.yml'), 'changes_dir: .\n');

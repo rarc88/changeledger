@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 import { sync as syncCommand } from '../src/commands/sync.mjs';
 import { capturedRun } from '../src/git.mjs';
 import { ACTIVATION_REF, mutateState, readSnapshot, STATE_REF } from '../src/state-store.mjs';
-import { sanitizedEnv } from './helpers/git-env.mjs';
+import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 import {
   buildTree,
   changeText,
@@ -104,7 +104,7 @@ function activatedRepo({ files = listableStateFiles() } = {}) {
 // checkout that is not activated yet.
 function syncFixture() {
   const remote = tmpdir('changeledger-sync-remote-');
-  git(remote, ['init', '--bare', '-q', '-b', 'main']);
+  initGitFixture(remote, { args: ['--bare', '-b', 'main'] });
   const { root: a, revision } = activatedRepo();
   git(a, ['remote', 'add', 'origin', remote]);
   git(a, ['push', '-q', 'origin', 'main', STATE_REF]);

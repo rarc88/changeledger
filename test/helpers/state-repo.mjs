@@ -9,7 +9,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { STATE_REF } from '../../src/state-store.mjs';
-import { sanitizedEnv } from './git-env.mjs';
+import { initGitFixture, sanitizedEnv } from './git-env.mjs';
 
 // Raw `git` invocation for fixture setup: trimmed utf8 stdout, stderr surfaced
 // on failure (a broken fixture must fail loudly, not silently).
@@ -30,11 +30,8 @@ export function git(root, args, { input, indexFile } = {}) {
 
 export function initStateRepo({ objectFormat = 'sha1' } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-state-repo-'));
-  const initArgs = ['init', '-q'];
-  if (objectFormat !== 'sha1') initArgs.push(`--object-format=${objectFormat}`);
-  git(root, initArgs);
-  git(root, ['config', 'user.name', 'Test User']);
-  git(root, ['config', 'user.email', 'test@example.com']);
+  const args = objectFormat === 'sha1' ? [] : [`--object-format=${objectFormat}`];
+  initGitFixture(root, { args });
   return root;
 }
 

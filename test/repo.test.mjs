@@ -8,7 +8,7 @@ import { commit } from '../src/commands/commit.mjs';
 import { findChangeledgerDir, resolveRepoPath } from '../src/config.mjs';
 import { loadRepo, loadRepoAsync, loadRepoWithConfig } from '../src/repo.mjs';
 import { STATE_REF, writeActivation } from '../src/state-store.mjs';
-import { sanitizedEnv } from './helpers/git-env.mjs';
+import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 import {
   buildTree,
   commitTree,
@@ -193,9 +193,7 @@ function git(root, args) {
 
 test('183807 CR5: the realistic `commit` route reaches the collapse message, not the frontmatter one', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-collapsed-commit-'));
-  git(root, ['init', '-q']);
-  git(root, ['config', 'user.email', 'test@example.com']);
-  git(root, ['config', 'user.name', 'Test']);
+  initGitFixture(root);
   git(root, ['config', 'commit.gpgsign', 'false']);
   fs.mkdirSync(path.join(root, '.changeledger'), { recursive: true });
   fs.writeFileSync(path.join(root, '.changeledger', 'config.yml'), 'changes_dir: "."\n');

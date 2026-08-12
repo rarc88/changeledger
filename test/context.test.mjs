@@ -25,7 +25,7 @@ import {
   tokenCount,
 } from './budget-support.mjs';
 import { contractFragmentNames } from './contract-support.mjs';
-import { sanitizedEnv } from './helpers/git-env.mjs';
+import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
 process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'context-home-'));
@@ -449,12 +449,7 @@ test('CR2: change id infers implement and includes complete actionable stages', 
 // `types.feature` stays resolvable.
 function activatedContextFixture({ broken = false, malformedId } = {}) {
   const root = repo();
-  execFileSync('git', ['init', '-q'], { cwd: root, env: sanitizedEnv() });
-  execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: root, env: sanitizedEnv() });
-  execFileSync('git', ['config', 'user.email', 'test@example.com'], {
-    cwd: root,
-    env: sanitizedEnv(),
-  });
+  initGitFixture(root);
 
   const refId = '20260808-000001';
   const worktreeId = '20260808-000002';
