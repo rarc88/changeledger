@@ -451,7 +451,7 @@ function runCutover(ctx, output, run) {
     if (!exactStagedCleanup(repoRoot, changeledgerDir, layout, run)) {
       assertCleanLedger(repoRoot, changeledgerDir, layout, 'cutover', run);
     }
-    commitCleanup(ctx, layout, tip);
+    commitCleanup(ctx, layout, tip, output);
     output.log(`Cut over ${source.documents.size} document(s) — ${STATE_REF} at ${tip}`);
     output.log(`Activated ${ACTIVATION_REF}; the worktree keeps only ${layout.configPath}`);
     return 0;
@@ -484,7 +484,7 @@ function runCutover(ctx, output, run) {
   ).revision;
 
   writeActivation(repoRoot, { stateRef: STATE_REF }, run);
-  commitCleanup(ctx, layout, baseline);
+  commitCleanup(ctx, layout, baseline, output);
 
   output.log(`Cut over ${source.documents.size} document(s) — ${STATE_REF} at ${baseline}`);
   output.log(`Activated ${ACTIVATION_REF}; the worktree keeps only ${layout.configPath}`);
@@ -500,22 +500,27 @@ function initializedPublicationMatches(repoRoot, tip, config, projectId, run) {
   );
 }
 
-function commitCleanup({ repoRoot }, layout, baseline) {
+function commitCleanup({ repoRoot }, layout, baseline, output) {
   const paths = layout.collections.map((c) => c.prefix.slice(0, -1));
   mutatingRun(['rm', '-r', '-q', '--ignore-unmatch', '--', ...paths], layout.topLevel);
   // `git rm` only sees tracked files, so a collection directory that is empty
   // on disk — either emptied by the rm or already empty before the cut —
-  // survives it and contradicts "keeps only config.yml" literally. Remove the
-  // leftovers; `rmdirSync` refuses non-empty dirs, which is exactly the guard:
-  // anything still carrying files was not ours to delete.
+  // survives it and contradicts "keeps only config.yml" literally. Removing
+  // the leftovers is cosmetic, and this runs BETWEEN the rm and the cleanup
+  // commit: aborting here would strand the cut in its interrupted window over
+  // a nicety (20260812-020449 — Windows delete-pending semantics did exactly
+  // that). ENOENT is the happy case; anything else is warned with its code,
+  // never thrown.
   for (const rel of paths) {
     const dir = path.join(layout.topLevel, rel);
     try {
       fs.rmdirSync(dir);
     } catch (e) {
-      // Absent (git rm pruned it) or non-empty (not ours to delete): fine.
-      // Anything else is a real failure and must surface, never be swallowed.
-      if (e.code !== 'ENOENT' && e.code !== 'ENOTEMPTY') throw e;
+      if (e.code !== 'ENOENT') {
+        output.warn(
+          `Warning: could not remove the emptied directory ${rel} (${e.code ?? e.message}); the cut is unaffected`,
+        );
+      }
     }
   }
   mutatingRun(
