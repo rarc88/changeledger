@@ -60,4 +60,11 @@ export function initGitFixture(root, { args = [] } = {}) {
     cwd: root,
     env: sanitizedEnv(),
   });
+  // Deterministic line endings on every OS (20260812-024553): Windows runners
+  // default core.autocrlf=true, and a checkout/revert that materializes CRLF
+  // where the fixture wrote LF falsifies every worktree byte assertion.
+  execFileSync('git', ['config', 'core.autocrlf', 'false'], {
+    cwd: root,
+    env: sanitizedEnv(),
+  });
 }

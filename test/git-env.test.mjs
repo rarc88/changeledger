@@ -11,12 +11,13 @@
 // regressed call site elsewhere in test/** stayed green.
 
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { sanitizedEnv } from './helpers/git-env.mjs';
+import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 
 // Extracts the full text of every `<name>(` call in `source`, balancing
 // parentheses so a call spread over several lines is read whole. Mirrors
@@ -132,4 +133,18 @@ test('20260812-011851: sanitizedEnv carries the deterministic test identity', ()
   assert.equal(env.GIT_COMMITTER_EMAIL, 'test@example.com');
   // `extra` still wins, so identity-resolution tests can opt out on purpose.
   assert.equal(sanitizedEnv({ GIT_AUTHOR_NAME: 'Someone' }).GIT_AUTHOR_NAME, 'Someone');
+});
+
+// 20260812-024553 — deterministic line endings at the same seat as identity:
+// Windows runners default core.autocrlf=true, so checkout/revert materializes
+// CRLF where fixtures wrote LF and every worktree byte assertion lies.
+test('20260812-024553: initGitFixture pins autocrlf off in the fixture repo', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cl-eol-'));
+  initGitFixture(root);
+  const value = execFileSync('git', ['config', 'core.autocrlf'], {
+    cwd: root,
+    env: sanitizedEnv(),
+    encoding: 'utf8',
+  }).trim();
+  assert.equal(value, 'false');
 });
