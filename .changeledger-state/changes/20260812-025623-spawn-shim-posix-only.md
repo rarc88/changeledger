@@ -2,9 +2,10 @@
 id: "20260812-025623"
 title: El contador de spawns del undo se salta Windows con razón
 type: quick
-status: approved
+status: in-progress
 created: 2026-08-12T02:56:23Z
 depends_on: []
+branch: quick/20260812-025623
 related_to: ["20260810-181802"]
 owner: rarc88
 ---
@@ -22,3 +23,5 @@ cmd/PATHEXT — coste sin beneficio de cobertura real.
 
 ## Log
 - **2026-08-12T02:56:25Z** `[status]` draft → approved (human via conversation)
+- **2026-08-12T02:56:26Z** `[status]` approved → in-progress
+- **2026-08-12T02:56:26Z** `[branch]` set: quick/20260812-025623 (auto)
