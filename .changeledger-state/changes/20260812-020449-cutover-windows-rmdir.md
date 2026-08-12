@@ -75,3 +75,4 @@ solo pasan stdout).
 - **2026-08-12T02:05:28Z** `[status]` draft → approved (human via conversation)
 - **2026-08-12T02:06:10Z** `[status]` approved → in-progress
 - **2026-08-12T02:06:10Z** `[branch]` set: bug/20260812-020449 (auto)
+- **2026-08-12T02:10:06Z** `[note]` CR1: warn-and-continue (solo ENOENT silencioso), test in-process con fs.rmdirSync parcheado a EPERM — el corte aterriza con exit 0, warning con directorio y código, commit de limpieza presente; mutante (throw estricto restaurado) matado. CR2: los 5 asserts de exit code llevan err||out. Lección del test: cutover in-process exige realpath del fixture (/var vs /private/var). Mandato del review: spot check del diff
