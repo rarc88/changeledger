@@ -518,7 +518,12 @@ test('20260809-113241 CR4: a renamed change updates in place, never as a second 
 
 // --- 20260810-004608: the report follows the confirmed CAS, never precedes it -
 
-test('20260810-004608 CR1: a lost CAS race prints no applied-document lines', () => {
+// 20260812-025623 — the CAS race is staged by a POSIX shim (`command -v`,
+// sh script); on win32 it never executes. The report-after-CAS behavior is
+// OS-independent and stays pinned on macOS/linux.
+test('20260810-004608 CR1: a lost CAS race prints no applied-document lines', {
+  skip: process.platform === 'win32' && 'the race-staging shim is POSIX-only',
+}, () => {
   const root = activatedRepo({ sourceFiles: { [NEW_FILE]: changeText({ id: NEW_ID }) } });
   const before = stateRevision(root);
   const shimDir = createCasRaceShim(root, STATE_REF);
