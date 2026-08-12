@@ -2,7 +2,7 @@
 id: "20260812-020449"
 title: El cutover aborta en Windows por la limpieza cosmética
 type: bug
-status: in-validation
+status: done
 created: 2026-08-12T02:04:49Z
 depends_on: []
 branch: bug/20260812-020449
@@ -78,3 +78,4 @@ solo pasan stdout).
 - **2026-08-12T02:10:06Z** `[note]` CR1: warn-and-continue (solo ENOENT silencioso), test in-process con fs.rmdirSync parcheado a EPERM — el corte aterriza con exit 0, warning con directorio y código, commit de limpieza presente; mutante (throw estricto restaurado) matado. CR2: los 5 asserts de exit code llevan err||out. Lección del test: cutover in-process exige realpath del fixture (/var vs /private/var). Mandato del review: spot check del diff
 - **2026-08-12T02:10:06Z** `[status]` in-progress → in-review
 - **2026-08-12T02:14:54Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-08-12T10:17:43Z** `[validation]` in-validation → done (human accepted via conversation)
