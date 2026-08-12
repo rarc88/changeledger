@@ -32,3 +32,4 @@ helper + suite verde con la config global deshabilitada.
 - **2026-08-12T01:19:07Z** `[status]` draft → approved (human via conversation)
 - **2026-08-12T01:19:07Z** `[status]` approved → in-progress
 - **2026-08-12T01:19:07Z** `[branch]` set: quick/20260812-011851 (auto)
+- **2026-08-12T01:23:15Z** `[note]` Identidad determinista inyectada en sanitizedEnv (GIT_AUTHOR_*/GIT_COMMITTER_* = Test User <test@example.com>, extra sobreescribe); pin unitario visto fallar antes; suite completa 1456/1456 CON GIT_CONFIG_GLOBAL=/dev/null (la condición del runner reproducida). El autodetect de git era suerte de entorno: válido en dev, fatal (none) en runners
