@@ -2,9 +2,10 @@
 id: "20260812-013145"
 title: El CI trae y activa el ledger del repo
 type: quick
-status: approved
+status: in-progress
 created: 2026-08-12T01:31:45Z
 depends_on: []
+branch: quick/20260812-013145
 related_to: ["20260812-011851", "20260811-163203"]
 owner: rarc88
 ---
@@ -25,3 +26,5 @@ check validando de verdad.
 
 ## Log
 - **2026-08-12T01:31:47Z** `[status]` draft → approved (human via conversation)
+- **2026-08-12T01:47:05Z** `[status]` approved → in-progress
+- **2026-08-12T01:47:05Z** `[branch]` set: quick/20260812-013145 (auto)
