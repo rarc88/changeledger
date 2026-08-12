@@ -2,7 +2,7 @@
 id: "20260812-013145"
 title: El CI trae y activa el ledger del repo
 type: quick
-status: in-progress
+status: in-validation
 created: 2026-08-12T01:31:45Z
 depends_on: []
 branch: quick/20260812-013145
@@ -32,3 +32,4 @@ check validando de verdad.
 - **2026-08-12T01:48:52Z** `[status]` in-progress → in-validation
 - **2026-08-12T01:54:07Z** `[validation]` in-validation → in-progress (agent rejected): El paso activate necesita identidad git en el runner: writeActivation crea el commit de activación via commit-tree y linux/windows no autodetectan (macOS sí). Falta el paso convencional de identidad en el workflow
 - **2026-08-12T01:54:07Z** `[note]` Capa 4 (producción observada en CI): activate committea la activación y el runner linux/windows no tiene identidad — paso convencional de git config en el workflow (changeledger-ci). Anotado follow-up de producto: ¿debe writeActivation/mutateState llevar identidad fallback de herramienta para máquinas sin identidad? Decisión de Roberto pendiente
+- **2026-08-12T01:54:08Z** `[status]` in-progress → in-validation
