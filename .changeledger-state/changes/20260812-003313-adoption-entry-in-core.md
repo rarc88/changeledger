@@ -5,6 +5,7 @@ type: quick
 status: done
 created: 2026-08-12T00:33:13Z
 depends_on: []
+reviewed: true
 branch: quick/20260812-003313
 related_to: ["20260811-151426"]
 owner: rarc88
@@ -27,3 +28,4 @@ budgets vigente y el concept guard 15 intacto.
 - **2026-08-12T00:39:31Z** `[note]` Línea de adopción en el bloque de sync de core (cutover una vez desde la rama de integración; clones con activate); guard 15 ampliado con la obligación, visto fallar antes de la prosa (y una vez más por exigir el backtick exacto — afinado a la palabra)
 - **2026-08-12T00:39:31Z** `[status]` in-progress → in-validation
 - **2026-08-12T00:50:14Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-08-12T00:50:15Z** `[graduation]` skipped: la verdad duradera es el bloque de sync de core.md y el guard 15 ampliado, versionados
