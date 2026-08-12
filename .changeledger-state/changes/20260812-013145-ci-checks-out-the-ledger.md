@@ -2,7 +2,7 @@
 id: "20260812-013145"
 title: El CI trae y activa el ledger del repo
 type: quick
-status: draft
+status: approved
 created: 2026-08-12T01:31:45Z
 depends_on: []
 related_to: ["20260812-011851", "20260811-163203"]
@@ -24,3 +24,4 @@ El workflow queda como el entorno de un desarrollador real: ledger legible,
 check validando de verdad.
 
 ## Log
+- **2026-08-12T01:31:47Z** `[status]` draft → approved (human via conversation)
