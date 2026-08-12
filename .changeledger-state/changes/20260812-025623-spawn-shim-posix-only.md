@@ -2,7 +2,7 @@
 id: "20260812-025623"
 title: El contador de spawns del undo se salta Windows con razón
 type: quick
-status: in-validation
+status: in-progress
 created: 2026-08-12T02:56:23Z
 depends_on: []
 branch: quick/20260812-025623
@@ -30,3 +30,4 @@ cmd/PATHEXT — coste sin beneficio de cobertura real.
 - **2026-08-12T03:07:56Z** `[validation]` in-validation → in-progress (agent rejected): Mismo concern, segundo asiento: el shim sh de edit.test CR8 (carrera CAS de newChangeFrom) tampoco ejecuta en win32 — Missing expected exception; extender el skip con razón
 - **2026-08-12T03:09:40Z** `[note]` Segundo asiento del mismo concern: skip con razón en edit.test CR8 (el shim sh que escenifica la carrera CAS no ejecuta en win32); la propagación queda pineada en POSIX. Los shims de repo.test pasan en Windows empíricamente y no se tocan
 - **2026-08-12T03:09:40Z** `[status]` in-progress → in-validation
+- **2026-08-12T03:17:18Z** `[validation]` in-validation → in-progress (agent rejected): Tercer asiento de la clase: import.test 004608 CR1 escenifica la carrera CAS con 'command -v git' (POSIX); skip con razón en win32 — censo barrido: es el último shim sin guardar (cutover/edit ya guardados, repo.test pasa empíricamente en Windows)
