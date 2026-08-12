@@ -2,7 +2,7 @@
 id: "20260812-003312"
 title: El status sin copia remota dice publicar, no fetch
 type: quick
-status: draft
+status: approved
 created: 2026-08-12T00:33:12Z
 depends_on: []
 related_to: ["20260811-151426"]
@@ -21,3 +21,4 @@ tiene, o la traerá si existe — sin adivinar cuál, que para eso está
 ejecutarlo.
 
 ## Log
+- **2026-08-12T00:33:46Z** `[status]` draft → approved (human via conversation)
