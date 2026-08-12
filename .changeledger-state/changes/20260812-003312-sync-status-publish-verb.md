@@ -5,6 +5,7 @@ type: quick
 status: done
 created: 2026-08-12T00:33:12Z
 depends_on: []
+archived: true
 reviewed: true
 branch: quick/20260812-003312
 related_to: ["20260811-151426"]
@@ -30,3 +31,4 @@ ejecutarlo.
 - **2026-08-12T00:35:56Z** `[status]` in-progress → in-validation
 - **2026-08-12T00:50:14Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-08-12T00:50:15Z** `[graduation]` skipped: corrección de mensaje; la verdad del comando vive en la sección de sync ya graduada
+- **2026-08-12T00:50:16Z** `[archive]` archived

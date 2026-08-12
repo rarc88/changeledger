@@ -5,6 +5,7 @@ type: quick
 status: done
 created: 2026-08-12T00:33:11Z
 depends_on: []
+archived: true
 reviewed: true
 branch: quick/20260812-003311
 related_to: ["20260809-113240"]
@@ -36,3 +37,4 @@ enumeradas, el fail-closed existente ya nombra el bloqueo real.
 - **2026-08-12T00:45:14Z** `[status]` in-progress → in-validation
 - **2026-08-12T00:50:13Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-08-12T00:50:15Z** `[graduation]` skipped: la spec ya decía 'conservando config.yml'; el change hace literal esa verdad (help + limpieza), sin verdad nueva
+- **2026-08-12T00:50:16Z** `[archive]` archived

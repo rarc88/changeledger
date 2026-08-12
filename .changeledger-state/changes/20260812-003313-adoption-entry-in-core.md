@@ -5,6 +5,7 @@ type: quick
 status: done
 created: 2026-08-12T00:33:13Z
 depends_on: []
+archived: true
 reviewed: true
 branch: quick/20260812-003313
 related_to: ["20260811-151426"]
@@ -29,3 +30,4 @@ budgets vigente y el concept guard 15 intacto.
 - **2026-08-12T00:39:31Z** `[status]` in-progress → in-validation
 - **2026-08-12T00:50:14Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-08-12T00:50:15Z** `[graduation]` skipped: la verdad duradera es el bloque de sync de core.md y el guard 15 ampliado, versionados
+- **2026-08-12T00:50:16Z** `[archive]` archived
