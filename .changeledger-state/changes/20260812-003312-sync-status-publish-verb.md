@@ -2,9 +2,10 @@
 id: "20260812-003312"
 title: El status sin copia remota dice publicar, no fetch
 type: quick
-status: approved
+status: in-progress
 created: 2026-08-12T00:33:12Z
 depends_on: []
+branch: quick/20260812-003312
 related_to: ["20260811-151426"]
 owner: rarc88
 ---
@@ -22,3 +23,5 @@ ejecutarlo.
 
 ## Log
 - **2026-08-12T00:33:46Z** `[status]` draft → approved (human via conversation)
+- **2026-08-12T00:33:47Z** `[status]` approved → in-progress
+- **2026-08-12T00:33:47Z** `[branch]` set: quick/20260812-003312 (auto)
