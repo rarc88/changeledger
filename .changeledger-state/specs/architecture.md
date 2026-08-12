@@ -304,6 +304,14 @@ ref pasa a ser la autoridad. El commit de limpieza es el marcador del corte:
 subject fijo `chore(state): cut the ledger over to the state ref`, trailer
 `Changeledger-Cutover-Baseline: <oid>` y cuerpo `ChangeLedger: none — …` (por
 eso el lint de markers lo exime sin caso especial); se crea con `--no-verify`.
+Toda ruta que el corte deriva comparte UNA forma: `ledgerLayout` realpath-ea
+sus dos entradas antes de calcular relativos, porque el cwd puede llegar por
+symlink o por nombre corto 8.3 de Windows mientras git reporta su top-level
+en forma larga — mezclarlas fabricaba pathspecs `../` que git rechazaba
+(`20260812-022248`). Y la retirada de los directorios de colección vacíos
+del worktree es cosmética por contrato: cualquier fallo suyo distinto de
+ENOENT degrada a warning y jamás aborta un corte ya publicado
+(`20260812-020449`).
 La idempotencia es por igualdad de contenido (project_id, bytes del config y
 mapa path→texto de documentos, equivalente a igualdad de tree sobre este
 layout exclusivo de blobs `100644`): re-ejecutar sobre un corte idéntico es
