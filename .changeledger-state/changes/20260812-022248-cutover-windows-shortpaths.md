@@ -47,10 +47,11 @@ falla sus precondiciones en cualquier cwd corto.
 
 ## Plan
 
-- [ ] Realpath de ambos lados en ledgerLayout
+- [x] Realpath de ambos lados en ledgerLayout
   - **Target:** `src/commands/cutover.mjs`
   - **Verify:** `node --test test/cutover.test.mjs`
   - **Criteria:** CR1
+  - **Resolved:** `2026-08-12T02:25:36Z`
 - [ ] Realpath nativo en el mkdtemp de los helpers
   - **Target:** `test/helpers/state-repo.mjs`
   - **Verify:** `pnpm test`
