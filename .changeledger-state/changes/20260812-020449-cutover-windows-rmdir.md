@@ -60,10 +60,11 @@ solo pasan stdout).
   - **Verify:** `node --test test/cutover.test.mjs`
   - **Criteria:** CR1
   - **Resolved:** `2026-08-12T02:10:05Z`
-- [ ] stderr en los mensajes de assert de exit code del suite
+- [x] stderr en los mensajes de assert de exit code del suite
   - **Target:** `test/cutover.test.mjs`
   - **Verify:** `node --test test/cutover.test.mjs`
   - **Criteria:** CR2
+  - **Resolved:** `2026-08-12T02:10:05Z`
 - [ ] Gate completo
   - **Target:** `test/cutover.test.mjs`
   - **Verify:** `pnpm test`
