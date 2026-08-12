@@ -67,3 +67,4 @@ falla sus precondiciones en cualquier cwd corto.
 - **2026-08-12T02:22:50Z** `[status]` draft → approved (human via conversation)
 - **2026-08-12T02:22:50Z** `[status]` approved → in-progress
 - **2026-08-12T02:22:50Z** `[branch]` set: bug/20260812-022248 (auto)
+- **2026-08-12T02:25:37Z** `[note]` CR1 reproducido en macOS con cwd por symlink (el gemelo POSIX del 8.3) — mismo error 'outside repository' del CI; fix: realpath nativo de ambos lados en ledgerLayout, pathspecs derivados del layout (ledgerDirRel). CR2: realpath en el asiento del mkdtemp. Mandato del review: spot check del diff
