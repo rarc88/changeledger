@@ -2,7 +2,7 @@
 id: "20260812-003313"
 title: El contrato nombra cómo se adopta el estado por primera vez
 type: quick
-status: draft
+status: approved
 created: 2026-08-12T00:33:13Z
 depends_on: []
 related_to: ["20260811-151426"]
@@ -20,3 +20,4 @@ clones posteriores, con `activate`") cierra el hueco, con la disciplina de
 budgets vigente y el concept guard 15 intacto.
 
 ## Log
+- **2026-08-12T00:33:46Z** `[status]` draft → approved (human via conversation)
