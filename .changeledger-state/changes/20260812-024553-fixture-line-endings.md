@@ -2,7 +2,7 @@
 id: "20260812-024553"
 title: Los fixtures fijan line endings deterministas
 type: quick
-status: in-validation
+status: done
 created: 2026-08-12T02:45:53Z
 depends_on: []
 branch: quick/20260812-024553
@@ -30,3 +30,4 @@ todos los SO por construcción.
 - **2026-08-12T02:45:55Z** `[branch]` set: quick/20260812-024553 (auto)
 - **2026-08-12T02:48:17Z** `[note]` core.autocrlf=false en initGitFixture (mismo asiento que la identidad), pin visto fallar antes; los 8 tests de undo que comparan bytes del worktree quedan deterministas en todos los SO. Producción intacta: la puerta del undo ya comparaba blobs normalizados
 - **2026-08-12T02:48:17Z** `[status]` in-progress → in-validation
+- **2026-08-12T10:17:43Z** `[validation]` in-validation → done (human accepted via conversation)
