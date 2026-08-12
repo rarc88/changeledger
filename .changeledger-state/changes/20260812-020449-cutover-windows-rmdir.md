@@ -55,10 +55,11 @@ solo pasan stdout).
 
 ## Plan
 
-- [ ] Warn-and-continue en commitCleanup, con inyección para el test
+- [x] Warn-and-continue en commitCleanup, con inyección para el test
   - **Target:** `src/commands/cutover.mjs`, `test/cutover.test.mjs`
   - **Verify:** `node --test test/cutover.test.mjs`
   - **Criteria:** CR1
+  - **Resolved:** `2026-08-12T02:10:05Z`
 - [ ] stderr en los mensajes de assert de exit code del suite
   - **Target:** `test/cutover.test.mjs`
   - **Verify:** `node --test test/cutover.test.mjs`
