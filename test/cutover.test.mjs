@@ -1455,3 +1455,36 @@ test('20260810-181802 CR1: the undo verification enumeration does not grow with 
     true,
   );
 });
+
+// 20260812-003311 — "keeps only config.yml" must be literally true: an empty
+// collection directory is invisible to `git rm` (git tracks files, not dirs),
+// so ranchops' cut left an untracked empty `releases/` contradicting the help.
+test('20260812-003311: the cleanup leaves no empty collection directory behind', () => {
+  const { root } = seedLedgerRepo();
+  fs.mkdirSync(path.join(root, '.changeledger', 'empty-extra'), { recursive: true });
+
+  const { code, out } = cli(root, 'cutover');
+  assert.equal(code, 0, out);
+  // Only the extra untracked dir may linger (out of the collections' scope);
+  // the COLLECTION directories themselves must be gone along with their files.
+  const left = fs.readdirSync(path.join(root, '.changeledger')).sort();
+  assert.ok(!left.includes('changes'), `changes/ survived: ${left}`);
+  assert.ok(!left.includes('specs'), `specs/ survived: ${left}`);
+  assert.ok(!left.includes('releases'), `releases/ survived: ${left}`);
+});
+
+// The ranchops shape itself: a collection directory that is EMPTY before the
+// cut (nothing tracked in it, so `git rm` never sees it) must not survive.
+test('20260812-003311: an empty collection directory before the cut is removed too', () => {
+  const { root } = seedLedgerRepo();
+  fs.rmSync(path.join(root, '.changeledger', 'releases'), { recursive: true, force: true });
+  execFileSync('git', ['commit', '-aqm', 'chore: drop releases', '--no-verify'], {
+    cwd: root,
+    env: CLI_ENV,
+  });
+  fs.mkdirSync(path.join(root, '.changeledger', 'releases'), { recursive: true });
+
+  const { code, out } = cli(root, 'cutover');
+  assert.equal(code, 0, out);
+  assert.deepEqual(fs.readdirSync(path.join(root, '.changeledger')).sort(), ['config.yml']);
+});
