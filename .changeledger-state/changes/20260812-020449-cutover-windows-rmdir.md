@@ -2,9 +2,10 @@
 id: "20260812-020449"
 title: El cutover aborta en Windows por la limpieza cosmética
 type: bug
-status: approved
+status: in-progress
 created: 2026-08-12T02:04:49Z
 depends_on: []
+branch: bug/20260812-020449
 related_to: ["20260812-003311", "20260809-113240"]
 owner: rarc88
 ---
@@ -69,3 +70,5 @@ solo pasan stdout).
 
 ## Log
 - **2026-08-12T02:05:28Z** `[status]` draft → approved (human via conversation)
+- **2026-08-12T02:06:10Z** `[status]` approved → in-progress
+- **2026-08-12T02:06:10Z** `[branch]` set: bug/20260812-020449 (auto)
