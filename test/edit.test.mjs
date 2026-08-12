@@ -315,7 +315,12 @@ test('CR6: --from refuses a document whose id is already published', () => {
 // an unrelated commit that advances STATE_REF past the revision `newChangeFrom`
 // already committed to — the same race a second concurrent `changeledger`
 // process would cause. The final CAS `update-ref` then finds the ref moved.
-test('CR8: a CAS conflict during `newChangeFrom` propagates undisguised, no retry, no partial write', () => {
+// 20260812-025623 — the race is staged by a POSIX sh shim; on win32 it never
+// executes, no conflict is staged and the expected throw cannot happen. The
+// propagation itself is OS-independent and stays pinned on macOS/linux.
+test('CR8: a CAS conflict during `newChangeFrom` propagates undisguised, no retry, no partial write', {
+  skip: process.platform === 'win32' && 'the race-staging sh shim is POSIX-only',
+}, () => {
   const { root, revision } = activatedRepo();
   const scaffold = scaffoldChange(
     { type: 'quick', slug: 'z', title: 'Z', now: '2026-06-15T12:00:00Z' },
