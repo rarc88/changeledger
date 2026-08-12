@@ -2,7 +2,7 @@
 id: "20260812-024553"
 title: Los fixtures fijan line endings deterministas
 type: quick
-status: draft
+status: approved
 created: 2026-08-12T02:45:53Z
 depends_on: []
 related_to: ["20260812-011851", "20260812-022248"]
@@ -24,3 +24,4 @@ fixture, como ya fija la identidad — los repos de test son deterministas en
 todos los SO por construcción.
 
 ## Log
+- **2026-08-12T02:45:55Z** `[status]` draft → approved (human via conversation)
