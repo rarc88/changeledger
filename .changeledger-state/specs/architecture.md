@@ -60,7 +60,10 @@ migración explícita construye un candidato con el AST de YAML, actualiza estru
 y comentarios administrados, conserva decisiones y extensiones propias, no mueve
 directorios y escribe atómicamente. Repetirla sobre el schema vigente es un no-op
 byte-idéntico; un schema más nuevo que el soportado falla cerrado. Las
-migraciones son una cadena versionada y aditiva: el schema vigente es `4`. La
+migraciones son una cadena versionada y aditiva: el schema vigente es `5` —
+la 4 → 5 publica `git.change_branch_format` con su valor por defecto
+`{type}/{id}` en los repos que no habían elegido formato (vaciar la clave
+sigue siendo opt-out). La
 migración 1 → 2 añade el tipo `quick` y sus impactos a repos schema 1 sin pisar
 un `quick` custom ni extensiones propias (guardas `Object.hasOwn`). La migración
 3 → 4 repara el acoplamiento entre `review_required` y las stages verificables:
