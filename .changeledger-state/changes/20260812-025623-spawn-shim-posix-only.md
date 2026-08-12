@@ -25,3 +25,4 @@ cmd/PATHEXT — coste sin beneficio de cobertura real.
 - **2026-08-12T02:56:25Z** `[status]` draft → approved (human via conversation)
 - **2026-08-12T02:56:26Z** `[status]` approved → in-progress
 - **2026-08-12T02:56:26Z** `[branch]` set: quick/20260812-025623 (auto)
+- **2026-08-12T02:58:25Z** `[note]` Skip con razón en win32 para el contador de spawns (técnica sh/PATH POSIX-only; en Windows además el env del hijo perdía git por la clave PATH vs Path). El criterio queda medido en macOS/linux; en local sigue corriendo (skip no dispara)
