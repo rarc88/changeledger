@@ -2,7 +2,7 @@
 id: "20260814-233210"
 title: El workflow de publish trae y activa el ledger como el CI
 type: quick
-status: draft
+status: approved
 created: 2026-08-14T23:32:10Z
 depends_on: []
 related_to: ["20260812-013145"]
@@ -22,3 +22,4 @@ Espejo de los tres pasos en `publish.yml`: `fetch-depth: 0` en el checkout,
 identidad git del runner, y `changeledger activate` antes del publish.
 
 ## Log
+- **2026-08-14T23:32:12Z** `[status]` draft → approved (human via conversation)
