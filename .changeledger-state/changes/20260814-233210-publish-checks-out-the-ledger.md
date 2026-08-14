@@ -5,6 +5,7 @@ type: quick
 status: done
 created: 2026-08-14T23:32:10Z
 depends_on: []
+reviewed: true
 branch: quick/20260814-233210
 related_to: ["20260812-013145"]
 owner: rarc88
@@ -29,3 +30,4 @@ identidad git del runner, y `changeledger activate` antes del publish.
 - **2026-08-14T23:33:49Z** `[note]` Espejo exacto de los tres pasos de ci.yml en publish.yml (fetch-depth 0, identidad del runner, activate antes del gate). Lección de proceso para memoria: un fix de clase de entorno de workflow enumera TODOS los workflows que ejecutan el gate, no solo el que falló
 - **2026-08-14T23:33:50Z** `[status]` in-progress → in-validation
 - **2026-08-14T23:47:11Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-08-14T23:47:11Z** `[graduation]` skipped: la verdad duradera es el propio publish.yml versionado, espejo de ci.yml
