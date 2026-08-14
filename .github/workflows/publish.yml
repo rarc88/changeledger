@@ -22,6 +22,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # prepublishOnly runs the full gate against this repo's own ledger,
+          # which lives in refs/heads/changeledger/state (20260814-233210 —
+          # same environment class ci.yml already fixes).
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -29,6 +34,14 @@ jobs:
           registry-url: https://registry.npmjs.org
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # `activate` records its decision as a git commit; runners carry no
+      # git identity to author it with.
+      - run: |
+          git config user.name "changeledger-ci"
+          git config user.email "ci@changeledger.invalid"
+      # Seeds the local state ref from the remote-tracking copy and activates
+      # this checkout, so the gate validates the real ledger.
+      - run: node bin/changeledger.mjs activate
       # A fresh runner refreshes the registry and managed context bootstrap
       # before prepublishOnly executes `changeledger check`.
       - run: node bin/changeledger.mjs register
