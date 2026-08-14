@@ -2,7 +2,7 @@
 id: "20260814-233210"
 title: El workflow de publish trae y activa el ledger como el CI
 type: quick
-status: in-progress
+status: in-validation
 created: 2026-08-14T23:32:10Z
 depends_on: []
 branch: quick/20260814-233210
@@ -27,3 +27,4 @@ identidad git del runner, y `changeledger activate` antes del publish.
 - **2026-08-14T23:32:12Z** `[status]` approved → in-progress
 - **2026-08-14T23:32:12Z** `[branch]` set: quick/20260814-233210 (auto)
 - **2026-08-14T23:33:49Z** `[note]` Espejo exacto de los tres pasos de ci.yml en publish.yml (fetch-depth 0, identidad del runner, activate antes del gate). Lección de proceso para memoria: un fix de clase de entorno de workflow enumera TODOS los workflows que ejecutan el gate, no solo el que falló
+- **2026-08-14T23:33:50Z** `[status]` in-progress → in-validation
