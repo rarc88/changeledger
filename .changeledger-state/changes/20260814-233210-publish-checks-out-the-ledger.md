@@ -2,9 +2,10 @@
 id: "20260814-233210"
 title: El workflow de publish trae y activa el ledger como el CI
 type: quick
-status: approved
+status: in-progress
 created: 2026-08-14T23:32:10Z
 depends_on: []
+branch: quick/20260814-233210
 related_to: ["20260812-013145"]
 owner: rarc88
 ---
@@ -23,3 +24,5 @@ identidad git del runner, y `changeledger activate` antes del publish.
 
 ## Log
 - **2026-08-14T23:32:12Z** `[status]` draft → approved (human via conversation)
+- **2026-08-14T23:32:12Z** `[status]` approved → in-progress
+- **2026-08-14T23:32:12Z** `[branch]` set: quick/20260814-233210 (auto)
