@@ -2,9 +2,10 @@
 id: "20260815-133442"
 title: Limpiar proyectos ausentes del registro
 type: feature
-status: approved
+status: in-progress
 created: 2026-08-15T13:34:42Z
 depends_on: []
+branch: feature/20260815-133442
 related_to:
   - "20260627-111218"
   - "20260731-161656"
@@ -125,3 +126,5 @@ proyecto válido y debe conservarse de forma fail-closed.
 
 - **2026-08-15T13:34:42Z** `[note]` Borrador creado con autorización humana. La investigación separó este feature del defecto visual del selector y acotó la limpieza a ausencias confirmadas para preservar rutas inaccesibles.
 - **2026-08-15T13:37:15Z** `[status]` draft → approved (human via conversation)
+- **2026-08-15T13:38:22Z** `[status]` approved → in-progress
+- **2026-08-15T13:38:22Z** `[branch]` set: feature/20260815-133442 (auto)
