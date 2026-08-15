@@ -106,10 +106,11 @@ proyecto válido y debe conservarse de forma fail-closed.
 
 ## Plan
 
-- [ ] Escribir primero tests de limpieza masiva y después implementar el sondeo fail-closed y la mutación única bajo lock
+- [x] Escribir primero tests de limpieza masiva y después implementar el sondeo fail-closed y la mutación única bajo lock
   - **Target:** `src/registry.mjs`, `src/viewer/domain.mjs`, `test/registry.test.mjs`, `test/view.test.mjs`
   - **Verify:** `node --test test/registry.test.mjs test/view.test.mjs`
   - **Criteria:** CR1, CR2, CR3
+  - **Resolved:** `2026-08-15T13:56:12Z`
 - [ ] Escribir primero tests HTTP y después exponer el POST autenticado con confirmación y rechazo en modo local
   - **Target:** `src/viewer/server/router.mjs`, `test/view.test.mjs`
   - **Verify:** `node --test test/view.test.mjs`
