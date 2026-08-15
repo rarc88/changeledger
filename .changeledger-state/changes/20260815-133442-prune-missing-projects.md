@@ -138,3 +138,4 @@ proyecto válido y debe conservarse de forma fail-closed.
 - **2026-08-15T14:05:38Z** `[review]` in-review → in-progress (retry): CR2: la limpieza elimina entradas missing concurrentes no incluidas en la confirmación; además debe recargar el proyecto fallback si la selección desaparece durante la carrera.
 - **2026-08-15T14:17:21Z** `[note]` Corrección del review sin commit: la confirmación transmite candidatos {id,path}, el lock preserva altas tardías y revinculaciones, y la UI recarga el proyecto fallback antes del éxito. Mutantes específicos detectados; suites focalizados y pnpm verify pasan con 1477/1477.
 - **2026-08-15T14:17:28Z** `[status]` in-progress → in-review
+- **2026-08-15T14:17:37Z** `[note]` Mandato de re-review: confirmar únicamente que la corrección preserva entradas missing añadidas tras la observación y rutas revinculadas, recarga el payload fallback al cambiar la selección y no introduce regresiones en esos flujos.
