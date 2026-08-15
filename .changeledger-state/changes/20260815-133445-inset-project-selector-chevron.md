@@ -2,7 +2,7 @@
 id: "20260815-133445"
 title: Separar el icono del selector de proyectos
 type: quick
-status: in-validation
+status: done
 created: 2026-08-15T13:34:45Z
 depends_on: []
 branch: quick/20260815-133445
@@ -28,3 +28,4 @@ cambiar el comportamiento del `<select>`.
 - **2026-08-15T14:39:07Z** `[status]` in-progress → in-validation
 - **2026-08-15T14:44:27Z** `[validation]` in-validation → in-progress (human rejected via conversation): El selector debe reutilizar exactamente el mismo chevron y estilo visual que los filtros, sin una variante propia.
 - **2026-08-15T15:00:51Z** `[status]` in-progress → in-validation
+- **2026-08-15T15:01:08Z** `[validation]` in-validation → done (human accepted via conversation)
