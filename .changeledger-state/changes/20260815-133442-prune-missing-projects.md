@@ -132,3 +132,4 @@ proyecto válido y debe conservarse de forma fail-closed.
 - **2026-08-15T13:37:15Z** `[status]` draft → approved (human via conversation)
 - **2026-08-15T13:38:22Z** `[status]` approved → in-progress
 - **2026-08-15T13:38:22Z** `[branch]` set: feature/20260815-133442 (auto)
+- **2026-08-15T13:56:28Z** `[note]` Implementación TDD completa: limpieza fail-closed bajo lock, POST autenticado y UI coherente. Verificación independiente: Biome limpio, suite completa con código 0, changeledger check válido y navegador aislado con una ausencia confirmada, una ruta disponible y una inaccesible; cancelar preservó las tres entradas.
