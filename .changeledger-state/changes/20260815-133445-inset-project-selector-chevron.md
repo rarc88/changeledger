@@ -2,7 +2,7 @@
 id: "20260815-133445"
 title: Separar el icono del selector de proyectos
 type: quick
-status: in-progress
+status: in-validation
 created: 2026-08-15T13:34:45Z
 depends_on: []
 branch: quick/20260815-133445
@@ -25,3 +25,4 @@ cambiar el comportamiento del `<select>`.
 - **2026-08-15T14:29:32Z** `[status]` approved → in-progress
 - **2026-08-15T14:29:32Z** `[branch]` set: quick/20260815-133445 (auto)
 - **2026-08-15T14:38:58Z** `[note]` Implementación TDD completa: selector nativo conservado con chevron propio decorativo, appearance none, 34 px reservados e inset medido de 10 px. Regresión roja/verde y mutante 10→9 px; viewer-metadata 122/122 y pnpm verify 1478/1478.
+- **2026-08-15T14:39:07Z** `[status]` in-progress → in-validation
