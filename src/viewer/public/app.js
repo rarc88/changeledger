@@ -7,6 +7,7 @@ import {
   getProjects,
   getRepo,
   patchProjectConfigApi,
+  postCleanMissingProjects,
   postConfigMigrationApply,
   postProjectConfig,
   postProjectPath,
@@ -1633,12 +1634,21 @@ export function projectsViewTemplate(
   preview = migrationPreview,
 ) {
   const project = projects.find((item) => item.id === selected);
+  const missingCount = projects.filter((item) => item.missing === true).length;
   return html`<div class="projects-shell">
     <div class="projects-list">
       <div class="projects-heading">
         <div><span class="eyebrow">Registry</span><h1>Projects</h1></div>
-        <span class="count">${projects.length}</span>
+        <div class="projects-heading-actions">
+          ${
+            !localOnly && missingCount > 0
+              ? html`<button type="button" class="button secondary project-clean-button" data-clean-missing>Clean missing (${missingCount})</button>`
+              : nothing
+          }
+          <span class="count">${projects.length}</span>
+        </div>
       </div>
+      <p class="project-clean-error" role="alert" aria-live="assertive" hidden></p>
       ${
         projects.length
           ? html`<div class="project-rows">${projects.map(
@@ -1753,10 +1763,15 @@ export async function projectMutation(
   root,
   request,
   onSuccess,
-  { stale = () => false, target = null, errorTarget = target } = {},
+  {
+    stale = () => false,
+    target = null,
+    errorTarget = target,
+    errorSelector = '.project-error',
+  } = {},
 ) {
   setProjectFormPending(root, true);
-  const error = root.querySelector('.project-error');
+  const error = root.querySelector(errorSelector);
   if (error) error.hidden = true;
   try {
     const response = await request();
@@ -1796,6 +1811,11 @@ export function requestUnregisterConfirmation(project, ask = null) {
   );
 }
 
+export function requestCleanMissingConfirmation(count, ask = null) {
+  const message = `Remove ${count} missing project${count === 1 ? '' : 's'} from the local registry? No files or directories will be deleted.`;
+  return ask === null ? showConfirm(message) : Promise.resolve(ask(message));
+}
+
 async function refreshProjectRegistry(stale = () => false) {
   const { projects, current, localOnly } = await getProjects();
   if (stale()) return false;
@@ -1812,6 +1832,37 @@ async function refreshProjectRegistry(stale = () => false) {
   if (state.currentProject) select.value = state.currentProject;
   select.style.display = projects.length > 1 ? '' : 'none';
   return true;
+}
+
+export async function cleanMissingProjectsFromView(
+  root,
+  candidates,
+  {
+    confirm = requestCleanMissingConfirmation,
+    request = postCleanMissingProjects,
+    refresh = refreshProjectRegistry,
+    reload = load,
+    onCleaned = async () => {},
+  } = {},
+) {
+  if (!(await confirm(candidates.length))) return false;
+  const previousTarget = captureProjectTarget(state.currentProject);
+  return projectMutation(
+    root,
+    () => request(true, candidates),
+    async (body) => {
+      if (!(await refresh())) return;
+      if (
+        state.currentProject &&
+        !sameProjectTarget(previousTarget, captureProjectTarget(state.currentProject))
+      ) {
+        if (!(await reload()))
+          throw new Error('Unable to reload the selected project after cleanup.');
+      }
+      await onCleaned(body);
+    },
+    { errorSelector: '.project-clean-error' },
+  );
 }
 
 const listFromControl = (control) =>
@@ -1933,6 +1984,26 @@ function renderProjects() {
     root,
   );
   bindProjectViewActions(root, {
+    cleanMissing: () => {
+      const candidates = state.projectsList
+        .filter((item) => item.missing === true)
+        .map((item) => ({ id: item.id, path: item.path }));
+      return cleanMissingProjectsFromView(root, candidates, {
+        onCleaned: async (body) => {
+          if (body.removedIds.includes(managedProject)) {
+            managedContextRevision += 1;
+            managedProject = null;
+            managedConfig = null;
+            migrationPreview = null;
+            configDirty = false;
+          }
+          renderProjects();
+          showToast(`${body.removed} missing project${body.removed === 1 ? '' : 's'} removed`, {
+            type: 'info',
+          });
+        },
+      });
+    },
     select: async (id) => {
       const stale = captureConfigStale();
       if (configDirty) {
@@ -2100,6 +2171,9 @@ function renderProjects() {
 }
 
 export function bindProjectViewActions(root, handlers) {
+  const cleanMissing = root.querySelector('[data-clean-missing]');
+  if (cleanMissing) cleanMissing.onclick = () => handlers.cleanMissing();
+
   root.querySelectorAll('[data-manage-project]').forEach((button) => {
     button.onclick = () => handlers.select(button.dataset.manageProject);
   });

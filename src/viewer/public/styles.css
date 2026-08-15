@@ -175,6 +175,17 @@ body {
 .project-placeholder h2 {
   margin: 2px 0 0;
 }
+.projects-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.project-clean-button {
+  white-space: nowrap;
+}
+.project-clean-error {
+  margin: 10px 20px 0;
+}
 .project-editor-head p,
 .project-placeholder p,
 .danger-zone p,
@@ -301,7 +312,8 @@ body {
   justify-content: flex-end;
   margin-top: 10px;
 }
-.project-error {
+.project-error,
+.project-clean-error {
   margin: 8px 0 0;
   color: #ff8078;
   font-size: 12px;

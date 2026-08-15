@@ -34,7 +34,7 @@ import { publicDir } from '../src/paths.mjs';
 import { readRegistry, register, registryPath } from '../src/registry.mjs';
 import { loadRepoAsync } from '../src/repo.mjs';
 import { STATE_REF, writeActivation } from '../src/state-store.mjs';
-import { readLedgerDocument } from '../src/viewer/domain.mjs';
+import { cleanMissingProjects, readLedgerDocument } from '../src/viewer/domain.mjs';
 import { setBranch } from '../src/writer.mjs';
 import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
@@ -201,6 +201,107 @@ test('CR2: an authorized write succeeds', async () => {
     { project_id: project, repository_path: path.resolve(root) },
   );
   assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'approved');
+});
+
+test('20260815-133442 CR1/CR4: authenticated global cleanup removes missing entries once', async () => {
+  isolatedHome();
+  const available = newRepo();
+  const missing = path.join(os.tmpdir(), `changeledger-http-missing-${process.pid}`);
+  fs.rmSync(missing, { recursive: true, force: true });
+  register({ id: 'old-probe', name: 'Old probe', path: missing });
+  const before = fs.readFileSync(path.join(available, '.changeledger', 'config.yml'), 'utf8');
+
+  const response = await memoryRequest(available, {
+    method: 'POST',
+    path: '/api/projects/clean-missing',
+    headers: { 'Content-Type': 'application/json', 'x-changeledger-token': TOKEN },
+    body: JSON.stringify({
+      confirm: true,
+      candidates: [{ id: 'old-probe', path: missing }],
+    }),
+    localOnly: false,
+  });
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(JSON.parse(response.body), {
+    removedIds: ['old-probe'],
+    removed: 1,
+    skipped: 0,
+  });
+  assert.equal(readRegistry()['old-probe'], undefined);
+  assert.equal(
+    fs.readFileSync(path.join(available, '.changeledger', 'config.yml'), 'utf8'),
+    before,
+  );
+});
+
+test('20260815-133442 CR4: cleanup rejects cancellation, missing token and local mode', async () => {
+  isolatedHome();
+  const root = newRepo();
+  const missing = path.join(os.tmpdir(), `changeledger-http-guard-${process.pid}`);
+  fs.rmSync(missing, { recursive: true, force: true });
+  register({ id: 'old-probe', name: 'Old probe', path: missing });
+  const authorized = {
+    'Content-Type': 'application/json',
+    'x-changeledger-token': TOKEN,
+  };
+
+  const cancelled = await memoryRequest(root, {
+    method: 'POST',
+    path: '/api/projects/clean-missing',
+    headers: authorized,
+    body: JSON.stringify({
+      confirm: false,
+      candidates: [{ id: 'old-probe', path: missing }],
+    }),
+    localOnly: false,
+  });
+  assert.equal(cancelled.status, 400);
+  assert.ok(readRegistry()['old-probe']);
+
+  const unauthorized = await memoryRequest(root, {
+    method: 'POST',
+    path: '/api/projects/clean-missing',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      confirm: true,
+      candidates: [{ id: 'old-probe', path: missing }],
+    }),
+    localOnly: false,
+  });
+  assert.equal(unauthorized.status, 403);
+  assert.ok(readRegistry()['old-probe']);
+
+  const local = await memoryRequest(root, {
+    method: 'POST',
+    path: '/api/projects/clean-missing',
+    headers: authorized,
+    body: JSON.stringify({
+      confirm: true,
+      candidates: [{ id: 'old-probe', path: missing }],
+    }),
+    localOnly: true,
+  });
+  assert.equal(local.status, 403);
+  assert.ok(readRegistry()['old-probe']);
+});
+
+test('20260815-133442 CR3: cleanup HTTP preserves and reports corrupt registry data', async () => {
+  isolatedHome();
+  const root = newRepo();
+  fs.writeFileSync(registryPath(), 'not-json');
+
+  const response = await memoryRequest(root, {
+    method: 'POST',
+    path: '/api/projects/clean-missing',
+    headers: { 'Content-Type': 'application/json', 'x-changeledger-token': TOKEN },
+    body: JSON.stringify({ confirm: true, candidates: [] }),
+    localOnly: false,
+  });
+
+  assert.equal(response.status, 500);
+  assert.deepEqual(JSON.parse(response.body), { error: '.registry.json is not valid JSON' });
+  assert.equal(fs.readFileSync(registryPath(), 'utf8'), 'not-json');
 });
 
 test('161656 CR3/CR4: stale write path returns the exact conflict with current provenance', async () => {
@@ -1194,6 +1295,54 @@ test('a project whose path is gone is marked not alive', () => {
   fs.rmSync(path.join(repo, '.changeledger'), { recursive: true, force: true });
   const { projects } = resolveProjects(outside, false);
   assert.equal(projects[0].alive, false);
+  assert.equal(projects[0].missing, true);
+});
+
+test('20260815-133442 CR1/CR3/CR4: cleanup domain enforces confirmation and local mode', () => {
+  const candidates = [{ id: 'old-probe', path: '/gone/old-probe' }];
+  let receivedCandidates = null;
+  const clean = (received) => {
+    receivedCandidates = received;
+    return { removedIds: ['old-probe'], removed: 1, skipped: 1 };
+  };
+
+  assert.deepEqual(cleanMissingProjects({ confirm: false }, { clean }), {
+    code: 400,
+    body: { error: 'confirmation is required' },
+  });
+  assert.deepEqual(cleanMissingProjects({ confirm: true }, { localOnly: true, clean }), {
+    code: 403,
+    body: { error: 'registry management is unavailable in local mode' },
+  });
+  assert.deepEqual(cleanMissingProjects({ confirm: true, candidates }, { clean }), {
+    code: 200,
+    body: { removedIds: ['old-probe'], removed: 1, skipped: 1 },
+  });
+  assert.deepEqual(receivedCandidates, candidates);
+  assert.deepEqual(cleanMissingProjects({ confirm: true, candidates: [] }, { clean }), {
+    code: 200,
+    body: { removedIds: ['old-probe'], removed: 1, skipped: 1 },
+  });
+  assert.deepEqual(cleanMissingProjects({ confirm: true }, { clean }), {
+    code: 400,
+    body: { error: 'candidates must contain unique ids and absolute paths' },
+  });
+});
+
+test('20260815-133442 CR3: cleanup domain surfaces corrupt registry errors', () => {
+  const result = cleanMissingProjects(
+    { confirm: true, candidates: [] },
+    {
+      clean() {
+        throw new Error('.registry.json is not valid JSON');
+      },
+    },
+  );
+
+  assert.deepEqual(result, {
+    code: 500,
+    body: { error: '.registry.json is not valid JSON' },
+  });
 });
 
 test('searchProjects groups matches and drops projects with none', () => {
