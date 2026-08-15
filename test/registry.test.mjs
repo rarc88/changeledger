@@ -9,6 +9,7 @@ import { init } from '../src/commands/init.mjs';
 import { registerRepo } from '../src/commands/register.mjs';
 import { loadConfig } from '../src/config.mjs';
 import {
+  cleanMissingProjects,
   listProjects,
   readRegistry,
   register,
@@ -16,6 +17,7 @@ import {
   registryPath,
   remove,
   update,
+  writeRegistry,
 } from '../src/registry.mjs';
 import { ACTIVATION_REF, STATE_REF, writeActivation } from '../src/state-store.mjs';
 import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
@@ -32,6 +34,101 @@ function newRepo() {
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
   return root;
 }
+
+test('20260815-133442 CR1/CR3: cleanup removes only confirmed missing registry entries', () => {
+  isolatedHome();
+  const available = newRepo();
+  const denied = newRepo();
+  const missing = path.join(os.tmpdir(), 'changeledger-confirmed-missing');
+  fs.mkdirSync(path.join(available, '.changeledger'), { recursive: true });
+  fs.mkdirSync(path.join(denied, '.changeledger'), { recursive: true });
+  fs.writeFileSync(path.join(available, '.changeledger', 'config.yml'), 'available');
+  fs.writeFileSync(path.join(denied, '.changeledger', 'config.yml'), 'denied');
+  fs.rmSync(missing, { recursive: true, force: true });
+  register({ id: 'alpha', name: 'Alpha', path: available });
+  register({ id: 'old-probe', name: 'Old probe', path: missing });
+  register({ id: 'denied', name: 'Denied', path: denied });
+
+  let writes = 0;
+  const result = cleanMissingProjects({
+    statSync(file) {
+      if (file === path.join(denied, '.changeledger', 'config.yml')) {
+        const error = new Error('permission denied');
+        error.code = 'EACCES';
+        throw error;
+      }
+      return fs.statSync(file);
+    },
+    writeRegistry(registry) {
+      writes += 1;
+      writeRegistry(registry);
+    },
+  });
+
+  assert.deepEqual(result, { removedIds: ['old-probe'], removed: 1, skipped: 1 });
+  assert.deepEqual(readRegistry(), {
+    alpha: { name: 'Alpha', path: available },
+    denied: { name: 'Denied', path: denied },
+  });
+  assert.equal(writes, 1);
+  assert.equal(
+    fs.readFileSync(path.join(available, '.changeledger', 'config.yml'), 'utf8'),
+    'available',
+  );
+  assert.equal(fs.readFileSync(path.join(denied, '.changeledger', 'config.yml'), 'utf8'), 'denied');
+});
+
+test('20260815-133442 CR2: cleanup re-reads and re-probes inside the registry lock', () => {
+  isolatedHome();
+  const reappeared = path.join(os.tmpdir(), `changeledger-reappeared-${process.pid}`);
+  const concurrent = newRepo();
+  fs.rmSync(reappeared, { recursive: true, force: true });
+  fs.mkdirSync(path.join(concurrent, '.changeledger'), { recursive: true });
+  fs.writeFileSync(path.join(concurrent, '.changeledger', 'config.yml'), 'concurrent');
+  register({ id: 'old-probe', name: 'Old probe', path: reappeared });
+
+  const result = cleanMissingProjects({
+    withFileLock(_file, mutate) {
+      fs.mkdirSync(path.join(reappeared, '.changeledger'), { recursive: true });
+      fs.writeFileSync(path.join(reappeared, '.changeledger', 'config.yml'), 'back');
+      writeRegistry({
+        ...readRegistry(),
+        concurrent: { name: 'Concurrent', path: concurrent },
+      });
+      return mutate();
+    },
+  });
+
+  assert.deepEqual(result, { removedIds: [], removed: 0, skipped: 0 });
+  assert.deepEqual(readRegistry(), {
+    'old-probe': { name: 'Old probe', path: reappeared },
+    concurrent: { name: 'Concurrent', path: concurrent },
+  });
+});
+
+test('20260815-133442 CR1: cleanup treats ENOTDIR as a confirmed absence', () => {
+  isolatedHome();
+  const replacedByFile = path.join(os.tmpdir(), `changeledger-not-directory-${process.pid}`);
+  fs.writeFileSync(replacedByFile, 'not a directory');
+  register({ id: 'not-directory', name: 'Not directory', path: replacedByFile });
+
+  assert.deepEqual(cleanMissingProjects(), {
+    removedIds: ['not-directory'],
+    removed: 1,
+    skipped: 0,
+  });
+  assert.deepEqual(readRegistry(), {});
+  assert.equal(fs.readFileSync(replacedByFile, 'utf8'), 'not a directory');
+});
+
+test('20260815-133442 CR3: cleanup preserves a corrupt registry verbatim', () => {
+  isolatedHome();
+  fs.mkdirSync(path.dirname(registryPath()), { recursive: true });
+  fs.writeFileSync(registryPath(), 'not-json');
+
+  assert.throws(() => cleanMissingProjects(), /^Error: \.registry\.json is not valid JSON$/);
+  assert.equal(fs.readFileSync(registryPath(), 'utf8'), 'not-json');
+});
 
 test('init gives the repo identity and registers its path', () => {
   isolatedHome();

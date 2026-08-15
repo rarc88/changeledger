@@ -7,6 +7,7 @@ import { loadRepoAsync } from '../../repo.mjs';
 import {
   applyConfigMigration,
   changeStatus,
+  cleanMissingProjects,
   listLedgerTree,
   patchProjectConfig,
   previewConfigMigration,
@@ -138,6 +139,7 @@ export function createRequestListener(cwd, localOnly, token) {
         '/api/project-config-migrate-apply',
         '/api/project-path',
         '/api/project-remove',
+        '/api/projects/clean-missing',
       ]);
       if (req.method === 'POST' && WRITE_ROUTES.has(route)) {
         if (!isAuthorizedWrite(req, token)) {
@@ -164,6 +166,11 @@ export function createRequestListener(cwd, localOnly, token) {
               payload = JSON.parse(raw || '{}');
             } catch {
               send(res, 400, MIME['.json'], JSON.stringify({ error: 'invalid JSON body' }));
+              return;
+            }
+            if (route === '/api/projects/clean-missing') {
+              const { code, body } = cleanMissingProjects(payload, { localOnly });
+              send(res, code, MIME['.json'], JSON.stringify(body));
               return;
             }
             const { projects } = resolveProjects(cwd, localOnly);

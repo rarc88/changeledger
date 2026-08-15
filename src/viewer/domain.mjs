@@ -27,7 +27,12 @@ import {
 import { capturedRun } from '../git.mjs';
 import { computeMetrics } from '../metrics.mjs';
 import { nowUtc, templatesDir } from '../paths.mjs';
-import { listProjects, remove, update } from '../registry.mjs';
+import {
+  cleanMissingProjects as cleanMissingRegistry,
+  listProjects,
+  remove,
+  update,
+} from '../registry.mjs';
 import { loadRepo, loadRepoWithConfig, resolveChange, resolveChangeInRepo } from '../repo.mjs';
 import { CAS_CONFLICT_MESSAGE, LedgerConflictError, STATE_ROOT } from '../state-store.mjs';
 import { parseYaml } from '../yaml.mjs';
@@ -154,7 +159,17 @@ function redactAbsolutePaths(message) {
     .join('');
 }
 
-const isAlive = (p) => fs.existsSync(path.join(p, '.changeledger', 'config.yml'));
+function projectAvailability(projectPath) {
+  try {
+    fs.statSync(path.join(projectPath, '.changeledger', 'config.yml'));
+    return { alive: true, missing: false };
+  } catch (error) {
+    return {
+      alive: false,
+      missing: error?.code === 'ENOENT' || error?.code === 'ENOTDIR',
+    };
+  }
+}
 
 const LEDGER_CATEGORIES = ['project-docs', 'contract', 'templates'];
 const PROJECT_DOCUMENTS = new Set(['README.md', 'AGENTS.md', 'INTENT.md']);
@@ -345,10 +360,16 @@ export function resolveProjects(cwd, localOnly) {
     const config = loadEffectiveConfig(repoRoot, changeledgerDir);
     const id = config.project_id ?? 'local';
     const name = config.project_name ?? path.basename(repoRoot);
-    return { projects: [{ id, name, path: repoRoot, alive: true }], current: id };
+    return {
+      projects: [{ id, name, path: repoRoot, alive: true, missing: false }],
+      current: id,
+    };
   }
 
-  const projects = listProjects().map((p) => ({ ...p, alive: isAlive(p.path) }));
+  const projects = listProjects().map((project) => ({
+    ...project,
+    ...projectAvailability(project.path),
+  }));
   let current = null;
   if (repoRoot) {
     const match = projects.find((p) => path.resolve(p.path) === repoRoot);
@@ -643,6 +664,31 @@ export const unregisterProject = withProjectIdentity(
   (projects, payload) => projects.find((item) => item.id === payload.project),
   unregisterProjectImpl,
 );
+
+export function cleanMissingProjects(
+  payload,
+  { localOnly = false, clean = cleanMissingRegistry } = {},
+) {
+  if (localOnly) {
+    return { code: 403, body: { error: 'registry management is unavailable in local mode' } };
+  }
+  if (payload?.confirm !== true) {
+    return { code: 400, body: { error: 'confirmation is required' } };
+  }
+  try {
+    return { code: 200, body: clean() };
+  } catch (error) {
+    return {
+      code: 500,
+      body: {
+        error:
+          error.message === '.registry.json is not valid JSON'
+            ? error.message
+            : 'unable to update project registry',
+      },
+    };
+  }
+}
 
 // Returns config content + schema metadata without mutating anything.
 function readProjectConfigStructuredImpl(projects, id) {

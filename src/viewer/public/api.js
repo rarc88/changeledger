@@ -117,3 +117,6 @@ export const postProjectPath = (project, path, repositoryPath) =>
 
 export const postProjectRemove = (project, confirm, repositoryPath) =>
   postProject('/api/project-remove', { ...projectBody(project, repositoryPath), confirm });
+
+export const postCleanMissingProjects = (confirm) =>
+  postProject('/api/projects/clean-missing', { confirm });

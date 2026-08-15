@@ -43,6 +43,35 @@ export function register({ id, name, path: repoPath }) {
   });
 }
 
+export function cleanMissingProjects({
+  statSync = fs.statSync,
+  withFileLock: lock = withFileLock,
+  writeRegistry: persistRegistry = writeRegistry,
+} = {}) {
+  fs.mkdirSync(registryDir(), { recursive: true });
+  return lock(registryPath(), () => {
+    const registry = readRegistry();
+    const removedIds = [];
+    let skipped = 0;
+
+    for (const [id, project] of Object.entries(registry)) {
+      try {
+        statSync(path.join(project.path, '.changeledger', 'config.yml'));
+      } catch (error) {
+        if (error?.code === 'ENOENT' || error?.code === 'ENOTDIR') {
+          delete registry[id];
+          removedIds.push(id);
+        } else {
+          skipped += 1;
+        }
+      }
+    }
+
+    if (removedIds.length > 0) persistRegistry(registry);
+    return { removedIds, removed: removedIds.length, skipped };
+  });
+}
+
 export function listProjects() {
   return Object.entries(readRegistry()).map(([id, value]) => {
     let name = value.name;
