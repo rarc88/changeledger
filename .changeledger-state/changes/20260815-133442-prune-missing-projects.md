@@ -2,7 +2,7 @@
 id: "20260815-133442"
 title: Limpiar proyectos ausentes del registro
 type: feature
-status: in-review
+status: in-progress
 created: 2026-08-15T13:34:42Z
 depends_on: []
 branch: feature/20260815-133442
@@ -135,3 +135,4 @@ proyecto válido y debe conservarse de forma fail-closed.
 - **2026-08-15T13:56:28Z** `[note]` Implementación TDD completa: limpieza fail-closed bajo lock, POST autenticado y UI coherente. Verificación independiente: Biome limpio, suite completa con código 0, changeledger check válido y navegador aislado con una ausencia confirmada, una ruta disponible y una inaccesible; cancelar preservó las tres entradas.
 - **2026-08-15T13:56:39Z** `[status]` in-progress → in-review
 - **2026-08-15T13:59:55Z** `[note]` Mandato de revisión: auditoría completa de dev..f779b316 sobre CR1–CR5, incluyendo sondeo fail-closed, lock y concurrencia, preservación del registry, frontera HTTP, coherencia UI, pruebas y las decisiones de implementación no especificadas.
+- **2026-08-15T14:05:38Z** `[review]` in-review → in-progress (retry): CR2: la limpieza elimina entradas missing concurrentes no incluidas en la confirmación; además debe recargar el proyecto fallback si la selección desaparece durante la carrera.
