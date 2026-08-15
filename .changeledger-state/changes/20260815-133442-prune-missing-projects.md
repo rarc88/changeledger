@@ -2,7 +2,7 @@
 id: "20260815-133442"
 title: Limpiar proyectos ausentes del registro
 type: feature
-status: in-review
+status: in-validation
 created: 2026-08-15T13:34:42Z
 depends_on: []
 branch: feature/20260815-133442
@@ -139,3 +139,4 @@ proyecto válido y debe conservarse de forma fail-closed.
 - **2026-08-15T14:17:21Z** `[note]` Corrección del review sin commit: la confirmación transmite candidatos {id,path}, el lock preserva altas tardías y revinculaciones, y la UI recarga el proyecto fallback antes del éxito. Mutantes específicos detectados; suites focalizados y pnpm verify pasan con 1477/1477.
 - **2026-08-15T14:17:28Z** `[status]` in-progress → in-review
 - **2026-08-15T14:17:37Z** `[note]` Mandato de re-review: confirmar únicamente que la corrección preserva entradas missing añadidas tras la observación y rutas revinculadas, recarga el payload fallback al cambiar la selección y no introduce regresiones en esos flujos.
+- **2026-08-15T14:21:00Z** `[review]` in-review → in-validation (delegated subagent, clean context)
