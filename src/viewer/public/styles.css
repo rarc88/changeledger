@@ -97,6 +97,33 @@ body {
   width: clamp(180px, 14vw, 260px);
   min-width: 0;
 }
+.project-select {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.project-select > .filter {
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: 34px;
+}
+.project-select-chevron {
+  position: absolute;
+  right: 10px;
+  width: 14px;
+  height: 14px;
+  color: var(--muted);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  pointer-events: none;
+}
+.project-select > .filter:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(91, 157, 255, 0.13);
+}
 .tab {
   background: transparent;
   border: 1px solid var(--line);
