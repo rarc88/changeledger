@@ -116,10 +116,11 @@ proyecto válido y debe conservarse de forma fail-closed.
   - **Verify:** `node --test test/view.test.mjs`
   - **Criteria:** CR1, CR3, CR4
   - **Resolved:** `2026-08-15T13:56:14Z`
-- [ ] Escribir primero tests DOM y después añadir el control, confirmación, feedback y refresco coherente de Projects
+- [x] Escribir primero tests DOM y después añadir el control, confirmación, feedback y refresco coherente de Projects
   - **Target:** `src/viewer/public/app.js`, `src/viewer/public/api.js`, `src/viewer/public/styles.css`, `test/viewer-metadata.test.mjs`
   - **Verify:** `node --test test/viewer-metadata.test.mjs`
   - **Criteria:** CR1, CR4, CR5
+  - **Resolved:** `2026-08-15T13:56:18Z`
 - [ ] Ejecutar la verificación completa y comprobar manualmente la limpieza con proyectos disponible, ausente e inaccesible
   - **Verify:** `pnpm verify`
   - **Support:**
