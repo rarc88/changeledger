@@ -121,9 +121,10 @@ proyecto válido y debe conservarse de forma fail-closed.
   - **Verify:** `node --test test/viewer-metadata.test.mjs`
   - **Criteria:** CR1, CR4, CR5
   - **Resolved:** `2026-08-15T13:56:18Z`
-- [ ] Ejecutar la verificación completa y comprobar manualmente la limpieza con proyectos disponible, ausente e inaccesible
+- [x] Ejecutar la verificación completa y comprobar manualmente la limpieza con proyectos disponible, ausente e inaccesible
   - **Verify:** `pnpm verify`
   - **Support:**
+  - **Resolved:** `2026-08-15T13:56:20Z`
 
 ## Log
 
