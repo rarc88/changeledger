@@ -2,9 +2,10 @@
 id: "20260815-133445"
 title: Separar el icono del selector de proyectos
 type: quick
-status: approved
+status: in-progress
 created: 2026-08-15T13:34:45Z
 depends_on: []
+branch: quick/20260815-133445
 related_to:
   - "20260627-111218"
 owner: Roberto Ruiz
@@ -21,3 +22,5 @@ cambiar el comportamiento del `<select>`.
 
 - **2026-08-15T13:34:45Z** `[note]` Borrador quick autorizado por separado. La causa es el indicador nativo del navegador, que no respeta de forma fiable el padding de `.filter`; se verificará con `test/viewer-metadata.test.mjs` y una comprobación visual del header.
 - **2026-08-15T13:37:22Z** `[status]` draft → approved (human via conversation)
+- **2026-08-15T14:29:32Z** `[status]` approved → in-progress
+- **2026-08-15T14:29:32Z** `[branch]` set: quick/20260815-133445 (auto)
