@@ -5,6 +5,7 @@ type: quick
 status: done
 created: 2026-08-15T13:34:45Z
 depends_on: []
+archived: true
 reviewed: true
 branch: quick/20260815-133445
 related_to:
@@ -31,3 +32,4 @@ cambiar el comportamiento del `<select>`.
 - **2026-08-15T15:00:51Z** `[status]` in-progress → in-validation
 - **2026-08-15T15:01:08Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-08-15T15:01:20Z** `[graduation]` skipped: Corrección visual del chevron; no cambió la verdad persistente del producto.
+- **2026-08-15T15:04:46Z** `[archive]` archived
