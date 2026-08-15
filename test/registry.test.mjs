@@ -50,7 +50,7 @@ test('20260815-133442 CR1/CR3: cleanup removes only confirmed missing registry e
   register({ id: 'denied', name: 'Denied', path: denied });
 
   let writes = 0;
-  const result = cleanMissingProjects({
+  const result = cleanMissingProjects([{ id: 'old-probe', path: missing }], {
     statSync(file) {
       if (file === path.join(denied, '.changeledger', 'config.yml')) {
         const error = new Error('permission denied');
@@ -87,7 +87,7 @@ test('20260815-133442 CR2: cleanup re-reads and re-probes inside the registry lo
   fs.writeFileSync(path.join(concurrent, '.changeledger', 'config.yml'), 'concurrent');
   register({ id: 'old-probe', name: 'Old probe', path: reappeared });
 
-  const result = cleanMissingProjects({
+  const result = cleanMissingProjects([{ id: 'old-probe', path: reappeared }], {
     withFileLock(_file, mutate) {
       fs.mkdirSync(path.join(reappeared, '.changeledger'), { recursive: true });
       fs.writeFileSync(path.join(reappeared, '.changeledger', 'config.yml'), 'back');
@@ -106,13 +106,53 @@ test('20260815-133442 CR2: cleanup re-reads and re-probes inside the registry lo
   });
 });
 
+test('20260815-133442 CR2 correction: cleanup preserves a late missing registration not observed by the UI', () => {
+  isolatedHome();
+  const observedPath = path.join(os.tmpdir(), `changeledger-observed-${process.pid}`);
+  const latePath = path.join(os.tmpdir(), `changeledger-late-${process.pid}`);
+  fs.rmSync(observedPath, { recursive: true, force: true });
+  fs.rmSync(latePath, { recursive: true, force: true });
+  register({ id: 'observed', name: 'Observed', path: observedPath });
+  const candidates = [{ id: 'observed', path: observedPath }];
+  register({ id: 'late', name: 'Late', path: latePath });
+
+  assert.deepEqual(cleanMissingProjects(candidates), {
+    removedIds: ['observed'],
+    removed: 1,
+    skipped: 0,
+  });
+  assert.deepEqual(readRegistry(), {
+    late: { name: 'Late', path: latePath },
+  });
+});
+
+test('20260815-133442 CR2 correction: cleanup preserves a same-id rebound to a new missing path', () => {
+  isolatedHome();
+  const observedPath = path.join(os.tmpdir(), `changeledger-old-binding-${process.pid}`);
+  const reboundPath = path.join(os.tmpdir(), `changeledger-new-binding-${process.pid}`);
+  fs.rmSync(observedPath, { recursive: true, force: true });
+  fs.rmSync(reboundPath, { recursive: true, force: true });
+  register({ id: 'rebound', name: 'Observed', path: observedPath });
+  const candidates = [{ id: 'rebound', path: observedPath }];
+  register({ id: 'rebound', name: 'Rebound', path: reboundPath });
+
+  assert.deepEqual(cleanMissingProjects(candidates), {
+    removedIds: [],
+    removed: 0,
+    skipped: 0,
+  });
+  assert.deepEqual(readRegistry(), {
+    rebound: { name: 'Rebound', path: reboundPath },
+  });
+});
+
 test('20260815-133442 CR1: cleanup treats ENOTDIR as a confirmed absence', () => {
   isolatedHome();
   const replacedByFile = path.join(os.tmpdir(), `changeledger-not-directory-${process.pid}`);
   fs.writeFileSync(replacedByFile, 'not a directory');
   register({ id: 'not-directory', name: 'Not directory', path: replacedByFile });
 
-  assert.deepEqual(cleanMissingProjects(), {
+  assert.deepEqual(cleanMissingProjects([{ id: 'not-directory', path: replacedByFile }]), {
     removedIds: ['not-directory'],
     removed: 1,
     skipped: 0,
@@ -126,7 +166,7 @@ test('20260815-133442 CR3: cleanup preserves a corrupt registry verbatim', () =>
   fs.mkdirSync(path.dirname(registryPath()), { recursive: true });
   fs.writeFileSync(registryPath(), 'not-json');
 
-  assert.throws(() => cleanMissingProjects(), /^Error: \.registry\.json is not valid JSON$/);
+  assert.throws(() => cleanMissingProjects([]), /^Error: \.registry\.json is not valid JSON$/);
   assert.equal(fs.readFileSync(registryPath(), 'utf8'), 'not-json');
 });
 

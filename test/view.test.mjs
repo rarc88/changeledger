@@ -215,7 +215,10 @@ test('20260815-133442 CR1/CR4: authenticated global cleanup removes missing entr
     method: 'POST',
     path: '/api/projects/clean-missing',
     headers: { 'Content-Type': 'application/json', 'x-changeledger-token': TOKEN },
-    body: JSON.stringify({ confirm: true }),
+    body: JSON.stringify({
+      confirm: true,
+      candidates: [{ id: 'old-probe', path: missing }],
+    }),
     localOnly: false,
   });
 
@@ -247,7 +250,10 @@ test('20260815-133442 CR4: cleanup rejects cancellation, missing token and local
     method: 'POST',
     path: '/api/projects/clean-missing',
     headers: authorized,
-    body: JSON.stringify({ confirm: false }),
+    body: JSON.stringify({
+      confirm: false,
+      candidates: [{ id: 'old-probe', path: missing }],
+    }),
     localOnly: false,
   });
   assert.equal(cancelled.status, 400);
@@ -257,7 +263,10 @@ test('20260815-133442 CR4: cleanup rejects cancellation, missing token and local
     method: 'POST',
     path: '/api/projects/clean-missing',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ confirm: true }),
+    body: JSON.stringify({
+      confirm: true,
+      candidates: [{ id: 'old-probe', path: missing }],
+    }),
     localOnly: false,
   });
   assert.equal(unauthorized.status, 403);
@@ -267,7 +276,10 @@ test('20260815-133442 CR4: cleanup rejects cancellation, missing token and local
     method: 'POST',
     path: '/api/projects/clean-missing',
     headers: authorized,
-    body: JSON.stringify({ confirm: true }),
+    body: JSON.stringify({
+      confirm: true,
+      candidates: [{ id: 'old-probe', path: missing }],
+    }),
     localOnly: true,
   });
   assert.equal(local.status, 403);
@@ -283,7 +295,7 @@ test('20260815-133442 CR3: cleanup HTTP preserves and reports corrupt registry d
     method: 'POST',
     path: '/api/projects/clean-missing',
     headers: { 'Content-Type': 'application/json', 'x-changeledger-token': TOKEN },
-    body: JSON.stringify({ confirm: true }),
+    body: JSON.stringify({ confirm: true, candidates: [] }),
     localOnly: false,
   });
 
@@ -1287,7 +1299,12 @@ test('a project whose path is gone is marked not alive', () => {
 });
 
 test('20260815-133442 CR1/CR3/CR4: cleanup domain enforces confirmation and local mode', () => {
-  const clean = () => ({ removedIds: ['old-probe'], removed: 1, skipped: 1 });
+  const candidates = [{ id: 'old-probe', path: '/gone/old-probe' }];
+  let receivedCandidates = null;
+  const clean = (received) => {
+    receivedCandidates = received;
+    return { removedIds: ['old-probe'], removed: 1, skipped: 1 };
+  };
 
   assert.deepEqual(cleanMissingProjects({ confirm: false }, { clean }), {
     code: 400,
@@ -1297,15 +1314,24 @@ test('20260815-133442 CR1/CR3/CR4: cleanup domain enforces confirmation and loca
     code: 403,
     body: { error: 'registry management is unavailable in local mode' },
   });
-  assert.deepEqual(cleanMissingProjects({ confirm: true }, { clean }), {
+  assert.deepEqual(cleanMissingProjects({ confirm: true, candidates }, { clean }), {
     code: 200,
     body: { removedIds: ['old-probe'], removed: 1, skipped: 1 },
+  });
+  assert.deepEqual(receivedCandidates, candidates);
+  assert.deepEqual(cleanMissingProjects({ confirm: true, candidates: [] }, { clean }), {
+    code: 200,
+    body: { removedIds: ['old-probe'], removed: 1, skipped: 1 },
+  });
+  assert.deepEqual(cleanMissingProjects({ confirm: true }, { clean }), {
+    code: 400,
+    body: { error: 'candidates must contain unique ids and absolute paths' },
   });
 });
 
 test('20260815-133442 CR3: cleanup domain surfaces corrupt registry errors', () => {
   const result = cleanMissingProjects(
-    { confirm: true },
+    { confirm: true, candidates: [] },
     {
       clean() {
         throw new Error('.registry.json is not valid JSON');

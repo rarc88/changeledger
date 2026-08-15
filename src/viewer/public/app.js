@@ -1836,20 +1836,29 @@ async function refreshProjectRegistry(stale = () => false) {
 
 export async function cleanMissingProjectsFromView(
   root,
-  count,
+  candidates,
   {
     confirm = requestCleanMissingConfirmation,
     request = postCleanMissingProjects,
     refresh = refreshProjectRegistry,
+    reload = load,
     onCleaned = async () => {},
   } = {},
 ) {
-  if (!(await confirm(count))) return false;
+  if (!(await confirm(candidates.length))) return false;
+  const previousTarget = captureProjectTarget(state.currentProject);
   return projectMutation(
     root,
-    () => request(true),
+    () => request(true, candidates),
     async (body) => {
       if (!(await refresh())) return;
+      if (
+        state.currentProject &&
+        !sameProjectTarget(previousTarget, captureProjectTarget(state.currentProject))
+      ) {
+        if (!(await reload()))
+          throw new Error('Unable to reload the selected project after cleanup.');
+      }
       await onCleaned(body);
     },
     { errorSelector: '.project-clean-error' },
@@ -1976,8 +1985,10 @@ function renderProjects() {
   );
   bindProjectViewActions(root, {
     cleanMissing: () => {
-      const missingCount = state.projectsList.filter((item) => item.missing === true).length;
-      return cleanMissingProjectsFromView(root, missingCount, {
+      const candidates = state.projectsList
+        .filter((item) => item.missing === true)
+        .map((item) => ({ id: item.id, path: item.path }));
+      return cleanMissingProjectsFromView(root, candidates, {
         onCleaned: async (body) => {
           if (body.removedIds.includes(managedProject)) {
             managedContextRevision += 1;

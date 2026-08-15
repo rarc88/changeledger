@@ -71,7 +71,7 @@ const {
 } = await import('../src/viewer/public/app.js');
 const { postCleanMissingProjects } = await import('../src/viewer/public/api.js');
 const { serialize } = await import('../src/viewer/domain.mjs');
-const { state: appState } = await import('../src/viewer/public/app-state.js');
+const { initializeProjects, state: appState } = await import('../src/viewer/public/app-state.js');
 const {
   approvalPanel,
   boardColumnHeader,
@@ -418,7 +418,11 @@ test('20260815-133442 CR4/CR5: cleanup cancels without POST and otherwise refres
     };
   };
 
-  const cancelled = await cleanMissingProjectsFromView(root, 2, {
+  const candidates = [
+    { id: 'old-1', path: '/gone/one' },
+    { id: 'old-2', path: '/gone/two' },
+  ];
+  const cancelled = await cleanMissingProjectsFromView(root, candidates, {
     confirm: async () => false,
     request,
     refresh: async () => {
@@ -430,7 +434,7 @@ test('20260815-133442 CR4/CR5: cleanup cancels without POST and otherwise refres
   assert.equal(requests, 0);
   assert.equal(refreshes, 0);
 
-  const completed = await cleanMissingProjectsFromView(root, 2, {
+  const completed = await cleanMissingProjectsFromView(root, candidates, {
     confirm: async () => true,
     request,
     refresh: async () => {
@@ -451,17 +455,21 @@ test('20260815-133442 CR4/CR5: cleanup cancels without POST and otherwise refres
   });
 });
 
-test('20260815-133442 CR4/CR5: cleanup client sends one authenticated confirmation POST', async () => {
+test('20260815-133442 CR2/CR4/CR5: cleanup client sends observed candidates in one authenticated POST', async () => {
   const previousFetch = globalThis.fetch;
   const previousToken = window.__CHANGELEDGER_TOKEN__;
   const calls = [];
   window.__CHANGELEDGER_TOKEN__ = 'cleanup-token';
+  const candidates = [
+    { id: 'old-1', path: '/gone/one' },
+    { id: 'old-2', path: '/gone/two' },
+  ];
   globalThis.fetch = async (...args) => {
     calls.push(args);
     return { ok: true, json: async () => ({ removed: 0, removedIds: [], skipped: 0 }) };
   };
   try {
-    await postCleanMissingProjects(true);
+    await postCleanMissingProjects(true, candidates);
   } finally {
     globalThis.fetch = previousFetch;
     window.__CHANGELEDGER_TOKEN__ = previousToken;
@@ -471,7 +479,57 @@ test('20260815-133442 CR4/CR5: cleanup client sends one authenticated confirmati
   assert.equal(calls[0][0], '/api/projects/clean-missing');
   assert.equal(calls[0][1].method, 'POST');
   assert.equal(calls[0][1].headers['x-changeledger-token'], 'cleanup-token');
-  assert.deepEqual(JSON.parse(calls[0][1].body), { confirm: true });
+  assert.deepEqual(JSON.parse(calls[0][1].body), { confirm: true, candidates });
+});
+
+test('20260815-133442 CR5 correction: cleanup reloads the fallback project after refresh changes selection', async () => {
+  const previousProjects = appState.projectsList;
+  const previousCurrent = appState.currentProject;
+  const previousRepo = appState.repo;
+  const root = document.createElement('div');
+  root.innerHTML = '<p class="project-clean-error" hidden></p>';
+  const candidates = [{ id: 'old', path: '/gone/old' }];
+  const order = [];
+  appState.projectsList = [
+    { id: 'alpha', path: '/repos/alpha', alive: true, missing: false },
+    { id: 'old', path: '/gone/old', alive: false, missing: true },
+    { id: 'beta', path: '/repos/beta', alive: true, missing: false },
+  ];
+  appState.currentProject = 'alpha';
+  appState.repo = { projectMarker: 'alpha' };
+  try {
+    await cleanMissingProjectsFromView(root, candidates, {
+      confirm: async () => true,
+      request: async () => ({
+        ok: true,
+        json: async () => ({ removedIds: ['old'], removed: 1, skipped: 0 }),
+      }),
+      refresh: async () => {
+        order.push('refresh');
+        initializeProjects(
+          [{ id: 'beta', path: '/repos/beta', alive: true, missing: false }],
+          null,
+        );
+        return true;
+      },
+      reload: async () => {
+        order.push('reload');
+        appState.repo = { projectMarker: appState.currentProject };
+        return true;
+      },
+      onCleaned: async () => order.push('success'),
+    });
+
+    assert.deepEqual(
+      { currentProject: appState.currentProject, repoProject: appState.repo.projectMarker },
+      { currentProject: 'beta', repoProject: 'beta' },
+    );
+    assert.deepEqual(order, ['refresh', 'reload', 'success']);
+  } finally {
+    appState.projectsList = previousProjects;
+    appState.currentProject = previousCurrent;
+    appState.repo = previousRepo;
+  }
 });
 
 test('20260815-133442 CR5: cleanup refreshes rows, selector, panel, count and feedback', async () => {
@@ -534,6 +592,13 @@ test('20260815-133442 CR5: cleanup refreshes rows, selector, panel, count and fe
       calls.map(([url]) => url),
       ['/api/projects/clean-missing', '/api/projects'],
     );
+    assert.deepEqual(JSON.parse(calls[0][1].body), {
+      confirm: true,
+      candidates: [
+        { id: 'old-1', path: '/gone/one' },
+        { id: 'old-2', path: '/gone/two' },
+      ],
+    });
     assert.equal(document.querySelectorAll('.project-row').length, 1);
     assert.equal(document.querySelector('.projects-heading .count').textContent, '1');
     assert.equal(document.querySelector('[data-clean-missing]'), null);
@@ -551,6 +616,99 @@ test('20260815-133442 CR5: cleanup refreshes rows, selector, panel, count and fe
     appState.projectsList = previousProjects;
     appState.currentProject = previousCurrent;
     appState.localOnly = previousLocalOnly;
+    document.body.innerHTML = previousBody;
+  }
+});
+
+test('20260815-133442 CR5 correction: real cleanup flow loads the canonical fallback payload', async () => {
+  const previousBody = document.body.innerHTML;
+  const previousFetch = globalThis.fetch;
+  const previousTimeout = globalThis.setTimeout;
+  const previousProjects = appState.projectsList;
+  const previousCurrent = appState.currentProject;
+  const previousLocalOnly = appState.localOnly;
+  const previousRepo = appState.repo;
+  const previousJson = appState.lastJson;
+  const previousView = appState.currentView;
+  const shell = viewerShell();
+  const toastContainer = document.createElement('div');
+  toastContainer.id = 'toast-container';
+  shell.appendChild(toastContainer);
+  document.body.replaceChildren(shell);
+  appState.projectsList = [
+    { id: 'alpha', name: 'Alpha', path: '/repos/alpha', alive: true, missing: false },
+    { id: 'old', name: 'Old', path: '/gone/old', alive: false, missing: true },
+    { id: 'beta', name: 'Beta', path: '/repos/beta', alive: true, missing: false },
+  ];
+  appState.currentProject = 'alpha';
+  appState.localOnly = false;
+  appState.repo = { project_id: 'alpha' };
+  appState.lastJson = JSON.stringify(appState.repo);
+  appState.currentView = 'projects';
+  const calls = [];
+  const betaPayload = JSON.stringify({
+    project_id: 'beta',
+    repository_path: '/repos/beta',
+    language: 'en',
+    statuses: [],
+    types: [],
+    metrics: {},
+    changes: [],
+    change_errors: [],
+    specs: [],
+  });
+  globalThis.setTimeout = () => 0;
+  globalThis.fetch = async (url, options) => {
+    calls.push([url, options]);
+    if (url === '/api/projects/clean-missing') {
+      return {
+        ok: true,
+        json: async () => ({ removedIds: ['old'], removed: 1, skipped: 0 }),
+      };
+    }
+    if (url === '/api/projects') {
+      return {
+        ok: true,
+        json: async () => ({
+          projects: [
+            { id: 'beta', name: 'Beta', path: '/repos/beta', alive: true, missing: false },
+          ],
+          current: null,
+          localOnly: false,
+        }),
+      };
+    }
+    if (String(url).startsWith('/api/repo?project=beta')) {
+      return { ok: true, text: async () => betaPayload };
+    }
+    throw new Error(`unexpected request ${url}`);
+  };
+  setConfirmImpl(() => true);
+  try {
+    await openManagedProject('old');
+    await document.querySelector('[data-clean-missing]').onclick();
+
+    assert.deepEqual(
+      calls.map(([url]) => String(url).split('?')[0]),
+      ['/api/projects/clean-missing', '/api/projects', '/api/repo'],
+    );
+    assert.equal(appState.currentProject, 'beta');
+    assert.equal(appState.repo.project_id, 'beta');
+    assert.equal(appState.repo.repository_path, '/repos/beta');
+    assert.equal(
+      document.querySelector('#toast-container .toast-info')?.textContent,
+      '1 missing project removed',
+    );
+  } finally {
+    setConfirmImpl(null);
+    globalThis.fetch = previousFetch;
+    globalThis.setTimeout = previousTimeout;
+    appState.projectsList = previousProjects;
+    appState.currentProject = previousCurrent;
+    appState.localOnly = previousLocalOnly;
+    appState.repo = previousRepo;
+    appState.lastJson = previousJson;
+    appState.currentView = previousView;
     document.body.innerHTML = previousBody;
   }
 });

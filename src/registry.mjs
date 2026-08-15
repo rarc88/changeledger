@@ -43,11 +43,15 @@ export function register({ id, name, path: repoPath }) {
   });
 }
 
-export function cleanMissingProjects({
-  statSync = fs.statSync,
-  withFileLock: lock = withFileLock,
-  writeRegistry: persistRegistry = writeRegistry,
-} = {}) {
+export function cleanMissingProjects(
+  candidates,
+  {
+    statSync = fs.statSync,
+    withFileLock: lock = withFileLock,
+    writeRegistry: persistRegistry = writeRegistry,
+  } = {},
+) {
+  const observedPaths = new Map(candidates.map((candidate) => [candidate.id, candidate.path]));
   fs.mkdirSync(registryDir(), { recursive: true });
   return lock(registryPath(), () => {
     const registry = readRegistry();
@@ -55,12 +59,16 @@ export function cleanMissingProjects({
     let skipped = 0;
 
     for (const [id, project] of Object.entries(registry)) {
+      const observedPath = observedPaths.get(id);
+      const bindingIsCurrent = observedPaths.has(id) && project.path === observedPath;
       try {
         statSync(path.join(project.path, '.changeledger', 'config.yml'));
       } catch (error) {
         if (error?.code === 'ENOENT' || error?.code === 'ENOTDIR') {
-          delete registry[id];
-          removedIds.push(id);
+          if (bindingIsCurrent) {
+            delete registry[id];
+            removedIds.push(id);
+          }
         } else {
           skipped += 1;
         }

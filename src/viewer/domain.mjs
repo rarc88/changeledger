@@ -675,8 +675,23 @@ export function cleanMissingProjects(
   if (payload?.confirm !== true) {
     return { code: 400, body: { error: 'confirmation is required' } };
   }
+  if (
+    !Array.isArray(payload.candidates) ||
+    payload.candidates.some(
+      (candidate) =>
+        !candidate ||
+        typeof candidate !== 'object' ||
+        typeof candidate.id !== 'string' ||
+        !candidate.id ||
+        typeof candidate.path !== 'string' ||
+        !path.isAbsolute(candidate.path),
+    ) ||
+    new Set(payload.candidates.map((candidate) => candidate.id)).size !== payload.candidates.length
+  ) {
+    return { code: 400, body: { error: 'candidates must contain unique ids and absolute paths' } };
+  }
   try {
-    return { code: 200, body: clean() };
+    return { code: 200, body: clean(payload.candidates) };
   } catch (error) {
     return {
       code: 500,
