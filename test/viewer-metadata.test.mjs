@@ -883,6 +883,52 @@ test('141859 CR1: the static shell renames the Specs view hook to Ledger', () =>
   assert.equal(shell.querySelector('section#specs'), null);
 });
 
+test('133445: project selector uses an inset custom chevron without replacing the native select', () => {
+  const html = fs.readFileSync(new URL('../src/viewer/public/index.html', import.meta.url), 'utf8');
+  const css = fs.readFileSync(new URL('../src/viewer/public/styles.css', import.meta.url), 'utf8');
+  const shell = new JSDOM(html).window.document;
+  const selector = shell.querySelector('.project-select > select#project.filter[title="Project"]');
+  const chevron = selector?.nextElementSibling;
+  const selectorRule = css.match(/\.project-select\s*>\s*\.filter\s*\{([^}]*)\}/s)?.[1] ?? '';
+  const chevronRule = css.match(/\.project-select-chevron\s*\{([^}]*)\}/s)?.[1] ?? '';
+  const sharedSvgRule =
+    css.match(
+      /\.filter-trigger svg,\s*\.filter-chevron,\s*\.icon-button svg\s*\{([^}]*)\}/s,
+    )?.[1] ?? '';
+  const sharedChevronRule = css.match(/\.filter-chevron\s*\{([^}]*)\}/s)?.[1] ?? '';
+
+  assert.ok(selector, 'the existing project select remains the interactive control');
+  assert.equal(chevron?.tagName, 'svg');
+  assert.ok(chevron?.classList.contains('project-select-chevron'));
+  assert.ok(
+    chevron?.classList.contains('filter-chevron'),
+    'project reuses the filter chevron component',
+  );
+  assert.equal(chevron?.getAttribute('aria-hidden'), 'true');
+  assert.equal(chevron?.querySelector('path')?.getAttribute('d'), 'm4.5 6.25 3.5 3.5 3.5-3.5');
+  assert.match(selectorRule, /-webkit-appearance:\s*none/);
+  assert.match(selectorRule, /appearance:\s*none/);
+  assert.match(selectorRule, /padding-right:\s*34px/);
+  assert.match(chevronRule, /right:\s*10px/);
+  assert.match(chevronRule, /pointer-events:\s*none/);
+  assert.doesNotMatch(
+    chevronRule,
+    /\b(?:width|height|color|fill|stroke|stroke-width|stroke-linecap|transition)\s*:/,
+  );
+  assert.match(sharedSvgRule, /width:\s*16px/);
+  assert.match(sharedSvgRule, /height:\s*16px/);
+  assert.match(sharedSvgRule, /fill:\s*none/);
+  assert.match(sharedSvgRule, /stroke:\s*currentColor/);
+  assert.match(sharedSvgRule, /stroke-width:\s*1\.5/);
+  assert.match(sharedSvgRule, /stroke-linecap:\s*round/);
+  assert.doesNotMatch(sharedChevronRule, /\b(?:width|height)\s*:/);
+  assert.match(sharedChevronRule, /color:\s*var\(--muted\)/);
+  assert.match(
+    css,
+    /\.project-select\s*>\s*\.filter:focus-visible\s*\{[^}]*(?:border-color|outline):/s,
+  );
+});
+
 test('111219 CR1/CR6: bootstrap restores shell synchronously and tolerates blocked storage access', () => {
   const shell = () => {
     const root = document.createElement('div');

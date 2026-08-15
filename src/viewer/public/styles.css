@@ -97,6 +97,26 @@ body {
   width: clamp(180px, 14vw, 260px);
   min-width: 0;
 }
+.project-select {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.project-select > .filter {
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: 34px;
+}
+.project-select-chevron {
+  position: absolute;
+  right: 10px;
+  pointer-events: none;
+}
+.project-select > .filter:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(91, 157, 255, 0.13);
+}
 .tab {
   background: transparent;
   border: 1px solid var(--line);
@@ -398,6 +418,7 @@ body {
   display: none;
 }
 .filter-trigger svg,
+.filter-chevron,
 .icon-button svg {
   width: 16px;
   height: 16px;
@@ -416,8 +437,6 @@ body {
   box-shadow: 0 0 0 3px rgba(91, 157, 255, 0.13);
 }
 .filter-chevron {
-  width: 14px;
-  height: 14px;
   margin-left: auto;
   color: var(--muted);
   transition: transform 0.16s ease;
