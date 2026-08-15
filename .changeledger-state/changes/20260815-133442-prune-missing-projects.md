@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-08-15T13:34:42Z
 depends_on: []
+archived: true
 reviewed: true
 branch: feature/20260815-133442
 related_to:
@@ -143,3 +144,4 @@ proyecto válido y debe conservarse de forma fail-closed.
 - **2026-08-15T14:21:00Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-08-15T14:25:15Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-08-15T14:26:48Z** `[graduation]` spec: `viewer.md`
+- **2026-08-15T14:28:46Z** `[archive]` archived
