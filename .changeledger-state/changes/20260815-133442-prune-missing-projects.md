@@ -111,10 +111,11 @@ proyecto válido y debe conservarse de forma fail-closed.
   - **Verify:** `node --test test/registry.test.mjs test/view.test.mjs`
   - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-08-15T13:56:12Z`
-- [ ] Escribir primero tests HTTP y después exponer el POST autenticado con confirmación y rechazo en modo local
+- [x] Escribir primero tests HTTP y después exponer el POST autenticado con confirmación y rechazo en modo local
   - **Target:** `src/viewer/server/router.mjs`, `test/view.test.mjs`
   - **Verify:** `node --test test/view.test.mjs`
   - **Criteria:** CR1, CR3, CR4
+  - **Resolved:** `2026-08-15T13:56:14Z`
 - [ ] Escribir primero tests DOM y después añadir el control, confirmación, feedback y refresco coherente de Projects
   - **Target:** `src/viewer/public/app.js`, `src/viewer/public/api.js`, `src/viewer/public/styles.css`, `test/viewer-metadata.test.mjs`
   - **Verify:** `node --test test/viewer-metadata.test.mjs`
