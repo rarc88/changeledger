@@ -184,6 +184,18 @@ completo del contenedor; el listado de proyectos y el panel de configuración
 mantienen scroll independiente por panel, y bajo el breakpoint estrecho se
 apilan en una columna recuperando un único scroll vertical.
 
+En modo global, Projects ofrece `Clean missing (N)` cuando el sondeo confirma
+una o más rutas sin `.changeledger/config.yml` mediante `ENOENT` o `ENOTDIR`.
+La confirmación enumera el conjunto observado como pares `{id, path}` y la
+mutación vuelve a leer el registry bajo su lock: solo elimina una entrada si su
+binding conserva exactamente la ruta observada y el segundo sondeo confirma que
+sigue ausente. Una entrada añadida después de la observación, un mismo id
+revinculado a otra ruta y cualquier fallo no concluyente como `EACCES` se
+conservan. La operación reemplaza el registry una sola vez, nunca elimina
+archivos o directorios de los repositorios y, después del éxito, relee el
+listado, actualiza el selector y carga el repositorio fallback antes de presentar
+el resultado.
+
 Para proyectos vivos, `.changeledger/config.yml` es la autoridad del nombre. El
 nombre guardado en `.registry.json` solo sirve como fallback cuando la ruta ya no
 existe. El editor entrega el YAML exacto —comentarios incluidos— y protege
@@ -264,7 +276,8 @@ agrupa los resultados por proyecto.
 El registry local distingue archivo ausente de archivo corrupto: si no existe,
 empieza vacío; si existe y no es JSON válido, `readRegistry` falla con un error
 claro y `register` no lo sobrescribe silenciosamente. Las mutaciones
-read-modify-write del registry (`register`, `remove`, `update`) se envuelven en
+read-modify-write del registry (`register`, `remove`, `update`,
+`cleanMissingProjects`) se envuelven en
 `withFileLock(registryPath())`, lo que serializa invocaciones concurrentes de
 esas funciones internas de `registry.mjs` sobre el mismo archivo. El directorio se
 garantiza antes de tomar el lock porque el lock file requiere que el directorio
