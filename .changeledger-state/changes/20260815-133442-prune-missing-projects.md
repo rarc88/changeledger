@@ -2,7 +2,7 @@
 id: "20260815-133442"
 title: Limpiar proyectos ausentes del registro
 type: feature
-status: draft
+status: approved
 created: 2026-08-15T13:34:42Z
 depends_on: []
 related_to:
@@ -124,3 +124,4 @@ proyecto válido y debe conservarse de forma fail-closed.
 ## Log
 
 - **2026-08-15T13:34:42Z** `[note]` Borrador creado con autorización humana. La investigación separó este feature del defecto visual del selector y acotó la limpieza a ausencias confirmadas para preservar rutas inaccesibles.
+- **2026-08-15T13:37:15Z** `[status]` draft → approved (human via conversation)
