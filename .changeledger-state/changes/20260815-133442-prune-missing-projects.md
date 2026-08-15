@@ -136,3 +136,4 @@ proyecto válido y debe conservarse de forma fail-closed.
 - **2026-08-15T13:56:39Z** `[status]` in-progress → in-review
 - **2026-08-15T13:59:55Z** `[note]` Mandato de revisión: auditoría completa de dev..f779b316 sobre CR1–CR5, incluyendo sondeo fail-closed, lock y concurrencia, preservación del registry, frontera HTTP, coherencia UI, pruebas y las decisiones de implementación no especificadas.
 - **2026-08-15T14:05:38Z** `[review]` in-review → in-progress (retry): CR2: la limpieza elimina entradas missing concurrentes no incluidas en la confirmación; además debe recargar el proyecto fallback si la selección desaparece durante la carrera.
+- **2026-08-15T14:17:21Z** `[note]` Corrección del review sin commit: la confirmación transmite candidatos {id,path}, el lock preserva altas tardías y revinculaciones, y la UI recarga el proyecto fallback antes del éxito. Mutantes específicos detectados; suites focalizados y pnpm verify pasan con 1477/1477.
