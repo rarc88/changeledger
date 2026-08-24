@@ -8,6 +8,23 @@ import { marked } from 'marked';
 import { init } from '../src/commands/init.mjs';
 import { registerRepo } from '../src/commands/register.mjs';
 import { checkContract, REFERENCE, removeLegacyContract } from '../src/contract.mjs';
+import { LOG_EVENT_PAYLOAD_FORMS, LOG_EVENT_TYPES } from '../src/lifecycle.mjs';
+
+test('20260824-134716 CR1: implement contract exposes every executable Log event and payload', () => {
+  const implement = fs.readFileSync(
+    new URL('../templates/contract/implement.md', import.meta.url),
+    'utf8',
+  );
+  const declared = implement
+    .match(/^Types are (.+)\.$/m)?.[1]
+    .match(/`([^`]+)`/g)
+    ?.map((value) => value.slice(1, -1));
+  assert.deepEqual(declared, LOG_EVENT_TYPES);
+  for (const [type, payload] of Object.entries(LOG_EVENT_PAYLOAD_FORMS)) {
+    assert.ok(implement.includes(`- ${type}: ${payload}`), `${type}: ${payload}`);
+  }
+  assert.match(implement, /Each event records exactly one transition/);
+});
 
 process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'contract-home-'));
 

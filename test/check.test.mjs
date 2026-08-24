@@ -8,9 +8,15 @@ import { parse as parseYaml } from 'yaml';
 import { parseChange } from '../src/change.mjs';
 import { checkRepo } from '../src/check.mjs';
 import { check } from '../src/commands/check.mjs';
-import { integrationBranch, renderChangeBranch } from '../src/config.mjs';
+import {
+  BRANCH_FORMAT_PLACEHOLDERS,
+  integrationBranch,
+  renderChangeBranch,
+} from '../src/config.mjs';
 import { ensureReference } from '../src/contract.mjs';
+import { LOG_EVENT_TYPES } from '../src/lifecycle.mjs';
 import { templatesDir } from '../src/paths.mjs';
+import { RELEASE_IMPACTS } from '../src/release.mjs';
 import { STATE_REF, writeActivation } from '../src/state-store.mjs';
 import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
@@ -98,6 +104,56 @@ test('config specs_dir escaping the repo is an error', () => {
 test('a valid repo has no errors', () => {
   const { errors } = run([change()]);
   assert.deepEqual(errors, []);
+});
+
+test('20260824-134716 CR2: configurable and fixed check domains enumerate their authority', () => {
+  const subject = change({
+    frontmatter: { type: 'unknown', status: 'unknown', release_impact: 'unknown' },
+    stages: [{ key: 'unknown', heading: 'Unknown' }],
+  });
+  const { errors } = run([subject]);
+  const all = msgs(errors).join('\n');
+  assert.match(
+    all,
+    new RegExp(`unknown type "unknown"; valid types: ${Object.keys(config.types).join(', ')}`),
+  );
+  assert.match(
+    all,
+    new RegExp(`unknown status "unknown"; valid statuses: ${config.statuses.join(', ')}`),
+  );
+  assert.match(
+    all,
+    new RegExp(`unknown stage "## unknown"; valid stages: ${config.stages.join(', ')}`),
+  );
+  assert.match(all, new RegExp(`must be one of: ${RELEASE_IMPACTS.join(', ')}`));
+  assert.deepEqual(BRANCH_FORMAT_PLACEHOLDERS, ['type', 'id']);
+});
+
+test('20260824-134716 CR6: an invalid Log entry gives the complete canonical grammar only', () => {
+  const text = [
+    '---',
+    'id: "20260613-120000"',
+    'title: X',
+    'type: feature',
+    'status: draft',
+    'created: 2026-06-13T12:00:00Z',
+    'depends_on: []',
+    '---',
+    '',
+    '## Log',
+    '',
+    '- **2026-06-13T12:00:00Z** `[bogus]` payload',
+    '',
+  ].join('\n');
+  const subject = change({ text, stages: [{ key: 'log', heading: 'Log', body: '- invalid' }] });
+  const { errors, warnings } = run([subject]);
+  assert.ok(
+    msgs(errors).includes(
+      `Log line 12: invalid typed event; valid types: ${LOG_EVENT_TYPES.join(', ')}; expected: - **YYYY-MM-DDTHH:MM:SSZ** \`[type]\` payload`,
+    ),
+    msgs(errors).join('\n'),
+  );
+  assert.doesNotMatch([...msgs(errors), ...msgs(warnings)].join('\n'), /fix --structured-sections/);
 });
 
 // Confirm-only (20260726-124836 CR5): src/check.mjs never validated `owner`,

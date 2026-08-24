@@ -3,9 +3,31 @@ import { test } from 'node:test';
 import {
   assertTransition,
   canTransition,
+  LOG_EVENT_PAYLOAD_FORMS,
+  LOG_EVENT_TYPES,
   parseLogEvent,
+  REVIEW_VERDICTS,
   serializeLogEvent,
+  TASK_ACTIONS,
+  VALIDATION_VERDICTS,
 } from '../src/lifecycle.mjs';
+
+test('20260824-134716 CR1/CR2: closed lifecycle domains have one executable authority', () => {
+  assert.deepEqual(LOG_EVENT_TYPES, [
+    'status',
+    'review',
+    'validation',
+    'owner',
+    'branch',
+    'graduation',
+    'archive',
+    'note',
+  ]);
+  assert.deepEqual(Object.keys(LOG_EVENT_PAYLOAD_FORMS), LOG_EVENT_TYPES);
+  assert.deepEqual(REVIEW_VERDICTS, ['pass', 'fail']);
+  assert.deepEqual(VALIDATION_VERDICTS, ['pass', 'fail']);
+  assert.deepEqual(TASK_ACTIONS, ['done', 'block']);
+});
 
 test('CR1: the happy path is allowed at every step', () => {
   const path = ['draft', 'approved', 'in-progress', 'in-validation', 'done'];

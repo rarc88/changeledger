@@ -67,16 +67,22 @@ export function assertTransition(from, to, { type, reviewRequired = false } = {}
   }
 }
 
-export const LOG_EVENT_TYPES = [
-  'status',
-  'review',
-  'validation',
-  'owner',
-  'branch',
-  'graduation',
-  'archive',
-  'note',
-];
+export const LOG_EVENT_PAYLOAD_FORMS = {
+  status: '<from> → <to> [(detail)] [: reason]',
+  review: 'in-review → <to> [(detail)] [: reason]',
+  validation: 'in-validation → <to> [(detail)] [: reason]',
+  owner: 'set: <owner> [(auto)] | cleared',
+  branch: 'set: <branch> [(auto)] | cleared',
+  graduation: 'spec: `<file>` [(detail)] | skipped [: reason]',
+  archive: 'archived',
+  note: '<non-empty text>',
+};
+
+export const LOG_EVENT_TYPES = Object.keys(LOG_EVENT_PAYLOAD_FORMS);
+
+export const REVIEW_VERDICTS = ['pass', 'fail'];
+export const VALIDATION_VERDICTS = ['pass', 'fail'];
+export const TASK_ACTIONS = ['done', 'block'];
 
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
 const LOG_EVENT = /^- \*\*([^*]+)\*\* `\[([a-z]+)\]`(?: (.*))?$/;

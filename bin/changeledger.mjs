@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { createRequire } from 'node:module';
 import path from 'node:path';
-import { Command } from 'commander';
+import { Argument, Command, Option } from 'commander';
 import { activate } from '../src/commands/activate.mjs';
 import {
   approve,
@@ -19,7 +19,7 @@ import {
   task,
   validation,
 } from '../src/commands/agent.mjs';
-import { agentContext } from '../src/commands/agent-context.mjs';
+import { AGENT_ROLES, agentContext } from '../src/commands/agent-context.mjs';
 import { agentPrompt } from '../src/commands/agent-prompt.mjs';
 import { apply } from '../src/commands/apply.mjs';
 import { check } from '../src/commands/check.mjs';
@@ -27,7 +27,7 @@ import { commit } from '../src/commands/commit.mjs';
 import { context } from '../src/commands/context.mjs';
 import { cutover } from '../src/commands/cutover.mjs';
 import { edit } from '../src/commands/edit.mjs';
-import { fix } from '../src/commands/fix.mjs';
+import { FIX_MIGRATION_MODES, fix } from '../src/commands/fix.mjs';
 import { graduate, scaffoldSpec, skipGraduation } from '../src/commands/graduate.mjs';
 import { importFromRef } from '../src/commands/import.mjs';
 import { init } from '../src/commands/init.mjs';
@@ -37,12 +37,55 @@ import { initReleaseHistory, recordRelease, releasePlan } from '../src/commands/
 import { runSearch } from '../src/commands/search.mjs';
 import { sync } from '../src/commands/sync.mjs';
 import { view } from '../src/commands/view.mjs';
-import { findChangeledgerDir } from '../src/config.mjs';
+import {
+  BRANCH_FORMAT_PLACEHOLDERS,
+  findChangeledgerDir,
+  loadEffectiveConfig,
+} from '../src/config.mjs';
 import { applyMigration } from '../src/config-migration.mjs';
+import { REVIEW_VERDICTS, TASK_ACTIONS, VALIDATION_VERDICTS } from '../src/lifecycle.mjs';
 import { nowUtc } from '../src/paths.mjs';
+import { RELEASE_IMPACTS } from '../src/release.mjs';
 import { CAS_CONFLICT_MESSAGE, LedgerConflictError } from '../src/state-store.mjs';
 
 const { version } = createRequire(import.meta.url)('../package.json');
+
+function configuredDomains(cwd = process.cwd()) {
+  try {
+    const changeledgerDir = findChangeledgerDir(cwd);
+    if (!changeledgerDir) return null;
+    const config = loadEffectiveConfig(path.dirname(changeledgerDir), changeledgerDir);
+    return {
+      types: config.types && typeof config.types === 'object' ? Object.keys(config.types) : [],
+      statuses: Array.isArray(config.statuses) ? config.statuses : [],
+      stages: Array.isArray(config.stages) ? config.stages : [],
+    };
+  } catch {
+    return null;
+  }
+}
+
+const CONFIGURED_DOMAINS = configuredDomains();
+
+function closedArgument(syntax, description, choices) {
+  const argument = new Argument(syntax, description);
+  return choices?.length ? argument.choices(choices) : argument;
+}
+
+function closedOption(flags, description, choices) {
+  const option = new Option(flags, description);
+  return choices?.length ? option.choices(choices) : option;
+}
+
+function configuredDomainsHelp() {
+  if (!CONFIGURED_DOMAINS) return [];
+  return [
+    '',
+    `effective types: ${CONFIGURED_DOMAINS.types.join(', ')}`,
+    `effective statuses: ${CONFIGURED_DOMAINS.statuses.join(', ')}`,
+    `effective stages: ${CONFIGURED_DOMAINS.stages.join(', ')}`,
+  ];
+}
 
 const USAGE = `ChangeLedger (changeledger)
 
@@ -117,7 +160,13 @@ program
 program
   .command('new')
   .description('scaffold a new change')
-  .argument('<type>', 'a type key configured in .changeledger/config.yml (types:)')
+  .addArgument(
+    closedArgument(
+      '<type>',
+      'a type key configured in .changeledger/config.yml (types:)',
+      CONFIGURED_DOMAINS?.types,
+    ),
+  )
   .argument('<slug>', 'English filename slug, e.g. self-describing-cli-help')
   .argument('<title...>', 'content title, written in the repo language (config.yml: language)')
   .option('--owner <name>', 'set the initial owner (defaults to the local git identity)')
@@ -185,9 +234,13 @@ program
   )
   .addHelpText(
     'after',
-    ['', 'Examples:', '  changeledger check --commits', '  changeledger check --commits main'].join(
-      '\n',
-    ),
+    [
+      ...configuredDomainsHelp(),
+      '',
+      'Examples:',
+      '  changeledger check --commits',
+      '  changeledger check --commits main',
+    ].join('\n'),
   )
   .action((id, options) => {
     try {
@@ -210,9 +263,32 @@ program
   .description('repair mechanical, unambiguous format defects (or one change)')
   .argument('[id]')
   .option('--dry-run', 'print the proposed diff without writing')
-  .option('--graduation-links', 'migrate spec graduation provenance from Logs and legacy markers')
-  .option('--structured-sections', 'migrate task metadata and typed Log events')
-  .option('--plan-tags', 'migrate Plan task criteria, support and verify into structured children')
+  .addOption(
+    new Option(
+      '--graduation-links',
+      'migrate graduation provenance from recognized Logs and legacy spec markers',
+    ).conflicts(['structuredSections', 'planTags']),
+  )
+  .addOption(
+    new Option(
+      '--structured-sections',
+      'migrate resolved/blocked task metadata and recognized legacy Log entries',
+    ).conflicts(['graduationLinks', 'planTags']),
+  )
+  .addOption(
+    new Option(
+      '--plan-tags',
+      'migrate Plan criteria, support and verify children from positional tags',
+    ).conflicts(['graduationLinks', 'structuredSections']),
+  )
+  .addHelpText(
+    'after',
+    [
+      '',
+      'default repairs: checkbox markers [ x ]/[X], legacy hyphen separators, near-ISO UTC timestamps',
+      `migration modes are mutually exclusive; run exactly one at a time: ${FIX_MIGRATION_MODES.join(', ')}`,
+    ].join('\n'),
+  )
   .action((id, options) => {
     try {
       const args = [
@@ -500,7 +576,7 @@ program
 program
   .command('agent-prompt')
   .description('print a portable delegation prompt skeleton for a role')
-  .argument('<role>', 'investigation | implementation | review | post-review')
+  .addArgument(closedArgument('<role>', AGENT_ROLES.join(' | '), AGENT_ROLES))
   .addHelpText(
     'after',
     [
@@ -524,7 +600,7 @@ program
 program
   .command('agent-context')
   .description('print a self-contained minimal context for a delegated role')
-  .argument('<role>', 'investigation | implementation | review | post-review')
+  .addArgument(closedArgument('<role>', AGENT_ROLES.join(' | '), AGENT_ROLES))
   .argument(
     '[change-id]',
     'optional for investigation; required for implementation, review and post-review',
@@ -555,9 +631,12 @@ program
   .command('status')
   .description("move a change's lifecycle status (agent-owned, non-terminal moves only)")
   .argument('<id>')
-  .argument(
-    '<status>',
-    'a status configured in .changeledger/config.yml (statuses:), e.g. in-progress, in-review, blocked',
+  .addArgument(
+    closedArgument(
+      '<status>',
+      'a status configured in .changeledger/config.yml (statuses:), e.g. in-progress, in-review, blocked',
+      CONFIGURED_DOMAINS?.statuses,
+    ),
   )
   .addHelpText(
     'after',
@@ -606,7 +685,7 @@ program
   .command('validation')
   .description('transmit an explicit human validation decision, or reject as the agent')
   .argument('<id>')
-  .argument('<verdict>', 'pass|fail')
+  .addArgument(closedArgument('<verdict>', VALIDATION_VERDICTS.join('|'), VALIDATION_VERDICTS))
   .argument('[reason...]')
   .option('--human', 'attribute a fail verdict to an explicit human decision via conversation')
   .addHelpText(
@@ -671,10 +750,10 @@ program
   .command('review')
   .description('record an independent review verdict')
   .argument('<id>')
-  .argument('<verdict>', 'pass|fail')
+  .addArgument(closedArgument('<verdict>', REVIEW_VERDICTS.join('|'), REVIEW_VERDICTS))
   .argument('[reason...]')
-  .option('--retry', 'route a failed review back to in-progress')
-  .option('--block', 'route a failed review to blocked')
+  .addOption(new Option('--retry', 'route a failed review back to in-progress').conflicts('block'))
+  .addOption(new Option('--block', 'route a failed review to blocked').conflicts('retry'))
   .addHelpText(
     'after',
     [
@@ -793,7 +872,7 @@ program
   .command('task')
   .description('mark a Plan task')
   .argument('<id>')
-  .argument('<action>', 'done|block')
+  .addArgument(closedArgument('<action>', TASK_ACTIONS.join('|'), TASK_ACTIONS))
   .argument('<n>', 'the Plan task index, 1-based, in document order')
   .argument('[reason...]', 'required when action is block; ignored when action is done')
   .addHelpText(
@@ -816,11 +895,20 @@ program
 program
   .command('list')
   .description('list changes')
-  .option(
-    '--status <status>',
-    'filter by a status configured in .changeledger/config.yml (statuses:)',
+  .addOption(
+    closedOption(
+      '--status <status>',
+      'filter by a status configured in .changeledger/config.yml (statuses:)',
+      CONFIGURED_DOMAINS?.statuses,
+    ),
   )
-  .option('--type <type>', 'filter by a type configured in .changeledger/config.yml (types:)')
+  .addOption(
+    closedOption(
+      '--type <type>',
+      'filter by a type configured in .changeledger/config.yml (types:)',
+      CONFIGURED_DOMAINS?.types,
+    ),
+  )
   .option('--owner <name>', 'filter by exact owner name; incompatible with --unowned')
   .option('--unowned', 'list changes without an owner; incompatible with --owner')
   .option('--pending <kind>', 'filter pending work (graduation|archive)')
@@ -878,13 +966,19 @@ program
   .description('deterministic lexical search over changes (incl. archived) and specs')
   .argument('<query...>', 'search terms')
   .option('--limit <n>', 'max results (default 10)')
-  .option(
-    '--type <type>',
-    'filter by a change type configured in .changeledger/config.yml (types:); excludes specs',
+  .addOption(
+    closedOption(
+      '--type <type>',
+      'filter by a change type configured in .changeledger/config.yml (types:); excludes specs',
+      CONFIGURED_DOMAINS?.types,
+    ),
   )
-  .option(
-    '--status <status>',
-    'filter by a change status configured in .changeledger/config.yml (statuses:); excludes specs',
+  .addOption(
+    closedOption(
+      '--status <status>',
+      'filter by a change status configured in .changeledger/config.yml (statuses:); excludes specs',
+      CONFIGURED_DOMAINS?.statuses,
+    ),
   )
   .option('--json', 'print JSON')
   .addHelpText(
@@ -969,7 +1063,15 @@ configCommand
 
 const releaseCommand = program
   .command('release')
-  .description('plan and record portable SemVer releases');
+  .description('plan and record portable SemVer releases')
+  .addHelpText(
+    'after',
+    [
+      '',
+      `release impacts: ${RELEASE_IMPACTS.join(', ')}`,
+      `branch format placeholders: ${BRANCH_FORMAT_PLACEHOLDERS.map((name) => `{${name}}`).join(', ')}`,
+    ].join('\n'),
+  );
 
 releaseCommand
   .command('init')

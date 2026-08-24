@@ -108,6 +108,8 @@ function isMapping(value) {
 
 // Opt-in convention for implementation branches. Only immutable change fields
 // are accepted, and the id is the required one-to-one link back to the change.
+export const BRANCH_FORMAT_PLACEHOLDERS = ['type', 'id'];
+
 export function changeBranchFormat(config) {
   const value = config?.git?.change_branch_format;
   if (value === undefined || value === null) return undefined;
@@ -117,9 +119,11 @@ export function changeBranchFormat(config) {
 
   const format = value.trim();
   const placeholders = [...format.matchAll(/\{([^{}]+)\}/g)].map((match) => match[1]);
-  const unknown = placeholders.find((name) => !['type', 'id'].includes(name));
+  const unknown = placeholders.find((name) => !BRANCH_FORMAT_PLACEHOLDERS.includes(name));
   if (unknown) {
-    throw new Error(`config "git.change_branch_format" has unknown placeholder "{${unknown}}"`);
+    throw new Error(
+      `config "git.change_branch_format" has unknown placeholder "{${unknown}}"; valid placeholders: ${BRANCH_FORMAT_PLACEHOLDERS.map((name) => `{${name}}`).join(', ')}`,
+    );
   }
   if ((format.match(/\{id\}/g) ?? []).length !== 1) {
     throw new Error('config "git.change_branch_format" must contain "{id}" exactly once');

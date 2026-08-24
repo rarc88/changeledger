@@ -2,14 +2,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { beginSentinel, endSentinel, VERSION } from '../framing.mjs';
 import { contractTemplatesDir } from '../paths.mjs';
+import { AGENT_ROLES } from './agent-context.mjs';
 
 // Portable role skeletons ship inside the package, so this command works even
 // outside an initialized ChangeLedger repo — it never reads project config.
-const ROLES = ['investigation', 'implementation', 'review', 'post-review'];
-
 export function buildAgentPrompt(role) {
-  if (!ROLES.includes(role)) {
-    throw new Error(`Unknown role "${role}" — valid roles: ${ROLES.join(', ')}`);
+  if (!AGENT_ROLES.includes(role)) {
+    throw new Error(`Unknown role "${role}" — valid roles: ${AGENT_ROLES.join(', ')}`);
   }
   const file = path.join(contractTemplatesDir, 'agent-prompts', `${role}.md`);
   const body = fs.readFileSync(file, 'utf8').trim();

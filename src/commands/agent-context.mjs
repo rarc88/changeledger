@@ -6,7 +6,7 @@ import { contractTemplatesDir } from '../paths.mjs';
 import { loadRepo, resolveChangeInRepo } from '../repo.mjs';
 import { changeParseFailureMessage, transversalPolicy } from './context.mjs';
 
-const ROLES = ['investigation', 'implementation', 'review', 'post-review'];
+export const AGENT_ROLES = ['investigation', 'implementation', 'review', 'post-review'];
 const ALLOWED_STATUSES = {
   implementation: ['approved', 'in-progress'],
   review: ['in-review'],
@@ -57,8 +57,8 @@ function selectedChange(role, changeId, repo) {
 }
 
 export function buildAgentContext(role, changeId, cwd = process.cwd()) {
-  if (!ROLES.includes(role)) {
-    throw new Error(`Unknown role "${role}" — valid roles: ${ROLES.join(', ')}`);
+  if (!AGENT_ROLES.includes(role)) {
+    throw new Error(`Unknown role "${role}" — valid roles: ${AGENT_ROLES.join(', ')}`);
   }
   const changeledgerDir = requireRepo(cwd);
   const repo = changeId ? loadRepo(cwd, { isolateChangeErrors: true }) : null;
