@@ -77,7 +77,7 @@ Every top-level Log entry has a strict ISO UTC timestamp and canonical type:
 ```
 
 Types are `status`, `review`, `validation`, `owner`, `branch`, `graduation`, `archive`, `note`.
-Each event records exactly one transition, with the payload form for its type:
+Each transition event (`status`, `review`, `validation`) records exactly one transition, with the payload form for its type:
 
 - status: <from> → <to> [(detail)] [: reason]
 - review: in-review → <to> [(detail)] [: reason]

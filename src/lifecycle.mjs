@@ -67,19 +67,6 @@ export function assertTransition(from, to, { type, reviewRequired = false } = {}
   }
 }
 
-export const LOG_EVENT_PAYLOAD_FORMS = {
-  status: '<from> → <to> [(detail)] [: reason]',
-  review: 'in-review → <to> [(detail)] [: reason]',
-  validation: 'in-validation → <to> [(detail)] [: reason]',
-  owner: 'set: <owner> [(auto)] | cleared',
-  branch: 'set: <branch> [(auto)] | cleared',
-  graduation: 'spec: `<file>` [(detail)] | skipped [: reason]',
-  archive: 'archived',
-  note: '<non-empty text>',
-};
-
-export const LOG_EVENT_TYPES = Object.keys(LOG_EVENT_PAYLOAD_FORMS);
-
 export const REVIEW_VERDICTS = ['pass', 'fail'];
 export const VALIDATION_VERDICTS = ['pass', 'fail'];
 export const TASK_ACTIONS = ['done', 'block'];
@@ -88,61 +75,108 @@ const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
 const LOG_EVENT = /^- \*\*([^*]+)\*\* `\[([a-z]+)\]`(?: (.*))?$/;
 const TRANSITION_PAYLOAD = /^([a-z-]+) → ([a-z-]+)(?: \(([^)]*)\))?(?:: ([\s\S]+))?$/;
 
+function parseTransitionPayload(payload, type) {
+  const transition = payload.match(TRANSITION_PAYLOAD);
+  if (!transition) return null;
+  const event = { from: transition[1], to: transition[2] };
+  if (transition[3]) event.detail = transition[3];
+  if (transition[4]) event.reason = transition[4];
+  if (type === 'review' && event.from !== 'in-review') return null;
+  if (type === 'validation' && event.from !== 'in-validation') return null;
+  return event;
+}
+
+function parseAssignmentPayload(payload, field) {
+  if (payload === 'cleared') return { [field]: null };
+  if (!payload.startsWith('set: ') || payload.length === 5) return null;
+  const automatic = payload.endsWith(' (auto)');
+  const value = payload.slice(5, automatic ? -7 : undefined);
+  if (!value) return null;
+  return automatic ? { [field]: value, automatic: true } : { [field]: value };
+}
+
+function parseGraduationPayload(payload) {
+  const spec = payload.match(/^spec: `([^`]+)`(?: \((.*)\))?$/);
+  if (spec) {
+    const event = { outcome: 'spec', spec: spec[1] };
+    if (spec[2]) event.detail = spec[2];
+    return event;
+  }
+  if (payload === 'skipped') return { outcome: 'skipped' };
+  if (payload.startsWith('skipped: ') && payload.length > 9) {
+    return { outcome: 'skipped', reason: payload.slice(9) };
+  }
+  return null;
+}
+
+export const LOG_EVENT_DEFINITIONS = Object.freeze({
+  status: Object.freeze({
+    form: '<from> → <to> [(detail)] [: reason]',
+    canonicalPayload: 'draft → approved',
+    transition: true,
+    parse: (payload) => parseTransitionPayload(payload, 'status'),
+  }),
+  review: Object.freeze({
+    form: 'in-review → <to> [(detail)] [: reason]',
+    canonicalPayload: 'in-review → in-validation',
+    transition: true,
+    parse: (payload) => parseTransitionPayload(payload, 'review'),
+  }),
+  validation: Object.freeze({
+    form: 'in-validation → <to> [(detail)] [: reason]',
+    canonicalPayload: 'in-validation → done',
+    transition: true,
+    parse: (payload) => parseTransitionPayload(payload, 'validation'),
+  }),
+  owner: Object.freeze({
+    form: 'set: <owner> [(auto)] | cleared',
+    canonicalPayload: 'set: ana',
+    transition: false,
+    parse: (payload) => parseAssignmentPayload(payload, 'owner'),
+  }),
+  branch: Object.freeze({
+    form: 'set: <branch> [(auto)] | cleared',
+    canonicalPayload: 'set: feature/x',
+    transition: false,
+    parse: (payload) => parseAssignmentPayload(payload, 'branch'),
+  }),
+  graduation: Object.freeze({
+    form: 'spec: `<file>` [(detail)] | skipped [: reason]',
+    canonicalPayload: 'spec: `architecture.md`',
+    transition: false,
+    parse: parseGraduationPayload,
+  }),
+  archive: Object.freeze({
+    form: 'archived',
+    canonicalPayload: 'archived',
+    transition: false,
+    parse: (payload) => (payload === 'archived' ? {} : null),
+  }),
+  note: Object.freeze({
+    form: '<non-empty text>',
+    canonicalPayload: 'arbitrary text',
+    transition: false,
+    parse: (payload) => (payload ? { message: payload } : null),
+  }),
+});
+
+export const LOG_EVENT_TYPES = Object.keys(LOG_EVENT_DEFINITIONS);
+export const LOG_EVENT_PAYLOAD_FORMS = Object.freeze(
+  Object.fromEntries(
+    Object.entries(LOG_EVENT_DEFINITIONS).map(([type, definition]) => [type, definition.form]),
+  ),
+);
+
 export function isIsoUtc(value) {
   return ISO_UTC.test(String(value));
 }
 
 export function parseLogEvent(line) {
   const match = String(line).match(LOG_EVENT);
-  if (!match || !isIsoUtc(match[1]) || !LOG_EVENT_TYPES.includes(match[2])) return null;
+  if (!match || !isIsoUtc(match[1])) return null;
   const [at, type, payload = ''] = match.slice(1);
-
-  if (['status', 'review', 'validation'].includes(type)) {
-    const transition = payload.match(TRANSITION_PAYLOAD);
-    if (!transition) return null;
-    const event = { at, type, from: transition[1], to: transition[2] };
-    if (transition[3]) event.detail = transition[3];
-    if (transition[4]) event.reason = transition[4];
-    if (type === 'review' && event.from !== 'in-review') return null;
-    if (type === 'validation' && event.from !== 'in-validation') return null;
-    return event;
-  }
-
-  if (type === 'owner') {
-    if (payload === 'cleared') return { at, type, owner: null };
-    if (!payload.startsWith('set: ') || payload.length === 5) return null;
-    const automatic = payload.endsWith(' (auto)');
-    const owner = payload.slice(5, automatic ? -7 : undefined);
-    if (!owner) return null;
-    return automatic ? { at, type, owner, automatic: true } : { at, type, owner };
-  }
-
-  if (type === 'branch') {
-    if (payload === 'cleared') return { at, type, branch: null };
-    if (!payload.startsWith('set: ') || payload.length === 5) return null;
-    const automatic = payload.endsWith(' (auto)');
-    const branch = payload.slice(5, automatic ? -7 : undefined);
-    if (!branch) return null;
-    return automatic ? { at, type, branch, automatic: true } : { at, type, branch };
-  }
-
-  if (type === 'graduation') {
-    const spec = payload.match(/^spec: `([^`]+)`(?: \((.*)\))?$/);
-    if (spec) {
-      const event = { at, type, outcome: 'spec', spec: spec[1] };
-      if (spec[2]) event.detail = spec[2];
-      return event;
-    }
-    if (payload === 'skipped') return { at, type, outcome: 'skipped' };
-    if (payload.startsWith('skipped: ') && payload.length > 9) {
-      return { at, type, outcome: 'skipped', reason: payload.slice(9) };
-    }
-    return null;
-  }
-
-  if (type === 'archive') return payload === 'archived' ? { at, type } : null;
-  if (type === 'note') return payload ? { at, type, message: payload } : null;
-  return null;
+  const parsed = LOG_EVENT_DEFINITIONS[type]?.parse(payload);
+  return parsed ? { at, type, ...parsed } : null;
 }
 
 export function serializeLogEvent(event) {

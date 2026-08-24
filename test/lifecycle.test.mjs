@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import {
   assertTransition,
   canTransition,
+  LOG_EVENT_DEFINITIONS,
   LOG_EVENT_PAYLOAD_FORMS,
   LOG_EVENT_TYPES,
   parseLogEvent,
@@ -11,6 +12,9 @@ import {
   TASK_ACTIONS,
   VALIDATION_VERDICTS,
 } from '../src/lifecycle.mjs';
+
+const LOG_AT = '- **2026-08-24T16:00:00Z**';
+const logLine = (type, payload) => `${LOG_AT} \`[${type}]\` ${payload}`;
 
 test('20260824-134716 CR1/CR2: closed lifecycle domains have one executable authority', () => {
   assert.deepEqual(LOG_EVENT_TYPES, [
@@ -27,6 +31,33 @@ test('20260824-134716 CR1/CR2: closed lifecycle domains have one executable auth
   assert.deepEqual(REVIEW_VERDICTS, ['pass', 'fail']);
   assert.deepEqual(VALIDATION_VERDICTS, ['pass', 'fail']);
   assert.deepEqual(TASK_ACTIONS, ['done', 'block']);
+});
+
+test('20260824-134716 CR1 correction: documented canonical payloads are the parser grammar', () => {
+  assert.deepEqual(Object.keys(LOG_EVENT_DEFINITIONS), LOG_EVENT_TYPES);
+  for (const [type, definition] of Object.entries(LOG_EVENT_DEFINITIONS)) {
+    const parsed = parseLogEvent(logLine(type, definition.canonicalPayload));
+    assert.ok(parsed, `${type} rejects documented payload: ${definition.canonicalPayload}`);
+    assert.equal(definition.form, LOG_EVENT_PAYLOAD_FORMS[type]);
+    if (definition.transition) {
+      assert.equal(typeof parsed.from, 'string');
+      assert.equal(typeof parsed.to, 'string');
+    } else {
+      assert.equal('from' in parsed, false, `${type} is not a transition event`);
+      assert.equal('to' in parsed, false, `${type} is not a transition event`);
+    }
+  }
+});
+
+test('20260824-134716 CR1 correction: transition payloads contain exactly one transition', () => {
+  for (const type of ['status', 'review', 'validation']) {
+    const canonical = LOG_EVENT_DEFINITIONS[type].canonicalPayload;
+    assert.equal(
+      parseLogEvent(logLine(type, `${canonical} → done`)),
+      null,
+      `${type} accepted two transitions`,
+    );
+  }
 });
 
 test('CR1: the happy path is allowed at every step', () => {
