@@ -112,10 +112,11 @@ Los changes relacionados introdujeron las secciones estructuradas (`20260720-125
   - **Support:**
   - **Verify:** `pnpm verify`
   - **Resolved:** `2026-08-24T16:38:18Z`
-- [ ] Exponer en `log --help` la escritura exclusiva de `note` y la gramática completa del Log
+- [x] Exponer en `log --help` la escritura exclusiva de `note` y la gramática completa del Log
   - **Target:** `bin/changeledger.mjs, test/cli-bin.test.mjs`
   - **Verify:** `node --test test/cli-bin.test.mjs`
   - **Criteria:** CR7
+  - **Resolved:** `2026-08-24T17:42:40Z`
 
 ## Log
 - **2026-08-24T16:17:16Z** `[status]` draft → approved (human via conversation)
