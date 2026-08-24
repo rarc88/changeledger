@@ -34,7 +34,7 @@ Los changes relacionados introdujeron las secciones estructuradas (`20260720-125
 - **Given** la lista ejecutable `LOG_EVENT_TYPES`
 - **When** se compone `changeledger context implement`
 - **Then** el contexto enumera exactamente `status`, `review`, `validation`, `owner`, `branch`, `graduation`, `archive` y `note`
-- **And** documenta la forma válida del payload de cada tipo y que cada evento contiene una sola transición
+- **And** documenta la forma válida del payload de cada tipo y que cada evento de transición contiene una sola transición
 - **And** un test falla si la lista ejecutable cambia sin actualizar la superficie consumida por agentes
 
 ### CR2 — Los dominios cerrados auditados se enumeran desde su autoridad
