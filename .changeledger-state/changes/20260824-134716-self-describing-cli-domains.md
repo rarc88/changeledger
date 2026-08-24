@@ -105,4 +105,5 @@ Los changes relacionados introdujeron las secciones estructuradas (`20260720-125
 - **2026-08-24T16:18:36Z** `[status]` approved → in-progress
 - **2026-08-24T16:18:37Z** `[branch]` set: bug/20260824-134716 (auto)
 - **2026-08-24T16:38:27Z** `[status]` in-progress → in-review
+- **2026-08-24T16:41:44Z** `[note]` Mandato de revisión: auditoría completa de CR1–CR6 y del Plan sobre el rango cerrado dev..05c720c6, incluyendo decisiones no especificadas, diagnósticos, ayudas, autoridades de dominios y conflictos antes de escritura.
 
