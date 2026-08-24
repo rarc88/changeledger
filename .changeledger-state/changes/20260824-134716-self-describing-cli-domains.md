@@ -85,10 +85,11 @@ Los changes relacionados introdujeron las secciones estructuradas (`20260720-125
   - **Verify:** `node --test test/contract.test.mjs test/lifecycle.test.mjs`
   - **Criteria:** CR1
   - **Resolved:** `2026-08-24T16:35:10Z`
-- [ ] Hacer autoexplicativos la ayuda y el resumen de cada modo de fix
+- [x] Hacer autoexplicativos la ayuda y el resumen de cada modo de fix
   - **Target:** `bin/changeledger.mjs, src/commands/fix.mjs, src/fix.mjs, test/fix.test.mjs, test/cli-bin.test.mjs`
   - **Verify:** `node --test test/fix.test.mjs test/cli-bin.test.mjs`
   - **Criteria:** CR3, CR5
+  - **Resolved:** `2026-08-24T16:35:14Z`
 - [ ] Mejorar el diagnóstico de Log inválido sin prometer reparaciones inexistentes
   - **Target:** `src/check.mjs, test/check.test.mjs`
   - **Verify:** `node --test test/check.test.mjs`
