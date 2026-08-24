@@ -14,7 +14,7 @@ owner: Roberto Ruiz
 
 La CLI obliga a agentes y humanos a adivinar dominios cerrados y combinaciones válidas. El caso observado es el Log: el parser acepta ocho tipos, incluido `branch`, mientras `changeledger context implement` enumera siete y lo omite. El mismo patrón aparece en argumentos con alternativas, opciones mutuamente excluyentes y modos de `fix`: la ayuda nombra capacidades de forma parcial, algunas combinaciones se resuelven por prioridad silenciosa y `nothing to fix` no distingue entre un modo sin candidatos y defectos que requieren reparación manual.
 
-La CLI debe ser autoexplicativa: todo dominio cerrado que exponga debe enumerar sus valores efectivos, toda combinación incompatible debe fallar antes de escribir y la ayuda/diagnóstico debe derivarse de la misma autoridad ejecutable que valida. El alcance incluye los dominios auditados de eventos Log, roles de agente, veredictos, acciones de tarea, impactos de release y placeholders de rama; los conflictos entre modos de migración de `fix` y entre `review --retry/--block`; y la explicación de las reparaciones que realmente cubre `fix`.
+La CLI debe ser autoexplicativa: todo dominio cerrado que exponga debe enumerar sus valores efectivos, toda combinación incompatible debe fallar antes de escribir y la ayuda/diagnóstico debe derivarse de la misma autoridad ejecutable que valida. El alcance incluye los dominios auditados de eventos Log, roles de agente, veredictos, acciones de tarea, impactos de release y placeholders de rama; los conflictos entre modos de migración de `fix` y entre `review --retry/--block`; y la explicación de las reparaciones que realmente cubre `fix`. La ayuda de `changeledger log` debe ser el punto de descubrimiento directo de la gramática del Log: debe dejar claro que el comando solo escribe eventos `note` y mostrar los ocho tipos, sus payloads y los comandos que generan los eventos operativos.
 
 Quedan fuera: generar todo el contrato desde JavaScript, convertir todos los diagnósticos a un protocolo estructurado, alterar la gramática de los changes o ampliar lo que cada migración automática puede reparar.
 
@@ -25,6 +25,8 @@ Quedan fuera: generar todo el contrato desde JavaScript, convertir todos los dia
 La construcción de comandos repite otros dominios en `bin/changeledger.mjs`, módulos de comandos, README y contrato. Commander dispone de `Argument.choices()` para dominios estáticos y `Option.conflicts()` para incompatibilidades, pero hoy `fix` acepta simultáneamente `--graduation-links`, `--structured-sections` y `--plan-tags` y escoge silenciosamente la primera prioridad. `review --retry --block` también elige `--retry` sin rechazar la ambigüedad.
 
 `fix --help` enumera los tres modos de migración, pero no dice que deben ejecutarse por separado ni describe las reparaciones del modo por defecto: normalización de marcadores `[ x ]`/`[X]`, separadores legacy y timestamps casi ISO. El resumen de ejecución describe reparaciones realizadas, pero `nothing to fix` no identifica qué modo se evaluó ni separa entradas no reconocidas que requieren intervención manual.
+
+`changeledger log` no recibe un tipo: siempre serializa el mensaje como un evento `note`. Su ayuda actual solo muestra `<id> <message...>` y no distingue esa capacidad limitada de la gramática completa del Log. Por tanto, enumerar los eventos únicamente en `context implement` no resuelve el punto de descubrimiento natural del comando ni explica qué comando autorizado produce cada evento operativo.
 
 Los changes relacionados introdujeron las secciones estructuradas (`20260720-125007`), la gramática de tags del Plan (`20260729-203257`) y el evento de rama (`20260805-052741`). No son prerequisitos de ejecución porque ya están cerrados, pero explican las tres autoridades que hoy divergen.
 
@@ -68,6 +70,14 @@ Los changes relacionados introdujeron las secciones estructuradas (`20260720-125
 - **Then** el diagnóstico conserva archivo y línea, enumera los ocho tipos válidos y muestra la forma canónica `- **YYYY-MM-DDTHH:MM:SSZ** `[type]` payload`
 - **And** no afirma que `fix --structured-sections` pueda reparar una forma que el migrador no reconoce
 
+### CR7 — La ayuda de log descubre la gramática completa sin prometer escritura arbitraria
+- **Given** `changeledger log --help`
+- **When** una persona consulta cómo registrar una entrada
+- **Then** la descripción y el argumento de mensaje explican que `changeledger log` escribe exclusivamente un evento `note`
+- **And** la ayuda enumera los ocho tipos válidos y la forma de payload de cada uno desde `LOG_EVENT_DEFINITIONS`
+- **And** identifica el comando autorizado que genera cada evento operativo y no presenta esos tipos como valores aceptados por `<message...>`
+- **And** un test falla si cambian las definiciones ejecutables sin actualizar esa ayuda
+
 ## Plan
 
 - [x] Añadir pruebas fallidas para listas expuestas, opciones incompatibles, ayuda de `fix` y diagnósticos de Log
@@ -99,6 +109,10 @@ Los changes relacionados introdujeron las secciones estructuradas (`20260720-125
   - **Support:**
   - **Verify:** `pnpm verify`
   - **Resolved:** `2026-08-24T16:38:18Z`
+- [ ] Exponer en `log --help` la escritura exclusiva de `note` y la gramática completa del Log
+  - **Target:** `bin/changeledger.mjs, test/cli-bin.test.mjs`
+  - **Verify:** `node --test test/cli-bin.test.mjs`
+  - **Criteria:** CR7
 
 ## Log
 - **2026-08-24T16:17:16Z** `[status]` draft → approved (human via conversation)
@@ -111,4 +125,3 @@ Los changes relacionados introdujeron las secciones estructuradas (`20260720-125
 - **2026-08-24T17:05:21Z** `[note]` Mandato de revisión de confirmación: verificar únicamente que la corrección no comprometida cierra el cuantificador falso y la autoridad paralela de CR1, y que no introduce regresiones; observaciones latentes o adyacentes se reportan como follow-up.
 - **2026-08-24T17:13:43Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-08-24T17:23:28Z** `[validation]` in-validation → in-progress (human rejected via conversation): La ayuda de changeledger log no explica que solo escribe eventos note ni expone los ocho tipos válidos, sus payloads y los comandos que generan los eventos operativos.
-
