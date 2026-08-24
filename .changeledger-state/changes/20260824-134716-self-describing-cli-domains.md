@@ -80,10 +80,11 @@ Los changes relacionados introdujeron las secciones estructuradas (`20260720-125
   - **Verify:** `node --test test/cli-bin.test.mjs test/lifecycle.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4
   - **Resolved:** `2026-08-24T16:35:07Z`
-- [ ] Alinear el contrato del Log con la autoridad ejecutable y cubrir su deriva
+- [x] Alinear el contrato del Log con la autoridad ejecutable y cubrir su deriva
   - **Target:** `templates/contract/implement.md, src/contract.mjs, test/contract.test.mjs`
   - **Verify:** `node --test test/contract.test.mjs test/lifecycle.test.mjs`
   - **Criteria:** CR1
+  - **Resolved:** `2026-08-24T16:35:10Z`
 - [ ] Hacer autoexplicativos la ayuda y el resumen de cada modo de fix
   - **Target:** `bin/changeledger.mjs, src/commands/fix.mjs, src/fix.mjs, test/fix.test.mjs, test/cli-bin.test.mjs`
   - **Verify:** `node --test test/fix.test.mjs test/cli-bin.test.mjs`
