@@ -2,7 +2,7 @@
 id: "20260824-134716"
 title: Exponer valores válidos y rechazar opciones incompatibles
 type: bug
-status: in-review
+status: in-progress
 created: 2026-08-24T13:47:16Z
 depends_on: []
 branch: bug/20260824-134716
@@ -106,4 +106,5 @@ Los changes relacionados introdujeron las secciones estructuradas (`20260720-125
 - **2026-08-24T16:18:37Z** `[branch]` set: bug/20260824-134716 (auto)
 - **2026-08-24T16:38:27Z** `[status]` in-progress → in-review
 - **2026-08-24T16:41:44Z** `[note]` Mandato de revisión: auditoría completa de CR1–CR6 y del Plan sobre el rango cerrado dev..05c720c6, incluyendo decisiones no especificadas, diagnósticos, ayudas, autoridades de dominios y conflictos antes de escritura.
+- **2026-08-24T16:52:52Z** `[review]` in-review → in-progress (retry): CR1 publica que todos los eventos contienen una transición y su guard compara strings descriptivos separados de parseLogEvent; un cambio real de gramática puede derivar sin romper el test.
 
