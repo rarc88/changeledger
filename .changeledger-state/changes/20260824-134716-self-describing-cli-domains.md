@@ -2,9 +2,10 @@
 id: "20260824-134716"
 title: Exponer valores válidos y rechazar opciones incompatibles
 type: bug
-status: approved
+status: in-progress
 created: 2026-08-24T13:47:16Z
 depends_on: []
+branch: bug/20260824-134716
 related_to: ["20260720-125007", "20260729-203257", "20260805-052741"]
 owner: Roberto Ruiz
 ---
@@ -95,4 +96,6 @@ Los changes relacionados introdujeron las secciones estructuradas (`20260720-125
 
 ## Log
 - **2026-08-24T16:17:16Z** `[status]` draft → approved (human via conversation)
+- **2026-08-24T16:18:36Z** `[status]` approved → in-progress
+- **2026-08-24T16:18:37Z** `[branch]` set: bug/20260824-134716 (auto)
 
