@@ -70,10 +70,11 @@ Los changes relacionados introdujeron las secciones estructuradas (`20260720-125
 
 ## Plan
 
-- [ ] Añadir pruebas fallidas para listas expuestas, opciones incompatibles, ayuda de `fix` y diagnósticos de Log
+- [x] Añadir pruebas fallidas para listas expuestas, opciones incompatibles, ayuda de `fix` y diagnósticos de Log
   - **Target:** `test/cli-bin.test.mjs, test/lifecycle.test.mjs, test/check.test.mjs, test/contract.test.mjs`
   - **Verify:** `node --test test/cli-bin.test.mjs test/lifecycle.test.mjs test/check.test.mjs test/contract.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4, CR5, CR6
+  - **Resolved:** `2026-08-24T16:35:02Z`
 - [ ] Centralizar y consumir los dominios cerrados auditados en la construcción de CLI y sus errores
   - **Target:** `bin/changeledger.mjs, src/lifecycle.mjs, src/release.mjs, src/config.mjs, src/commands/agent-context.mjs, src/commands/agent-prompt.mjs`
   - **Verify:** `node --test test/cli-bin.test.mjs test/lifecycle.test.mjs`
