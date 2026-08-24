@@ -74,8 +74,11 @@ Los changes relacionados introdujeron las secciones estructuradas (`20260720-125
 - **Given** `changeledger log --help`
 - **When** una persona consulta cómo registrar una entrada
 - **Then** la descripción y el argumento de mensaje explican que `changeledger log` escribe exclusivamente un evento `note`
+- **And** empieza con una instrucción positiva y un ejemplo de la línea exacta que escribe, sin exigir conocer el contrato del Log
 - **And** la ayuda enumera los ocho tipos válidos y la forma de payload de cada uno desde `LOG_EVENT_DEFINITIONS`
-- **And** identifica el comando autorizado que genera cada evento operativo y no presenta esos tipos como valores aceptados por `<message...>`
+- **And** identifica cada comando autorizado en una línea separada, sin abreviaturas con `|` que parezcan tuberías de shell
+- **And** separa el uso avanzado de `apply` de los comandos directos y no expone operaciones internas sin explicación
+- **And** no presenta los tipos operativos como valores aceptados por `<message...>`
 - **And** un test falla si cambian las definiciones ejecutables sin actualizar esa ayuda
 
 ## Plan
@@ -109,11 +112,10 @@ Los changes relacionados introdujeron las secciones estructuradas (`20260720-125
   - **Support:**
   - **Verify:** `pnpm verify`
   - **Resolved:** `2026-08-24T16:38:18Z`
-- [x] Exponer en `log --help` la escritura exclusiva de `note` y la gramática completa del Log
+- [ ] Exponer en `log --help` la escritura exclusiva de `note` y la gramática completa del Log
   - **Target:** `bin/changeledger.mjs, test/cli-bin.test.mjs`
   - **Verify:** `node --test test/cli-bin.test.mjs`
   - **Criteria:** CR7
-  - **Resolved:** `2026-08-24T17:35:11Z`
 
 ## Log
 - **2026-08-24T16:17:16Z** `[status]` draft → approved (human via conversation)
