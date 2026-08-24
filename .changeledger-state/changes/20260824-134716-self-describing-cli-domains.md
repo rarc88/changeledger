@@ -95,9 +95,10 @@ Los changes relacionados introdujeron las secciones estructuradas (`20260720-125
   - **Verify:** `node --test test/check.test.mjs`
   - **Criteria:** CR6
   - **Resolved:** `2026-08-24T16:35:20Z`
-- [ ] Ejecutar el gate completo del repositorio
+- [x] Ejecutar el gate completo del repositorio
   - **Support:**
   - **Verify:** `pnpm verify`
+  - **Resolved:** `2026-08-24T16:38:18Z`
 
 ## Log
 - **2026-08-24T16:17:16Z** `[status]` draft → approved (human via conversation)
