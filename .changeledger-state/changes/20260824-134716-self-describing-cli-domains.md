@@ -2,7 +2,7 @@
 id: "20260824-134716"
 title: Exponer valores válidos y rechazar opciones incompatibles
 type: bug
-status: in-validation
+status: in-progress
 created: 2026-08-24T13:47:16Z
 depends_on: []
 branch: bug/20260824-134716
@@ -110,4 +110,5 @@ Los changes relacionados introdujeron las secciones estructuradas (`20260720-125
 - **2026-08-24T17:04:45Z** `[status]` in-progress → in-review
 - **2026-08-24T17:05:21Z** `[note]` Mandato de revisión de confirmación: verificar únicamente que la corrección no comprometida cierra el cuantificador falso y la autoridad paralela de CR1, y que no introduce regresiones; observaciones latentes o adyacentes se reportan como follow-up.
 - **2026-08-24T17:13:43Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-08-24T17:23:28Z** `[validation]` in-validation → in-progress (human rejected via conversation): La ayuda de changeledger log no explica que solo escribe eventos note ni expone los ocho tipos válidos, sus payloads y los comandos que generan los eventos operativos.
 
