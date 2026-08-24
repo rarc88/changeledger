@@ -108,4 +108,5 @@ Los changes relacionados introdujeron las secciones estructuradas (`20260720-125
 - **2026-08-24T16:41:44Z** `[note]` Mandato de revisión: auditoría completa de CR1–CR6 y del Plan sobre el rango cerrado dev..05c720c6, incluyendo decisiones no especificadas, diagnósticos, ayudas, autoridades de dominios y conflictos antes de escritura.
 - **2026-08-24T16:52:52Z** `[review]` in-review → in-progress (retry): CR1 publica que todos los eventos contienen una transición y su guard compara strings descriptivos separados de parseLogEvent; un cambio real de gramática puede derivar sin romper el test.
 - **2026-08-24T17:04:45Z** `[status]` in-progress → in-review
+- **2026-08-24T17:05:21Z** `[note]` Mandato de revisión de confirmación: verificar únicamente que la corrección no comprometida cierra el cuantificador falso y la autoridad paralela de CR1, y que no introduce regresiones; observaciones latentes o adyacentes se reportan como follow-up.
 
