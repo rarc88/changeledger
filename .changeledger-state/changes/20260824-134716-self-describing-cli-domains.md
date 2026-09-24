@@ -2,7 +2,7 @@
 id: "20260824-134716"
 title: Exponer valores válidos y rechazar opciones incompatibles
 type: bug
-status: in-progress
+status: in-review
 created: 2026-08-24T13:47:16Z
 depends_on: []
 branch: bug/20260824-134716
@@ -132,3 +132,4 @@ Los changes relacionados introdujeron las secciones estructuradas (`20260720-125
 - **2026-09-24T18:11:46Z** `[status]` in-progress → in-review
 - **2026-09-24T18:15:36Z** `[note]` Mandato de revisión de confirmación: verificar que la corrección no comprometida de CR7 resuelve el rechazo humano sobre log --help (escritura exclusiva de note, ocho tipos y payloads, productores por línea, apply separado) y que no introduce regresiones en el diff; hallazgos ajenos quedan como seguimiento. Gate: pnpm verify 1491/1491, changeledger check y check --commits limpios.
 - **2026-09-24T18:18:55Z** `[review]` in-review → in-progress (retry): CR7: log --help no comienza con una instrucción positiva ni muestra una línea concreta de ejemplo; además describe apply como productor de status y note pero omite owner, que apply sí puede generar.
+- **2026-09-24T18:22:59Z** `[status]` in-progress → in-review
