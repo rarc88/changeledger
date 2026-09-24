@@ -43,7 +43,12 @@ import {
   loadEffectiveConfig,
 } from '../src/config.mjs';
 import { applyMigration } from '../src/config-migration.mjs';
-import { REVIEW_VERDICTS, TASK_ACTIONS, VALIDATION_VERDICTS } from '../src/lifecycle.mjs';
+import {
+  LOG_EVENT_DEFINITIONS,
+  REVIEW_VERDICTS,
+  TASK_ACTIONS,
+  VALIDATION_VERDICTS,
+} from '../src/lifecycle.mjs';
 import { nowUtc } from '../src/paths.mjs';
 import { RELEASE_IMPACTS } from '../src/release.mjs';
 import { CAS_CONFLICT_MESSAGE, LedgerConflictError } from '../src/state-store.mjs';
@@ -85,6 +90,62 @@ function configuredDomainsHelp() {
     `effective statuses: ${CONFIGURED_DOMAINS.statuses.join(', ')}`,
     `effective stages: ${CONFIGURED_DOMAINS.stages.join(', ')}`,
   ];
+}
+
+const LOG_EVENT_PRODUCERS = Object.freeze({
+  status: [
+    'changeledger approve',
+    'changeledger status',
+    'changeledger discard',
+    'changeledger reopen',
+  ],
+  review: ['changeledger review'],
+  validation: ['changeledger validation'],
+  owner: ['changeledger owner', 'changeledger status (automatic when work starts)'],
+  branch: ['changeledger branch', 'changeledger status (automatic when work starts)'],
+  graduation: ['changeledger graduate'],
+  archive: ['changeledger archive'],
+  note: ['changeledger log'],
+});
+
+function logEventGrammarHelp() {
+  const types = Object.keys(LOG_EVENT_DEFINITIONS);
+  const missingProducers = types.filter((type) => !LOG_EVENT_PRODUCERS[type]);
+  const staleProducers = Object.keys(LOG_EVENT_PRODUCERS).filter(
+    (type) => !LOG_EVENT_DEFINITIONS[type],
+  );
+  if (missingProducers.length || staleProducers.length) {
+    throw new Error(
+      `Log help producer map does not match executable definitions (missing: ${missingProducers.join(', ') || 'none'}; stale: ${staleProducers.join(', ') || 'none'})`,
+    );
+  }
+
+  return [
+    '',
+    'Record a note with `changeledger log <id> "Investigation complete"`.',
+    'Example Log line (timestamp generated when you run it):',
+    '  - **2026-08-24T17:42:40Z** `[note]` Investigation complete',
+    '',
+    'Use `changeledger log` only for human-readable notes.',
+    'Other Log events are written by the lifecycle commands listed below.',
+    'Do not type an event name in <message...>.',
+    '',
+    'Valid Log events and their writers:',
+    ...Object.entries(LOG_EVENT_DEFINITIONS).flatMap(([type, definition]) => {
+      const [payload, ...alternatives] = definition.form.split(' | ');
+      return [
+        `  ${type}`,
+        `    Payload: ${payload}`,
+        ...alternatives.map((alternative) => `    Or: ${alternative}`),
+        '    Written by:',
+        ...LOG_EVENT_PRODUCERS[type].map((producer) => `      ${producer}`),
+      ];
+    }),
+    '',
+    'Advanced batch writes:',
+    '  `changeledger apply` can write status, owner, and note events from a JSON manifest.',
+    '  Run `changeledger apply --help` for that separate workflow.',
+  ].join('\n');
 }
 
 const USAGE = `ChangeLedger (changeledger)
@@ -858,9 +919,10 @@ program
 
 program
   .command('log')
-  .description('append a timestamped Log entry')
-  .argument('<id>')
-  .argument('<message...>')
+  .description('append a human-readable note to a change Log')
+  .argument('<id>', 'change id')
+  .argument('<message...>', 'plain text stored as the `note` payload')
+  .addHelpText('after', logEventGrammarHelp)
   .action(
     action((id, messageParts) => {
       log(id, messageParts.join(' ').trim());

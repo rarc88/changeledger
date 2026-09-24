@@ -7,6 +7,7 @@ import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { status, task, validation } from '../src/commands/agent.mjs';
 import { buildMigration } from '../src/config-migration.mjs';
+import { LOG_EVENT_DEFINITIONS } from '../src/lifecycle.mjs';
 import { STATE_REF, writeActivation } from '../src/state-store.mjs';
 import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
@@ -301,6 +302,54 @@ test('20260824-134716 CR5: fix help names exact default repairs and one-at-a-tim
   );
   assert.match(out, /--plan-tags.*criteria, support and verify children/s);
   assert.match(out, /migration modes are mutually exclusive; run exactly one at a time/);
+});
+
+test('20260824-134716 CR7: log help derives the complete grammar without promising arbitrary events', () => {
+  const { code, out } = run('log', '--help');
+  assert.equal(code, 0);
+  assert.match(out, /append a human-readable note to a change Log/);
+  assert.match(out, /^\s*message\s+plain text stored as the `note` payload/m);
+  assert.match(
+    out,
+    /\n\nRecord a note with `changeledger log <id> "Investigation complete"`\.\nExample Log line \(timestamp generated when you run it\):\n\s+- \*\*2026-08-24T17:42:40Z\*\* `\[note\]` Investigation complete/,
+  );
+  assert.doesNotMatch(out, /<current UTC timestamp>/);
+  assert.match(out, /Use `changeledger log` only for human-readable notes\./);
+  assert.match(out, /Do not type an event name in <message\.\.\.>\./);
+
+  for (const [type, definition] of Object.entries(LOG_EVENT_DEFINITIONS)) {
+    const [payload, ...alternatives] = definition.form.split(' | ');
+    assert.match(out, new RegExp(`^  ${type}$`, 'm'));
+    assert.ok(out.includes(`    Payload: ${payload}`), `log help should expose ${type} payload`);
+    for (const alternative of alternatives) {
+      assert.ok(
+        out.includes(`    Or: ${alternative}`),
+        `log help should expose ${type} alternative`,
+      );
+    }
+  }
+
+  for (const producer of [
+    'changeledger approve',
+    'changeledger status',
+    'changeledger discard',
+    'changeledger reopen',
+    'changeledger review',
+    'changeledger validation',
+    'changeledger owner',
+    'changeledger branch',
+    'changeledger graduate',
+    'changeledger archive',
+    'changeledger log',
+  ]) {
+    assert.match(out, new RegExp(`^      ${producer}$`, 'm'));
+  }
+
+  assert.doesNotMatch(out, /approve\|status|status\|apply|\(op=/);
+  assert.match(
+    out,
+    /Advanced batch writes:\n\s+`changeledger apply` can write status, owner, and note events/,
+  );
 });
 
 test('125139 CR1/CR3/CR5/CR6: CLI transmits explicit human decisions and preserves agent rejection', () => {
