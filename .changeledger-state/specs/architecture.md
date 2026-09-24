@@ -49,6 +49,16 @@ línea compatible con Node 20 y el binario conserva el shebang + modo ejecutable
 porque se publica como comando global `changeledger`. El parser rechaza opciones
 desconocidas en lugar de ignorarlas silenciosamente.
 
+La CLI enumera los dominios cerrados auditados desde sus autoridades ejecutables:
+roles, veredictos, acciones de tarea, impactos de release y placeholders de
+rama; los tipos, estados y etapas provienen de la configuración efectiva del
+repo. Los modos de migración de `fix` son mutuamente excluyentes, al igual que
+`review --retry` y `--block`; una combinación ambigua falla antes de escribir.
+La ayuda de `log` explica que el comando sólo escribe `note`, muestra un ejemplo
+concreto y enumera los ocho tipos válidos con sus payloads y comandos productores
+a partir de `LOG_EVENT_DEFINITIONS`. El flujo por lotes de `apply` se presenta
+por separado.
+
 El binario expone su versión instalada mediante `changeledger --version`, `-v` y
 `-V`; el valor se lee del `package.json` distribuido para que una instalación
 empaquetada nunca dependa de un literal duplicado.
