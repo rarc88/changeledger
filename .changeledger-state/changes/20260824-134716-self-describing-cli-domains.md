@@ -138,3 +138,4 @@ Los changes relacionados introdujeron las secciones estructuradas (`20260720-125
 - **2026-09-24T18:25:37Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-09-24T18:35:21Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-09-24T18:38:19Z** `[graduation]` spec: `architecture.md`
+- **2026-09-24T18:38:27Z** `[graduation]` spec: `validation.md`
