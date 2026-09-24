@@ -2,7 +2,7 @@
 id: "20260824-134716"
 title: Exponer valores válidos y rechazar opciones incompatibles
 type: bug
-status: in-review
+status: in-validation
 created: 2026-08-24T13:47:16Z
 depends_on: []
 branch: bug/20260824-134716
@@ -134,3 +134,4 @@ Los changes relacionados introdujeron las secciones estructuradas (`20260720-125
 - **2026-09-24T18:18:55Z** `[review]` in-review → in-progress (retry): CR7: log --help no comienza con una instrucción positiva ni muestra una línea concreta de ejemplo; además describe apply como productor de status y note pero omite owner, que apply sí puede generar.
 - **2026-09-24T18:22:59Z** `[status]` in-progress → in-review
 - **2026-09-24T18:23:22Z** `[note]` Mandato de revisión de confirmación de CR7: comprobar que el diff staged sustituye la plantilla inicial por una instrucción positiva y una línea concreta de ejemplo, que apply incluye owner junto con status y note, y que el ajuste no introduce regresiones. Hallazgos ajenos a esta corrección quedan como seguimiento. Gate: pnpm verify 1491/1491 y changeledger check limpios.
+- **2026-09-24T18:25:37Z** `[review]` in-review → in-validation (delegated subagent, clean context)
