@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-08-24T13:47:16Z
 depends_on: []
+reviewed: true
 branch: bug/20260824-134716
 related_to: ["20260720-125007", "20260729-203257", "20260805-052741"]
 owner: Roberto Ruiz
@@ -136,3 +137,4 @@ Los changes relacionados introdujeron las secciones estructuradas (`20260720-125
 - **2026-09-24T18:23:22Z** `[note]` Mandato de revisión de confirmación de CR7: comprobar que el diff staged sustituye la plantilla inicial por una instrucción positiva y una línea concreta de ejemplo, que apply incluye owner junto con status y note, y que el ajuste no introduce regresiones. Hallazgos ajenos a esta corrección quedan como seguimiento. Gate: pnpm verify 1491/1491 y changeledger check limpios.
 - **2026-09-24T18:25:37Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-09-24T18:35:21Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-09-24T18:38:19Z** `[graduation]` spec: `architecture.md`
