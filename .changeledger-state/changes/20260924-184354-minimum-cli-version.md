@@ -145,7 +145,7 @@ accionable. El guard no instala paquetes, no consulta la red y no añade CI.
   - **Criteria:** CR7
 - [ ] Actualizar contrato, ayuda y specs afectadas, luego ejecutar el gate completo
   - **Target:** `templates/contract/implement.md, src/contract.mjs, .changeledger/specs/`
-  - **Verify:** `pnpm verify`
+  - **Verify:** `pnpm test && pnpm verify`
   - **Criteria:** CR1, CR3, CR5, CR7, CR8
 
 ## Log
