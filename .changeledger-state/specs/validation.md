@@ -91,6 +91,11 @@ debe existir en `## Specification`; un `(CR999)` huérfano es un error en cambio
 listos para implementar. En `draft`, esos mismos huecos son warnings para no
 bloquear la autoría temprana; con `tdd:false` no se evalúan.
 
+Las entradas superiores de Log que incumplen la gramática reciben un
+diagnóstico con archivo, línea, forma canónica y los ocho tipos válidos. El
+diagnóstico no promete que `fix --structured-sections` pueda reparar una forma
+que ese migrador no reconoce.
+
 **Normalización mecánica (`changeledger fix`).** `src/fix.mjs` es puro
 (texto → fixes, sin IO) y repara solo defectos de formato inequívocos de las
 tareas del Plan: sufijo `verify:` dentro del sufijo reservado, guión simple en
@@ -100,3 +105,9 @@ legítimas), timestamps casi-ISO y marcadores de checkbox no canónicos. Soporta
 `--dry-run`, es idempotente y deja lo ambiguo (p.ej. referencia a un CR
 inexistente) intacto, listándolo como `requires manual fix`. `check` sugiere
 `changeledger fix` cuando detecta defectos reparables (`hasFixableDefects`).
+
+Los modos `--graduation-links`, `--structured-sections` y `--plan-tags` se
+aplican de uno en uno; cualquier par se rechaza antes de escribir. La ayuda
+explica el alcance de cada modo y el de las reparaciones por defecto. Una
+corrida sin transformaciones aplicables identifica el modo evaluado y cero
+reparaciones, mientras los casos ambiguos siguen requiriendo corrección manual.
