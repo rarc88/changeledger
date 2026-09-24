@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-08-24T13:47:16Z
 depends_on: []
+archived: true
 reviewed: true
 branch: bug/20260824-134716
 related_to: ["20260720-125007", "20260729-203257", "20260805-052741"]
@@ -139,3 +140,4 @@ Los changes relacionados introdujeron las secciones estructuradas (`20260720-125
 - **2026-09-24T18:35:21Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-09-24T18:38:19Z** `[graduation]` spec: `architecture.md`
 - **2026-09-24T18:38:27Z** `[graduation]` spec: `validation.md`
+- **2026-09-24T18:38:52Z** `[archive]` archived
