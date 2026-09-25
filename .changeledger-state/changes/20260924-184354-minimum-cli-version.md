@@ -2,7 +2,7 @@
 id: "20260924-184354"
 title: Exigir una versión mínima de ChangeLedger por repositorio
 type: feature
-status: draft
+status: approved
 created: 2026-09-24T18:43:54Z
 depends_on: []
 related_to: ["20260628-113218", "20260628-113219", "20260731-161652"]
@@ -161,3 +161,4 @@ accionable. El guard no instala paquetes, no consulta la red y no añade CI.
   - **Criteria:** CR1, CR3, CR5, CR7, CR8, CR9
 
 ## Log
+- **2026-09-25T10:18:38Z** `[status]` draft → approved (human via conversation)
