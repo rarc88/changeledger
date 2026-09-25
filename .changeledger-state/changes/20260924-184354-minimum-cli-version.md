@@ -46,8 +46,10 @@ relacionado ya cerrado, sin dependencia de ejecución.
 Una igualdad exacta haría que una actualización global compatible dejase de
 funcionar hasta editar cada repo. Un mínimo SemVer permite avanzar sin esa
 coordinación y obliga a actualizar sólo cuando el repo adopta una capacidad que
-la versión anterior no entiende. Ningún guard nuevo puede bloquear el binario
-`0.11.0` ya publicado; ese límite debe comunicarse en la migración.
+la versión anterior no entiende. Las versiones publicadas antes del guard no
+leen `min_cli_version`: ninguna puede bloquearse, y la validación empieza con
+la primera versión que lo incorpora. Por la misma razón ningún repo schema 5
+tiene una declaración previa que conservar.
 
 Interfaces externas: la versión del `package.json` distribuido es el dato
 estable que expone `changeledger --version`; la configuración y la respuesta
@@ -57,19 +59,19 @@ de `npm`/`pnpm` global no es estable y no se lee para decidir compatibilidad.
 ## Proposal
 
 Añadir `min_cli_version` al schema 6. `init` y la migración explícita desde
-schema 5 escribirán la versión del paquete que ejecuta la operación; la
-migración conservará una declaración previa del usuario y no reducirá su
-mínimo. Para schemas anteriores sin la clave se mantiene la compatibilidad
+schema 5 escriben la versión del paquete que ejecuta la operación. El guard
+sólo actúa en schema 6: en schemas anteriores se mantiene la compatibilidad
 actual; en schema 6 la clave es obligatoria y debe ser una versión SemVer
 concreta, incluidos prereleases. La comparación usa precedencia SemVer, no
 igualdad textual ni salida de gestores de paquetes.
 
-Antes de ejecutar comandos ligados a un repo, la CLI compara la versión
-instalada con el mínimo de la configuración efectiva y falla sin efectos cuando
-está por debajo. `--help`, `--version` y `config migrate --dry-run` siguen
-disponibles para diagnóstico. `view` puede abrirse para lectura, pero cada
-mutación de un proyecto registrado comprueba el mínimo de ese proyecto antes
-de escribir. La comprobación comparte una sola función y un diagnóstico
+Antes de ejecutar cualquier comando, la CLI compara la versión instalada con el
+mínimo de la configuración efectiva y falla sin efectos cuando está por debajo.
+La lista de excepciones es cerrada: `help`/`--help`, `--version` y
+`config migrate --dry-run` siguen disponibles para diagnóstico; `init` conserva
+su propio error, porque sólo trabaja donde aún no hay configuración; y `view`
+puede abrirse para lectura, pero cada mutación de un proyecto registrado
+comprueba el mínimo de ese proyecto antes de escribir. La comprobación comparte una sola función y un diagnóstico
 accionable. El guard no instala paquetes, no consulta la red y no añade CI.
 
 ## Specification
@@ -80,15 +82,15 @@ accionable. El guard no instala paquetes, no consulta la red y no añade CI.
 - **Then** `.changeledger/config.yml` contiene `schema_version: 6` y `min_cli_version: 0.17.0`
 - **And** `changeledger check` con esa instalación termina con código cero
 
-### CR2 — La migración agrega el mínimo sin pisar decisiones
+### CR2 — La migración declara la versión que la ejecuta
 - **Given** un repo schema 5 sin `min_cli_version` y la CLI `0.17.0`
-- **When** se ejecuta `changeledger config migrate --dry-run` y después la migración explícita
+- **When** se ejecuta `changeledger config migrate --dry-run` y después `changeledger config migrate`
 - **Then** el preview no escribe y el resultado aplicado declara `schema_version: 6` y `min_cli_version: 0.17.0`
-- **And** una segunda migración es byte-idéntica; si schema 5 ya declaraba `min_cli_version: 0.16.1`, ese valor se conserva
+- **And** una segunda migración es byte-idéntica
 
 ### CR3 — Una CLI inferior se detiene antes de trabajar
-- **Given** un repo con `min_cli_version: 0.18.0` y una CLI `0.17.0`
-- **When** se ejecutan `changeledger context` y una mutación `changeledger status`
+- **Given** un repo schema 6 con `min_cli_version: 0.18.0`, un change `approved` y una CLI `0.17.0`
+- **When** se ejecutan `changeledger context` y `changeledger status <id> in-progress` sobre ese change
 - **Then** ambos terminan con código distinto de cero y muestran `ChangeLedger CLI 0.17.0 is below this repository's minimum 0.18.0; update the global installation.`
 - **And** no cambian archivos, locks ni refs del repo
 
@@ -98,8 +100,8 @@ accionable. El guard no instala paquetes, no consulta la red y no añade CI.
 - **Then** los dos primeros pares son compatibles y los dos últimos son incompatibles
 
 ### CR5 — Una declaración inválida falla cerrada sin ocultar diagnóstico
-- **Given** un repo schema 6 con `min_cli_version: latest` o sin esa clave
-- **When** se ejecuta `changeledger check` o una mutación `changeledger status`
+- **Given** un repo schema 6 con un change `approved` y `min_cli_version: latest` o sin esa clave
+- **When** se ejecuta `changeledger check` o `changeledger status <id> in-progress` sobre ese change
 - **Then** ambos terminan con código distinto de cero y nombran `min_cli_version` y el valor inválido o ausente
 - **And** `changeledger --version` y `changeledger help` siguen disponibles
 
@@ -121,31 +123,41 @@ accionable. El guard no instala paquetes, no consulta la red y no añade CI.
 - **Then** obtiene el contexto y un check exitoso sin editar la configuración del repo
 - **And** si el repo eleva su mínimo a `0.18.0`, la CLI `0.17.1` recibe el diagnóstico de CR3 con esas dos versiones hasta que se actualice
 
+### CR9 — Las excepciones al guard son una lista cerrada
+- **Given** un repo schema 6 con `min_cli_version: 0.18.0` y una CLI `0.17.0`
+- **When** se ejecutan `changeledger --version`, `changeledger help`, `changeledger config migrate --dry-run` e `changeledger init`
+- **Then** `--version` imprime `0.17.0`, `help` y `config migrate --dry-run` terminan con código cero sin escribir, e `init` termina con código distinto de cero y muestra `` .changeledger/ already exists. Use `changeledger register` to refresh this repo. ``
+- **And** cada comando registrado en la CLI fuera de esa lista y de `view` (CR7), invocado con los argumentos que su ayuda declara obligatorios, termina con código distinto de cero y el diagnóstico de CR3
+
 ## Plan
 
 - [ ] Escribir pruebas fallidas de schema 6, init y migración explícita
   - **Target:** `test/config-migration.test.mjs, test/cli-bin.test.mjs`
   - **Verify:** `node --test test/config-migration.test.mjs test/cli-bin.test.mjs`
   - **Criteria:** CR1, CR2, CR5
-- [ ] Publicar `min_cli_version` en config y preservar su valor en migraciones
+- [ ] Publicar `min_cli_version` en schema 6 y escribirlo en init y migración
   - **Target:** `templates/config.yml, src/config-migration.mjs, src/commands/init.mjs, src/check.mjs`
   - **Verify:** `node --test test/config-migration.test.mjs test/check.test.mjs`
   - **Criteria:** CR1, CR2, CR5
-- [ ] Probar la precedencia y el rechazo temprano en CLI activa e inactiva
+- [ ] Reorientar las pruebas que fijan el schema futuro al nuevo schema soportado
+  - **Target:** `test/cli.test.mjs, test/fix.test.mjs, test/agent.test.mjs, test/view.test.mjs`
+  - **Verify:** `node --test test/cli.test.mjs test/fix.test.mjs test/agent.test.mjs test/view.test.mjs`
+  - **Support:**
+- [ ] Probar la precedencia, el rechazo temprano en CLI activa e inactiva y las excepciones
   - **Target:** `test/cli-bin.test.mjs, test/config.test.mjs, test/agent.test.mjs`
   - **Verify:** `node --test test/cli-bin.test.mjs test/config.test.mjs test/agent.test.mjs`
-  - **Criteria:** CR3, CR4, CR5, CR6, CR8
+  - **Criteria:** CR3, CR4, CR5, CR6, CR8, CR9
 - [ ] Implementar un guard compartido en el despacho CLI con config efectiva
   - **Target:** `src/config.mjs, src/version-guard.mjs, bin/changeledger.mjs`
   - **Verify:** `node --test test/cli-bin.test.mjs test/config.test.mjs`
-  - **Criteria:** CR3, CR4, CR5, CR6, CR8
+  - **Criteria:** CR3, CR4, CR5, CR6, CR8, CR9
 - [ ] Probar y proteger las mutaciones por proyecto del viewer
   - **Target:** `test/view.test.mjs, src/viewer/domain.mjs`
   - **Verify:** `node --test test/view.test.mjs`
   - **Criteria:** CR7
 - [ ] Actualizar contrato, ayuda y specs afectadas, luego ejecutar el gate completo
   - **Target:** `templates/contract/implement.md, src/contract.mjs, .changeledger/specs/`
-  - **Verify:** `pnpm test && pnpm verify`
-  - **Criteria:** CR1, CR3, CR5, CR7, CR8
+  - **Verify:** `pnpm verify`
+  - **Criteria:** CR1, CR3, CR5, CR7, CR8, CR9
 
 ## Log
