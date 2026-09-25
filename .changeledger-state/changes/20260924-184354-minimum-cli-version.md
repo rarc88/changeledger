@@ -162,10 +162,11 @@ accionable. El guard no instala paquetes, no consulta la red y no añade CI.
   - **Verify:** `node --test test/view.test.mjs`
   - **Criteria:** CR7
   - **Resolved:** `2026-09-25T11:59:18Z`
-- [ ] Actualizar contrato, ayuda y specs afectadas, luego ejecutar el gate completo
+- [x] Actualizar contrato, ayuda y specs afectadas, luego ejecutar el gate completo
   - **Target:** `templates/contract/implement.md, src/contract.mjs, .changeledger/specs/`
   - **Verify:** `pnpm test && pnpm verify`
   - **Criteria:** CR1, CR3, CR5, CR7, CR8, CR9
+  - **Resolved:** `2026-09-25T12:04:03Z`
 
 ## Log
 - **2026-09-25T10:18:38Z** `[status]` draft → approved (human via conversation)
