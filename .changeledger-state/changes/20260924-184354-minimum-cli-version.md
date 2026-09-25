@@ -137,10 +137,11 @@ accionable. El guard no instala paquetes, no consulta la red y no añade CI.
   - **Verify:** `node --test test/config-migration.test.mjs test/cli-bin.test.mjs`
   - **Criteria:** CR1, CR2, CR5
   - **Resolved:** `2026-09-25T11:10:00Z`
-- [ ] Publicar `min_cli_version` en schema 6 y escribirlo en init y migración
+- [x] Publicar `min_cli_version` en schema 6 y escribirlo en init y migración
   - **Target:** `templates/config.yml, src/config-migration.mjs, src/commands/init.mjs, src/check.mjs`
   - **Verify:** `node --test test/config-migration.test.mjs test/check.test.mjs`
   - **Criteria:** CR1, CR2, CR5
+  - **Resolved:** `2026-09-25T11:10:00Z`
 - [ ] Reorientar las pruebas que fijan el schema futuro al nuevo schema soportado
   - **Target:** `test/cli.test.mjs, test/fix.test.mjs, test/agent.test.mjs, test/view.test.mjs`
   - **Verify:** `node --test test/cli.test.mjs test/fix.test.mjs test/agent.test.mjs test/view.test.mjs`
