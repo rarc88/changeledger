@@ -2,7 +2,7 @@
 id: "20260924-184354"
 title: Exigir una versión mínima de ChangeLedger por repositorio
 type: feature
-status: in-progress
+status: in-review
 created: 2026-09-24T18:43:54Z
 depends_on: []
 branch: feature/20260924-184354
@@ -178,3 +178,4 @@ accionable. El guard no instala paquetes, no consulta la red y no añade CI.
 - **2026-09-25T12:04:04Z** `[status]` in-progress → in-review
 - **2026-09-25T12:05:34Z** `[note]` Mandato del review: la superficie que el change gobierna — el rango bddea9c5..HEAD (la rama está apilada sobre bug/20260824-134716, cuyos commits quedan fuera), contra CR1-CR9 y el Plan, con las decisiones no especificadas del Log como puntos de escrutinio.
 - **2026-09-25T12:15:23Z** `[review]` in-review → in-progress (retry): Tres defectos corregibles: (1) código muerto — assertRepoCliVersion, CliVersionError y la opción installedVersion del viewer sólo los usan tests, y los guards del bin y del viewer duplican el envoltorio carga-omite-compara; (2) el comentario del guard del bin afirma que el comando informa de una config ilegible por sí mismo, pero agent-prompt y sync salen con 0 sin informar; (3) el test de CR7 usa un viewer de un solo proyecto y llama al dominio directamente, así que no prueba dos proyectos en un viewer vía HTTP.
+- **2026-09-25T12:29:06Z** `[status]` in-progress → in-review
