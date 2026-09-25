@@ -2,7 +2,7 @@
 id: "20260924-184354"
 title: Exigir una versión mínima de ChangeLedger por repositorio
 type: feature
-status: in-progress
+status: in-review
 created: 2026-09-24T18:43:54Z
 depends_on: []
 branch: feature/20260924-184354
@@ -175,3 +175,4 @@ accionable. El guard no instala paquetes, no consulta la red y no añade CI.
 - **2026-09-25T11:43:07Z** `[note]` Guard CLI: preAction del programa raíz; excepciones cerradas en bypassesVersionGuard (init, view, config migrate --dry-run; help y version salen antes en commander). Decisiones no especificadas: (1) una config efectiva ilegible no declara mínimo y el guard no interviene — fallar cerrado rompía la reparación de activate y el diagnóstico de cutover; la activación depende de refs, no del marcador, así que CR6 se mantiene; (2) la ayuda marca las opciones obligatorias con (required), para que el barrido de CR9 derive los argumentos obligatorios de la ayuda; (3) check reutiliza minCliVersionDeclarationError de src/version-guard.mjs, un único texto; (4) src/config.mjs y test/agent.test.mjs no necesitaron cambios.
 - **2026-09-25T11:59:18Z** `[note]` Viewer: el guard por proyecto cubre las cuatro rutas de escritura que tocan un proyecto (status, project-config, project-config-patch, project-config-migrate-apply); project-path, project-remove y projects/clean-missing sólo escriben el registro global y no se protegen. La prueba de CR7 usa proyectos inactivos; la autoridad de la ref activada es la misma función loadEffectiveConfig que ya cubre CR6.
 - **2026-09-25T12:04:03Z** `[note]` Tarea 7: el contrato no cambia — el bootstrap ya obliga a parar e informar cuando changeledger falla, y el diagnóstico del guard cae en ese caso; ningún fragmento cita el schema ni la versión. La ayuda no cita el schema vigente. Specs: architecture.md (schema 6, min_cli_version, guard) y viewer.md (409 por proyecto) se actualizan en la graduación, que pertenece al cierre. Corregido el comentario desfasado de migrateToV5. Gate: pnpm test && pnpm verify en verde (1518/1518) y check --commits válido; queda el aviso esperado de que la config propia de este repo sigue en schema 5.
+- **2026-09-25T12:04:04Z** `[status]` in-progress → in-review
