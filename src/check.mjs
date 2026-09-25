@@ -11,6 +11,7 @@ import { changeBranchFormat, integrationBranch, renderChangeBranch } from './con
 import { hasFixableDefects } from './fix.mjs';
 import { CANONICAL_STATUSES, canTransition, LOG_EVENT_TYPES, parseLogEvent } from './lifecycle.mjs';
 import { compareVersions, parseVersion, RELEASE_IMPACTS } from './release.mjs';
+import { minCliVersionDeclarationError } from './version-guard.mjs';
 
 const REQUIRED = ['id', 'title', 'type', 'status', 'created', 'depends_on'];
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
@@ -19,20 +20,6 @@ const SEMANTIC_STAGES = new Set(['request', 'investigation', 'proposal', 'specif
 // Stages a `review_required` type must activate, in canonical order. Exported so
 // the schema migration repairs exactly the coupling `checkConfig` enforces.
 export const REVIEWABLE_STAGES = ['specification', 'plan'];
-
-// Full SemVer syntax (semver.org), prereleases included: what `min_cli_version`
-// and the CLI's own installed version must both be — the running CLI can
-// legitimately be a prerelease itself (e.g. "0.17.0-dev"). `release.mjs`'s
-// `parseVersion` is intentionally stricter (stable X.Y.Z only): release
-// manifests never carry a prerelease tag, so that check stays separate. This
-// is a syntax check only — it says nothing about precedence or compatibility
-// between two versions.
-const FULL_SEMVER =
-  /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
-
-export function isValidCliVersion(value) {
-  return typeof value === 'string' && FULL_SEMVER.test(value);
-}
 
 // Frozen history: `archived` is one-way (there is no `unarchive`) and
 // `discarded` is a tombstone the contract forbids reopening, so a diagnostic
@@ -804,22 +791,8 @@ function checkConfig(config, err) {
   for (const k of ['changes_dir', 'statuses', 'stages', 'types']) {
     if (!(k in c)) err(null, `config missing "${k}"`);
   }
-  // `min_cli_version` only matters from schema 6 onward: schemas ≤5 predate
-  // the key and keep today's behavior untouched. From schema 6 it is
-  // mandatory and must be a concrete SemVer version (prereleases included,
-  // since the CLI's own version can be one, e.g. "0.17.0-dev") — never a
-  // range or placeholder like "latest".
-  if (c.schema_version >= 6) {
-    const minVersion = c.min_cli_version;
-    if (minVersion === undefined) {
-      err(null, 'config missing "min_cli_version" (required at schema 6)');
-    } else if (!isValidCliVersion(minVersion)) {
-      err(
-        null,
-        `config "min_cli_version" must be a concrete SemVer version; got ${JSON.stringify(minVersion)}`,
-      );
-    }
-  }
+  const minCliVersionError = minCliVersionDeclarationError(c);
+  if (minCliVersionError) err(null, minCliVersionError);
   if (
     Array.isArray(c.statuses) &&
     c.statuses.includes('done') &&

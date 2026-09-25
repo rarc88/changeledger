@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { createRequire } from 'node:module';
 import path from 'node:path';
-import { Argument, Command, Option } from 'commander';
+import { Argument, Command, Help, Option } from 'commander';
 import { activate } from '../src/commands/activate.mjs';
 import {
   approve,
@@ -52,6 +52,7 @@ import {
 import { nowUtc } from '../src/paths.mjs';
 import { RELEASE_IMPACTS } from '../src/release.mjs';
 import { CAS_CONFLICT_MESSAGE, LedgerConflictError } from '../src/state-store.mjs';
+import { cliVersionError } from '../src/version-guard.mjs';
 
 const { version } = createRequire(import.meta.url)('../package.json');
 
@@ -162,24 +163,46 @@ Run \`changeledger <command> --help\` for that command's syntax, values and exam
 
 const program = new Command();
 
+function fail(e) {
+  // A CAS conflict from the state store (`change-store.mjs`/
+  // `state-store.mjs`) is presented with its own actionable message —
+  // the store already guarantees no partial write, so the bin's only
+  // job is to tell the caller to reload and re-run, not to relay the
+  // store's own "state ref moved: expected X, found Y" internals.
+  if (e instanceof LedgerConflictError) {
+    console.error(`${CAS_CONFLICT_MESSAGE} — re-run the command`);
+  } else {
+    console.error(`Error: ${e.message}`);
+  }
+  process.exit(1);
+}
+
 function action(fn) {
   return async (...args) => {
     try {
       await fn(...args);
     } catch (e) {
-      // A CAS conflict from the state store (`change-store.mjs`/
-      // `state-store.mjs`) is presented with its own actionable message —
-      // the store already guarantees no partial write, so the bin's only
-      // job is to tell the caller to reload and re-run, not to relay the
-      // store's own "state ref moved: expected X, found Y" internals.
-      if (e instanceof LedgerConflictError) {
-        console.error(`${CAS_CONFLICT_MESSAGE} — re-run the command`);
-      } else {
-        console.error(`Error: ${e.message}`);
-      }
-      process.exit(1);
+      fail(e);
     }
   };
+}
+
+function commandPath(command) {
+  const names = [];
+  for (let current = command; current.parent; current = current.parent) {
+    names.unshift(current.name());
+  }
+  return names.join(' ');
+}
+
+// Closed list. Help and version output exit inside commander's parse before any
+// preAction hook, so they never reach it. `init` keeps its own "already exists"
+// error; `view` serves several projects, so the minimum belongs to each project
+// it writes to rather than to the cwd; a migration preview writes nothing.
+function bypassesVersionGuard(command) {
+  const name = commandPath(command);
+  if (name === 'init' || name === 'view') return true;
+  return name === 'config migrate' && command.opts().dryRun === true;
 }
 
 // Collects a repeatable option (e.g. `--id`) into an array across invocations.
@@ -192,11 +215,37 @@ program
   .description('ChangeLedger (changeledger)')
   .version(version, '-v, --version', 'output the installed version (-V also accepted)')
   .helpOption('-h, --help', 'display help for command')
+  // Commander enforces mandatory options but does not say so in help; the help
+  // must name every argument a command cannot run without.
+  .configureHelp({
+    optionDescription(option) {
+      const description = Help.prototype.optionDescription.call(this, option);
+      return option.mandatory ? `${description} (required)` : description;
+    },
+  })
   .addHelpText(
     'after',
     '\nRun `changeledger context` first unless a ChangeLedger delegation prompt tells your role to use `agent-context`.\n' +
       "Run `changeledger <command> --help` for that command's syntax, values and examples.",
-  );
+  )
+  // Runs after argument parsing (which has no effects) and before any action,
+  // so an incompatible CLI stops before a lock, write or ref update.
+  .hook('preAction', (_program, actionCommand) => {
+    if (bypassesVersionGuard(actionCommand)) return;
+    const changeledgerDir = findChangeledgerDir();
+    if (!changeledgerDir) return;
+    let config;
+    try {
+      config = loadEffectiveConfig(path.dirname(changeledgerDir), changeledgerDir);
+    } catch {
+      // An unreadable effective config (a broken activation, an absent state
+      // ref) declares no minimum to compare; the command reports that state on
+      // its own terms, and `activate` is the tool that repairs an activation.
+      return;
+    }
+    const message = cliVersionError(config, version);
+    if (message) fail(new Error(message));
+  });
 
 program
   .command('init')

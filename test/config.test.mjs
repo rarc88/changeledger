@@ -10,6 +10,7 @@ import {
   renderChangeBranch,
 } from '../src/config.mjs';
 import { STATE_REF, writeActivation } from '../src/state-store.mjs';
+import { assertRepoCliVersion } from '../src/version-guard.mjs';
 import {
   buildTree,
   buildTreeEntries,
@@ -127,6 +128,36 @@ test('194234 CR2: the activated repo keeps the ref route on a divergent or malfo
       authority,
       name,
     );
+  }
+});
+
+test('184354 CR6: the activated ref decides the minimum whatever the worktree marker declares', () => {
+  const authority = 'schema_version: 6\nmin_cli_version: 0.18.0\nproject_id: "abc123"\n';
+  for (const marker of [
+    'schema_version: 6\nmin_cli_version: 0.16.1\n',
+    'schema_version: 5\n',
+    'statuses: [\n',
+  ]) {
+    const root = initStateRepo();
+    const changeledgerDir = path.join(root, '.changeledger');
+    fs.mkdirSync(changeledgerDir);
+    fs.writeFileSync(path.join(changeledgerDir, 'config.yml'), marker);
+    const tree = buildTree(root, {
+      '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: abc123\n',
+      '.changeledger-state/config.yml': authority,
+    });
+    updateRef(root, STATE_REF, commitTree(root, tree));
+    writeActivation(root, { stateRef: STATE_REF });
+
+    assert.throws(
+      () => assertRepoCliVersion(root, changeledgerDir, '0.17.0'),
+      {
+        message:
+          "ChangeLedger CLI 0.17.0 is below this repository's minimum 0.18.0; update the global installation.",
+      },
+      marker,
+    );
+    assert.doesNotThrow(() => assertRepoCliVersion(root, changeledgerDir, '0.18.0'), marker);
   }
 });
 
