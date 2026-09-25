@@ -147,10 +147,11 @@ accionable. El guard no instala paquetes, no consulta la red y no añade CI.
   - **Verify:** `node --test test/cli.test.mjs test/fix.test.mjs test/agent.test.mjs test/view.test.mjs`
   - **Support:**
   - **Resolved:** `2026-09-25T11:10:01Z`
-- [ ] Probar la precedencia, el rechazo temprano en CLI activa e inactiva y las excepciones
+- [x] Probar la precedencia, el rechazo temprano en CLI activa e inactiva y las excepciones
   - **Target:** `test/cli-bin.test.mjs, test/config.test.mjs, test/agent.test.mjs`
   - **Verify:** `node --test test/cli-bin.test.mjs test/config.test.mjs test/agent.test.mjs`
   - **Criteria:** CR3, CR4, CR5, CR6, CR8, CR9
+  - **Resolved:** `2026-09-25T11:43:06Z`
 - [ ] Implementar un guard compartido en el despacho CLI con config efectiva
   - **Target:** `src/config.mjs, src/version-guard.mjs, bin/changeledger.mjs`
   - **Verify:** `node --test test/cli-bin.test.mjs test/config.test.mjs`
