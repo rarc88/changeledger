@@ -132,10 +132,11 @@ accionable. El guard no instala paquetes, no consulta la red y no añade CI.
 
 ## Plan
 
-- [ ] Escribir pruebas fallidas de schema 6, init y migración explícita
+- [x] Escribir pruebas fallidas de schema 6, init y migración explícita
   - **Target:** `test/config-migration.test.mjs, test/cli-bin.test.mjs`
   - **Verify:** `node --test test/config-migration.test.mjs test/cli-bin.test.mjs`
   - **Criteria:** CR1, CR2, CR5
+  - **Resolved:** `2026-09-25T11:10:00Z`
 - [ ] Publicar `min_cli_version` en schema 6 y escribirlo en init y migración
   - **Target:** `templates/config.yml, src/config-migration.mjs, src/commands/init.mjs, src/check.mjs`
   - **Verify:** `node --test test/config-migration.test.mjs test/check.test.mjs`
