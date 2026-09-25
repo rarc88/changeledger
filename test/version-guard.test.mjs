@@ -5,12 +5,11 @@ import path from 'node:path';
 import test from 'node:test';
 import { checkRepo } from '../src/check.mjs';
 import {
-  assertRepoCliVersion,
-  CliVersionError,
   cliVersionError,
   compareCliVersions,
   isValidCliVersion,
   minCliVersionDeclarationError,
+  repoCliVersionError,
 } from '../src/version-guard.mjs';
 
 const schema6 = (min) => ({ schema_version: 6, min_cli_version: min });
@@ -113,7 +112,7 @@ test('184354 CR5: isValidCliVersion accepts concrete SemVer only', () => {
   }
 });
 
-test('184354 CR3: assertRepoCliVersion reads an inactive repo worktree config', () => {
+test('184354 CR3: repoCliVersionError reads an inactive repo worktree config', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'version-guard-'));
   const changeledgerDir = path.join(root, '.changeledger');
   fs.mkdirSync(changeledgerDir);
@@ -122,9 +121,6 @@ test('184354 CR3: assertRepoCliVersion reads an inactive repo worktree config', 
     'schema_version: 6\nmin_cli_version: 0.18.0\n',
   );
 
-  assert.throws(
-    () => assertRepoCliVersion(root, changeledgerDir, '0.17.0'),
-    (error) => error instanceof CliVersionError && error.message === below('0.17.0', '0.18.0'),
-  );
-  assert.doesNotThrow(() => assertRepoCliVersion(root, changeledgerDir, '0.18.0'));
+  assert.equal(repoCliVersionError(root, changeledgerDir, '0.17.0'), below('0.17.0', '0.18.0'));
+  assert.equal(repoCliVersionError(root, changeledgerDir, '0.18.0'), null);
 });

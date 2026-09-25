@@ -10,7 +10,7 @@ import {
   renderChangeBranch,
 } from '../src/config.mjs';
 import { STATE_REF, writeActivation } from '../src/state-store.mjs';
-import { assertRepoCliVersion } from '../src/version-guard.mjs';
+import { repoCliVersionError } from '../src/version-guard.mjs';
 import {
   buildTree,
   buildTreeEntries,
@@ -149,15 +149,12 @@ test('184354 CR6: the activated ref decides the minimum whatever the worktree ma
     updateRef(root, STATE_REF, commitTree(root, tree));
     writeActivation(root, { stateRef: STATE_REF });
 
-    assert.throws(
-      () => assertRepoCliVersion(root, changeledgerDir, '0.17.0'),
-      {
-        message:
-          "ChangeLedger CLI 0.17.0 is below this repository's minimum 0.18.0; update the global installation.",
-      },
+    assert.equal(
+      repoCliVersionError(root, changeledgerDir, '0.17.0'),
+      "ChangeLedger CLI 0.17.0 is below this repository's minimum 0.18.0; update the global installation.",
       marker,
     );
-    assert.doesNotThrow(() => assertRepoCliVersion(root, changeledgerDir, '0.18.0'), marker);
+    assert.equal(repoCliVersionError(root, changeledgerDir, '0.18.0'), null, marker);
   }
 });
 

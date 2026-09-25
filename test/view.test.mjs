@@ -3066,3 +3066,96 @@ test('184354 CR7: a compatible project keeps its normal viewer behavior for the 
   const repo = loadRepo(root);
   assert.ok(serialize(repo).changes.some((c) => c.id === id));
 });
+
+// A single-project viewer (the two tests above) cannot tell "checked this
+// mutation's own project" apart from "checked the project the viewer was
+// launched from": here one viewer, launched from the compatible project, serves
+// every request for both.
+test('184354 CR7: two registered projects in one viewer over HTTP — the incompatible one gets 409, the compatible one works, both stay readable', async () => {
+  isolatedHome();
+  const incompatibleRoot = newRepoAtVersion('99.0.0');
+  const compatibleRoot = newRepoAtVersion('0.1.0');
+  const { id: incompatibleId, project: incompatibleProject } = draftChange(incompatibleRoot);
+  const {
+    file: compatibleFile,
+    id: compatibleId,
+    project: compatibleProject,
+  } = draftChange(compatibleRoot);
+  const incompatibleConfigPath = path.join(incompatibleRoot, '.changeledger', 'config.yml');
+  const compatibleConfigPath = path.join(compatibleRoot, '.changeledger', 'config.yml');
+  const writeHeaders = { 'Content-Type': 'application/json', 'x-changeledger-token': TOKEN };
+  const viewerRoot = compatibleRoot;
+
+  // A config edit (project-config-patch) and a lifecycle transition (status)
+  // against the same registered project, both through the one viewer.
+  async function attemptWrites(root, project, id, configPath) {
+    const configEdit = await memoryRequest(viewerRoot, {
+      method: 'POST',
+      path: '/api/project-config-patch',
+      headers: writeHeaders,
+      body: JSON.stringify({
+        project,
+        repository_path: path.resolve(root),
+        patch: { project_name: 'renamed-over-http' },
+        revision: revisionOf(fs.readFileSync(configPath, 'utf8')),
+      }),
+      localOnly: false,
+    });
+    const statusEdit = await memoryRequest(viewerRoot, {
+      method: 'POST',
+      path: '/api/status',
+      headers: writeHeaders,
+      body: JSON.stringify({
+        project,
+        repository_path: path.resolve(root),
+        id,
+        status: 'approved',
+      }),
+      localOnly: false,
+    });
+    return { configEdit, statusEdit };
+  }
+
+  const beforeIncompatible = projectSnapshot(incompatibleRoot);
+  const incompatible = await attemptWrites(
+    incompatibleRoot,
+    incompatibleProject,
+    incompatibleId,
+    incompatibleConfigPath,
+  );
+  assert.equal(incompatible.configEdit.status, 409, incompatible.configEdit.body);
+  assert.equal(JSON.parse(incompatible.configEdit.body).error, belowMinimum('99.0.0'));
+  assert.equal(incompatible.statusEdit.status, 409, incompatible.statusEdit.body);
+  assert.equal(JSON.parse(incompatible.statusEdit.body).error, belowMinimum('99.0.0'));
+  assert.deepEqual(projectSnapshot(incompatibleRoot), beforeIncompatible);
+
+  const compatible = await attemptWrites(
+    compatibleRoot,
+    compatibleProject,
+    compatibleId,
+    compatibleConfigPath,
+  );
+  assert.equal(compatible.configEdit.status, 200, compatible.configEdit.body);
+  assert.match(fs.readFileSync(compatibleConfigPath, 'utf8'), /project_name: renamed-over-http/);
+  assert.equal(compatible.statusEdit.status, 200, compatible.statusEdit.body);
+  assert.equal(parseChange(fs.readFileSync(compatibleFile, 'utf8')).frontmatter.status, 'approved');
+
+  // Both projects stay readable regardless of their own compatibility.
+  for (const project of [incompatibleProject, compatibleProject]) {
+    const list = await memoryRequest(viewerRoot, { path: '/api/projects', localOnly: false });
+    assert.equal(list.status, 200);
+    assert.equal(JSON.parse(list.body).projects.length, 2);
+
+    const configRead = await memoryRequest(viewerRoot, {
+      path: `/api/project-config?project=${encodeURIComponent(project)}`,
+      localOnly: false,
+    });
+    assert.equal(configRead.status, 200);
+
+    const ledgerRead = await memoryRequest(viewerRoot, {
+      path: `/api/ledger-tree?project=${encodeURIComponent(project)}`,
+      localOnly: false,
+    });
+    assert.equal(ledgerRead.status, 200);
+  }
+});

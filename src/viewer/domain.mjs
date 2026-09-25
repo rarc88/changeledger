@@ -36,7 +36,7 @@ import {
 } from '../registry.mjs';
 import { loadRepo, loadRepoWithConfig, resolveChange, resolveChangeInRepo } from '../repo.mjs';
 import { CAS_CONFLICT_MESSAGE, LedgerConflictError, STATE_ROOT } from '../state-store.mjs';
-import { cliVersionError } from '../version-guard.mjs';
+import { repoCliVersionError } from '../version-guard.mjs';
 import { parseYaml } from '../yaml.mjs';
 
 // Presented for a real CAS conflict on the state ref (`LedgerConflictError`,
@@ -426,34 +426,26 @@ function withProjectIdentity(selectProject, handler) {
 // Refuses a mutation on `projectPath` when the CLI serving the viewer is below
 // that project's own effective minimum — the same authority `loadEffectiveConfig`
 // resolves (state ref once activated, worktree file otherwise), read fresh so a
-// candidate the caller is about to write is never what gets judged. An unreadable
-// effective config declares no minimum: the caller's own load path reports that
-// failure on its own terms, mirroring the CLI dispatch guard's same choice.
-function projectVersionGuardError(projectPath, installedVersion) {
-  let config;
-  try {
-    config = loadEffectiveConfig(projectPath, path.join(projectPath, '.changeledger'));
-  } catch {
-    return null;
-  }
-  const message = cliVersionError(config, installedVersion);
+// candidate the caller is about to write is never what gets judged.
+function projectVersionGuardError(projectPath) {
+  const message = repoCliVersionError(
+    projectPath,
+    path.join(projectPath, '.changeledger'),
+    VERSION,
+  );
   return message ? { code: 409, body: { error: message } } : null;
 }
 
 // Applies a status move requested from the viewer. Returns { code, body } so the
 // HTTP handler stays thin and the logic is testable. Reuses the `status` command
 // (enum validation + setStatus + appendLog).
-function changeStatusImpl(
-  projects,
-  { project, id, status, reason },
-  { installedVersion = VERSION } = {},
-) {
+function changeStatusImpl(projects, { project, id, status, reason }) {
   // A write must target an exact project; never silently fall back to the first
   // registered one.
   const proj = projects.find((p) => p.id === project);
   if (!proj) return { code: 404, body: { error: `no project "${project}"` } };
   if (!proj.alive) return { code: 410, body: { error: 'project path is gone' } };
-  const versionError = projectVersionGuardError(proj.path, installedVersion);
+  const versionError = projectVersionGuardError(proj.path);
   if (versionError) return versionError;
   if (!id || !status) return { code: 400, body: { error: 'id and status are required' } };
 
@@ -524,14 +516,10 @@ export const readProjectConfig = withProjectIdentity(
   readProjectConfigImpl,
 );
 
-function saveProjectConfigImpl(
-  projects,
-  payload,
-  { mutateConfig = mutateFileAtomic, run, installedVersion = VERSION } = {},
-) {
+function saveProjectConfigImpl(projects, payload, { mutateConfig = mutateFileAtomic, run } = {}) {
   const found = projectFor(projects, payload.project);
   if (!found.project) return found;
-  const versionError = projectVersionGuardError(found.project.path, installedVersion);
+  const versionError = projectVersionGuardError(found.project.path);
   if (versionError) return versionError;
   if (typeof payload.content !== 'string' || typeof payload.revision !== 'string') {
     return { code: 400, body: { error: 'content and revision are required' } };
@@ -763,14 +751,10 @@ export const readProjectConfigStructured = withProjectIdentity(
 
 // Applies a semantic patch (allowlisted fields only) to the YAML AST, preserving
 // comments, unknown keys and fields the form does not represent.
-function patchProjectConfigImpl(
-  projects,
-  payload,
-  { mutateConfig = mutateFileAtomic, run, installedVersion = VERSION } = {},
-) {
+function patchProjectConfigImpl(projects, payload, { mutateConfig = mutateFileAtomic, run } = {}) {
   const found = projectFor(projects, payload.project);
   if (!found.project) return found;
-  const versionError = projectVersionGuardError(found.project.path, installedVersion);
+  const versionError = projectVersionGuardError(found.project.path);
   if (versionError) return versionError;
   if (!payload.patch || typeof payload.patch !== 'object' || Array.isArray(payload.patch)) {
     return { code: 400, body: { error: 'patch must be an object' } };
@@ -894,11 +878,11 @@ export const previewConfigMigration = withProjectIdentity(
 function applyConfigMigrationImpl(
   projects,
   payload,
-  { mutateConfig = mutateFileAtomic, run, installedVersion = VERSION } = {},
+  { mutateConfig = mutateFileAtomic, run } = {},
 ) {
   const found = projectFor(projects, payload.project);
   if (!found.project) return found;
-  const versionError = projectVersionGuardError(found.project.path, installedVersion);
+  const versionError = projectVersionGuardError(found.project.path);
   if (versionError) return versionError;
   if (typeof payload.revision !== 'string') {
     return { code: 400, body: { error: 'revision is required' } };

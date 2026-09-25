@@ -1,11 +1,9 @@
 // The repository's declared minimum CLI version (`min_cli_version`) against
-// the installed one. Pure functions take the installed version as a parameter;
-// only `assertRepoCliVersion` defaults it to the distributed package version.
+// the installed one. Pure functions take the installed version as a parameter.
 // No package manager output or network is consulted: the package version is the
 // one stable fact about what is installed.
 
 import { loadEffectiveConfig } from './config.mjs';
-import { VERSION } from './framing.mjs';
 
 // Full SemVer syntax (semver.org), prereleases included: the running CLI can
 // itself be a prerelease (e.g. "0.17.0-dev"), so a declaration it writes must
@@ -16,8 +14,6 @@ const FULL_SEMVER =
 
 // The key only exists from schema 6 on; older schemas keep their behavior.
 const GUARDED_SCHEMA = 6;
-
-export class CliVersionError extends Error {}
 
 export function isValidCliVersion(value) {
   return typeof value === 'string' && FULL_SEMVER.test(value);
@@ -86,9 +82,18 @@ export function cliVersionError(config, installedVersion) {
   return `ChangeLedger CLI ${installedVersion} is below this repository's minimum ${required}; update the global installation.`;
 }
 
-// Reads the effective config (the state ref once activated, never the worktree
-// marker) and throws `CliVersionError` when this CLI may not work on the repo.
-export function assertRepoCliVersion(repoRoot, changeledgerDir, installedVersion = VERSION) {
-  const message = cliVersionError(loadEffectiveConfig(repoRoot, changeledgerDir), installedVersion);
-  if (message) throw new CliVersionError(message);
+// Why `installedVersion` may not work on the repo rooted at `repoRoot`, or null
+// when it may. Reads the effective config (the state ref once activated, never
+// the worktree marker). An unreadable effective config declares no minimum to
+// compare, so the guard stands aside: commands that actually need that config
+// still fail when they load it themselves, and `activate` must stay able to
+// repair a broken activation regardless.
+export function repoCliVersionError(repoRoot, changeledgerDir, installedVersion) {
+  let config;
+  try {
+    config = loadEffectiveConfig(repoRoot, changeledgerDir);
+  } catch {
+    return null;
+  }
+  return cliVersionError(config, installedVersion);
 }

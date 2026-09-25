@@ -52,7 +52,7 @@ import {
 import { nowUtc } from '../src/paths.mjs';
 import { RELEASE_IMPACTS } from '../src/release.mjs';
 import { CAS_CONFLICT_MESSAGE, LedgerConflictError } from '../src/state-store.mjs';
-import { cliVersionError } from '../src/version-guard.mjs';
+import { repoCliVersionError } from '../src/version-guard.mjs';
 
 const { version } = createRequire(import.meta.url)('../package.json');
 
@@ -234,16 +234,7 @@ program
     if (bypassesVersionGuard(actionCommand)) return;
     const changeledgerDir = findChangeledgerDir();
     if (!changeledgerDir) return;
-    let config;
-    try {
-      config = loadEffectiveConfig(path.dirname(changeledgerDir), changeledgerDir);
-    } catch {
-      // An unreadable effective config (a broken activation, an absent state
-      // ref) declares no minimum to compare; the command reports that state on
-      // its own terms, and `activate` is the tool that repairs an activation.
-      return;
-    }
-    const message = cliVersionError(config, version);
+    const message = repoCliVersionError(path.dirname(changeledgerDir), changeledgerDir, version);
     if (message) fail(new Error(message));
   });
 
