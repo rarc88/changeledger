@@ -2,7 +2,7 @@
 id: "20260924-184354"
 title: Exigir una versión mínima de ChangeLedger por repositorio
 type: feature
-status: in-review
+status: in-validation
 created: 2026-09-24T18:43:54Z
 depends_on: []
 branch: feature/20260924-184354
@@ -185,3 +185,4 @@ accionable. El guard no instala paquetes, no consulta la red y no añade CI.
 - **2026-09-25T12:38:53Z** `[note]` Corrección de la segunda ronda (orquestador): el test de CR7 con dos proyectos envía todas las peticiones por un único viewer lanzado desde el proyecto compatible. El mutante que protege el repo desde el que se lanzó el viewer ahora falla (el proyecto incompatible recibe 200 !== 409); restaurado y verificado. Gate: 1519/1519 y lint limpio.
 - **2026-09-25T12:42:14Z** `[status]` in-progress → in-review
 - **2026-09-25T12:42:14Z** `[note]` Tercera ronda autorizada por el humano. Mandato de la confirmación: sólo el defecto 3 (el test de CR7 con dos proyectos en un único viewer) en el diff sin commitear, más cualquier regresión que introduzca.
+- **2026-09-25T12:46:13Z** `[review]` in-review → in-validation (delegated subagent, clean context)
