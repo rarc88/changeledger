@@ -254,8 +254,8 @@ function migrateToV4(doc, changes) {
 
 // 4 → 5: enable deterministic change branch names for repositories that have
 // not already chosen a format. An explicit migration upgrades the historical
-// blank value to the default; current schema 5 configs remain untouched by the
-// early return in buildMigration, so clearing the value still opts out.
+// blank value to the default; configs already at schema 5 or later skip this
+// step, so clearing the value still opts out.
 function migrateToV5(doc, changes) {
   const current = doc.getIn(['git', 'change_branch_format']);
   if (current !== undefined && current !== null) return;
