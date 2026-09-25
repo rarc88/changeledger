@@ -2,7 +2,7 @@
 id: "20260924-184354"
 title: Exigir una versión mínima de ChangeLedger por repositorio
 type: feature
-status: in-review
+status: in-progress
 created: 2026-09-24T18:43:54Z
 depends_on: []
 branch: feature/20260924-184354
@@ -177,3 +177,4 @@ accionable. El guard no instala paquetes, no consulta la red y no añade CI.
 - **2026-09-25T12:04:03Z** `[note]` Tarea 7: el contrato no cambia — el bootstrap ya obliga a parar e informar cuando changeledger falla, y el diagnóstico del guard cae en ese caso; ningún fragmento cita el schema ni la versión. La ayuda no cita el schema vigente. Specs: architecture.md (schema 6, min_cli_version, guard) y viewer.md (409 por proyecto) se actualizan en la graduación, que pertenece al cierre. Corregido el comentario desfasado de migrateToV5. Gate: pnpm test && pnpm verify en verde (1518/1518) y check --commits válido; queda el aviso esperado de que la config propia de este repo sigue en schema 5.
 - **2026-09-25T12:04:04Z** `[status]` in-progress → in-review
 - **2026-09-25T12:05:34Z** `[note]` Mandato del review: la superficie que el change gobierna — el rango bddea9c5..HEAD (la rama está apilada sobre bug/20260824-134716, cuyos commits quedan fuera), contra CR1-CR9 y el Plan, con las decisiones no especificadas del Log como puntos de escrutinio.
+- **2026-09-25T12:15:23Z** `[review]` in-review → in-progress (retry): Tres defectos corregibles: (1) código muerto — assertRepoCliVersion, CliVersionError y la opción installedVersion del viewer sólo los usan tests, y los guards del bin y del viewer duplican el envoltorio carga-omite-compara; (2) el comentario del guard del bin afirma que el comando informa de una config ilegible por sí mismo, pero agent-prompt y sync salen con 0 sin informar; (3) el test de CR7 usa un viewer de un solo proyecto y llama al dominio directamente, así que no prueba dos proyectos en un viewer vía HTTP.
