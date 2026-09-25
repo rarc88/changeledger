@@ -33,9 +33,9 @@ import { VERSION } from '../src/framing.mjs';
 import { capturedRun } from '../src/git.mjs';
 import { publicDir } from '../src/paths.mjs';
 import { readRegistry, register, registryPath } from '../src/registry.mjs';
-import { loadRepoAsync } from '../src/repo.mjs';
+import { loadRepo, loadRepoAsync } from '../src/repo.mjs';
 import { STATE_REF, writeActivation } from '../src/state-store.mjs';
-import { cleanMissingProjects, readLedgerDocument } from '../src/viewer/domain.mjs';
+import { cleanMissingProjects, readLedgerDocument, serialize } from '../src/viewer/domain.mjs';
 import { setBranch } from '../src/writer.mjs';
 import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
@@ -2928,4 +2928,141 @@ test('CR8: applyConfigMigration on an activated project surfaces a stale write a
   assert.notEqual(tip, before, 'only the racer advanced the ref');
   assert.match(stateConfigText(root, tip), /project_name: Concurrent/);
   assert.match(stateConfigText(root, tip), /^schema_version: 1$/m);
+});
+
+// 20260924-184354 CR7 — the viewer is exempt from the CLI dispatch guard, but
+// every mutation it performs on a registered project must still check that
+// project's own effective minimum before writing.
+
+// `init`'s `runningVersion` parameter (unit-test seam, never an env override)
+// lets a fixture declare an arbitrary `min_cli_version` directly, instead of
+// string-patching the written config afterward.
+function newRepoAtVersion(minCliVersion) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-proj-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  init(root, minCliVersion);
+  initGitFixture(root);
+  return root;
+}
+
+function belowMinimum(required) {
+  return `ChangeLedger CLI ${VERSION} is below this repository's minimum ${required}; update the global installation.`;
+}
+
+// Every worktree byte and git ref: what "the project's state is unchanged"
+// is measured against, mirroring `cli-bin.test.mjs`'s own `repoSnapshot`.
+function projectSnapshot(root) {
+  const files = {};
+  const locks = [];
+  const walk = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      const rel = path.relative(root, full);
+      if (entry.isDirectory()) walk(full);
+      else if (rel.split(path.sep)[0] === '.git') {
+        if (entry.name.endsWith('.lock')) locks.push(rel);
+      } else files[rel] = fs.readFileSync(full, 'utf8');
+    }
+  };
+  walk(root);
+  const refs = execFileSync('git', ['for-each-ref', '--format=%(objectname) %(refname)'], {
+    cwd: root,
+    encoding: 'utf8',
+    env: sanitizedEnv(),
+  });
+  return { files, locks, refs };
+}
+
+// Every guarded write path (changeStatus, saveProjectConfig,
+// patchProjectConfig, applyConfigMigration) refused before payload validation:
+// the revision/patch/content values below are deliberately unchecked-against
+// (the guard must fire before they would even be read).
+function attemptedMutations(projects, project, id) {
+  return [
+    ['changeStatus', () => changeStatus(projects, { project, id, status: 'approved' })],
+    [
+      'saveProjectConfig',
+      () =>
+        saveProjectConfig(projects, {
+          project,
+          content: 'project_name: whatever\n',
+          revision: 'irrelevant',
+        }),
+    ],
+    [
+      'patchProjectConfig',
+      () =>
+        patchProjectConfig(projects, {
+          project,
+          patch: { project_name: 'whatever' },
+          revision: 'irrelevant',
+        }),
+    ],
+    [
+      'applyConfigMigration',
+      () => applyConfigMigration(projects, { project, revision: 'irrelevant' }),
+    ],
+  ];
+}
+
+test('184354 CR7: an incompatible project is refused 409 on every mutation and stays unchanged; reads keep working', () => {
+  isolatedHome();
+  const root = newRepoAtVersion('99.0.0');
+  const { id, project } = draftChange(root);
+  const { projects } = resolveProjects(root, true);
+  const before = projectSnapshot(root);
+
+  for (const [name, attempt] of attemptedMutations(projects, project, id)) {
+    const result = attempt();
+    assert.equal(result.code, 409, name);
+    assert.equal(result.body.error, belowMinimum('99.0.0'), name);
+  }
+
+  assert.deepEqual(projectSnapshot(root), before);
+
+  // Reads stay available.
+  assert.equal(resolveProjects(root, true).projects[0].alive, true);
+  assert.equal(readProjectConfig(projects, project).code, 200);
+  const repo = loadRepo(root);
+  assert.ok(serialize(repo).changes.some((c) => c.id === id));
+  assert.equal(repo.changes.find((c) => c.frontmatter.id === id).frontmatter.status, 'draft');
+});
+
+test('184354 CR7: a compatible project keeps its normal viewer behavior for the same mutations', () => {
+  isolatedHome();
+  const root = newRepoAtVersion('0.1.0');
+  const { file, id, project } = draftChange(root);
+  const { projects } = resolveProjects(root, true);
+  const configPath = path.join(root, '.changeledger', 'config.yml');
+  const revision = () => revisionOf(fs.readFileSync(configPath, 'utf8'));
+
+  const patched = patchProjectConfig(projects, {
+    project,
+    patch: { project_name: 'renamed-by-patch' },
+    revision: revision(),
+  });
+  assert.equal(patched.code, 200, patched.body.error);
+  assert.match(fs.readFileSync(configPath, 'utf8'), /project_name: renamed-by-patch/);
+
+  const saved = saveProjectConfig(projects, {
+    project,
+    content: fs
+      .readFileSync(configPath, 'utf8')
+      .replace(/^project_name:.*$/m, 'project_name: renamed-by-save'),
+    revision: revision(),
+  });
+  assert.equal(saved.code, 200, saved.body.error);
+  assert.match(fs.readFileSync(configPath, 'utf8'), /project_name: renamed-by-save/);
+
+  const migrated = applyConfigMigration(projects, { project, revision: revision() });
+  assert.equal(migrated.code, 200, migrated.body.error);
+
+  const status = changeStatus(projects, { project, id, status: 'approved' });
+  assert.equal(status.code, 200, status.body.error);
+  assert.match(fs.readFileSync(file, 'utf8'), /status: approved/);
+
+  // Both mutation and read paths behave normally.
+  assert.equal(readProjectConfig(projects, project).code, 200);
+  const repo = loadRepo(root);
+  assert.ok(serialize(repo).changes.some((c) => c.id === id));
 });
