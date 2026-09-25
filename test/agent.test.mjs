@@ -232,7 +232,7 @@ function futureSchemaRepo() {
   const configFile = path.join(fixture.root, '.changeledger', 'config.yml');
   fs.writeFileSync(
     configFile,
-    fs.readFileSync(configFile, 'utf8').replace(/^schema_version: \d+$/m, 'schema_version: 6'),
+    fs.readFileSync(configFile, 'utf8').replace(/^schema_version: \d+$/m, 'schema_version: 7'),
   );
   return fixture;
 }
@@ -257,7 +257,7 @@ test('161652 CR2: lifecycle mutations reject a future schema before writing', ()
     const before = fs.readFileSync(fixture.file, 'utf8');
     assert.throws(
       () => mutate(fixture),
-      /^Error: config schema 6 is newer than supported schema 5; update ChangeLedger before writing$/,
+      /^Error: config schema 7 is newer than supported schema 6; update ChangeLedger before writing$/,
       name,
     );
     assert.equal(fs.readFileSync(fixture.file, 'utf8'), before, name);

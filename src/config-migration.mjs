@@ -4,10 +4,11 @@ import { isMap, isPair, isScalar, isSeq, parseDocument } from 'yaml';
 import { writeFileAtomic } from './atomic-write.mjs';
 import { repoIsActivated } from './change-store.mjs';
 import { REVIEWABLE_STAGES } from './check.mjs';
+import { VERSION } from './framing.mjs';
 import { templatesDir } from './paths.mjs';
 import { mutateState, readStateConfigText, readStateRef } from './state-store.mjs';
 
-export const SUPPORTED_SCHEMA_VERSION = 5;
+export const SUPPORTED_SCHEMA_VERSION = 6;
 
 const CANONICAL_STATUSES = [
   'draft',
@@ -47,7 +48,11 @@ export function assertSupportedSchema(config) {
 
 // Returns null when no migration needed; throws on invalid/future schema.
 // Otherwise returns { yaml: string, changes: string[] }.
-export function buildMigration(originalText) {
+// `runningVersion` is the CLI version to declare in `min_cli_version`: an
+// explicit parameter, not an environment override, so unit tests can inject
+// an arbitrary version while every real caller defaults to the actual
+// installed version (`VERSION`, read once from package.json).
+export function buildMigration(originalText, runningVersion = VERSION) {
   let doc;
   try {
     doc = parseDocument(originalText, { merge: false });
@@ -87,6 +92,7 @@ export function buildMigration(originalText) {
   if (current < 3) migrateToV3(doc, config, changes);
   if (current < 4) migrateToV4(doc, changes);
   if (current < 5) migrateToV5(doc, changes);
+  if (current < 6) migrateToV6(doc, changes, runningVersion);
 
   relocateNullValueComments(doc);
 
@@ -257,6 +263,25 @@ function migrateToV5(doc, changes) {
   changes.push('added git.change_branch_format: {type}/{id}');
 }
 
+// 5 → 6: always declare the version of the package running this migration,
+// never just fill it in when absent. Updates the value in place when the key
+// already exists (never a duplicate); otherwise inserts it directly after
+// `schema_version`, mirroring the order the template itself ships.
+function migrateToV6(doc, changes, runningVersion) {
+  if (doc.has('min_cli_version')) {
+    const previous = doc.get('min_cli_version');
+    doc.set('min_cli_version', runningVersion);
+    changes.push(`updated min_cli_version: ${previous} → ${runningVersion}`);
+    return;
+  }
+  const pair = templateSection('min_cli_version');
+  pair.value = doc.createNode(runningVersion);
+  const items = doc.contents.items;
+  const schemaIndex = items.findIndex((item) => (item.key?.value ?? item.key) === 'schema_version');
+  items.splice(schemaIndex === -1 ? 0 : schemaIndex + 1, 0, pair);
+  changes.push(`added min_cli_version: ${runningVersion}`);
+}
+
 // `readiness` shipped commented out, so every existing repo — however it is laid
 // out — silently inherited the JavaScript-shaped defaults `check` applies when
 // the key is absent, and could not approve a well-formed change. Publish the
@@ -367,7 +392,10 @@ function setBlankGitSection(doc) {
 }
 
 // Apply migration to the effective config authority (or dry-run). Returns summary string.
-export function applyMigration(configFile, { dryRun = false, repoRoot, run } = {}) {
+export function applyMigration(
+  configFile,
+  { dryRun = false, repoRoot, run, runningVersion = VERSION } = {},
+) {
   if (!repoRoot) {
     throw new Error('applyMigration requires an explicit repoRoot');
   }
@@ -386,7 +414,7 @@ export function applyMigration(configFile, { dryRun = false, repoRoot, run } = {
     }
   }
 
-  const result = buildMigration(original);
+  const result = buildMigration(original, runningVersion);
 
   if (!result) {
     return `Config is already at schema ${SUPPORTED_SCHEMA_VERSION}. No changes needed.`;

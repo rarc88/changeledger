@@ -1060,6 +1060,50 @@ test('113218 CR4: --help lists version flags', () => {
   assert.match(out, /-V/);
 });
 
+// 20260924-184354 CR1 — the real bin process (not a unit-level injected
+// version) declares its own installed package version as the repo's minimum.
+test('184354 CLI CR1: init declares min_cli_version as the real installed version; check exits 0', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
+
+  assert.equal(runIn(root, env, 'init').code, 0);
+  const configText = fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8');
+  assert.match(configText, /^schema_version: 6$/m);
+  assert.match(
+    configText,
+    new RegExp(`^min_cli_version: ${pkgVersion.replace(/\./g, '\\.')}$`, 'm'),
+  );
+
+  const checked = runIn(root, env, 'check');
+  assert.equal(checked.code, 0, checked.err);
+});
+
+// 20260924-184354 CR2 — the real bin process declares its own installed
+// package version when migrating an older repo, not a unit-injected one.
+test('184354 CLI CR2: config migrate declares min_cli_version as the real installed version', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
+  assert.equal(runIn(root, env, 'init').code, 0);
+
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  const downgraded = fs
+    .readFileSync(configFile, 'utf8')
+    .replace(/^schema_version: 6$/m, 'schema_version: 5')
+    .replace(/\n# Minimum ChangeLedger CLI version[\s\S]*?\nmin_cli_version: .*\n/, '\n');
+  fs.writeFileSync(configFile, downgraded);
+
+  const { code, out } = runIn(root, env, 'config', 'migrate');
+  assert.equal(code, 0);
+  assert.match(out, /^Config migration 5 → 6$/m);
+  assert.match(out, new RegExp(`added min_cli_version: ${pkgVersion.replace(/\./g, '\\.')}$`, 'm'));
+  const migrated = fs.readFileSync(configFile, 'utf8');
+  assert.match(migrated, new RegExp(`^min_cli_version: ${pkgVersion.replace(/\./g, '\\.')}$`, 'm'));
+});
+
 // 20260628-113219: config migrate CLI integration
 test('113219 CLI CR3: config migrate --dry-run shows candidate and exits 0 without writing', () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
@@ -1076,8 +1120,8 @@ test('113219 CLI CR3: config migrate --dry-run shows candidate and exits 0 witho
 
   const { code, out } = runIn(root, env, 'config', 'migrate', '--dry-run');
   assert.equal(code, 0);
-  assert.match(out, /Config migration 0 → 5 \(dry run\)/);
-  assert.match(out, /schema_version: 5/);
+  assert.match(out, /Config migration 0 → 6 \(dry run\)/);
+  assert.match(out, /schema_version: 6/);
   assert.match(out, /change_branch_format: "\{type\}\/\{id\}"/);
   assert.equal(fs.readFileSync(configFile, 'utf8'), before, 'dry-run must not modify file');
 });
@@ -1117,7 +1161,7 @@ test('234920 CR1: active CLI dry-run previews the ref and leaves ref, snapshot, 
   const { code, out, err } = runIn(root, env, 'config', 'migrate', '--dry-run');
 
   assert.equal(code, 0, err);
-  assert.match(out, /^Config migration 1 → 5 \(dry run\)$/m);
+  assert.match(out, /^Config migration 1 → 6 \(dry run\)$/m);
   assert.ok(out.includes(expected.yaml));
   assert.equal(
     execFileSync('git', ['rev-parse', STATE_REF], {
@@ -1132,14 +1176,14 @@ test('234920 CR1: active CLI dry-run previews the ref and leaves ref, snapshot, 
 });
 
 test('234920 CR2: active CLI apply publishes one config migration commit and preserves other state and marker bytes', () => {
-  const marker = 'schema_version: 5\nproject_name: divergent marker\n';
+  const marker = 'schema_version: 6\nproject_name: divergent marker\n';
   const { root, env, configFile, authority, revision } = activatedMigrationCliRepo({ marker });
   const expected = buildMigration(authority).yaml;
 
   const { code, out, err } = runIn(root, env, 'config', 'migrate');
 
   assert.equal(code, 0, err);
-  assert.match(out, /^Config migration 1 → 5$/m);
+  assert.match(out, /^Config migration 1 → 6$/m);
   const tip = execFileSync('git', ['rev-parse', STATE_REF], {
     cwd: root,
     env: sanitizedEnv(),
@@ -1175,7 +1219,7 @@ test('234920 CR2: active CLI apply publishes one config migration commit and pre
 });
 
 test('234920 CR3: active CLI fails closed on an absent ref and an invalid state layout', () => {
-  const current = 'schema_version: 5\n';
+  const current = 'schema_version: 6\n';
 
   const absent = activatedMigrationCliRepo({ marker: current });
   execFileSync('git', ['update-ref', '-d', STATE_REF], { cwd: absent.root, env: sanitizedEnv() });

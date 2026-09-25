@@ -64,7 +64,7 @@ test('161652 CR3: new rejects a future schema before creating files or locks', (
   const configFile = path.join(root, '.changeledger', 'config.yml');
   fs.writeFileSync(
     configFile,
-    fs.readFileSync(configFile, 'utf8').replace(/^schema_version: \d+$/m, 'schema_version: 6'),
+    fs.readFileSync(configFile, 'utf8').replace(/^schema_version: \d+$/m, 'schema_version: 7'),
   );
   const changesDir = path.join(root, '.changeledger', 'changes');
   const before = fs.readdirSync(changesDir);
@@ -75,7 +75,7 @@ test('161652 CR3: new rejects a future schema before creating files or locks', (
         { type: 'feature', slug: 'future', title: 'Future', now: '2026-07-31T16:00:00Z' },
         root,
       ),
-    /^Error: config schema 6 is newer than supported schema 5; update ChangeLedger before writing$/,
+    /^Error: config schema 7 is newer than supported schema 6; update ChangeLedger before writing$/,
   );
   assert.deepEqual(fs.readdirSync(changesDir), before);
 });

@@ -452,6 +452,74 @@ test('111218 CR4: malformed readiness patterns report errors without breaking co
   }
 });
 
+// 20260924-184354 CR5 (check half) — `min_cli_version` only matters from
+// schema 6 onward: schemas ≤5 (including the shared `config` fixture, which
+// has no `schema_version` at all) keep today's behavior with no new
+// diagnostic.
+test('184354 CR5: min_cli_version is irrelevant below schema 6', () => {
+  assert.deepEqual(checkRepo({ config, changes: [] }).errors, []);
+  const schema5 = { ...config, schema_version: 5 };
+  assert.deepEqual(checkRepo({ config: schema5, changes: [] }).errors, []);
+});
+
+test('184354 CR5: a missing min_cli_version at schema 6 is a named error', () => {
+  const schema6 = { ...config, schema_version: 6 };
+  const { errors } = checkRepo({ config: schema6, changes: [] });
+  assert.ok(
+    msgs(errors).some((m) => m.includes('min_cli_version') && m.includes('missing')),
+    msgs(errors).join('\n'),
+  );
+});
+
+// The requirement is "from schema 6 onward", not "exactly schema 6" — a
+// schema past 6 (however that comes to exist) still needs it.
+test('184354 CR5: a missing min_cli_version past schema 6 is still a named error', () => {
+  const schema7 = { ...config, schema_version: 7 };
+  const { errors } = checkRepo({ config: schema7, changes: [] });
+  assert.ok(
+    msgs(errors).some((m) => m.includes('min_cli_version') && m.includes('missing')),
+    msgs(errors).join('\n'),
+  );
+});
+
+test('184354 CR5: an invalid min_cli_version at schema 6 is a named error naming the value', () => {
+  for (const bad of ['latest', 'v1.2.3', '1.2', '', 7]) {
+    const schema6 = { ...config, schema_version: 6, min_cli_version: bad };
+    const { errors } = checkRepo({ config: schema6, changes: [] });
+    assert.ok(
+      msgs(errors).some((m) => m.includes('min_cli_version') && m.includes(JSON.stringify(bad))),
+      `bad=${JSON.stringify(bad)}: ${msgs(errors).join('\n')}`,
+    );
+  }
+});
+
+test('184354 CR5: a concrete SemVer (prereleases included) min_cli_version at schema 6 is valid', () => {
+  for (const good of ['0.17.0', '1.2.3', '0.17.0-dev', '2.0.0-rc.1+build.5']) {
+    const schema6 = { ...config, schema_version: 6, min_cli_version: good };
+    const { errors } = checkRepo({ config: schema6, changes: [] });
+    assert.deepEqual(
+      msgs(errors).filter((m) => m.includes('min_cli_version')),
+      [],
+      `good=${good}: ${msgs(errors).join('\n')}`,
+    );
+  }
+});
+
+// Real-repo, command-level evidence for CR5: `changeledger check` itself
+// fails closed and names the key plus the invalid/absent value, per CR5's
+// Given/When/Then (the `status` half of CR5 is a later selection's guard).
+test('184354 CR5: changeledger check fails closed on schema 6 with an invalid or absent min_cli_version', () => {
+  for (const configText of [
+    `${FROZEN_FIXTURE_CONFIG.replace('schema_version: 5', 'schema_version: 6')}min_cli_version: latest\n`,
+    FROZEN_FIXTURE_CONFIG.replace('schema_version: 5', 'schema_version: 6'),
+  ]) {
+    const root = frozenFixture({}, {}, {}, configText);
+    const { code, text } = runCheck(root);
+    assert.equal(code, 1, text);
+    assert.match(text, /min_cli_version/);
+  }
+});
+
 test('20260731-161654 CR1: git must be a mapping without throwing or mutating config', () => {
   for (const git of ['dev', [], true]) {
     const candidate = { ...config, git };
