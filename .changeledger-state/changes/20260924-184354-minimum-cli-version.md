@@ -189,3 +189,4 @@ accionable. El guard no instala paquetes, no consulta la red y no añade CI.
 - **2026-09-25T12:46:13Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-09-25T13:01:36Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-09-25T13:02:15Z** `[graduation]` spec: `architecture.md`
+- **2026-09-25T13:02:16Z** `[graduation]` spec: `viewer.md`
