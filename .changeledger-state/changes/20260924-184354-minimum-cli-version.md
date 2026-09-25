@@ -2,7 +2,7 @@
 id: "20260924-184354"
 title: Exigir una versión mínima de ChangeLedger por repositorio
 type: feature
-status: in-review
+status: in-progress
 created: 2026-09-24T18:43:54Z
 depends_on: []
 branch: feature/20260924-184354
@@ -181,3 +181,4 @@ accionable. El guard no instala paquetes, no consulta la red y no añade CI.
 - **2026-09-25T12:29:06Z** `[status]` in-progress → in-review
 - **2026-09-25T12:29:19Z** `[note]` Corrección del retry: repoCliVersionError en src/version-guard.mjs es la única función que llaman el guard del bin y el del viewer; eliminados assertRepoCliVersion, CliVersionError y la opción installedVersion del viewer; el comentario ya sólo afirma lo comprobado; nuevo test de CR7 con dos proyectos en un viewer vía HTTP, que mata el mutante que protege el proyecto equivocado. El orquestador recortó del comentario los punteros a los archivos que la llaman. Gate: 1519/1519 y lint limpio.
 - **2026-09-25T12:29:20Z** `[note]` Mandato de la confirmación: sólo el diff sin commitear frente a HEAD y los tres defectos del review fail anterior, más cualquier regresión que introduzca.
+- **2026-09-25T12:36:32Z** `[review]` in-review → in-progress (retry): Confirmación: los defectos 1 y 2 están cerrados; el 3 sigue abierto. El test de CR7 con dos proyectos envía cada petición con memoryRequest(root) desde el proyecto de destino, así que nunca hay un único viewer para ambos, y sobrevive un mutante que protege el repo desde el que se lanzó el viewer. Todas las peticiones deben pasar por un único viewer.
