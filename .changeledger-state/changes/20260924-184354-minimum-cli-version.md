@@ -142,10 +142,11 @@ accionable. El guard no instala paquetes, no consulta la red y no añade CI.
   - **Verify:** `node --test test/config-migration.test.mjs test/check.test.mjs`
   - **Criteria:** CR1, CR2, CR5
   - **Resolved:** `2026-09-25T11:10:00Z`
-- [ ] Reorientar las pruebas que fijan el schema futuro al nuevo schema soportado
+- [x] Reorientar las pruebas que fijan el schema futuro al nuevo schema soportado
   - **Target:** `test/cli.test.mjs, test/fix.test.mjs, test/agent.test.mjs, test/view.test.mjs`
   - **Verify:** `node --test test/cli.test.mjs test/fix.test.mjs test/agent.test.mjs test/view.test.mjs`
   - **Support:**
+  - **Resolved:** `2026-09-25T11:10:01Z`
 - [ ] Probar la precedencia, el rechazo temprano en CLI activa e inactiva y las excepciones
   - **Target:** `test/cli-bin.test.mjs, test/config.test.mjs, test/agent.test.mjs`
   - **Verify:** `node --test test/cli-bin.test.mjs test/config.test.mjs test/agent.test.mjs`
