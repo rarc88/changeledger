@@ -2,7 +2,7 @@
 id: "20260924-184354"
 title: Exigir una versión mínima de ChangeLedger por repositorio
 type: feature
-status: in-validation
+status: done
 created: 2026-09-24T18:43:54Z
 depends_on: []
 branch: feature/20260924-184354
@@ -186,3 +186,4 @@ accionable. El guard no instala paquetes, no consulta la red y no añade CI.
 - **2026-09-25T12:42:14Z** `[status]` in-progress → in-review
 - **2026-09-25T12:42:14Z** `[note]` Tercera ronda autorizada por el humano. Mandato de la confirmación: sólo el defecto 3 (el test de CR7 con dos proyectos en un único viewer) en el diff sin commitear, más cualquier regresión que introduzca.
 - **2026-09-25T12:46:13Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-09-25T13:01:36Z** `[validation]` in-validation → done (human accepted via conversation)
