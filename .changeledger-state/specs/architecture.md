@@ -57,11 +57,30 @@ repo. Los modos de migración de `fix` son mutuamente excluyentes, al igual que
 La ayuda de `log` explica que el comando sólo escribe `note`, muestra un ejemplo
 concreto y enumera los ocho tipos válidos con sus payloads y comandos productores
 a partir de `LOG_EVENT_DEFINITIONS`. El flujo por lotes de `apply` se presenta
-por separado.
+por separado. La ayuda de cada comando marca con `(required)` las opciones
+obligatorias que el parser exige.
 
 El binario expone su versión instalada mediante `changeledger --version`, `-v` y
 `-V`; el valor se lee del `package.json` distribuido para que una instalación
 empaquetada nunca dependa de un literal duplicado.
+
+Desde el schema 6, `min_cli_version` declara la versión mínima de la CLI que
+puede trabajar sobre el repo: una versión SemVer concreta, prereleases incluidos,
+que `init` y la migración 5 → 6 fijan en la versión del paquete que las ejecuta;
+su ausencia o invalidez es un error de `check`, y por debajo del schema 6 la
+clave no tiene efecto. Antes de ejecutar la acción de un comando, el despacho de
+la CLI compara por precedencia SemVer la versión instalada con el mínimo de la
+config efectiva —la ref de estado en repos activados, nunca el marcador del
+worktree— y, por debajo, falla antes de cualquier lock, escritura o movimiento
+de ref con `ChangeLedger CLI <instalada> is below this repository's minimum
+<requerida>; update the global installation.`; una declaración ausente o
+inválida falla cerrada con el mismo texto que emite `check`. Las excepciones son
+una lista cerrada: la ayuda, `--version`, `config migrate --dry-run`, `init` y
+`view`, cuyo viewer comprueba el mínimo de cada proyecto antes de escribir en
+él. Una config efectiva ilegible no declara mínimo que comparar: el guard se
+aparta, los comandos que necesitan esa config fallan al cargarla y `activate`
+conserva la reparación de una activación rota. El guard no consulta gestores de
+paquetes ni la red, y las versiones publicadas antes de él no leen la clave.
 
 `.changeledger/config.yml` declara un `schema_version` entero. La ausencia se
 interpreta como schema histórico `0`; `check` y `register` lo detectan y ofrecen
@@ -70,8 +89,9 @@ migración explícita construye un candidato con el AST de YAML, actualiza estru
 y comentarios administrados, conserva decisiones y extensiones propias, no mueve
 directorios y escribe atómicamente. Repetirla sobre el schema vigente es un no-op
 byte-idéntico; un schema más nuevo que el soportado falla cerrado. Las
-migraciones son una cadena versionada y aditiva: el schema vigente es `5` —
-la 4 → 5 publica `git.change_branch_format` con su valor por defecto
+migraciones son una cadena versionada y aditiva: el schema vigente es `6` —
+la 5 → 6 publica `min_cli_version` con la versión del paquete que la ejecuta,
+reemplazando cualquier valor previo; la 4 → 5 publica `git.change_branch_format` con su valor por defecto
 `{type}/{id}` en los repos que no habían elegido formato (vaciar la clave
 sigue siendo opt-out). La
 migración 1 → 2 añade el tipo `quick` y sus impactos a repos schema 1 sin pisar
