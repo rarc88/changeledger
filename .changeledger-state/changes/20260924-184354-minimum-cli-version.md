@@ -152,10 +152,11 @@ accionable. El guard no instala paquetes, no consulta la red y no añade CI.
   - **Verify:** `node --test test/cli-bin.test.mjs test/config.test.mjs test/agent.test.mjs`
   - **Criteria:** CR3, CR4, CR5, CR6, CR8, CR9
   - **Resolved:** `2026-09-25T11:43:06Z`
-- [ ] Implementar un guard compartido en el despacho CLI con config efectiva
+- [x] Implementar un guard compartido en el despacho CLI con config efectiva
   - **Target:** `src/config.mjs, src/version-guard.mjs, bin/changeledger.mjs`
   - **Verify:** `node --test test/cli-bin.test.mjs test/config.test.mjs`
   - **Criteria:** CR3, CR4, CR5, CR6, CR8, CR9
+  - **Resolved:** `2026-09-25T11:43:07Z`
 - [ ] Probar y proteger las mutaciones por proyecto del viewer
   - **Target:** `test/view.test.mjs, src/viewer/domain.mjs`
   - **Verify:** `node --test test/view.test.mjs`
