@@ -231,6 +231,14 @@ defaults para tipos custom. El servidor conserva la autoridad: rechaza identidad
 valores canónicos ausentes, repos no cargables y revisiones obsoletas antes de una
 escritura atómica.
 
+Cada escritura sobre un proyecto —transición de lifecycle, config Raw o Form y
+aplicación de una migración— comprueba antes el `min_cli_version` efectivo de
+ese proyecto, no el del repo desde el que se lanzó el viewer. Si la CLI que sirve
+el viewer está por debajo, responde 409 con el diagnóstico de la CLI y el
+proyecto queda intacto; sus lecturas y los demás proyectos siguen disponibles.
+Reparar, desregistrar y limpiar proyectos ausentes sólo escriben el registro
+global y no dependen del mínimo.
+
 Un config antiguo muestra **Migration required** y permite previsualizar el resumen
 `N → M` (con la versión de origen real detectada), los cambios y el YAML candidato
 antes de una aplicación confirmada. CLI y
