@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-09-24T18:43:54Z
 depends_on: []
+archived: true
 reviewed: true
 branch: feature/20260924-184354
 related_to: ["20260628-113218", "20260628-113219", "20260731-161652"]
@@ -190,3 +191,4 @@ accionable. El guard no instala paquetes, no consulta la red y no añade CI.
 - **2026-09-25T13:01:36Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-09-25T13:02:15Z** `[graduation]` spec: `architecture.md`
 - **2026-09-25T13:02:16Z** `[graduation]` spec: `viewer.md`
+- **2026-09-28T19:20:42Z** `[archive]` archived
