@@ -123,14 +123,14 @@ test('161652 CR3/CR4: fix writes fail closed while dry-run stays available', () 
   const configFile = path.join(fixture.root, '.changeledger', 'config.yml');
   fs.writeFileSync(
     configFile,
-    fs.readFileSync(configFile, 'utf8').replace(/^schema_version: \d+$/m, 'schema_version: 6'),
+    fs.readFileSync(configFile, 'utf8').replace(/^schema_version: \d+$/m, 'schema_version: 7'),
   );
   const before = fs.readFileSync(fixture.file, 'utf8');
 
   const write = output();
   assert.equal(fix([fixture.id], fixture.root, write), 1);
   assert.deepEqual(write.lines, [
-    '  error  (repo): config schema 6 is newer than supported schema 5; update ChangeLedger before writing',
+    '  error  (repo): config schema 7 is newer than supported schema 6; update ChangeLedger before writing',
   ]);
   assert.equal(fs.readFileSync(fixture.file, 'utf8'), before);
 
@@ -283,6 +283,16 @@ test('125007 CR8: ambiguous blocked metadata leaves the whole file untouched', (
   assert.equal(fs.readFileSync(file, 'utf8'), before);
   assert.ok(out.lines.some((entry) => entry.includes('requires manual fix')));
   assert.ok(out.lines.some((entry) => entry.includes('ambiguous legacy task metadata')));
+});
+
+test('20260824-134716 CR5: an empty structured migration names its mode and zero repairs', () => {
+  const { root } = repo('- [ ] Already current (CR1)');
+  assert.equal(fix(['--structured-sections'], root, output()), 0);
+  const out = output();
+  assert.equal(fix(['--structured-sections'], root, out), 0);
+  assert.deepEqual(out.lines, [
+    'mode --structured-sections: 0 repairs; no applicable transformations',
+  ]);
 });
 
 // 20260729-203257 CR5 — the forms measured in the real corpus, in one fixture.

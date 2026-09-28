@@ -7,6 +7,7 @@ import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { status, task, validation } from '../src/commands/agent.mjs';
 import { buildMigration } from '../src/config-migration.mjs';
+import { LOG_EVENT_DEFINITIONS } from '../src/lifecycle.mjs';
 import { STATE_REF, writeActivation } from '../src/state-store.mjs';
 import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
@@ -53,8 +54,8 @@ function registeredChildCommands(help) {
   return commands;
 }
 
-function registeredCommandHelp() {
-  const rootHelp = run('--help');
+function registeredCommandHelp(runCommand = run) {
+  const rootHelp = runCommand('--help');
   assert.equal(rootHelp.code, 0, 'root --help should exit 0');
   const queue = [{ command: [], out: rootHelp.out }];
   const results = [];
@@ -62,7 +63,7 @@ function registeredCommandHelp() {
   for (const parent of queue) {
     for (const child of registeredChildCommands(parent.out)) {
       const command = [...parent.command, child];
-      const help = run(...command, '-h');
+      const help = runCommand(...command, '-h');
       results.push({ command, ...help });
       queue.push({ command, out: help.out });
     }
@@ -217,6 +218,138 @@ test('111457 CR5/CR6: fix help exposes the scoped graduation-links migration', (
   assert.match(out, /--graduation-links/);
   assert.match(out, /--structured-sections/);
   assert.match(out, /--dry-run/);
+});
+
+test('20260824-134716 CR2: static CLI domains are complete in help and invalid-value errors', () => {
+  for (const [command, values] of [
+    ['agent-prompt', 'investigation | implementation | review | post-review'],
+    ['agent-context', 'investigation | implementation | review | post-review'],
+    ['validation', 'pass|fail'],
+    ['review', 'pass|fail'],
+    ['task', 'done|block'],
+  ]) {
+    assert.match(run(command, '--help').out, new RegExp(values.replace(/[|]/g, '\\|')));
+  }
+  const invalid = run('task', 'an-id', 'guess', '1');
+  assert.notEqual(invalid.code, 0);
+  assert.match(invalid.err, /Allowed choices are done, block/);
+  const release = run('release', '--help').out;
+  assert.match(release, /release impacts: none, patch, minor, major/);
+  assert.match(release, /branch format placeholders: \{type\}, \{id\}/);
+});
+
+test('20260824-134716 CR2: repo-configured domains appear in help and invalid errors', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
+  assert.equal(runIn(root, env, 'init').code, 0);
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  fs.writeFileSync(
+    configFile,
+    fs
+      .readFileSync(configFile, 'utf8')
+      .replace('types:\n', 'types:\n  custom:\n    stages: [request, log]\n'),
+  );
+  const help = runIn(root, env, 'check', '--help').out;
+  assert.match(help, /effective types: custom, feature, bug, audit, refactor, chore, quick/);
+  assert.match(
+    help,
+    /effective statuses: draft, approved, in-progress, in-review, in-validation, blocked, done, discarded/,
+  );
+  assert.match(
+    help,
+    /effective stages: request, investigation, proposal, specification, plan, log/,
+  );
+  const invalid = runIn(root, env, 'new', 'guess', 'x', 'X', '--owner', 'Test');
+  assert.notEqual(invalid.code, 0);
+  assert.match(
+    invalid.err,
+    /Allowed choices are custom, feature, bug, audit, refactor, chore, quick/,
+  );
+});
+
+test('20260824-134716 CR3: every pair of fix migration modes fails before action', () => {
+  const modes = ['--graduation-links', '--structured-sections', '--plan-tags'];
+  for (let left = 0; left < modes.length; left++) {
+    for (let right = left + 1; right < modes.length; right++) {
+      const result = run('fix', modes[left], modes[right]);
+      assert.notEqual(result.code, 0);
+      assert.match(
+        result.err,
+        new RegExp(`option '${modes[left]}' cannot be used with option '${modes[right]}'`),
+      );
+    }
+  }
+});
+
+test('20260824-134716 CR4: review rejects --retry with --block before action', () => {
+  const result = run('review', 'an-id', 'fail', '--retry', '--block', 'reason');
+  assert.notEqual(result.code, 0);
+  assert.match(result.err, /option '--retry' cannot be used with option '--block'/);
+});
+
+test('20260824-134716 CR5: fix help names exact default repairs and one-at-a-time migrations', () => {
+  const out = run('fix', '--help').out;
+  assert.match(
+    out,
+    /default repairs: checkbox markers \[ x \]\/\[X\], legacy hyphen separators, near-ISO UTC timestamps/,
+  );
+  assert.match(out, /--graduation-links.*graduation provenance/s);
+  assert.match(
+    out,
+    /--structured-sections.*resolved\/blocked task metadata and recognized\s+legacy Log entries/s,
+  );
+  assert.match(out, /--plan-tags.*criteria, support and verify children/s);
+  assert.match(out, /migration modes are mutually exclusive; run exactly one at a time/);
+});
+
+test('20260824-134716 CR7: log help derives the complete grammar without promising arbitrary events', () => {
+  const { code, out } = run('log', '--help');
+  assert.equal(code, 0);
+  assert.match(out, /append a human-readable note to a change Log/);
+  assert.match(out, /^\s*message\s+plain text stored as the `note` payload/m);
+  assert.match(
+    out,
+    /\n\nRecord a note with `changeledger log <id> "Investigation complete"`\.\nExample Log line \(timestamp generated when you run it\):\n\s+- \*\*2026-08-24T17:42:40Z\*\* `\[note\]` Investigation complete/,
+  );
+  assert.doesNotMatch(out, /<current UTC timestamp>/);
+  assert.match(out, /Use `changeledger log` only for human-readable notes\./);
+  assert.match(out, /Do not type an event name in <message\.\.\.>\./);
+
+  for (const [type, definition] of Object.entries(LOG_EVENT_DEFINITIONS)) {
+    const [payload, ...alternatives] = definition.form.split(' | ');
+    assert.match(out, new RegExp(`^  ${type}$`, 'm'));
+    assert.ok(out.includes(`    Payload: ${payload}`), `log help should expose ${type} payload`);
+    for (const alternative of alternatives) {
+      assert.ok(
+        out.includes(`    Or: ${alternative}`),
+        `log help should expose ${type} alternative`,
+      );
+    }
+  }
+
+  for (const producer of [
+    'changeledger approve',
+    'changeledger status',
+    'changeledger discard',
+    'changeledger reopen',
+    'changeledger review',
+    'changeledger validation',
+    'changeledger owner',
+    'changeledger branch',
+    'changeledger graduate',
+    'changeledger archive',
+    'changeledger log',
+  ]) {
+    assert.match(out, new RegExp(`^      ${producer}$`, 'm'));
+  }
+
+  assert.doesNotMatch(out, /approve\|status|status\|apply|\(op=/);
+  assert.match(
+    out,
+    /Advanced batch writes:\n\s+`changeledger apply` can write status, owner, and note events/,
+  );
 });
 
 test('125139 CR1/CR3/CR5/CR6: CLI transmits explicit human decisions and preserves agent rejection', () => {
@@ -927,6 +1060,308 @@ test('113218 CR4: --help lists version flags', () => {
   assert.match(out, /-V/);
 });
 
+// 20260924-184354 CR1 — the real bin process (not a unit-level injected
+// version) declares its own installed package version as the repo's minimum.
+test('184354 CLI CR1: init declares min_cli_version as the real installed version; check exits 0', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
+
+  assert.equal(runIn(root, env, 'init').code, 0);
+  const configText = fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8');
+  assert.match(configText, /^schema_version: 6$/m);
+  assert.match(
+    configText,
+    new RegExp(`^min_cli_version: ${pkgVersion.replace(/\./g, '\\.')}$`, 'm'),
+  );
+
+  const checked = runIn(root, env, 'check');
+  assert.equal(checked.code, 0, checked.err);
+});
+
+// 20260924-184354 CR2 — the real bin process declares its own installed
+// package version when migrating an older repo, not a unit-injected one.
+test('184354 CLI CR2: config migrate declares min_cli_version as the real installed version', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
+  assert.equal(runIn(root, env, 'init').code, 0);
+
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  const downgraded = fs
+    .readFileSync(configFile, 'utf8')
+    .replace(/^schema_version: 6$/m, 'schema_version: 5')
+    .replace(/\n# Minimum ChangeLedger CLI version[\s\S]*?\nmin_cli_version: .*\n/, '\n');
+  fs.writeFileSync(configFile, downgraded);
+
+  const { code, out } = runIn(root, env, 'config', 'migrate');
+  assert.equal(code, 0);
+  assert.match(out, /^Config migration 5 → 6$/m);
+  assert.match(out, new RegExp(`added min_cli_version: ${pkgVersion.replace(/\./g, '\\.')}$`, 'm'));
+  const migrated = fs.readFileSync(configFile, 'utf8');
+  assert.match(migrated, new RegExp(`^min_cli_version: ${pkgVersion.replace(/\./g, '\\.')}$`, 'm'));
+});
+
+const belowMinimum = (required) =>
+  `ChangeLedger CLI ${pkgVersion} is below this repository's minimum ${required}; update the global installation.`;
+
+function setMinCliVersion(configFile, value) {
+  const text = fs.readFileSync(configFile, 'utf8');
+  assert.match(text, /^min_cli_version: .*$/m);
+  fs.writeFileSync(
+    configFile,
+    value === undefined
+      ? text.replace(/^min_cli_version: .*\n/m, '')
+      : text.replace(/^min_cli_version: .*$/m, `min_cli_version: ${value}`),
+  );
+}
+
+function fixtureGit(root, args) {
+  return execFileSync('git', args, { cwd: root, env: sanitizedEnv(), encoding: 'utf8' });
+}
+
+// A committed schema-6 git repo holding one `approved` change that
+// `status <id> in-progress` can really start, so a guard failure is the only
+// thing standing between the command and its writes.
+function approvedGitRepo() {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
+  assert.equal(runIn(root, env, 'init').code, 0);
+  disableChangeBranchFormat(root);
+  assert.equal(runIn(root, env, 'new', 'quick', 'x', 'X', '--owner', 'Roberto Ruiz').code, 0);
+  const id = JSON.parse(runIn(root, env, 'list', '--json').out)[0].id;
+  const changesDir = path.join(root, '.changeledger', 'changes');
+  const changeFile = path.join(changesDir, fs.readdirSync(changesDir)[0]);
+  fs.writeFileSync(
+    changeFile,
+    fs.readFileSync(changeFile, 'utf8').replace('status: draft', 'status: approved'),
+  );
+  initGitFixture(root);
+  fixtureGit(root, ['config', 'commit.gpgsign', 'false']);
+  fixtureGit(root, ['add', '-A']);
+  fixtureGit(root, ['commit', '-q', '-m', 'chore: seed']);
+  return { root, env, id, changeFile, configFile: path.join(root, '.changeledger', 'config.yml') };
+}
+
+// Every worktree byte, every ref (state and activation refs included) and every
+// git lock file: what "no files, locks or refs change" is measured against.
+function repoSnapshot(root) {
+  const files = {};
+  const locks = [];
+  const walk = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      const rel = path.relative(root, full);
+      if (entry.isDirectory()) walk(full);
+      else if (rel.split(path.sep)[0] === '.git') {
+        if (entry.name.endsWith('.lock')) locks.push(rel);
+      } else files[rel] = fs.readFileSync(full, 'utf8');
+    }
+  };
+  walk(root);
+  const refs = fixtureGit(root, ['for-each-ref', '--format=%(objectname) %(refname)']);
+  return { files, locks, refs };
+}
+
+test('184354 CR3: context and status stop below the minimum before any file, lock or ref changes', () => {
+  const { root, env, id, configFile } = approvedGitRepo();
+  setMinCliVersion(configFile, '99.0.0');
+  for (const args of [['status', id, 'in-progress'], ['context']]) {
+    const before = repoSnapshot(root);
+    const result = runIn(root, env, ...args);
+    assert.deepEqual(repoSnapshot(root), before, args.join(' '));
+    assert.notEqual(result.code, 0, args.join(' '));
+    assert.ok(result.err.includes(belowMinimum('99.0.0')), `${args.join(' ')}: ${result.err}`);
+    assert.equal(result.out, '', args.join(' '));
+  }
+});
+
+test('184354 CR5: status fails closed on an absent or invalid min_cli_version; version and help stay available', () => {
+  for (const [value, named] of [
+    ['latest', '"latest"'],
+    [undefined, 'missing'],
+  ]) {
+    const { root, env, id, configFile } = approvedGitRepo();
+    setMinCliVersion(configFile, value);
+    const before = repoSnapshot(root);
+
+    for (const args of [['status', id, 'in-progress'], ['check']]) {
+      const result = runIn(root, env, ...args);
+      assert.notEqual(result.code, 0, args.join(' '));
+      assert.match(result.err, /min_cli_version/, args.join(' '));
+      assert.ok(result.err.includes(named), `${args.join(' ')}: ${result.err}`);
+    }
+    assert.deepEqual(repoSnapshot(root), before);
+
+    assert.deepEqual(runIn(root, env, '--version'), { code: 0, out: `${pkgVersion}\n`, err: '' });
+    const help = runIn(root, env, 'help');
+    assert.equal(help.code, 0, help.err);
+    assert.match(help.out, /Usage: changeledger/);
+  }
+});
+
+// Activated: the ledger and its config live in the state ref; the worktree
+// keeps only the discovery marker, which here declares a satisfiable minimum.
+function activatedApprovedRepo() {
+  const { root, env, id, changeFile, configFile } = approvedGitRepo();
+  const authority = fs
+    .readFileSync(configFile, 'utf8')
+    .replace(/^min_cli_version: .*$/m, 'min_cli_version: 99.0.0');
+  const tree = buildTree(root, {
+    '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
+    '.changeledger-state/config.yml': authority,
+    [`.changeledger-state/changes/${path.basename(changeFile)}`]: fs.readFileSync(
+      changeFile,
+      'utf8',
+    ),
+  });
+  updateRef(root, STATE_REF, commitTree(root, tree, { message: 'chore: state' }));
+  writeActivation(root, { stateRef: STATE_REF });
+  fs.rmSync(changeFile);
+  return { root, env, id, configFile };
+}
+
+test('184354 CR6: the activated state ref is the minimum authority; the worktree marker cannot bypass it', () => {
+  const { root, env, id, configFile } = activatedApprovedRepo();
+  const initialized = fs.readFileSync(configFile, 'utf8');
+  for (const marker of [
+    initialized.replace(/^min_cli_version: .*$/m, 'min_cli_version: 0.16.1'),
+    initialized.replace(/^min_cli_version: .*$/m, 'min_cli_version: 0.1.0'),
+    'schema_version: 5\n',
+  ]) {
+    fs.writeFileSync(configFile, marker);
+    const before = repoSnapshot(root);
+    for (const args of [['status', id, 'in-progress'], ['context']]) {
+      const result = runIn(root, env, ...args);
+      assert.notEqual(result.code, 0, args.join(' '));
+      assert.ok(result.err.includes(belowMinimum('99.0.0')), `${args.join(' ')}: ${result.err}`);
+    }
+    assert.deepEqual(repoSnapshot(root), before);
+  }
+});
+
+test('184354 CR8: a newer CLI works without editing the repo until the minimum rises', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
+  assert.equal(runIn(root, env, 'init').code, 0);
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  setMinCliVersion(configFile, '0.1.0');
+  const declared = fs.readFileSync(configFile, 'utf8');
+
+  const context = runIn(root, env, 'context');
+  assert.equal(context.code, 0, context.err);
+  assert.match(context.out, /^===== CHANGELEDGER CONTEXT BEGIN/);
+  const checked = runIn(root, env, 'check');
+  assert.equal(checked.code, 0, checked.err);
+  assert.equal(fs.readFileSync(configFile, 'utf8'), declared);
+
+  setMinCliVersion(configFile, '99.0.0');
+  for (const args of [['context'], ['check']]) {
+    const result = runIn(root, env, ...args);
+    assert.notEqual(result.code, 0, args.join(' '));
+    assert.ok(result.err.includes(belowMinimum('99.0.0')), `${args.join(' ')}: ${result.err}`);
+  }
+});
+
+// Each help entry, joined across its wrapped continuation lines.
+function helpEntries(help, heading) {
+  const lines = help.split('\n');
+  const start = lines.indexOf(`${heading}:`);
+  if (start === -1) return [];
+  const entries = [];
+  for (const line of lines.slice(start + 1)) {
+    if (line === '') break;
+    if (/^ {2}\S/.test(line)) entries.push(line.trim());
+    else entries[entries.length - 1] += ` ${line.trim()}`;
+  }
+  return entries;
+}
+
+// The arguments a command's own help declares obligatory: every `<required>`
+// operand of its Usage line (its first declared choice when closed, otherwise a
+// placeholder) and every option whose help says "(required)".
+function requiredArgumentsFromHelp(command, help) {
+  const usage = help.match(/^Usage: changeledger (.*)$/m)[1].slice(command.join(' ').length);
+  const choices = new Map(
+    helpEntries(help, 'Arguments').map((entry) => [
+      entry.split(/\s/)[0],
+      entry.match(/\(choices: "([^"]+)"/)?.[1],
+    ]),
+  );
+  const operands = [...usage.matchAll(/<([^>.]+)(?:\.\.\.)?>/g)].map(
+    ([, name]) => choices.get(name) ?? '1',
+  );
+  const options = helpEntries(help, 'Options')
+    .filter((entry) => entry.includes('(required)'))
+    .flatMap((entry) => [entry.match(/--[\w-]+/)[0], '1']);
+  return [...operands, ...options];
+}
+
+// The guard's exemption list, closed: help and version never reach an action;
+// `init` and `view` keep their own behavior; `config migrate` only as a preview.
+const GUARD_EXEMPT_COMMANDS = new Set(['init', 'view']);
+
+test('184354 CR9: only help, version, config migrate --dry-run, init and view bypass the guard', () => {
+  const { root, env, configFile } = approvedGitRepo();
+  setMinCliVersion(configFile, '99.0.0');
+  const before = repoSnapshot(root);
+  const inRepo = (...args) => runIn(root, env, ...args);
+
+  for (const flag of ['--version', '-v', '-V']) {
+    assert.deepEqual(inRepo(flag), { code: 0, out: `${pkgVersion}\n`, err: '' }, flag);
+  }
+  for (const args of [['help'], ['help', 'status'], ['config', 'help', 'migrate']]) {
+    const result = inRepo(...args);
+    assert.equal(result.code, 0, `${args.join(' ')}: ${result.err}`);
+  }
+  const dryRun = inRepo('config', 'migrate', '--dry-run');
+  assert.equal(dryRun.code, 0, dryRun.err);
+
+  const initAgain = inRepo('init');
+  assert.notEqual(initAgain.code, 0);
+  assert.ok(
+    initAgain.err.includes(
+      '.changeledger/ already exists. Use `changeledger register` to refresh this repo.',
+    ),
+    initAgain.err,
+  );
+  // `view` would serve; an unknown operand exercises its own action instead.
+  const view = inRepo('view', 'bogus');
+  assert.notEqual(view.code, 0);
+  assert.match(view.err, /bogus/);
+  assert.doesNotMatch(`${initAgain.err}${view.err}`, /is below this repository's minimum/);
+
+  const commandHelp = registeredCommandHelp(inRepo);
+  const guarded = [];
+  for (const { command, code, out } of commandHelp) {
+    assert.equal(code, 0, `${command.join(' ')} -h must bypass the guard`);
+    if (registeredChildCommands(out).length > 0) continue;
+    if (GUARD_EXEMPT_COMMANDS.has(command.join(' '))) continue;
+    const args = [...command, ...requiredArgumentsFromHelp(command, out)];
+    const result = inRepo(...args);
+    assert.notEqual(result.code, 0, args.join(' '));
+    assert.ok(result.err.includes(belowMinimum('99.0.0')), `${args.join(' ')}: ${result.err}`);
+    guarded.push(command.join(' '));
+  }
+  for (const expected of [
+    'context',
+    'status',
+    'check',
+    'import',
+    'config migrate',
+    'release init',
+  ]) {
+    assert.ok(guarded.includes(expected), `${expected} must be among the guarded commands`);
+  }
+  assert.deepEqual(repoSnapshot(root), before);
+});
+
 // 20260628-113219: config migrate CLI integration
 test('113219 CLI CR3: config migrate --dry-run shows candidate and exits 0 without writing', () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
@@ -943,8 +1378,8 @@ test('113219 CLI CR3: config migrate --dry-run shows candidate and exits 0 witho
 
   const { code, out } = runIn(root, env, 'config', 'migrate', '--dry-run');
   assert.equal(code, 0);
-  assert.match(out, /Config migration 0 → 5 \(dry run\)/);
-  assert.match(out, /schema_version: 5/);
+  assert.match(out, /Config migration 0 → 6 \(dry run\)/);
+  assert.match(out, /schema_version: 6/);
   assert.match(out, /change_branch_format: "\{type\}\/\{id\}"/);
   assert.equal(fs.readFileSync(configFile, 'utf8'), before, 'dry-run must not modify file');
 });
@@ -984,7 +1419,7 @@ test('234920 CR1: active CLI dry-run previews the ref and leaves ref, snapshot, 
   const { code, out, err } = runIn(root, env, 'config', 'migrate', '--dry-run');
 
   assert.equal(code, 0, err);
-  assert.match(out, /^Config migration 1 → 5 \(dry run\)$/m);
+  assert.match(out, /^Config migration 1 → 6 \(dry run\)$/m);
   assert.ok(out.includes(expected.yaml));
   assert.equal(
     execFileSync('git', ['rev-parse', STATE_REF], {
@@ -999,14 +1434,14 @@ test('234920 CR1: active CLI dry-run previews the ref and leaves ref, snapshot, 
 });
 
 test('234920 CR2: active CLI apply publishes one config migration commit and preserves other state and marker bytes', () => {
-  const marker = 'schema_version: 5\nproject_name: divergent marker\n';
+  const marker = 'schema_version: 6\nproject_name: divergent marker\n';
   const { root, env, configFile, authority, revision } = activatedMigrationCliRepo({ marker });
   const expected = buildMigration(authority).yaml;
 
   const { code, out, err } = runIn(root, env, 'config', 'migrate');
 
   assert.equal(code, 0, err);
-  assert.match(out, /^Config migration 1 → 5$/m);
+  assert.match(out, /^Config migration 1 → 6$/m);
   const tip = execFileSync('git', ['rev-parse', STATE_REF], {
     cwd: root,
     env: sanitizedEnv(),
@@ -1042,7 +1477,7 @@ test('234920 CR2: active CLI apply publishes one config migration commit and pre
 });
 
 test('234920 CR3: active CLI fails closed on an absent ref and an invalid state layout', () => {
-  const current = 'schema_version: 5\n';
+  const current = 'schema_version: 6\n';
 
   const absent = activatedMigrationCliRepo({ marker: current });
   execFileSync('git', ['update-ref', '-d', STATE_REF], { cwd: absent.root, env: sanitizedEnv() });

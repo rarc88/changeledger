@@ -21,6 +21,19 @@ import { buildTree, commitTree, git, initStateRepo, updateRef } from './helpers/
 
 process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'cl-migration-home-'));
 
+// 20260924-184354 CR2 — migrating to schema 6 always inserts `min_cli_version`
+// (declaring the version that ran the migration) directly after
+// `schema_version`. Comment-free source fixtures (no prior comment on their
+// own `schema_version` line) all gain exactly this text in that spot, so
+// tests building an "expected" string by hand share one literal instead of
+// repeating it.
+const SCHEMA_VERSION_TO_6_WITH_MIN_CLI =
+  'schema_version: 6\n\n' +
+  '# Minimum ChangeLedger CLI version required to work with this repo (SemVer,\n' +
+  '# prereleases included). `init` and `config migrate` set it to the version that\n' +
+  '# wrote this file; an older installed CLI refuses to run until it is updated.\n' +
+  'min_cli_version: 0.17.0';
+
 const SCHEMA_2_CONFIG = `\
 schema_version: 2
 language: en
@@ -47,39 +60,41 @@ test('161652 CR1: shared write guard rejects only future schemas', () => {
   assert.equal(assertSupportedSchema({ schema_version: 3 }), 3);
   assert.equal(assertSupportedSchema({ schema_version: 4 }), 4);
   assert.equal(assertSupportedSchema({ schema_version: 5 }), 5);
+  assert.equal(assertSupportedSchema({ schema_version: 6 }), 6);
   assert.throws(
-    () => assertSupportedSchema({ schema_version: 6 }),
-    /^Error: config schema 6 is newer than supported schema 5; update ChangeLedger before writing$/,
+    () => assertSupportedSchema({ schema_version: 7 }),
+    /^Error: config schema 7 is newer than supported schema 6; update ChangeLedger before writing$/,
   );
 });
 
 test('225637 CR1: schema 2 gains a documented blank integration branch at schema 3', () => {
-  const result = buildMigration(SCHEMA_2_CONFIG);
+  const result = buildMigration(SCHEMA_2_CONFIG, '0.17.0');
   assert.ok(result);
   assert.equal(result.fromVersion, 2);
-  assert.match(result.yaml, /^schema_version: 5$/m);
+  assert.match(result.yaml, /^schema_version: 6$/m);
   assert.match(
     result.yaml,
     /project_name: myrepo\n\n# Git integration: change branches start from and merge into this branch\ngit:\n {2}integration_branch:\n {2}change_branch_format: "\{type\}\/\{id\}"\s*$/m,
   );
   assert.deepEqual(result.changes, [
-    'updated schema_version: 2 → 5',
+    'updated schema_version: 2 → 6',
     'added git section',
     'added readiness section',
     'added git.change_branch_format: {type}/{id}',
+    'added min_cli_version: 0.17.0',
   ]);
 });
 
 test('225637 CR2: schema 2 preserves an existing git section and custom comments', () => {
   const source = `${SCHEMA_2_CONFIG}\n# custom git policy\ngit:\n  integration_branch: develop\n  custom: keep\n`;
-  const result = buildMigration(source);
+  const result = buildMigration(source, '0.17.0');
   assert.ok(result);
   assert.match(
     result.yaml,
     /# custom git policy\ngit:\n {2}integration_branch: develop\n {2}custom: keep/,
   );
   assert.equal(result.changes.includes('added git section'), false);
-  assert.equal(buildMigration(result.yaml), null);
+  assert.equal(buildMigration(result.yaml, '0.17.0'), null);
 });
 
 // 20260730-183807 CR1 — pins one historical, incidental shape: the `git`
@@ -113,7 +128,7 @@ project_name: myrepo
 `;
 
 test('183807 CR1: an empty integration_branch does not re-indent an unrelated comment', () => {
-  const result = buildMigration(SCHEMA_3_WITH_FOREIGN_COMMENT);
+  const result = buildMigration(SCHEMA_3_WITH_FOREIGN_COMMENT, '0.17.0');
   assert.ok(result);
   const line = result.yaml.split('\n').find((l) => l.includes('Valid lifecycle'));
   assert.equal(line, '# Valid lifecycle statuses (order = progress)');
@@ -124,7 +139,7 @@ test('183807 CR1: a non-empty integration_branch keeps the same comment untouche
     'integration_branch:\n',
     'integration_branch: main\n',
   );
-  const result = buildMigration(withBranch);
+  const result = buildMigration(withBranch, '0.17.0');
   assert.ok(result);
   const line = result.yaml.split('\n').find((l) => l.includes('Valid lifecycle'));
   assert.equal(line, '# Valid lifecycle statuses (order = progress)');
@@ -168,7 +183,7 @@ project_name: myrepo
 `;
 
 test('183807 CR3: migration removes a verbatim stale commented readiness block from the old template', () => {
-  const result = buildMigration(SCHEMA_3_WITH_STALE_READINESS_COMMENT);
+  const result = buildMigration(SCHEMA_3_WITH_STALE_READINESS_COMMENT, '0.17.0');
   assert.ok(result);
   assert.doesNotMatch(result.yaml, /# readiness:/);
   assert.doesNotMatch(result.yaml, /# Optional Definition of Ready/);
@@ -182,7 +197,7 @@ test('183807 CR3: a user-edited commented readiness block is preserved intact', 
     '#   verification_patterns: ["test/**", "**/*.test.*", "**/*.spec.*", "pnpm test"]',
     '#   verification_patterns: ["test/**", "pnpm run test"]',
   );
-  const result = buildMigration(edited);
+  const result = buildMigration(edited, '0.17.0');
   assert.ok(result);
   assert.match(result.yaml, /# {3}verification_patterns: \["test\/\*\*", "pnpm run test"\]/);
   assert.ok(!result.changes.includes('removed stale commented-out readiness block'));
@@ -212,7 +227,7 @@ function silentOutput() {
 
 function activeMigrationFixture({
   stateConfig = SCHEMA1_CONFIG,
-  marker = 'schema_version: 5\n',
+  marker = 'schema_version: 6\n',
 } = {}) {
   const root = initStateRepo();
   const configFile = path.join(root, '.changeledger', 'config.yml');
@@ -280,11 +295,13 @@ project_name: myrepo
 // CR1 — init seeds the current schema version
 test('113219 CR1: init creates config with the current schema_version', () => {
   const root = tmp();
-  init(root);
+  init(root, '0.17.0');
   const configText = fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8');
-  assert.match(configText, /^schema_version: 5$/m);
+  assert.match(configText, /^schema_version: 6$/m);
+  assert.match(configText, /^min_cli_version: 0\.17\.0$/m);
   const config = loadConfig(path.join(root, '.changeledger'));
-  assert.equal(config.schema_version, 5);
+  assert.equal(config.schema_version, 6);
+  assert.equal(config.min_cli_version, '0.17.0');
   assert.match(
     configText,
     /specs_dir: \.changeledger\/specs\n\n# Git integration: change branches start from and merge into this branch\.\n# `change_branch_format` may use `\{type\}` and exactly one `\{id\}`; use null or remove it to opt out\.\ngit:\n {2}integration_branch:\n {2}change_branch_format: "\{type\}\/\{id\}"\s*$/m,
@@ -293,10 +310,127 @@ test('113219 CR1: init creates config with the current schema_version', () => {
   assert.equal(config.git.change_branch_format, '{type}/{id}');
 });
 
+// 20260924-184354 CR1 — a repo `init`ed by a given CLI version declares that
+// exact version as its minimum, and `changeledger check` accepts it.
+test('184354 CR1: init declares schema 6 and the running min_cli_version; check exits 0', () => {
+  const root = tmp();
+  init(root, '0.17.0');
+  const configText = fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8');
+  assert.match(configText, /^schema_version: 6$/m);
+  assert.match(configText, /^min_cli_version: 0\.17\.0$/m);
+
+  const out = silentOutput();
+  const code = check([], root, out);
+  assert.equal(code, 0, JSON.stringify(out.messages));
+  assert.deepEqual(out.messages.error, []);
+});
+
+// 20260924-184354 CR2 — the explicit migration from schema 5 declares the
+// version of the package that ran it, and a second migration is a no-op that
+// leaves the file byte-identical.
+// A fully-current schema-5 config (everything else already migrated) missing
+// only the key this change introduces — the realistic CR2 starting point,
+// never one that could also already declare `min_cli_version` (schemas ≤5
+// predate the key entirely).
+const SCHEMA5_NO_MIN_CLI_VERSION = `\
+schema_version: 5
+language: en
+tdd: true
+release:
+  impacts:
+    feature: minor
+    bug: patch
+    audit: none
+    refactor: none
+    chore: none
+    quick: patch
+changes_dir: .changeledger/changes
+specs_dir: .changeledger/specs
+statuses: [draft, approved, in-progress, in-review, in-validation, blocked, done, discarded]
+stages: [request, investigation, proposal, specification, plan, log]
+types:
+  feature:
+    stages: [request, investigation, proposal, specification, plan, log]
+    review_required: true
+  bug:
+    stages: [request, investigation, specification, plan, log]
+    review_required: true
+  quick:
+    stages: [request, log]
+readiness:
+  target_patterns: ["src/**"]
+  verification_patterns: ["test/**"]
+git:
+  integration_branch:
+  change_branch_format: "{type}/{id}"
+project_id: "abc123"
+project_name: myrepo
+`;
+
+test('184354 CR2: migrating a schema-5 repo declares min_cli_version and is idempotent', () => {
+  const root = tmp();
+  const configFile = path.join(root, 'config.yml');
+  const schema5 = SCHEMA5_NO_MIN_CLI_VERSION;
+  fs.writeFileSync(configFile, schema5);
+
+  const preview = applyMigration(configFile, {
+    dryRun: true,
+    repoRoot: root,
+    runningVersion: '0.17.0',
+  });
+  assert.match(preview, /^Config migration 5 → 6 \(dry run\)$/m);
+  assert.equal(fs.readFileSync(configFile, 'utf8'), schema5, 'dry-run must not write');
+
+  const summary = applyMigration(configFile, { repoRoot: root, runningVersion: '0.17.0' });
+  assert.equal(
+    summary,
+    'Config migration 5 → 6\n' +
+      '  - updated schema_version: 5 → 6\n' +
+      '  - added min_cli_version: 0.17.0',
+    'a fully-current schema 5 config gains nothing else',
+  );
+  const migrated = fs.readFileSync(configFile, 'utf8');
+  assert.match(migrated, /^schema_version: 6$/m);
+  assert.match(migrated, /^min_cli_version: 0\.17\.0$/m);
+
+  const before = fs.readFileSync(configFile, 'utf8');
+  const second = applyMigration(configFile, { repoRoot: root, runningVersion: '0.17.0' });
+  assert.match(second, /already at schema 6/);
+  assert.equal(
+    fs.readFileSync(configFile, 'utf8'),
+    before,
+    'second migration must be byte-identical',
+  );
+});
+
+// 20260924-184354 CR2 — a config that already carries a `min_cli_version`
+// below schema 6 (never legitimate, but possible from a fixture that only
+// stripped `schema_version`) still gets the running version: updated in
+// place, never duplicated.
+test('184354 CR2: a schema-5 config that already has min_cli_version gets it updated, not duplicated', () => {
+  const withStaleKey = SCHEMA5_NO_MIN_CLI_VERSION.replace(
+    'schema_version: 5',
+    'schema_version: 5\nmin_cli_version: 0.1.0',
+  );
+  const result = buildMigration(withStaleKey, '0.17.0');
+  assert.ok(result);
+  assert.equal(
+    (result.yaml.match(/^min_cli_version:/gm) ?? []).length,
+    1,
+    'no duplicate min_cli_version key',
+  );
+  assert.match(result.yaml, /^min_cli_version: 0\.17\.0$/m);
+  assert.deepEqual(result.changes, [
+    'updated schema_version: 5 → 6',
+    'updated min_cli_version: 0.1.0 → 0.17.0',
+  ]);
+  assert.equal(buildMigration(result.yaml, '0.17.0'), null, 'migration must be terminal');
+});
+
 // CR2 — check and register warn about schema 0, don't mutate
 test('113219 CR2: check warns on schema 0 with actionable message and does not modify config', () => {
   const root = tmp();
-  init(root);
+  init(root, '0.17.0');
   const configFile = path.join(root, '.changeledger', 'config.yml');
   // Downgrade to schema 0
   const text = fs.readFileSync(configFile, 'utf8').replace(/^schema_version: \d+\n/m, '');
@@ -319,7 +453,7 @@ test('113219 CR2: check warns on schema 0 with actionable message and does not m
 
 test('113219 CR2: register warns on schema 0 and does not modify config', () => {
   const root = tmp();
-  init(root);
+  init(root, '0.17.0');
   const configFile = path.join(root, '.changeledger', 'config.yml');
   const text = fs.readFileSync(configFile, 'utf8').replace(/^schema_version: \d+\n/m, '');
   fs.writeFileSync(configFile, text);
@@ -346,12 +480,12 @@ test('113219 CR3: buildMigration returns candidate YAML without writing', () => 
   fs.writeFileSync(configFile, SPECLEDGER_CONFIG);
   const before = fs.readFileSync(configFile, 'utf8');
 
-  const result = buildMigration(SPECLEDGER_CONFIG);
+  const result = buildMigration(SPECLEDGER_CONFIG, '0.17.0');
 
   assert.ok(result, 'should produce a migration result for schema 0');
   assert.ok(
-    result.yaml.includes('schema_version: 5'),
-    'candidate YAML must include schema_version: 5',
+    result.yaml.includes('schema_version: 6'),
+    'candidate YAML must include schema_version: 6',
   );
   assert.equal(
     fs.readFileSync(configFile, 'utf8'),
@@ -363,12 +497,12 @@ test('113219 CR3: buildMigration returns candidate YAML without writing', () => 
 
 // CR4 — full migration from SpecLedger config
 test('113219 CR4: migration adds required fields and removes id_digits', () => {
-  const result = buildMigration(SPECLEDGER_CONFIG);
+  const result = buildMigration(SPECLEDGER_CONFIG, '0.17.0');
 
   assert.ok(result);
   const { yaml: migrated } = result;
 
-  assert.match(migrated, /^schema_version: 5/m);
+  assert.match(migrated, /^schema_version: 6/m);
   assert.match(migrated, /tdd: true/);
   assert.match(migrated, /in-review/);
   assert.match(migrated, /in-validation/);
@@ -380,12 +514,12 @@ test('113219 CR4: migration adds required fields and removes id_digits', () => {
 
 test('113219 CR4: migrated config passes changeledger check', () => {
   const root = tmp();
-  init(root);
+  init(root, '0.17.0');
   const configFile = path.join(root, '.changeledger', 'config.yml');
   // Replace with SpecLedger fixture + project identity
   fs.writeFileSync(configFile, SPECLEDGER_CONFIG);
 
-  const { yaml: migrated } = buildMigration(SPECLEDGER_CONFIG);
+  const { yaml: migrated } = buildMigration(SPECLEDGER_CONFIG, '0.17.0');
   fs.writeFileSync(configFile, migrated);
 
   const out = silentOutput();
@@ -416,7 +550,7 @@ project_id: "abc123"
 project_name: myrepo
 `;
 
-  const result = buildMigration(customConfig);
+  const result = buildMigration(customConfig, '0.17.0');
   assert.ok(result);
   const { yaml: migrated } = result;
 
@@ -458,7 +592,7 @@ project_id: "abc123"
 project_name: myrepo
 `;
 
-  const result = buildMigration(configWithCustomType);
+  const result = buildMigration(configWithCustomType, '0.17.0');
   assert.ok(result);
   const { yaml: migrated } = result;
 
@@ -477,10 +611,10 @@ project_name: myrepo
 
 // CR7 — atomic write and idempotent
 test('113219 CR7: migration is idempotent — second run returns null', () => {
-  const result = buildMigration(SPECLEDGER_CONFIG);
+  const result = buildMigration(SPECLEDGER_CONFIG, '0.17.0');
   assert.ok(result);
 
-  const result2 = buildMigration(result.yaml);
+  const result2 = buildMigration(result.yaml, '0.17.0');
   assert.equal(result2, null, 're-running migration on already-migrated config must return null');
 });
 
@@ -500,7 +634,7 @@ types:
 project_id: "abc123"
 project_name: myrepo
 `;
-  const result = buildMigration(withExplicitZero);
+  const result = buildMigration(withExplicitZero, '0.17.0');
   assert.ok(result);
   const { yaml: migrated } = result;
   // Only one schema_version key
@@ -509,21 +643,21 @@ project_name: myrepo
     1,
     'no duplicate schema_version',
   );
-  assert.match(migrated, /^schema_version: 5/m);
+  assert.match(migrated, /^schema_version: 6/m);
   // Idempotent
-  assert.equal(buildMigration(migrated), null);
+  assert.equal(buildMigration(migrated, '0.17.0'), null);
 });
 
 // CR8 — invalid YAML and future schema fail closed
 test('113219 CR8: invalid YAML throws with explanation', () => {
-  assert.throws(() => buildMigration('statuses: [\n  - bad'), /Invalid YAML/);
+  assert.throws(() => buildMigration('statuses: [\n  - bad', '0.17.0'), /Invalid YAML/);
 });
 
 test('113219 CR8: future schema throws with explanation and does not write', () => {
-  const futureConfig = `schema_version: 6\nlanguage: en\nchanges_dir: .changeledger/changes\n`;
+  const futureConfig = `schema_version: 7\nlanguage: en\nchanges_dir: .changeledger/changes\n`;
   assert.throws(
-    () => buildMigration(futureConfig),
-    /config schema 6 is newer than supported schema 5/,
+    () => buildMigration(futureConfig, '0.17.0'),
+    /config schema 7 is newer than supported schema 6/,
   );
 });
 
@@ -541,9 +675,9 @@ test('113219 CR9: all historical fixture generations converge to the current sch
   ];
 
   for (const fixture of fixtures) {
-    const result = buildMigration(fixture);
+    const result = buildMigration(fixture, '0.17.0');
     assert.ok(
-      result !== null || buildMigration(fixture) === null,
+      result !== null || buildMigration(fixture, '0.17.0') === null,
       'result should be migration or already-current',
     );
     const migrated = result ? result.yaml : fixture;
@@ -551,11 +685,11 @@ test('113219 CR9: all historical fixture generations converge to the current sch
     // Verify the current schema version in output
     assert.match(
       migrated,
-      /schema_version: 5/,
+      /schema_version: 6/,
       `fixture did not converge: ${fixture.slice(0, 80)}`,
     );
     // Verify idempotent
-    const second = buildMigration(migrated);
+    const second = buildMigration(migrated, '0.17.0');
     assert.equal(second, null, `migration was not idempotent for fixture: ${fixture.slice(0, 80)}`);
   }
 });
@@ -577,7 +711,7 @@ project_id: "abc123"
 project_name: myrepo
 `;
 
-  const result = buildMigration(specLedgerWithOldComments);
+  const result = buildMigration(specLedgerWithOldComments, '0.17.0');
   assert.ok(result);
   const { yaml: migrated } = result;
 
@@ -610,7 +744,7 @@ project_id: "abc123"
 project_name: myrepo
 `;
 
-  const result = buildMigration(configWithCustomComment);
+  const result = buildMigration(configWithCustomComment, '0.17.0');
   assert.ok(result);
   const { yaml: migrated } = result;
 
@@ -633,7 +767,7 @@ project_id: "abc123"
 project_name: legacy
 `;
 
-  const { yaml: migrated } = buildMigration(historical);
+  const { yaml: migrated } = buildMigration(historical, '0.17.0');
   assert.match(
     migrated,
     /# Definition of Ready policy[\s\S]*?tdd: true/,
@@ -679,11 +813,11 @@ project_name: myrepo
 
 // CR1 — migration 1 → 2 adds quick
 test('162556 CR1: schema 1 without quick gains quick type and impact on migration', () => {
-  const result = buildMigration(SCHEMA1_CONFIG);
+  const result = buildMigration(SCHEMA1_CONFIG, '0.17.0');
   assert.ok(result, 'schema 1 must produce a migration to the current schema');
   const { yaml: migrated, changes } = result;
 
-  assert.match(migrated, /^schema_version: 5$/m);
+  assert.match(migrated, /^schema_version: 6$/m);
   // quick type with stages [request, log]
   assert.match(migrated, /quick:\s*\n\s+stages: \[ ?request, log ?\]/);
   // no review_required inside the quick block
@@ -721,15 +855,19 @@ test('20260810-004609: applyMigration without repoRoot fails fast', () => {
 test('162556 CR1: applyMigration summary reports 1 → current for schema 1 configs', () => {
   const configFile = `${os.tmpdir()}/cl-162556-summary-${process.pid}.yml`;
   fs.writeFileSync(configFile, SCHEMA1_CONFIG);
-  const summary = applyMigration(configFile, { dryRun: true, repoRoot: path.dirname(configFile) });
-  assert.match(summary, /Config migration 1 → 5/);
+  const summary = applyMigration(configFile, {
+    dryRun: true,
+    repoRoot: path.dirname(configFile),
+    runningVersion: '0.17.0',
+  });
+  assert.match(summary, /Config migration 1 → 6/);
   assert.equal(fs.readFileSync(configFile, 'utf8'), SCHEMA1_CONFIG, 'dry run must not write');
   fs.rmSync(configFile, { force: true });
 });
 
 test('234920 CR4: active apply loses a deterministic real CAS race and preserves the winner', () => {
   const { root, configFile, marker, revision } = activeMigrationFixture();
-  const winnerConfig = buildMigration(SCHEMA1_CONFIG).yaml.replace(
+  const winnerConfig = buildMigration(SCHEMA1_CONFIG, '0.17.0').yaml.replace(
     'project_name: myrepo',
     'project_name: winner',
   );
@@ -748,7 +886,7 @@ test('234920 CR4: active apply loses a deterministic real CAS race and preserves
   };
 
   assert.throws(
-    () => applyMigration(configFile, { repoRoot: root, run: racingRun }),
+    () => applyMigration(configFile, { repoRoot: root, run: racingRun, runningVersion: '0.17.0' }),
     LedgerConflictError,
   );
   assert.equal(raced, true);
@@ -757,11 +895,11 @@ test('234920 CR4: active apply loses a deterministic real CAS race and preserves
 });
 
 test('234920 CR3: active no-op and invalid or future configs never fall back to the marker', () => {
-  const current = buildMigration(SCHEMA1_CONFIG).yaml;
+  const current = buildMigration(SCHEMA1_CONFIG, '0.17.0').yaml;
   const noOp = activeMigrationFixture({ stateConfig: current, marker: 'statuses: [\n' });
   assert.equal(
-    applyMigration(noOp.configFile, { repoRoot: noOp.root }),
-    'Config is already at schema 5. No changes needed.',
+    applyMigration(noOp.configFile, { repoRoot: noOp.root, runningVersion: '0.17.0' }),
+    'Config is already at schema 6. No changes needed.',
   );
   assert.equal(
     execFileSync('git', ['rev-parse', STATE_REF], {
@@ -777,13 +915,18 @@ test('234920 CR3: active no-op and invalid or future configs never fall back to 
     ['invalid', 'statuses: [\n', /Invalid YAML/],
     [
       'future',
-      'schema_version: 6\nproject_id: abc123\n',
-      /config schema 6 is newer than supported schema 5/,
+      'schema_version: 7\nproject_id: abc123\n',
+      /config schema 7 is newer than supported schema 6/,
     ],
   ]) {
     const fixture = activeMigrationFixture({ stateConfig, marker: current });
     assert.throws(
-      () => applyMigration(fixture.configFile, { dryRun: true, repoRoot: fixture.root }),
+      () =>
+        applyMigration(fixture.configFile, {
+          dryRun: true,
+          repoRoot: fixture.root,
+          runningVersion: '0.17.0',
+        }),
       expected,
       name,
     );
@@ -801,19 +944,19 @@ test('234920 CR3: active no-op and invalid or future configs never fall back to 
 });
 
 test('234920 CR5: inactive Git repos only probe activation across every config and mode', () => {
-  const migrated = buildMigration(SCHEMA1_CONFIG).yaml;
+  const migrated = buildMigration(SCHEMA1_CONFIG, '0.17.0').yaml;
   const cases = [
-    { name: 'old', text: SCHEMA1_CONFIG, summary: /Config migration 1 → 5/ },
+    { name: 'old', text: SCHEMA1_CONFIG, summary: /Config migration 1 → 6/ },
     {
       name: 'current',
       text: migrated,
-      summary: 'Config is already at schema 5. No changes needed.',
+      summary: 'Config is already at schema 6. No changes needed.',
     },
     { name: 'invalid', text: 'statuses: [\n', error: /Invalid YAML/ },
     {
       name: 'future',
-      text: 'schema_version: 6\nproject_id: abc123\n',
-      error: /config schema 6 is newer than supported schema 5/,
+      text: 'schema_version: 7\nproject_id: abc123\n',
+      error: /config schema 7 is newer than supported schema 6/,
     },
   ];
   const activationProbe = [['rev-parse', '--verify', '--quiet', 'refs/changeledger/activation']];
@@ -833,12 +976,18 @@ test('234920 CR5: inactive Git repos only probe activation across every config a
 
       if (fixture.error) {
         assert.throws(
-          () => applyMigration(configFile, { dryRun, repoRoot: root, run }),
+          () =>
+            applyMigration(configFile, { dryRun, repoRoot: root, run, runningVersion: '0.17.0' }),
           fixture.error,
           label,
         );
       } else {
-        const summary = applyMigration(configFile, { dryRun, repoRoot: root, run });
+        const summary = applyMigration(configFile, {
+          dryRun,
+          repoRoot: root,
+          run,
+          runningVersion: '0.17.0',
+        });
         if (fixture.summary instanceof RegExp) assert.match(summary, fixture.summary, label);
         else assert.equal(summary, fixture.summary, label);
       }
@@ -858,23 +1007,37 @@ test('234920 CR5: a nested project migrates its own config and never the host st
   const host = activeMigrationFixture();
   const nested = nestedProject(host.root);
 
-  const summary = applyMigration(nested.configFile, { repoRoot: nested.repoRoot });
+  const summary = applyMigration(nested.configFile, {
+    repoRoot: nested.repoRoot,
+    runningVersion: '0.17.0',
+  });
 
-  assert.match(summary, /^Config migration 1 → 5$/m);
-  assert.equal(fs.readFileSync(nested.configFile, 'utf8'), buildMigration(nested.text).yaml);
+  assert.match(summary, /^Config migration 1 → 6$/m);
+  assert.equal(
+    fs.readFileSync(nested.configFile, 'utf8'),
+    buildMigration(nested.text, '0.17.0').yaml,
+  );
   assert.equal(stateRefAt(host.root), host.revision);
   assert.equal(stateConfigAt(host.root), SCHEMA1_CONFIG);
   assert.equal(fs.readFileSync(host.configFile, 'utf8'), host.marker);
 });
 
 test('234920 CR5: a nested project migrates even when the host authority is current', () => {
-  const host = activeMigrationFixture({ stateConfig: buildMigration(SCHEMA1_CONFIG).yaml });
+  const host = activeMigrationFixture({
+    stateConfig: buildMigration(SCHEMA1_CONFIG, '0.17.0').yaml,
+  });
   const nested = nestedProject(host.root);
 
-  const summary = applyMigration(nested.configFile, { repoRoot: nested.repoRoot });
+  const summary = applyMigration(nested.configFile, {
+    repoRoot: nested.repoRoot,
+    runningVersion: '0.17.0',
+  });
 
-  assert.match(summary, /^Config migration 1 → 5$/m);
-  assert.equal(fs.readFileSync(nested.configFile, 'utf8'), buildMigration(nested.text).yaml);
+  assert.match(summary, /^Config migration 1 → 6$/m);
+  assert.equal(
+    fs.readFileSync(nested.configFile, 'utf8'),
+    buildMigration(nested.text, '0.17.0').yaml,
+  );
   assert.equal(stateRefAt(host.root), host.revision);
 });
 
@@ -882,16 +1045,19 @@ test('234920 CR5: a nested project migrates even when the host authority is curr
 // ledger the marker is discovery only, whether it diverges while claiming the
 // same project or cannot be parsed at all.
 test('234920 CR2: the activated repo keeps the ref route on a divergent or malformed marker', () => {
-  const expected = buildMigration(SCHEMA1_CONFIG).yaml;
+  const expected = buildMigration(SCHEMA1_CONFIG, '0.17.0').yaml;
   for (const [name, marker] of [
-    ['divergent', 'schema_version: 5\nproject_id: "abc123"\nproject_name: divergent\n'],
+    ['divergent', 'schema_version: 6\nproject_id: "abc123"\nproject_name: divergent\n'],
     ['malformed', 'statuses: [\n'],
   ]) {
     const fixture = activeMigrationFixture({ marker });
 
-    const summary = applyMigration(fixture.configFile, { repoRoot: fixture.root });
+    const summary = applyMigration(fixture.configFile, {
+      repoRoot: fixture.root,
+      runningVersion: '0.17.0',
+    });
 
-    assert.match(summary, /^Config migration 1 → 5$/m, name);
+    assert.match(summary, /^Config migration 1 → 6$/m, name);
     const tip = stateRefAt(fixture.root);
     assert.equal(
       execFileSync('git', ['rev-parse', `${tip}^`], {
@@ -921,16 +1087,19 @@ test('234920 CR2: the activated repo keeps the ref route on a divergent or malfo
 // ledger, so a stale `project_id` in the marker cannot divert the migration
 // away from the state ref and into the worktree file.
 test('194234 CR4: a top-level marker with a mismatched project_id migrates the ref', () => {
-  const marker = 'schema_version: 5\nproject_id: "stale-id"\nproject_name: stale-name\n';
+  const marker = 'schema_version: 6\nproject_id: "stale-id"\nproject_name: stale-name\n';
   const fixture = activeMigrationFixture({ marker });
 
-  const summary = applyMigration(fixture.configFile, { repoRoot: fixture.root });
+  const summary = applyMigration(fixture.configFile, {
+    repoRoot: fixture.root,
+    runningVersion: '0.17.0',
+  });
 
-  assert.match(summary, /^Config migration 1 → 5$/m);
+  assert.match(summary, /^Config migration 1 → 6$/m);
   const tip = stateRefAt(fixture.root);
   assert.equal(git(fixture.root, ['rev-parse', `${tip}^`]), fixture.revision);
   assert.equal(git(fixture.root, ['log', '-1', '--format=%s', tip]), 'config: migrate');
-  assert.equal(stateConfigAt(fixture.root, tip), buildMigration(SCHEMA1_CONFIG).yaml);
+  assert.equal(stateConfigAt(fixture.root, tip), buildMigration(SCHEMA1_CONFIG, '0.17.0').yaml);
   assert.equal(fs.readFileSync(fixture.configFile, 'utf8'), marker);
 });
 
@@ -962,12 +1131,12 @@ types:
 project_id: "abc123"
 project_name: myrepo
 `;
-  const result = buildMigration(customized);
+  const result = buildMigration(customized, '0.17.0');
   assert.ok(result);
   const { yaml: migrated, changes } = result;
 
   const expected = `${customized
-    .replace('schema_version: 1', 'schema_version: 5')
+    .replace('schema_version: 1', SCHEMA_VERSION_TO_6_WITH_MIN_CLI)
     .replace(
       '    stages: [request, plan, log]',
       '    stages: [request, specification, plan, log]',
@@ -978,11 +1147,12 @@ project_name: myrepo
     'only schema version, git section, readiness and the review coupling',
   );
   assert.deepEqual(changes, [
-    'updated schema_version: 1 → 5',
+    'updated schema_version: 1 → 6',
     'added git section',
     'added readiness section',
     'added stage specification to types.quick.stages',
     'added git.change_branch_format: {type}/{id}',
+    'added min_cli_version: 0.17.0',
   ]);
 });
 
@@ -994,34 +1164,37 @@ function withoutReadiness(yaml) {
 
 // CR3 — idempotency and version boundary
 test('162556 CR3: current config needs no migration and file is untouched', () => {
-  const result = buildMigration(SCHEMA1_CONFIG);
+  const result = buildMigration(SCHEMA1_CONFIG, '0.17.0');
   assert.ok(result);
-  assert.equal(buildMigration(result.yaml), null, 'migration output must be terminal');
+  assert.equal(buildMigration(result.yaml, '0.17.0'), null, 'migration output must be terminal');
 
   const configFile = `${os.tmpdir()}/cl-162556-idem-${process.pid}.yml`;
   fs.writeFileSync(configFile, result.yaml);
   const before = fs.statSync(configFile).mtimeMs;
-  const summary = applyMigration(configFile, { repoRoot: path.dirname(configFile) });
-  assert.match(summary, /already at schema 5/);
+  const summary = applyMigration(configFile, {
+    repoRoot: path.dirname(configFile),
+    runningVersion: '0.17.0',
+  });
+  assert.match(summary, /already at schema 6/);
   assert.equal(fs.statSync(configFile).mtimeMs, before, 'no rewrite when already current');
   fs.rmSync(configFile, { force: true });
 });
 
 test('162556 CR3: schema newer than current fails closed', () => {
   assert.throws(
-    () => buildMigration('schema_version: 6\nlanguage: en\n'),
-    /config schema 6 is newer than supported schema 5/,
+    () => buildMigration('schema_version: 7\nlanguage: en\n', '0.17.0'),
+    /config schema 7 is newer than supported schema 6/,
   );
 });
 
 // CR1/CR9 continuity — schema 0 configs also converge with quick included
 test('162556 CR1: schema 0 migration lands at current and includes quick', () => {
-  const result = buildMigration(SPECLEDGER_CONFIG);
+  const result = buildMigration(SPECLEDGER_CONFIG, '0.17.0');
   assert.ok(result);
-  assert.match(result.yaml, /^schema_version: 5$/m);
+  assert.match(result.yaml, /^schema_version: 6$/m);
   assert.match(result.yaml, /quick:\s*\n\s+stages: \[ ?request, log ?\]/);
   assert.match(result.yaml, /quick: patch/);
-  assert.equal(buildMigration(result.yaml), null);
+  assert.equal(buildMigration(result.yaml, '0.17.0'), null);
 });
 
 // 20260726-141119 — migration 3 → 4 activates the verifiable stages on every
@@ -1066,23 +1239,23 @@ test('141119 CR6: migration 3 → 4 inserts the stages a review_required type la
   const configFile = path.join(root, 'config.yml');
   fs.writeFileSync(configFile, SCHEMA3_REVIEW_WITHOUT_SPEC);
 
-  const summary = applyMigration(configFile, { repoRoot: root });
-  assert.match(summary, /Config migration 3 → 5/);
+  const summary = applyMigration(configFile, { repoRoot: root, runningVersion: '0.17.0' });
+  assert.match(summary, /Config migration 3 → 6/);
   assert.ok(summary.includes('added stage specification to types.refactor.stages'), summary);
 
   const migrated = fs.readFileSync(configFile, 'utf8');
-  assert.match(migrated, /^schema_version: 5$/m);
+  assert.match(migrated, /^schema_version: 6$/m);
   assert.match(migrated, /^ {4}stages: \[request, proposal, specification, plan, log\]$/m);
   // Types that do not demand review keep their stage lists byte for byte.
   assert.match(migrated, /^ {4}stages: \[request, investigation, log\]$/m);
   assert.match(migrated, /^ {4}stages: \[request, plan\]$/m);
   assert.match(migrated, /^ {4}stages: \[request, log\]$/m);
-  assert.equal(buildMigration(migrated), null, 'migration must be terminal');
+  assert.equal(buildMigration(migrated, '0.17.0'), null, 'migration must be terminal');
 });
 
 test('141119 CR6: the migrated config no longer trips the review/stage coupling', () => {
   const root = tmp();
-  init(root);
+  init(root, '0.17.0');
   const configFile = path.join(root, '.changeledger', 'config.yml');
   fs.writeFileSync(configFile, SCHEMA3_REVIEW_WITHOUT_SPEC);
 
@@ -1093,7 +1266,7 @@ test('141119 CR6: the migrated config no longer trips the review/stage coupling'
     `expected the coupling error before migrating, got: ${JSON.stringify(before.messages.error)}`,
   );
 
-  applyMigration(configFile, { repoRoot: root });
+  applyMigration(configFile, { repoRoot: root, runningVersion: '0.17.0' });
 
   const after = silentOutput();
   check([], root, after);
@@ -1112,7 +1285,7 @@ test('141119 CR6: a light type demanding review gains both stages in canonical o
     '  quick:\n    stages: [request, log]\n',
     '  quick:\n    stages: [request, log]\n    review_required: true\n',
   );
-  const result = buildMigration(source);
+  const result = buildMigration(source, '0.17.0');
   assert.ok(result);
   assert.match(result.yaml, /^ {4}stages: \[request, specification, plan, log\]$/m);
   assert.deepEqual(
@@ -1151,14 +1324,14 @@ test('141122 CR4: migration adds the readiness defaults to a config that lacks t
   const configFile = path.join(root, 'config.yml');
   fs.writeFileSync(configFile, SCHEMA3_WITH_COMMENTS);
 
-  const summary = applyMigration(configFile, { repoRoot: root });
+  const summary = applyMigration(configFile, { repoRoot: root, runningVersion: '0.17.0' });
   assert.ok(
     summary.split('\n').some((line) => line.includes('readiness')),
     `the summary must report the readiness addition, got:\n${summary}`,
   );
 
   const migrated = fs.readFileSync(configFile, 'utf8');
-  assert.match(migrated, /^schema_version: 5$/m);
+  assert.match(migrated, /^schema_version: 6$/m);
   assert.ok(
     migrated.includes(
       'readiness:\n  target_patterns: ["src/**"]\n  verification_patterns: ["test/**"]\n',
@@ -1170,13 +1343,13 @@ test('141122 CR4: migration adds the readiness defaults to a config that lacks t
   assert.match(migrated, /integration_branch: dev/);
   assert.equal(
     withoutReadiness(migrated),
-    SCHEMA3_WITH_COMMENTS.replace('schema_version: 3', 'schema_version: 5').replace(
+    SCHEMA3_WITH_COMMENTS.replace('schema_version: 3', SCHEMA_VERSION_TO_6_WITH_MIN_CLI).replace(
       '  integration_branch: dev\n',
       '  integration_branch: dev\n  change_branch_format: "{type}/{id}"\n',
     ),
     'only the schema version, branch default and appended readiness section may change',
   );
-  assert.equal(buildMigration(migrated), null, 'migration must be terminal');
+  assert.equal(buildMigration(migrated, '0.17.0'), null, 'migration must be terminal');
 });
 
 test('141122 CR5: a readiness the user already declared survives the migration', () => {
@@ -1184,12 +1357,12 @@ test('141122 CR5: a readiness the user already declared survives the migration',
     'changes_dir:',
     '# tuned for this Ruby repo\nreadiness:\n  target_patterns: ["lib/**"]\n  verification_patterns: ["verify:"]\n\nchanges_dir:',
   );
-  const result = buildMigration(source);
+  const result = buildMigration(source, '0.17.0');
   assert.ok(result);
   assert.equal(
     result.yaml,
     source
-      .replace('schema_version: 3', 'schema_version: 5')
+      .replace('schema_version: 3', SCHEMA_VERSION_TO_6_WITH_MIN_CLI)
       .replace(
         '  integration_branch: dev\n',
         '  integration_branch: dev\n  change_branch_format: "{type}/{id}"\n',
@@ -1197,10 +1370,11 @@ test('141122 CR5: a readiness the user already declared survives the migration',
     'a declared readiness must survive while the branch default is added',
   );
   assert.deepEqual(result.changes, [
-    'updated schema_version: 3 → 5',
+    'updated schema_version: 3 → 6',
     'added git.change_branch_format: {type}/{id}',
+    'added min_cli_version: 0.17.0',
   ]);
-  assert.equal(buildMigration(result.yaml), null, 'migration must be terminal');
+  assert.equal(buildMigration(result.yaml, '0.17.0'), null, 'migration must be terminal');
 });
 
 // 20260726-141119 CR6 (review defect) — a stage absent from the config's own
@@ -1229,12 +1403,13 @@ project_name: myrepo
 `;
 
 test('141119 CR6: a stage missing from the canonical list is never inserted into a type', () => {
-  const result = buildMigration(SCHEMA3_REVIEW_STAGE_NOT_CANONICAL);
+  const result = buildMigration(SCHEMA3_REVIEW_STAGE_NOT_CANONICAL, '0.17.0');
   assert.ok(result);
   assert.deepEqual(result.changes, [
-    'updated schema_version: 3 → 5',
+    'updated schema_version: 3 → 6',
     'added readiness section',
     'added git.change_branch_format: {type}/{id}',
+    'added min_cli_version: 0.17.0',
   ]);
 
   const migrated = result.yaml;
@@ -1244,7 +1419,7 @@ test('141119 CR6: a stage missing from the canonical list is never inserted into
 // CR4 — check detects schema 1 as outdated and points at the migration
 test('162556 CR4: check warns on schema 1 with the migrate command and does not modify config', () => {
   const root = tmp();
-  init(root);
+  init(root, '0.17.0');
   const configFile = path.join(root, '.changeledger', 'config.yml');
   const schema1 = fs
     .readFileSync(configFile, 'utf8')
@@ -1273,10 +1448,10 @@ test('162556 CR4: check warns on schema 1 with the migrate command and does not 
 
 test('161655 CR2: init publishes the default change branch format', () => {
   const root = tmp();
-  init(root);
+  init(root, '0.17.0');
 
   const config = loadConfig(path.join(root, '.changeledger'));
-  assert.equal(config.schema_version, 5);
+  assert.equal(config.schema_version, 6);
   assert.equal(config.git.change_branch_format, '{type}/{id}');
 });
 
@@ -1294,27 +1469,27 @@ project_id: "abc123"
 project_name: myrepo
 `;
 
-  const result = buildMigration(source);
-  assert.ok(result, 'schema 4 must migrate to schema 5');
+  const result = buildMigration(source, '0.17.0');
+  assert.ok(result, 'schema 4 must migrate to schema 6');
   assert.equal(result.fromVersion, 4);
-  assert.match(result.yaml, /^schema_version: 5$/m);
+  assert.match(result.yaml, /^schema_version: 6$/m);
   assert.match(
     result.yaml,
     /git:\n {2}# keep this branch policy\n {2}integration_branch: develop\n {2}# legacy opt-in placeholder\n {2}change_branch_format: "\{type\}\/\{id\}"\n {2}custom: keep/,
   );
   assert.ok(result.changes.includes('added git.change_branch_format: {type}/{id}'));
   assert.doesNotMatch(result.yaml, /^(?:global_state|state_store|store):/m);
-  assert.equal(buildMigration(result.yaml), null, 'schema 5 output must be terminal');
+  assert.equal(buildMigration(result.yaml, '0.17.0'), null, 'schema 6 output must be terminal');
 });
 
 test('161655 CR2: an earlier supported schema reaches the default through the full chain', () => {
-  const result = buildMigration(SCHEMA1_CONFIG);
+  const result = buildMigration(SCHEMA1_CONFIG, '0.17.0');
   assert.ok(result);
   assert.equal(result.fromVersion, 1);
-  assert.match(result.yaml, /^schema_version: 5$/m);
+  assert.match(result.yaml, /^schema_version: 6$/m);
   assert.match(result.yaml, /^ {2}change_branch_format: "\{type\}\/\{id\}"$/m);
   assert.doesNotMatch(result.yaml, /^(?:global_state|state_store|store):/m);
-  assert.equal(buildMigration(result.yaml), null, 'full-chain output must be terminal');
+  assert.equal(buildMigration(result.yaml, '0.17.0'), null, 'full-chain output must be terminal');
 });
 
 // --- 20260810-120457 CR3/CR6: migrate routes by the anchor -------------------
@@ -1324,7 +1499,7 @@ test('161655 CR2: an earlier supported schema reaches the default through the fu
 // never judge: an owned ledger below the git top-level whose marker is stale,
 // and a nested foreign ledger that claims the host's own `project_id`.
 
-function activatedBelowTopLevel({ marker = 'schema_version: 5\nproject_id: "stale-id"\n' } = {}) {
+function activatedBelowTopLevel({ marker = 'schema_version: 6\nproject_id: "stale-id"\n' } = {}) {
   const root = initStateRepo();
   const repoRoot = path.join(root, 'packages', 'app');
   const configFile = path.join(repoRoot, '.changeledger', 'config.yml');
@@ -1344,12 +1519,15 @@ function activatedBelowTopLevel({ marker = 'schema_version: 5\nproject_id: "stal
 test('20260810-120457 CR3: a stale marker below the top-level still migrates the ref', () => {
   const fixture = activatedBelowTopLevel();
 
-  const summary = applyMigration(fixture.configFile, { repoRoot: fixture.repoRoot });
+  const summary = applyMigration(fixture.configFile, {
+    repoRoot: fixture.repoRoot,
+    runningVersion: '0.17.0',
+  });
 
-  assert.match(summary, /^Config migration 1 → 5$/m);
+  assert.match(summary, /^Config migration 1 → 6$/m);
   const tip = stateRefAt(fixture.root);
   assert.equal(git(fixture.root, ['rev-parse', `${tip}^`]), fixture.revision);
-  assert.equal(stateConfigAt(fixture.root, tip), buildMigration(SCHEMA1_CONFIG).yaml);
+  assert.equal(stateConfigAt(fixture.root, tip), buildMigration(SCHEMA1_CONFIG, '0.17.0').yaml);
   assert.equal(fs.readFileSync(fixture.configFile, 'utf8'), fixture.marker);
 });
 
@@ -1357,10 +1535,16 @@ test('20260810-120457 CR6: a nested project claiming the host project_id migrate
   const host = activeMigrationFixture();
   const nested = nestedProject(host.root, { projectId: 'abc123' });
 
-  const summary = applyMigration(nested.configFile, { repoRoot: nested.repoRoot });
+  const summary = applyMigration(nested.configFile, {
+    repoRoot: nested.repoRoot,
+    runningVersion: '0.17.0',
+  });
 
-  assert.match(summary, /^Config migration 1 → 5$/m);
-  assert.equal(fs.readFileSync(nested.configFile, 'utf8'), buildMigration(nested.text).yaml);
+  assert.match(summary, /^Config migration 1 → 6$/m);
+  assert.equal(
+    fs.readFileSync(nested.configFile, 'utf8'),
+    buildMigration(nested.text, '0.17.0').yaml,
+  );
   assert.equal(stateRefAt(host.root), host.revision);
   assert.equal(stateConfigAt(host.root), SCHEMA1_CONFIG);
 });

@@ -8,9 +8,15 @@ import { parse as parseYaml } from 'yaml';
 import { parseChange } from '../src/change.mjs';
 import { checkRepo } from '../src/check.mjs';
 import { check } from '../src/commands/check.mjs';
-import { integrationBranch, renderChangeBranch } from '../src/config.mjs';
+import {
+  BRANCH_FORMAT_PLACEHOLDERS,
+  integrationBranch,
+  renderChangeBranch,
+} from '../src/config.mjs';
 import { ensureReference } from '../src/contract.mjs';
+import { LOG_EVENT_TYPES } from '../src/lifecycle.mjs';
 import { templatesDir } from '../src/paths.mjs';
+import { RELEASE_IMPACTS } from '../src/release.mjs';
 import { STATE_REF, writeActivation } from '../src/state-store.mjs';
 import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
@@ -98,6 +104,56 @@ test('config specs_dir escaping the repo is an error', () => {
 test('a valid repo has no errors', () => {
   const { errors } = run([change()]);
   assert.deepEqual(errors, []);
+});
+
+test('20260824-134716 CR2: configurable and fixed check domains enumerate their authority', () => {
+  const subject = change({
+    frontmatter: { type: 'unknown', status: 'unknown', release_impact: 'unknown' },
+    stages: [{ key: 'unknown', heading: 'Unknown' }],
+  });
+  const { errors } = run([subject]);
+  const all = msgs(errors).join('\n');
+  assert.match(
+    all,
+    new RegExp(`unknown type "unknown"; valid types: ${Object.keys(config.types).join(', ')}`),
+  );
+  assert.match(
+    all,
+    new RegExp(`unknown status "unknown"; valid statuses: ${config.statuses.join(', ')}`),
+  );
+  assert.match(
+    all,
+    new RegExp(`unknown stage "## unknown"; valid stages: ${config.stages.join(', ')}`),
+  );
+  assert.match(all, new RegExp(`must be one of: ${RELEASE_IMPACTS.join(', ')}`));
+  assert.deepEqual(BRANCH_FORMAT_PLACEHOLDERS, ['type', 'id']);
+});
+
+test('20260824-134716 CR6: an invalid Log entry gives the complete canonical grammar only', () => {
+  const text = [
+    '---',
+    'id: "20260613-120000"',
+    'title: X',
+    'type: feature',
+    'status: draft',
+    'created: 2026-06-13T12:00:00Z',
+    'depends_on: []',
+    '---',
+    '',
+    '## Log',
+    '',
+    '- **2026-06-13T12:00:00Z** `[bogus]` payload',
+    '',
+  ].join('\n');
+  const subject = change({ text, stages: [{ key: 'log', heading: 'Log', body: '- invalid' }] });
+  const { errors, warnings } = run([subject]);
+  assert.ok(
+    msgs(errors).includes(
+      `Log line 12: invalid typed event; valid types: ${LOG_EVENT_TYPES.join(', ')}; expected: - **YYYY-MM-DDTHH:MM:SSZ** \`[type]\` payload`,
+    ),
+    msgs(errors).join('\n'),
+  );
+  assert.doesNotMatch([...msgs(errors), ...msgs(warnings)].join('\n'), /fix --structured-sections/);
 });
 
 // Confirm-only (20260726-124836 CR5): src/check.mjs never validated `owner`,
@@ -393,6 +449,74 @@ test('111218 CR4: malformed readiness patterns report errors without breaking co
         message.includes('config "readiness.target_patterns" must be a list'),
       ),
     );
+  }
+});
+
+// 20260924-184354 CR5 (check half) — `min_cli_version` only matters from
+// schema 6 onward: schemas ≤5 (including the shared `config` fixture, which
+// has no `schema_version` at all) keep today's behavior with no new
+// diagnostic.
+test('184354 CR5: min_cli_version is irrelevant below schema 6', () => {
+  assert.deepEqual(checkRepo({ config, changes: [] }).errors, []);
+  const schema5 = { ...config, schema_version: 5 };
+  assert.deepEqual(checkRepo({ config: schema5, changes: [] }).errors, []);
+});
+
+test('184354 CR5: a missing min_cli_version at schema 6 is a named error', () => {
+  const schema6 = { ...config, schema_version: 6 };
+  const { errors } = checkRepo({ config: schema6, changes: [] });
+  assert.ok(
+    msgs(errors).some((m) => m.includes('min_cli_version') && m.includes('missing')),
+    msgs(errors).join('\n'),
+  );
+});
+
+// The requirement is "from schema 6 onward", not "exactly schema 6" — a
+// schema past 6 (however that comes to exist) still needs it.
+test('184354 CR5: a missing min_cli_version past schema 6 is still a named error', () => {
+  const schema7 = { ...config, schema_version: 7 };
+  const { errors } = checkRepo({ config: schema7, changes: [] });
+  assert.ok(
+    msgs(errors).some((m) => m.includes('min_cli_version') && m.includes('missing')),
+    msgs(errors).join('\n'),
+  );
+});
+
+test('184354 CR5: an invalid min_cli_version at schema 6 is a named error naming the value', () => {
+  for (const bad of ['latest', 'v1.2.3', '1.2', '', 7]) {
+    const schema6 = { ...config, schema_version: 6, min_cli_version: bad };
+    const { errors } = checkRepo({ config: schema6, changes: [] });
+    assert.ok(
+      msgs(errors).some((m) => m.includes('min_cli_version') && m.includes(JSON.stringify(bad))),
+      `bad=${JSON.stringify(bad)}: ${msgs(errors).join('\n')}`,
+    );
+  }
+});
+
+test('184354 CR5: a concrete SemVer (prereleases included) min_cli_version at schema 6 is valid', () => {
+  for (const good of ['0.17.0', '1.2.3', '0.17.0-dev', '2.0.0-rc.1+build.5']) {
+    const schema6 = { ...config, schema_version: 6, min_cli_version: good };
+    const { errors } = checkRepo({ config: schema6, changes: [] });
+    assert.deepEqual(
+      msgs(errors).filter((m) => m.includes('min_cli_version')),
+      [],
+      `good=${good}: ${msgs(errors).join('\n')}`,
+    );
+  }
+});
+
+// Real-repo, command-level evidence for CR5: `changeledger check` itself
+// fails closed and names the key plus the invalid/absent value, per CR5's
+// Given/When/Then (the `status` half of CR5 is a later selection's guard).
+test('184354 CR5: changeledger check fails closed on schema 6 with an invalid or absent min_cli_version', () => {
+  for (const configText of [
+    `${FROZEN_FIXTURE_CONFIG.replace('schema_version: 5', 'schema_version: 6')}min_cli_version: latest\n`,
+    FROZEN_FIXTURE_CONFIG.replace('schema_version: 5', 'schema_version: 6'),
+  ]) {
+    const root = frozenFixture({}, {}, {}, configText);
+    const { code, text } = runCheck(root);
+    assert.equal(code, 1, text);
+    assert.match(text, /min_cli_version/);
   }
 });
 

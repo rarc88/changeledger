@@ -24,12 +24,19 @@ import {
   getSchemaVersion,
   SUPPORTED_SCHEMA_VERSION,
 } from '../config-migration.mjs';
+import { VERSION } from '../framing.mjs';
 import { capturedRun } from '../git.mjs';
 import { computeMetrics } from '../metrics.mjs';
 import { nowUtc, templatesDir } from '../paths.mjs';
-import { listProjects, remove, update } from '../registry.mjs';
+import {
+  cleanMissingProjects as cleanMissingRegistry,
+  listProjects,
+  remove,
+  update,
+} from '../registry.mjs';
 import { loadRepo, loadRepoWithConfig, resolveChange, resolveChangeInRepo } from '../repo.mjs';
 import { CAS_CONFLICT_MESSAGE, LedgerConflictError, STATE_ROOT } from '../state-store.mjs';
+import { repoCliVersionError } from '../version-guard.mjs';
 import { parseYaml } from '../yaml.mjs';
 
 // Presented for a real CAS conflict on the state ref (`LedgerConflictError`,
@@ -154,7 +161,17 @@ function redactAbsolutePaths(message) {
     .join('');
 }
 
-const isAlive = (p) => fs.existsSync(path.join(p, '.changeledger', 'config.yml'));
+function projectAvailability(projectPath) {
+  try {
+    fs.statSync(path.join(projectPath, '.changeledger', 'config.yml'));
+    return { alive: true, missing: false };
+  } catch (error) {
+    return {
+      alive: false,
+      missing: error?.code === 'ENOENT' || error?.code === 'ENOTDIR',
+    };
+  }
+}
 
 const LEDGER_CATEGORIES = ['project-docs', 'contract', 'templates'];
 const PROJECT_DOCUMENTS = new Set(['README.md', 'AGENTS.md', 'INTENT.md']);
@@ -345,10 +362,16 @@ export function resolveProjects(cwd, localOnly) {
     const config = loadEffectiveConfig(repoRoot, changeledgerDir);
     const id = config.project_id ?? 'local';
     const name = config.project_name ?? path.basename(repoRoot);
-    return { projects: [{ id, name, path: repoRoot, alive: true }], current: id };
+    return {
+      projects: [{ id, name, path: repoRoot, alive: true, missing: false }],
+      current: id,
+    };
   }
 
-  const projects = listProjects().map((p) => ({ ...p, alive: isAlive(p.path) }));
+  const projects = listProjects().map((project) => ({
+    ...project,
+    ...projectAvailability(project.path),
+  }));
   let current = null;
   if (repoRoot) {
     const match = projects.find((p) => path.resolve(p.path) === repoRoot);
@@ -400,6 +423,19 @@ function withProjectIdentity(selectProject, handler) {
   return (...args) => attributed(selectProject(...args), handler(...args));
 }
 
+// Refuses a mutation on `projectPath` when the CLI serving the viewer is below
+// that project's own effective minimum — the same authority `loadEffectiveConfig`
+// resolves (state ref once activated, worktree file otherwise), read fresh so a
+// candidate the caller is about to write is never what gets judged.
+function projectVersionGuardError(projectPath) {
+  const message = repoCliVersionError(
+    projectPath,
+    path.join(projectPath, '.changeledger'),
+    VERSION,
+  );
+  return message ? { code: 409, body: { error: message } } : null;
+}
+
 // Applies a status move requested from the viewer. Returns { code, body } so the
 // HTTP handler stays thin and the logic is testable. Reuses the `status` command
 // (enum validation + setStatus + appendLog).
@@ -409,6 +445,8 @@ function changeStatusImpl(projects, { project, id, status, reason }) {
   const proj = projects.find((p) => p.id === project);
   if (!proj) return { code: 404, body: { error: `no project "${project}"` } };
   if (!proj.alive) return { code: 410, body: { error: 'project path is gone' } };
+  const versionError = projectVersionGuardError(proj.path);
+  if (versionError) return versionError;
   if (!id || !status) return { code: 400, body: { error: 'id and status are required' } };
 
   // The viewer is the human's surface. Enforce the human/agent boundary here —
@@ -481,6 +519,8 @@ export const readProjectConfig = withProjectIdentity(
 function saveProjectConfigImpl(projects, payload, { mutateConfig = mutateFileAtomic, run } = {}) {
   const found = projectFor(projects, payload.project);
   if (!found.project) return found;
+  const versionError = projectVersionGuardError(found.project.path);
+  if (versionError) return versionError;
   if (typeof payload.content !== 'string' || typeof payload.revision !== 'string') {
     return { code: 400, body: { error: 'content and revision are required' } };
   }
@@ -644,6 +684,46 @@ export const unregisterProject = withProjectIdentity(
   unregisterProjectImpl,
 );
 
+export function cleanMissingProjects(
+  payload,
+  { localOnly = false, clean = cleanMissingRegistry } = {},
+) {
+  if (localOnly) {
+    return { code: 403, body: { error: 'registry management is unavailable in local mode' } };
+  }
+  if (payload?.confirm !== true) {
+    return { code: 400, body: { error: 'confirmation is required' } };
+  }
+  if (
+    !Array.isArray(payload.candidates) ||
+    payload.candidates.some(
+      (candidate) =>
+        !candidate ||
+        typeof candidate !== 'object' ||
+        typeof candidate.id !== 'string' ||
+        !candidate.id ||
+        typeof candidate.path !== 'string' ||
+        !path.isAbsolute(candidate.path),
+    ) ||
+    new Set(payload.candidates.map((candidate) => candidate.id)).size !== payload.candidates.length
+  ) {
+    return { code: 400, body: { error: 'candidates must contain unique ids and absolute paths' } };
+  }
+  try {
+    return { code: 200, body: clean(payload.candidates) };
+  } catch (error) {
+    return {
+      code: 500,
+      body: {
+        error:
+          error.message === '.registry.json is not valid JSON'
+            ? error.message
+            : 'unable to update project registry',
+      },
+    };
+  }
+}
+
 // Returns config content + schema metadata without mutating anything.
 function readProjectConfigStructuredImpl(projects, id) {
   const found = projectFor(projects, id);
@@ -674,6 +754,8 @@ export const readProjectConfigStructured = withProjectIdentity(
 function patchProjectConfigImpl(projects, payload, { mutateConfig = mutateFileAtomic, run } = {}) {
   const found = projectFor(projects, payload.project);
   if (!found.project) return found;
+  const versionError = projectVersionGuardError(found.project.path);
+  if (versionError) return versionError;
   if (!payload.patch || typeof payload.patch !== 'object' || Array.isArray(payload.patch)) {
     return { code: 400, body: { error: 'patch must be an object' } };
   }
@@ -800,6 +882,8 @@ function applyConfigMigrationImpl(
 ) {
   const found = projectFor(projects, payload.project);
   if (!found.project) return found;
+  const versionError = projectVersionGuardError(found.project.path);
+  if (versionError) return versionError;
   if (typeof payload.revision !== 'string') {
     return { code: 400, body: { error: 'revision is required' } };
   }

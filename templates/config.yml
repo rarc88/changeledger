@@ -3,7 +3,12 @@
 
 # Schema version — used to detect and migrate outdated configurations.
 # Run `changeledger config migrate --dry-run` to inspect available migrations.
-schema_version: 5
+schema_version: 6
+
+# Minimum ChangeLedger CLI version required to work with this repo (SemVer,
+# prereleases included). `init` and `config migrate` set it to the version that
+# wrote this file; an older installed CLI refuses to run until it is updated.
+min_cli_version:
 
 # Language for generated documentation CONTENT. Structure (headings, keys, enums)
 # is always English. See `changeledger context spec`.
