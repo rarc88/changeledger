@@ -11,6 +11,7 @@ import { changeBranchFormat, integrationBranch, renderChangeBranch } from './con
 import { hasFixableDefects } from './fix.mjs';
 import { CANONICAL_STATUSES, canTransition, LOG_EVENT_TYPES, parseLogEvent } from './lifecycle.mjs';
 import { compareVersions, parseVersion, RELEASE_IMPACTS } from './release.mjs';
+import { minCliVersionDeclarationError } from './version-guard.mjs';
 
 const REQUIRED = ['id', 'title', 'type', 'status', 'created', 'depends_on'];
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
@@ -790,6 +791,8 @@ function checkConfig(config, err) {
   for (const k of ['changes_dir', 'statuses', 'stages', 'types']) {
     if (!(k in c)) err(null, `config missing "${k}"`);
   }
+  const minCliVersionError = minCliVersionDeclarationError(c);
+  if (minCliVersionError) err(null, minCliVersionError);
   if (
     Array.isArray(c.statuses) &&
     c.statuses.includes('done') &&

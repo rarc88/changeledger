@@ -123,14 +123,14 @@ test('161652 CR3/CR4: fix writes fail closed while dry-run stays available', () 
   const configFile = path.join(fixture.root, '.changeledger', 'config.yml');
   fs.writeFileSync(
     configFile,
-    fs.readFileSync(configFile, 'utf8').replace(/^schema_version: \d+$/m, 'schema_version: 6'),
+    fs.readFileSync(configFile, 'utf8').replace(/^schema_version: \d+$/m, 'schema_version: 7'),
   );
   const before = fs.readFileSync(fixture.file, 'utf8');
 
   const write = output();
   assert.equal(fix([fixture.id], fixture.root, write), 1);
   assert.deepEqual(write.lines, [
-    '  error  (repo): config schema 6 is newer than supported schema 5; update ChangeLedger before writing',
+    '  error  (repo): config schema 7 is newer than supported schema 6; update ChangeLedger before writing',
   ]);
   assert.equal(fs.readFileSync(fixture.file, 'utf8'), before);
 

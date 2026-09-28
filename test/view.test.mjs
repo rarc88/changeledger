@@ -29,12 +29,13 @@ import {
   view,
 } from '../src/commands/view.mjs';
 import { buildMigration } from '../src/config-migration.mjs';
+import { VERSION } from '../src/framing.mjs';
 import { capturedRun } from '../src/git.mjs';
 import { publicDir } from '../src/paths.mjs';
 import { readRegistry, register, registryPath } from '../src/registry.mjs';
-import { loadRepoAsync } from '../src/repo.mjs';
+import { loadRepo, loadRepoAsync } from '../src/repo.mjs';
 import { STATE_REF, writeActivation } from '../src/state-store.mjs';
-import { cleanMissingProjects, readLedgerDocument } from '../src/viewer/domain.mjs';
+import { cleanMissingProjects, readLedgerDocument, serialize } from '../src/viewer/domain.mjs';
 import { setBranch } from '../src/writer.mjs';
 import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
@@ -2171,7 +2172,7 @@ test('113924 CR3: readProjectConfigStructured returns config object and schema m
   assert.ok(typeof result.body.content === 'string');
   assert.ok(typeof result.body.revision === 'string');
   assert.equal(typeof result.body.schemaVersion, 'number');
-  assert.equal(result.body.supported, 5);
+  assert.equal(result.body.supported, 6);
   assert.ok(typeof result.body.config === 'object');
   assert.ok('language' in result.body.config);
   assert.ok('tdd' in result.body.config);
@@ -2393,7 +2394,8 @@ test('113924 CR7: previewConfigMigration does not write and returns candidate YA
   assert.equal(result.code, 200);
   assert.equal(result.body.project_id, current);
   assert.equal(result.body.repository_path, path.resolve(root));
-  assert.ok(result.body.yaml.includes('schema_version: 5'));
+  assert.ok(result.body.yaml.includes('schema_version: 6'));
+  assert.ok(result.body.yaml.includes(`min_cli_version: ${VERSION}`));
   assert.match(result.body.yaml, /change_branch_format: "\{type\}\/\{id\}"/);
   assert.ok(result.body.changes.length > 0);
   assert.equal(fs.readFileSync(configFile, 'utf8'), before, 'preview must not modify file');
@@ -2425,7 +2427,8 @@ test('113924 CR8: applyConfigMigration uses buildMigration engine and writes ato
   assert.equal(result.body.repository_path, path.resolve(root));
   assert.ok(result.body.ok);
   const migrated = fs.readFileSync(configFile, 'utf8');
-  assert.ok(migrated.includes('schema_version: 5'));
+  assert.ok(migrated.includes('schema_version: 6'));
+  assert.ok(migrated.includes(`min_cli_version: ${VERSION}`));
   assert.match(migrated, /change_branch_format: "\{type\}\/\{id\}"/);
   // Verify idempotent
   const result2 = applyConfigMigration(projects, {
@@ -2462,7 +2465,7 @@ test('113924 CR10: patchProjectConfig fails closed for future schema', () => {
   const configFile = path.join(root, '.changeledger', 'config.yml');
   const text = fs
     .readFileSync(configFile, 'utf8')
-    .replace(/schema_version: \d+/, 'schema_version: 6');
+    .replace(/schema_version: \d+/, 'schema_version: 7');
   fs.writeFileSync(configFile, text);
   const { body } = readProjectConfigStructured(projects, current);
 
@@ -2482,7 +2485,7 @@ test('113924 CR10: raw domain and HTTP writes fail closed for future schema', as
   const configFile = path.join(root, '.changeledger', 'config.yml');
   const future = fs
     .readFileSync(configFile, 'utf8')
-    .replace(/schema_version: \d+/, 'schema_version: 6');
+    .replace(/schema_version: \d+/, 'schema_version: 7');
   fs.writeFileSync(configFile, future);
   const read = readProjectConfig(projects, current);
   const candidate = future.replace(/language: en/, 'language: fr');
@@ -2493,7 +2496,7 @@ test('113924 CR10: raw domain and HTTP writes fail closed for future schema', as
     revision: read.body.revision,
   });
   assert.equal(direct.code, 400);
-  assert.match(direct.body.error, /config schema 6 is newer than supported schema 5/);
+  assert.match(direct.body.error, /config schema 7 is newer than supported schema 6/);
   assert.equal(fs.readFileSync(configFile, 'utf8'), future);
 
   const response = await memoryRequest(root, {
@@ -2509,7 +2512,7 @@ test('113924 CR10: raw domain and HTTP writes fail closed for future schema', as
     localOnly: false,
   });
   assert.equal(response.status, 400);
-  assert.match(response.body, /config schema 6 is newer than supported schema 5/);
+  assert.match(response.body, /config schema 7 is newer than supported schema 6/);
   assert.equal(fs.readFileSync(configFile, 'utf8'), future);
 });
 
@@ -2520,7 +2523,7 @@ test('161652 CR4/CR5: viewer preview reads and config writes share the future-sc
   const configFile = path.join(root, '.changeledger', 'config.yml');
   const future = fs
     .readFileSync(configFile, 'utf8')
-    .replace(/schema_version: \d+/, 'schema_version: 6');
+    .replace(/schema_version: \d+/, 'schema_version: 7');
   fs.writeFileSync(configFile, future);
   const read = readProjectConfig(projects, current);
   let lockAttempts = 0;
@@ -2529,7 +2532,7 @@ test('161652 CR4/CR5: viewer preview reads and config writes share the future-sc
     throw new Error('lock must not be acquired');
   };
   const expected =
-    'config schema 6 is newer than supported schema 5; update ChangeLedger before writing';
+    'config schema 7 is newer than supported schema 6; update ChangeLedger before writing';
 
   const preview = previewConfigMigration(projects, current);
   assert.equal(preview.code, 400);
@@ -2606,14 +2609,16 @@ test('162556 CR4: previewConfigMigration offers the current schema with quick ad
 
   const structured = readProjectConfigStructured(projects, current);
   assert.equal(structured.body.schemaVersion, 1);
-  assert.equal(structured.body.supported, 5);
+  assert.equal(structured.body.supported, 6);
 
   const preview = previewConfigMigration(projects, current);
   assert.equal(preview.code, 200);
-  assert.match(preview.body.summary, /Config migration 1 → 5/);
+  assert.match(preview.body.summary, /Config migration 1 → 6/);
   assert.ok(preview.body.changes.some((c) => c.includes('types.quick')));
   assert.ok(preview.body.changes.some((c) => c.includes('release.impacts.quick: patch')));
-  assert.match(preview.body.yaml, /^schema_version: 5$/m);
+  assert.ok(preview.body.changes.some((c) => c.includes('min_cli_version')));
+  assert.match(preview.body.yaml, /^schema_version: 6$/m);
+  assert.ok(preview.body.yaml.includes(`min_cli_version: ${VERSION}`));
   assert.match(preview.body.yaml, /change_branch_format: "\{type\}\/\{id\}"/);
   assert.equal(fs.readFileSync(configFile, 'utf8'), schema1, 'preview must not write');
 
@@ -2624,7 +2629,7 @@ test('162556 CR4: previewConfigMigration offers the current schema with quick ad
   });
   assert.equal(applied.code, 200);
   const after = fs.readFileSync(configFile, 'utf8');
-  assert.match(after, /^schema_version: 5$/m);
+  assert.match(after, /^schema_version: 6$/m);
   assert.match(after, /change_branch_format: "\{type\}\/\{id\}"/);
   assert.match(after, /quick:\s*\n\s+stages: \[request, log\]/);
   assert.match(after, /quick: patch/);
@@ -2737,7 +2742,8 @@ test('CR6: applyConfigMigration on an activated project writes the ref, worktree
   assert.equal(result.code, 200);
   const tip = stateRefTip(root);
   assert.notEqual(tip, before);
-  assert.match(stateConfigText(root, tip), /^schema_version: 5$/m);
+  assert.match(stateConfigText(root, tip), /^schema_version: 6$/m);
+  assert.ok(stateConfigText(root, tip).includes(`min_cli_version: ${VERSION}`));
   assert.equal(fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8'), configText);
 });
 
@@ -2781,7 +2787,7 @@ test('234920 CR6: activated migration preview uses the structured-read revision 
   const result = previewConfigMigration(projects, current, structured.body.revision);
 
   assert.equal(result.code, 200, result.body.error);
-  assert.match(result.body.summary, /Config migration 1 → 5 \(dry run\)/);
+  assert.match(result.body.summary, /Config migration 1 → 6 \(dry run\)/);
   assert.equal(result.body.yaml, buildMigration(downgraded).yaml);
   assert.equal(stateRefTip(root), before);
   assert.equal(stateConfigText(root, before), downgraded);
@@ -2922,4 +2928,234 @@ test('CR8: applyConfigMigration on an activated project surfaces a stale write a
   assert.notEqual(tip, before, 'only the racer advanced the ref');
   assert.match(stateConfigText(root, tip), /project_name: Concurrent/);
   assert.match(stateConfigText(root, tip), /^schema_version: 1$/m);
+});
+
+// 20260924-184354 CR7 — the viewer is exempt from the CLI dispatch guard, but
+// every mutation it performs on a registered project must still check that
+// project's own effective minimum before writing.
+
+// `init`'s `runningVersion` parameter (unit-test seam, never an env override)
+// lets a fixture declare an arbitrary `min_cli_version` directly, instead of
+// string-patching the written config afterward.
+function newRepoAtVersion(minCliVersion) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-proj-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  init(root, minCliVersion);
+  initGitFixture(root);
+  return root;
+}
+
+function belowMinimum(required) {
+  return `ChangeLedger CLI ${VERSION} is below this repository's minimum ${required}; update the global installation.`;
+}
+
+// Every worktree byte and git ref: what "the project's state is unchanged"
+// is measured against, mirroring `cli-bin.test.mjs`'s own `repoSnapshot`.
+function projectSnapshot(root) {
+  const files = {};
+  const locks = [];
+  const walk = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      const rel = path.relative(root, full);
+      if (entry.isDirectory()) walk(full);
+      else if (rel.split(path.sep)[0] === '.git') {
+        if (entry.name.endsWith('.lock')) locks.push(rel);
+      } else files[rel] = fs.readFileSync(full, 'utf8');
+    }
+  };
+  walk(root);
+  const refs = execFileSync('git', ['for-each-ref', '--format=%(objectname) %(refname)'], {
+    cwd: root,
+    encoding: 'utf8',
+    env: sanitizedEnv(),
+  });
+  return { files, locks, refs };
+}
+
+// Every guarded write path (changeStatus, saveProjectConfig,
+// patchProjectConfig, applyConfigMigration) refused before payload validation:
+// the revision/patch/content values below are deliberately unchecked-against
+// (the guard must fire before they would even be read).
+function attemptedMutations(projects, project, id) {
+  return [
+    ['changeStatus', () => changeStatus(projects, { project, id, status: 'approved' })],
+    [
+      'saveProjectConfig',
+      () =>
+        saveProjectConfig(projects, {
+          project,
+          content: 'project_name: whatever\n',
+          revision: 'irrelevant',
+        }),
+    ],
+    [
+      'patchProjectConfig',
+      () =>
+        patchProjectConfig(projects, {
+          project,
+          patch: { project_name: 'whatever' },
+          revision: 'irrelevant',
+        }),
+    ],
+    [
+      'applyConfigMigration',
+      () => applyConfigMigration(projects, { project, revision: 'irrelevant' }),
+    ],
+  ];
+}
+
+test('184354 CR7: an incompatible project is refused 409 on every mutation and stays unchanged; reads keep working', () => {
+  isolatedHome();
+  const root = newRepoAtVersion('99.0.0');
+  const { id, project } = draftChange(root);
+  const { projects } = resolveProjects(root, true);
+  const before = projectSnapshot(root);
+
+  for (const [name, attempt] of attemptedMutations(projects, project, id)) {
+    const result = attempt();
+    assert.equal(result.code, 409, name);
+    assert.equal(result.body.error, belowMinimum('99.0.0'), name);
+  }
+
+  assert.deepEqual(projectSnapshot(root), before);
+
+  // Reads stay available.
+  assert.equal(resolveProjects(root, true).projects[0].alive, true);
+  assert.equal(readProjectConfig(projects, project).code, 200);
+  const repo = loadRepo(root);
+  assert.ok(serialize(repo).changes.some((c) => c.id === id));
+  assert.equal(repo.changes.find((c) => c.frontmatter.id === id).frontmatter.status, 'draft');
+});
+
+test('184354 CR7: a compatible project keeps its normal viewer behavior for the same mutations', () => {
+  isolatedHome();
+  const root = newRepoAtVersion('0.1.0');
+  const { file, id, project } = draftChange(root);
+  const { projects } = resolveProjects(root, true);
+  const configPath = path.join(root, '.changeledger', 'config.yml');
+  const revision = () => revisionOf(fs.readFileSync(configPath, 'utf8'));
+
+  const patched = patchProjectConfig(projects, {
+    project,
+    patch: { project_name: 'renamed-by-patch' },
+    revision: revision(),
+  });
+  assert.equal(patched.code, 200, patched.body.error);
+  assert.match(fs.readFileSync(configPath, 'utf8'), /project_name: renamed-by-patch/);
+
+  const saved = saveProjectConfig(projects, {
+    project,
+    content: fs
+      .readFileSync(configPath, 'utf8')
+      .replace(/^project_name:.*$/m, 'project_name: renamed-by-save'),
+    revision: revision(),
+  });
+  assert.equal(saved.code, 200, saved.body.error);
+  assert.match(fs.readFileSync(configPath, 'utf8'), /project_name: renamed-by-save/);
+
+  const migrated = applyConfigMigration(projects, { project, revision: revision() });
+  assert.equal(migrated.code, 200, migrated.body.error);
+
+  const status = changeStatus(projects, { project, id, status: 'approved' });
+  assert.equal(status.code, 200, status.body.error);
+  assert.match(fs.readFileSync(file, 'utf8'), /status: approved/);
+
+  // Both mutation and read paths behave normally.
+  assert.equal(readProjectConfig(projects, project).code, 200);
+  const repo = loadRepo(root);
+  assert.ok(serialize(repo).changes.some((c) => c.id === id));
+});
+
+// A single-project viewer (the two tests above) cannot tell "checked this
+// mutation's own project" apart from "checked the project the viewer was
+// launched from": here one viewer, launched from the compatible project, serves
+// every request for both.
+test('184354 CR7: two registered projects in one viewer over HTTP — the incompatible one gets 409, the compatible one works, both stay readable', async () => {
+  isolatedHome();
+  const incompatibleRoot = newRepoAtVersion('99.0.0');
+  const compatibleRoot = newRepoAtVersion('0.1.0');
+  const { id: incompatibleId, project: incompatibleProject } = draftChange(incompatibleRoot);
+  const {
+    file: compatibleFile,
+    id: compatibleId,
+    project: compatibleProject,
+  } = draftChange(compatibleRoot);
+  const incompatibleConfigPath = path.join(incompatibleRoot, '.changeledger', 'config.yml');
+  const compatibleConfigPath = path.join(compatibleRoot, '.changeledger', 'config.yml');
+  const writeHeaders = { 'Content-Type': 'application/json', 'x-changeledger-token': TOKEN };
+  const viewerRoot = compatibleRoot;
+
+  // A config edit (project-config-patch) and a lifecycle transition (status)
+  // against the same registered project, both through the one viewer.
+  async function attemptWrites(root, project, id, configPath) {
+    const configEdit = await memoryRequest(viewerRoot, {
+      method: 'POST',
+      path: '/api/project-config-patch',
+      headers: writeHeaders,
+      body: JSON.stringify({
+        project,
+        repository_path: path.resolve(root),
+        patch: { project_name: 'renamed-over-http' },
+        revision: revisionOf(fs.readFileSync(configPath, 'utf8')),
+      }),
+      localOnly: false,
+    });
+    const statusEdit = await memoryRequest(viewerRoot, {
+      method: 'POST',
+      path: '/api/status',
+      headers: writeHeaders,
+      body: JSON.stringify({
+        project,
+        repository_path: path.resolve(root),
+        id,
+        status: 'approved',
+      }),
+      localOnly: false,
+    });
+    return { configEdit, statusEdit };
+  }
+
+  const beforeIncompatible = projectSnapshot(incompatibleRoot);
+  const incompatible = await attemptWrites(
+    incompatibleRoot,
+    incompatibleProject,
+    incompatibleId,
+    incompatibleConfigPath,
+  );
+  assert.equal(incompatible.configEdit.status, 409, incompatible.configEdit.body);
+  assert.equal(JSON.parse(incompatible.configEdit.body).error, belowMinimum('99.0.0'));
+  assert.equal(incompatible.statusEdit.status, 409, incompatible.statusEdit.body);
+  assert.equal(JSON.parse(incompatible.statusEdit.body).error, belowMinimum('99.0.0'));
+  assert.deepEqual(projectSnapshot(incompatibleRoot), beforeIncompatible);
+
+  const compatible = await attemptWrites(
+    compatibleRoot,
+    compatibleProject,
+    compatibleId,
+    compatibleConfigPath,
+  );
+  assert.equal(compatible.configEdit.status, 200, compatible.configEdit.body);
+  assert.match(fs.readFileSync(compatibleConfigPath, 'utf8'), /project_name: renamed-over-http/);
+  assert.equal(compatible.statusEdit.status, 200, compatible.statusEdit.body);
+  assert.equal(parseChange(fs.readFileSync(compatibleFile, 'utf8')).frontmatter.status, 'approved');
+
+  // Both projects stay readable regardless of their own compatibility.
+  for (const project of [incompatibleProject, compatibleProject]) {
+    const list = await memoryRequest(viewerRoot, { path: '/api/projects', localOnly: false });
+    assert.equal(list.status, 200);
+    assert.equal(JSON.parse(list.body).projects.length, 2);
+
+    const configRead = await memoryRequest(viewerRoot, {
+      path: `/api/project-config?project=${encodeURIComponent(project)}`,
+      localOnly: false,
+    });
+    assert.equal(configRead.status, 200);
+
+    const ledgerRead = await memoryRequest(viewerRoot, {
+      path: `/api/ledger-tree?project=${encodeURIComponent(project)}`,
+      localOnly: false,
+    });
+    assert.equal(ledgerRead.status, 200);
+  }
 });
