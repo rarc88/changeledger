@@ -23,8 +23,8 @@ The full contract for agents is [`AGENTS.md`](AGENTS.md).
 
 ## Development setup
 
-The repository uses **pnpm**, pinned through `packageManager`, and **Biome** for
-linting and formatting:
+The repository uses **pnpm**, with its minimum version in
+`devEngines.packageManager`, and **Biome** for linting and formatting:
 
 ```sh
 pnpm install
