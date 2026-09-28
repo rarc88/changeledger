@@ -7,6 +7,7 @@ import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { status, task, validation } from '../src/commands/agent.mjs';
 import { buildMigration } from '../src/config-migration.mjs';
+import { LOG_EVENT_DEFINITIONS } from '../src/lifecycle.mjs';
 import { STATE_REF, writeActivation } from '../src/state-store.mjs';
 import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
@@ -217,6 +218,138 @@ test('111457 CR5/CR6: fix help exposes the scoped graduation-links migration', (
   assert.match(out, /--graduation-links/);
   assert.match(out, /--structured-sections/);
   assert.match(out, /--dry-run/);
+});
+
+test('20260824-134716 CR2: static CLI domains are complete in help and invalid-value errors', () => {
+  for (const [command, values] of [
+    ['agent-prompt', 'investigation | implementation | review | post-review'],
+    ['agent-context', 'investigation | implementation | review | post-review'],
+    ['validation', 'pass|fail'],
+    ['review', 'pass|fail'],
+    ['task', 'done|block'],
+  ]) {
+    assert.match(run(command, '--help').out, new RegExp(values.replace(/[|]/g, '\\|')));
+  }
+  const invalid = run('task', 'an-id', 'guess', '1');
+  assert.notEqual(invalid.code, 0);
+  assert.match(invalid.err, /Allowed choices are done, block/);
+  const release = run('release', '--help').out;
+  assert.match(release, /release impacts: none, patch, minor, major/);
+  assert.match(release, /branch format placeholders: \{type\}, \{id\}/);
+});
+
+test('20260824-134716 CR2: repo-configured domains appear in help and invalid errors', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
+  assert.equal(runIn(root, env, 'init').code, 0);
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  fs.writeFileSync(
+    configFile,
+    fs
+      .readFileSync(configFile, 'utf8')
+      .replace('types:\n', 'types:\n  custom:\n    stages: [request, log]\n'),
+  );
+  const help = runIn(root, env, 'check', '--help').out;
+  assert.match(help, /effective types: custom, feature, bug, audit, refactor, chore, quick/);
+  assert.match(
+    help,
+    /effective statuses: draft, approved, in-progress, in-review, in-validation, blocked, done, discarded/,
+  );
+  assert.match(
+    help,
+    /effective stages: request, investigation, proposal, specification, plan, log/,
+  );
+  const invalid = runIn(root, env, 'new', 'guess', 'x', 'X', '--owner', 'Test');
+  assert.notEqual(invalid.code, 0);
+  assert.match(
+    invalid.err,
+    /Allowed choices are custom, feature, bug, audit, refactor, chore, quick/,
+  );
+});
+
+test('20260824-134716 CR3: every pair of fix migration modes fails before action', () => {
+  const modes = ['--graduation-links', '--structured-sections', '--plan-tags'];
+  for (let left = 0; left < modes.length; left++) {
+    for (let right = left + 1; right < modes.length; right++) {
+      const result = run('fix', modes[left], modes[right]);
+      assert.notEqual(result.code, 0);
+      assert.match(
+        result.err,
+        new RegExp(`option '${modes[left]}' cannot be used with option '${modes[right]}'`),
+      );
+    }
+  }
+});
+
+test('20260824-134716 CR4: review rejects --retry with --block before action', () => {
+  const result = run('review', 'an-id', 'fail', '--retry', '--block', 'reason');
+  assert.notEqual(result.code, 0);
+  assert.match(result.err, /option '--retry' cannot be used with option '--block'/);
+});
+
+test('20260824-134716 CR5: fix help names exact default repairs and one-at-a-time migrations', () => {
+  const out = run('fix', '--help').out;
+  assert.match(
+    out,
+    /default repairs: checkbox markers \[ x \]\/\[X\], legacy hyphen separators, near-ISO UTC timestamps/,
+  );
+  assert.match(out, /--graduation-links.*graduation provenance/s);
+  assert.match(
+    out,
+    /--structured-sections.*resolved\/blocked task metadata and recognized\s+legacy Log entries/s,
+  );
+  assert.match(out, /--plan-tags.*criteria, support and verify children/s);
+  assert.match(out, /migration modes are mutually exclusive; run exactly one at a time/);
+});
+
+test('20260824-134716 CR7: log help derives the complete grammar without promising arbitrary events', () => {
+  const { code, out } = run('log', '--help');
+  assert.equal(code, 0);
+  assert.match(out, /append a human-readable note to a change Log/);
+  assert.match(out, /^\s*message\s+plain text stored as the `note` payload/m);
+  assert.match(
+    out,
+    /\n\nRecord a note with `changeledger log <id> "Investigation complete"`\.\nExample Log line \(timestamp generated when you run it\):\n\s+- \*\*2026-08-24T17:42:40Z\*\* `\[note\]` Investigation complete/,
+  );
+  assert.doesNotMatch(out, /<current UTC timestamp>/);
+  assert.match(out, /Use `changeledger log` only for human-readable notes\./);
+  assert.match(out, /Do not type an event name in <message\.\.\.>\./);
+
+  for (const [type, definition] of Object.entries(LOG_EVENT_DEFINITIONS)) {
+    const [payload, ...alternatives] = definition.form.split(' | ');
+    assert.match(out, new RegExp(`^  ${type}$`, 'm'));
+    assert.ok(out.includes(`    Payload: ${payload}`), `log help should expose ${type} payload`);
+    for (const alternative of alternatives) {
+      assert.ok(
+        out.includes(`    Or: ${alternative}`),
+        `log help should expose ${type} alternative`,
+      );
+    }
+  }
+
+  for (const producer of [
+    'changeledger approve',
+    'changeledger status',
+    'changeledger discard',
+    'changeledger reopen',
+    'changeledger review',
+    'changeledger validation',
+    'changeledger owner',
+    'changeledger branch',
+    'changeledger graduate',
+    'changeledger archive',
+    'changeledger log',
+  ]) {
+    assert.match(out, new RegExp(`^      ${producer}$`, 'm'));
+  }
+
+  assert.doesNotMatch(out, /approve\|status|status\|apply|\(op=/);
+  assert.match(
+    out,
+    /Advanced batch writes:\n\s+`changeledger apply` can write status, owner, and note events/,
+  );
 });
 
 test('125139 CR1/CR3/CR5/CR6: CLI transmits explicit human decisions and preserves agent rejection', () => {

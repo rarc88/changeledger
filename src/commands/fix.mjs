@@ -7,6 +7,12 @@ import { loadRepo } from '../repo.mjs';
 import { readSnapshot } from '../state-store.mjs';
 import { setSpecGraduatedFromList } from '../writer.mjs';
 
+export const FIX_MIGRATION_MODES = ['--graduation-links', '--structured-sections', '--plan-tags'];
+
+function conflictingMigrationModes(args) {
+  return FIX_MIGRATION_MODES.filter((mode) => args.includes(mode));
+}
+
 // Delegates unconditionally to `writeLedgerFiles` — the single seam decides
 // the worktree-vs-ref branch by `repo.state` (one invocation = one CAS
 // commit when active; the original per-file loop, unchanged, when
@@ -27,6 +33,14 @@ export function fix(args = [], cwd = process.cwd(), output = console) {
   const structuredSections = args.includes('--structured-sections');
   const planTags = args.includes('--plan-tags');
   const id = args.find((a) => !a.startsWith('--'));
+
+  const selectedModes = conflictingMigrationModes(args);
+  if (selectedModes.length > 1) {
+    output.error(
+      `  error  ${selectedModes[0]} and ${selectedModes[1]} cannot be used together; migration modes run one at a time`,
+    );
+    return 1;
+  }
 
   let repo;
   try {
@@ -139,6 +153,7 @@ function fixPlanTags(repo, { dryRun, output }) {
 function fixStructuredSections(repo, { dryRun, output }) {
   let anyChanged = false;
   let anyManual = false;
+  let repairCount = 0;
   const entries = [];
   for (const change of repo.changes) {
     const result = migrateStructuredSections(change.text);
@@ -150,6 +165,7 @@ function fixStructuredSections(repo, { dryRun, output }) {
     }
     if (!result.changed) continue;
     anyChanged = true;
+    repairCount += result.applied.length;
     if (dryRun) {
       output.log(`--- ${change.name} (dry run)`);
       for (const line of diffLines(change.text, result.text)) output.log(line);
@@ -160,7 +176,13 @@ function fixStructuredSections(repo, { dryRun, output }) {
     }
   }
   writeFixedFiles(repo, entries, 'fix: --structured-sections');
-  if (!anyChanged && !anyManual) output.log('nothing to fix');
+  if (!anyChanged && !anyManual) {
+    output.log('mode --structured-sections: 0 repairs; no applicable transformations');
+  } else {
+    output.log(
+      `mode --structured-sections: ${repairCount} repair${repairCount === 1 ? '' : 's'}; ${anyManual ? 'manual intervention still required for reported entries' : 'no manual intervention reported'}`,
+    );
+  }
   return 0;
 }
 

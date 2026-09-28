@@ -285,6 +285,16 @@ test('125007 CR8: ambiguous blocked metadata leaves the whole file untouched', (
   assert.ok(out.lines.some((entry) => entry.includes('ambiguous legacy task metadata')));
 });
 
+test('20260824-134716 CR5: an empty structured migration names its mode and zero repairs', () => {
+  const { root } = repo('- [ ] Already current (CR1)');
+  assert.equal(fix(['--structured-sections'], root, output()), 0);
+  const out = output();
+  assert.equal(fix(['--structured-sections'], root, out), 0);
+  assert.deepEqual(out.lines, [
+    'mode --structured-sections: 0 repairs; no applicable transformations',
+  ]);
+});
+
 // 20260729-203257 CR5 — the forms measured in the real corpus, in one fixture.
 const LEGACY_PLAN = [
   '- [ ] Actualizar `src/a.mjs`; verify: `pnpm test` (CR1, CR2)',

@@ -9,7 +9,7 @@ import { marked } from 'marked';
 import { parseChange } from './change.mjs';
 import { changeBranchFormat, integrationBranch, renderChangeBranch } from './config.mjs';
 import { hasFixableDefects } from './fix.mjs';
-import { CANONICAL_STATUSES, canTransition, parseLogEvent } from './lifecycle.mjs';
+import { CANONICAL_STATUSES, canTransition, LOG_EVENT_TYPES, parseLogEvent } from './lifecycle.mjs';
 import { compareVersions, parseVersion, RELEASE_IMPACTS } from './release.mjs';
 
 const REQUIRED = ['id', 'title', 'type', 'status', 'created', 'depends_on'];
@@ -93,8 +93,12 @@ export function checkRepo({ config, changes, specs = [], releases = [] }, opts =
     if (fm.id && !ID_FORM.test(String(fm.id))) err(c, `id not in YYYYMMDD-HHMMSS form: ${fm.id}`);
     if (fm.id && c.name && !c.name.startsWith(`${fm.id}-`))
       err(c, `filename does not match id "${fm.id}"`);
-    if (fm.type && !types[fm.type]) err(c, `unknown type "${fm.type}"`);
-    if (fm.status && !statuses.includes(fm.status)) err(c, `unknown status "${fm.status}"`);
+    if (fm.type && !types[fm.type]) {
+      err(c, `unknown type "${fm.type}"; valid types: ${Object.keys(types).join(', ')}`);
+    }
+    if (fm.status && !statuses.includes(fm.status)) {
+      err(c, `unknown status "${fm.status}"; valid statuses: ${statuses.join(', ')}`);
+    }
     if ('depends_on' in fm && !Array.isArray(fm.depends_on)) err(c, 'depends_on must be a list');
     if ('related_to' in fm && !Array.isArray(fm.related_to)) err(c, 'related_to must be a list');
     if ('archived' in fm && typeof fm.archived !== 'boolean') err(c, 'archived must be a boolean');
@@ -106,8 +110,9 @@ export function checkRepo({ config, changes, specs = [], releases = [] }, opts =
     const present = (c.stages ?? []).map((s) => s.key);
     for (const s of c.stages ?? []) {
       const k = s.key;
-      if (!canonical.includes(k)) err(c, `unknown stage "## ${k}"`);
-      else if (s.heading && s.heading !== canonicalHeading(k)) {
+      if (!canonical.includes(k)) {
+        err(c, `unknown stage "## ${k}"; valid stages: ${canonical.join(', ')}`);
+      } else if (s.heading && s.heading !== canonicalHeading(k)) {
         err(c, `stage heading must be canonical: expected "## ${canonicalHeading(k)}"`);
       }
     }
@@ -588,7 +593,12 @@ function checkLifecycleSequence(c, fm, err) {
     if (!inLog) continue;
     const event = parseLogEvent(line);
     if (!event) {
-      if (/^- /.test(line)) err(c, `Log line ${i + 1}: invalid typed event`);
+      if (/^- /.test(line)) {
+        err(
+          c,
+          `Log line ${i + 1}: invalid typed event; valid types: ${LOG_EVENT_TYPES.join(', ')}; expected: - **YYYY-MM-DDTHH:MM:SSZ** \`[type]\` payload`,
+        );
+      }
       continue;
     }
     if (!['status', 'review', 'validation'].includes(event.type)) continue;
