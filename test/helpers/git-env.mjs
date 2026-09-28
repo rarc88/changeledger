@@ -67,4 +67,12 @@ export function initGitFixture(root, { args = [] } = {}) {
     cwd: root,
     env: sanitizedEnv(),
   });
+  // No background maintenance: a commit may spawn a detached
+  // `git maintenance run --auto` whose transient .git lock races every
+  // "no lock changes" snapshot (seen on macOS runners).
+  execFileSync('git', ['config', 'maintenance.auto', 'false'], {
+    cwd: root,
+    env: sanitizedEnv(),
+  });
+  execFileSync('git', ['config', 'gc.auto', '0'], { cwd: root, env: sanitizedEnv() });
 }
