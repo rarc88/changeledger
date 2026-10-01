@@ -26,6 +26,7 @@ import { checkRepo } from '../check.mjs';
 import { assertSupportedSchema } from '../config-migration.mjs';
 import { loadRepo } from '../repo.mjs';
 import { slugify } from '../slug.mjs';
+import { snapshotUsage } from '../usage-collector.mjs';
 import {
   assertStatusDestinationAllowed,
   logMutation,
@@ -34,7 +35,7 @@ import {
   taskMutation,
 } from './agent.mjs';
 import { prepareChangeEdit, prepareSpecEdit, readSource } from './edit.mjs';
-import { prepareNewChange } from './new.mjs';
+import { creationEvent, prepareNewChange } from './new.mjs';
 
 const CHANGE_PREFIX = 'change:';
 const SPEC_PREFIX = 'spec:';
@@ -60,7 +61,7 @@ const OPS_OWNED_ELSEWHERE = {
 // counting the rest instead of listing it.
 const SUMMARY_BUDGET = 96;
 
-export function apply({ from, dryRun = false } = {}, cwd = process.cwd()) {
+export function apply({ from, dryRun = false } = {}, cwd = process.cwd(), { usage } = {}) {
   const entries = parseManifest(readSource(from));
   const repo = loadRepo(cwd);
   assertSupportedSchema(repo.config);
@@ -72,10 +73,13 @@ export function apply({ from, dryRun = false } = {}, cwd = process.cwd()) {
   const pending = new Map();
   const descriptors = [];
   const statusWarnings = [];
+  // Creations and status transitions this batch writes, snapshotted only
+  // once the single write below has landed (20261001-155612).
+  const events = [];
 
   entries.forEach((entry, index) => {
     try {
-      applyEntry(entry, { repo, candidate, pending, descriptors, statusWarnings });
+      applyEntry(entry, { repo, candidate, pending, descriptors, statusWarnings, events });
     } catch (e) {
       throw new Error(
         `apply refused, nothing was written — entry ${index + 1} (${label(entry)}): ${e.message}`,
@@ -115,6 +119,7 @@ export function apply({ from, dryRun = false } = {}, cwd = process.cwd()) {
     writes.map((w) => ({ relPath: w.relPath, file: w.file, text: w.text })),
     { message },
   );
+  snapshotUsage({ config: repo.config, repoRoot: repo.repoRoot, events, usage });
   return { changed, warnings, errors, message, dryRun, statusWarnings };
 }
 
@@ -141,7 +146,7 @@ function applyEntry(entry, context) {
 
 // ---------------------------------------------------------------- documents
 
-function applyDocument(entry, { candidate, pending, descriptors }) {
+function applyDocument(entry, { candidate, pending, descriptors, events }) {
   const target = String(entry.target);
   if (typeof entry.content !== 'string') {
     throw new Error('"content" must be the complete document text');
@@ -161,6 +166,7 @@ function applyDocument(entry, { candidate, pending, descriptors }) {
     ];
     stage(pending, { ...prepared, text: content, baseline: undefined });
     descriptors.push(`new ${prepared.id}`);
+    events.push(creationEvent(prepared.id, prepared.created));
     return;
   }
 
@@ -191,7 +197,7 @@ function applyDocument(entry, { candidate, pending, descriptors }) {
 
 // ------------------------------------------------------------------- events
 
-function applyEvent(entry, { repo, candidate, pending, descriptors, statusWarnings }) {
+function applyEvent(entry, { repo, candidate, pending, descriptors, statusWarnings, events }) {
   const op = String(entry.op);
   const ownedElsewhere = OPS_OWNED_ELSEWHERE[op];
   if (ownedElsewhere) {
@@ -214,6 +220,7 @@ function applyEvent(entry, { repo, candidate, pending, descriptors, statusWarnin
     repoRoot: repo.repoRoot,
     name: current.name,
     statusWarnings,
+    events,
   });
 
   const next = mutate(current.text);
@@ -232,7 +239,7 @@ function applyEvent(entry, { repo, candidate, pending, descriptors, statusWarnin
   descriptors.push(descriptor);
 }
 
-function eventMutation(op, entry, { id, config, repoRoot, name, statusWarnings }) {
+function eventMutation(op, entry, { id, config, repoRoot, name, statusWarnings, events }) {
   if (op === 'status') {
     const to = String(entry.to ?? '');
     // A batch is executed by an agent, never by a human: this is the seat that
@@ -246,6 +253,7 @@ function eventMutation(op, entry, { id, config, repoRoot, name, statusWarnings }
         gitCwd: repoRoot,
         name,
         warnings: statusWarnings,
+        events,
         actor: 'agent',
         channel: 'batch',
       }),

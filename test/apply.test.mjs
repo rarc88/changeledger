@@ -16,6 +16,8 @@ import { apply } from '../src/commands/apply.mjs';
 import { init as initializeRepo } from '../src/commands/init.mjs';
 import { newChange, scaffoldChange } from '../src/commands/new.mjs';
 import { STATE_REF, STATE_ROOT, writeActivation } from '../src/state-store.mjs';
+import { encodeProjectPath } from '../src/usage-collector.mjs';
+import { claudeRunner } from './helpers/ccusage.mjs';
 import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
@@ -26,16 +28,16 @@ const SPEC_NAME = 'demo-spec.md';
 const specText = (body = 'Contrato de ejemplo: café, 東京.') =>
   `---\ntitle: Demo spec\nupdated: 2026-08-08T00:00:00Z\ntags: [demo]\ngraduated_from: []\n---\n\n# Demo spec\n\n${body}\n`;
 
-function baseRepo() {
+function baseRepo({ configExtra = '' } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-apply-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
   initializeRepo(root);
   const configFile = path.join(root, '.changeledger', 'config.yml');
   fs.writeFileSync(
     configFile,
-    fs
+    `${fs
       .readFileSync(configFile, 'utf8')
-      .replace(/^ {2}change_branch_format:.*$/m, '  change_branch_format: null'),
+      .replace(/^ {2}change_branch_format:.*$/m, '  change_branch_format: null')}${configExtra}`,
   );
   const file = newChange(
     { type: 'quick', slug: 'x', title: 'X', now: '2026-06-13T12:00:00Z' },
@@ -52,8 +54,8 @@ function baseRepo() {
   return { root, file, name: path.basename(file), text, id: parseChange(text).frontmatter.id };
 }
 
-function inactiveRepo() {
-  const base = baseRepo();
+function inactiveRepo({ configExtra = '' } = {}) {
+  const base = baseRepo({ configExtra });
   initGitFixture(base.root);
   git(base.root, ['add', '-A']);
   git(base.root, ['commit', '-qm', 'chore: seed']);
@@ -63,8 +65,8 @@ function inactiveRepo() {
 // The worktree copies are removed before activation, so any read or write that
 // fell back to disk fails outright instead of silently succeeding on a stale
 // document.
-function activatedRepo({ status = 'draft', spec = specText() } = {}) {
-  const { root, file, name, text: draft, id } = baseRepo();
+function activatedRepo({ status = 'draft', spec = specText(), configExtra = '' } = {}) {
+  const { root, file, name, text: draft, id } = baseRepo({ configExtra });
   const text = draft.replace('status: draft', `status: ${status}`);
   const configText = fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8');
   fs.rmSync(file);
@@ -496,3 +498,74 @@ test('CR2: a manifest that is not a JSON array of entries is refused by shape', 
 
   assert.equal(stateTip(root), tip);
 });
+
+// --- usage snapshots (20261001-155612) ---
+
+const USAGE_CONFIG = '\nusage:\n  collector: ccusage\n';
+
+function usageRecords(root, id) {
+  const common = path.resolve(root, git(root, ['rev-parse', '--git-common-dir']));
+  const dir = path.join(common, 'changeledger', 'usage', String(id));
+  if (!fs.existsSync(dir)) return [];
+  return fs
+    .readdirSync(dir)
+    .sort()
+    .map((name) => ({ name, ...JSON.parse(fs.readFileSync(path.join(dir, name), 'utf8')) }));
+}
+
+function approvedUsageRepo(activated) {
+  if (activated) {
+    const repo = activatedRepo({ status: 'approved', configExtra: USAGE_CONFIG });
+    return { ...repo, read: () => stateDoc(repo.root, `changes/${repo.name}`) };
+  }
+  const repo = inactiveRepo({ configExtra: USAGE_CONFIG });
+  fs.writeFileSync(repo.file, repo.text.replace('status: draft', 'status: approved'));
+  return { ...repo, read: () => fs.readFileSync(repo.file, 'utf8') };
+}
+
+for (const activated of [false, true]) {
+  const layout = activated ? 'activated' : 'inactive';
+
+  test(`20261001-155612 CR4 (${layout}): an apply status event and a new document each snapshot`, () => {
+    const { root, id, read } = approvedUsageRepo(activated);
+    const draft = draftFor(root, { slug: 'gamma', title: 'Gamma', now: '2026-08-11T10:00:00Z' });
+    const runner = claudeRunner(encodeProjectPath(root));
+    const warnings = [];
+    const usage = { runner, warn: (l) => warnings.push(l) };
+    const entries = [
+      { op: 'status', id, to: 'in-progress' },
+      { op: 'log', id, message: 'arranque' },
+      { target: 'new', slug: 'gamma', content: draft },
+    ];
+
+    apply({ from: manifest(root, entries), dryRun: true }, root, { usage });
+    assert.equal(runner.calls.length, 0, 'a dry run lands nothing and snapshots nothing');
+    assert.deepEqual(usageRecords(root, id), []);
+
+    apply({ from: manifest(root, entries) }, root, { usage });
+    const line = read()
+      .split('\n')
+      .find((l) => l.includes('`[status]` approved → in-progress'));
+    const at = line.match(/\*\*(\S+)\*\*/)[1];
+    assert.deepEqual(
+      usageRecords(root, id).map((r) => [r.event, r.from, r.to, r.at, r.sessions.length]),
+      [['status', 'approved', 'in-progress', at, 1]],
+    );
+    assert.deepEqual(
+      usageRecords(root, '20260811-100000').map((r) => [r.name, r.event, r.from, r.to]),
+      [['20260811T100000Z-1.json', 'created', null, 'draft']],
+    );
+    assert.deepEqual(warnings, []);
+  });
+
+  test(`20261001-155612 (${layout}): an apply without the usage key runs no collector`, () => {
+    const repo = activated ? activatedRepo({ status: 'approved' }) : inactiveRepo();
+    const runner = claudeRunner('-unused');
+    const entries = activated
+      ? [{ op: 'status', id: repo.id, to: 'in-progress' }]
+      : [{ op: 'log', id: repo.id, message: 'nota' }];
+    apply({ from: manifest(repo.root, entries) }, repo.root, { usage: { runner } });
+    assert.equal(runner.calls.length, 0);
+    assert.deepEqual(usageRecords(repo.root, repo.id), []);
+  });
+}

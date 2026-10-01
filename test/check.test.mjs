@@ -8,10 +8,12 @@ import { parse as parseYaml } from 'yaml';
 import { parseChange } from '../src/change.mjs';
 import { checkRepo } from '../src/check.mjs';
 import { check } from '../src/commands/check.mjs';
+import { init as initializeRepo } from '../src/commands/init.mjs';
 import {
   BRANCH_FORMAT_PLACEHOLDERS,
   integrationBranch,
   renderChangeBranch,
+  usageCollector,
 } from '../src/config.mjs';
 import { ensureReference } from '../src/contract.mjs';
 import { LOG_EVENT_TYPES } from '../src/lifecycle.mjs';
@@ -20,6 +22,10 @@ import { RELEASE_IMPACTS } from '../src/release.mjs';
 import { STATE_REF, writeActivation } from '../src/state-store.mjs';
 import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
+
+// Isolate the global registry: the usage CLI case below runs `init`, which
+// registers the repo it creates.
+process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
 
 const config = {
   changes_dir: '.changeledger/changes',
@@ -3609,4 +3615,53 @@ test('162616 CR7: a discarded change is still exempt from its own unclassified-m
     msgs(warnings).filter((m) => /mentions change/.test(m)),
     [],
   );
+});
+
+// --- usage.collector (20261001-155612) ---
+
+test('20261001-155612 CR2: an unknown usage collector is a config error; ccusage is not', () => {
+  const unknown = checkRepo({ config: { ...config, usage: { collector: 'other' } }, changes: [] });
+  assert.deepEqual(msgs(unknown.errors), ['config "usage.collector" must be "ccusage"']);
+  assert.throws(() => usageCollector({ usage: { collector: 'other' } }), {
+    message: 'config "usage.collector" must be "ccusage"',
+  });
+
+  const known = checkRepo({ config: { ...config, usage: { collector: 'ccusage' } }, changes: [] });
+  assert.deepEqual(known.errors, []);
+  assert.equal(usageCollector({ usage: { collector: 'ccusage' } }), 'ccusage');
+
+  for (const usage of ['ccusage', [], 7]) {
+    const { errors } = checkRepo({ config: { ...config, usage }, changes: [] });
+    assert.deepEqual(msgs(errors), ['config "usage" must be a mapping']);
+  }
+});
+
+test('20261001-155612 CR1: the usage key is optional and absent by default', () => {
+  for (const candidate of [{ ...config }, { ...config, usage: null }, { ...config, usage: {} }]) {
+    assert.deepEqual(checkRepo({ config: candidate, changes: [] }).errors, []);
+    assert.equal(usageCollector(candidate), undefined);
+  }
+  const template = parseYaml(fs.readFileSync(path.join(templatesDir, 'config.yml'), 'utf8'));
+  assert.equal(usageCollector(template), undefined);
+});
+
+test('20261001-155612 CR2: `changeledger check` fails on an unknown collector', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-check-usage-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  initializeRepo(root);
+  const file = path.join(root, '.changeledger', 'config.yml');
+  const base = fs.readFileSync(file, 'utf8');
+
+  fs.writeFileSync(file, `${base}\nusage:\n  collector: other\n`);
+  const bad = captureOutput();
+  assert.equal(check([], root, bad), 1);
+  assert.ok(
+    bad.diagnostics.some((line) => line.includes('config "usage.collector" must be "ccusage"')),
+    bad.diagnostics.join('\n'),
+  );
+
+  fs.writeFileSync(file, `${base}\nusage:\n  collector: ccusage\n`);
+  const good = captureOutput();
+  assert.equal(check([], root, good), 0, good.diagnostics.join('\n'));
+  assert.ok(!good.diagnostics.some((line) => line.includes('usage.collector')));
 });

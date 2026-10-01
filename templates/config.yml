@@ -77,3 +77,13 @@ types:
   # the correct type — see `changeledger context spec`.
   quick:
     stages: [request, log]
+
+# Optional token and cost capture, off while absent. With `collector: ccusage`,
+# each change creation and each `[status]`, `[review]` and `[validation]` event
+# is followed by a snapshot from `npx --yes ccusage@20.0.26`, stored as JSON
+# under `<git-common-dir>/changeledger/usage/`, outside the ledger. A failed
+# snapshot (missing `npx`, a call over 10 s, a non-zero exit, invalid JSON)
+# leaves a record with `error` and a `usage: ` warning on stderr; the command
+# that triggered it keeps its result and exit code.
+# usage:
+#   collector: ccusage

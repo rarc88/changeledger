@@ -7,7 +7,12 @@
 
 import { marked } from 'marked';
 import { parseChange } from './change.mjs';
-import { changeBranchFormat, integrationBranch, renderChangeBranch } from './config.mjs';
+import {
+  changeBranchFormat,
+  integrationBranch,
+  renderChangeBranch,
+  usageCollector,
+} from './config.mjs';
 import { hasFixableDefects } from './fix.mjs';
 import { CANONICAL_STATUSES, canTransition, LOG_EVENT_TYPES, parseLogEvent } from './lifecycle.mjs';
 import { compareVersions, parseVersion, RELEASE_IMPACTS } from './release.mjs';
@@ -823,6 +828,13 @@ function checkConfig(config, err) {
   if ('git' in c) {
     try {
       integrationBranch(c);
+    } catch (error) {
+      err(null, error.message);
+    }
+  }
+  if ('usage' in c) {
+    try {
+      usageCollector(c);
     } catch (error) {
       err(null, error.message);
     }

@@ -106,6 +106,25 @@ function isMapping(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
+// Optional usage capture (20261001-155612). Absent means no snapshot and no
+// subprocess at all; `ccusage` is the only collector, and any other present
+// value fails instead of silently capturing nothing.
+export const USAGE_COLLECTORS = ['ccusage'];
+
+export function usageCollector(config) {
+  const usage = config?.usage;
+  if (usage === undefined || usage === null) return undefined;
+  if (!isMapping(usage)) throw new Error('config "usage" must be a mapping');
+  const value = usage.collector;
+  if (value === undefined || value === null) return undefined;
+  if (!USAGE_COLLECTORS.includes(value)) {
+    throw new Error(
+      `config "usage.collector" must be ${USAGE_COLLECTORS.map((c) => `"${c}"`).join(' or ')}`,
+    );
+  }
+  return value;
+}
+
 // Opt-in convention for implementation branches. Only immutable change fields
 // are accepted, and the id is the required one-to-one link back to the change.
 export const BRANCH_FORMAT_PLACEHOLDERS = ['type', 'id'];

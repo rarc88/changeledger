@@ -438,8 +438,9 @@ function projectVersionGuardError(projectPath) {
 
 // Applies a status move requested from the viewer. Returns { code, body } so the
 // HTTP handler stays thin and the logic is testable. Reuses the `status` command
-// (enum validation + setStatus + appendLog).
-function changeStatusImpl(projects, { project, id, status, reason }) {
+// (enum validation + setStatus + appendLog). `usage` reaches the same
+// commands, so a viewer move takes the same usage snapshot (20261001-155612).
+function changeStatusImpl(projects, { project, id, status, reason }, { usage } = {}) {
   // A write must target an exact project; never silently fall back to the first
   // registered one.
   const proj = projects.find((p) => p.id === project);
@@ -467,13 +468,13 @@ function changeStatusImpl(projects, { project, id, status, reason }) {
   }
   try {
     if (current === 'draft' && status === 'approved') {
-      applyStatusCmd(id, status, proj.path, { actor: 'human' });
+      applyStatusCmd(id, status, proj.path, { actor: 'human', usage });
     } else if (current === 'in-validation' && status === 'done') {
-      applyValidation(id, 'pass', {}, proj.path);
+      applyValidation(id, 'pass', {}, proj.path, { usage });
     } else if (current === 'in-validation' && status === 'in-progress') {
-      applyValidation(id, 'fail', { reason }, proj.path);
+      applyValidation(id, 'fail', { reason }, proj.path, { usage });
     } else if (current === 'done' && status === 'in-progress') {
-      applyReopen(id, reason, proj.path);
+      applyReopen(id, reason, proj.path, { usage });
     } else {
       return {
         code: 403,
