@@ -2,7 +2,7 @@
 id: "20261001-155216"
 title: Registrar en el Log la versión de ChangeLedger que modifica cada change
 type: feature
-status: in-review
+status: in-validation
 created: 2026-10-01T15:52:16Z
 depends_on: []
 branch: feature/20261001-155216
@@ -228,3 +228,4 @@ flowchart LR
 - **2026-10-01T16:51:58Z** `[note]` CR10 corregido con autorización del humano: la 0.17.0 real es anterior al sello y no lo escribe, así que el recorrido usa dos versiones que ya sellan (0.18.0 y 0.18.1) y deja la primera actualización desde 0.17.0 en la forma de CR4; se añade el paso task done 1 que el recorrido necesita para pasar el review. Corrección del retry: reescritos los cinco comentarios y la ayuda señalados, y version-stamp.mjs aserta ahora que VERSION difiere de PREVIOUS_VERSION. Gate: pnpm verify en verde.
 - **2026-10-01T16:52:54Z** `[status]` in-progress → in-review
 - **2026-10-01T16:52:54Z** `[note]` Mandato de la confirmación: sólo el diff sin commitear frente a HEAD (b97b083), los cinco defectos del review fail anterior y la enmienda de CR10 autorizada por el humano, más cualquier regresión que introduzcan.
+- **2026-10-01T16:56:32Z** `[review]` in-review → in-validation (delegated subagent, clean context)
