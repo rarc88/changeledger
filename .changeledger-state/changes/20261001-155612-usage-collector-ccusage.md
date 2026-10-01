@@ -267,9 +267,10 @@ sin filtrar por proyecto (mezcla otros repos activos); guardar en el documento
   - **Target:** `.changeledger/config.yml`
   - **Verify:** verify: manual — crear, aprobar e iniciar un change de prueba desde Claude Code y revisar los tres registros
   - **Criteria:** CR10
-- [ ] Ejecutar el gate completo
+- [x] Ejecutar el gate completo
   - **Verify:** `pnpm verify`
   - **Support:**
+  - **Resolved:** `2026-10-01T17:21:52Z`
 
 ## Log
 - **2026-10-01T16:09:47Z** `[status]` draft → approved (human via conversation)
