@@ -211,9 +211,10 @@ flowchart LR
   - **Verify:** `node --test test/agent.test.mjs`
   - **Criteria:** CR10
   - **Resolved:** `2026-10-01T16:33:05Z`
-- [ ] Ejecutar el gate completo
+- [x] Ejecutar el gate completo
   - **Verify:** `pnpm verify`
   - **Support:**
+  - **Resolved:** `2026-10-01T16:33:05Z`
 
 ## Log
 - **2026-10-01T16:09:46Z** `[status]` draft → approved (human via conversation)
