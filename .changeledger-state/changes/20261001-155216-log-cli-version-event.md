@@ -176,10 +176,11 @@ flowchart LR
   - **Verify:** `node --test test/lifecycle.test.mjs`
   - **Criteria:** CR8
   - **Resolved:** `2026-10-01T16:33:02Z`
-- [ ] Añadir `version` a `LOG_EVENT_DEFINITIONS` con su parser SemVer propio
+- [x] Añadir `version` a `LOG_EVENT_DEFINITIONS` con su parser SemVer propio
   - **Target:** `src/lifecycle.mjs, src/version-guard.mjs`
   - **Verify:** `node --test test/lifecycle.test.mjs test/check.test.mjs`
   - **Criteria:** CR8
+  - **Resolved:** `2026-10-01T16:33:03Z`
 - [ ] Escribir pruebas fallidas del sello en `appendLogEvent` y en los productores de ambos layouts
   - **Target:** `test/writer.test.mjs, test/agent.test.mjs, test/apply.test.mjs, test/view.test.mjs`
   - **Verify:** `node --test test/writer.test.mjs test/agent.test.mjs test/apply.test.mjs test/view.test.mjs`
