@@ -243,10 +243,11 @@ sin filtrar por proyecto (mezcla otros repos activos); guardar en el documento
   - **Verify:** `node --test test/usage-collector.test.mjs`
   - **Criteria:** CR3, CR5, CR6, CR7, CR8
   - **Resolved:** `2026-10-01T17:21:50Z`
-- [ ] Implementar el colector: llamadas con límite, respaldo offline, filtro por proyecto y worktrees, mapeo y registro
+- [x] Implementar el colector: llamadas con límite, respaldo offline, filtro por proyecto y worktrees, mapeo y registro
   - **Target:** `src/usage-collector.mjs`
   - **Verify:** `node --test test/usage-collector.test.mjs`
   - **Criteria:** CR3, CR5, CR6, CR7, CR8
+  - **Resolved:** `2026-10-01T17:21:51Z`
 - [ ] Probar y validar la clave `usage.collector`
   - **Target:** `src/config.mjs, src/check.mjs, test/check.test.mjs`
   - **Verify:** `node --test test/check.test.mjs`
