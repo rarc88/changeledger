@@ -201,10 +201,11 @@ flowchart LR
   - **Verify:** `pnpm test`
   - **Support:**
   - **Resolved:** `2026-10-01T16:33:04Z`
-- [ ] Publicar el tipo en la ayuda y en el contrato de implementación
+- [x] Publicar el tipo en la ayuda y en el contrato de implementación
   - **Target:** `bin/changeledger.mjs, templates/contract/implement.md`
   - **Verify:** `node --test test/cli-bin.test.mjs test/contract.test.mjs`
   - **Criteria:** CR9
+  - **Resolved:** `2026-10-01T16:33:05Z`
 - [ ] Probar el recorrido completo a través de una actualización en un repo activado
   - **Target:** `test/agent.test.mjs`
   - **Verify:** `node --test test/agent.test.mjs`
