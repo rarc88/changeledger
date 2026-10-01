@@ -253,10 +253,11 @@ sin filtrar por proyecto (mezcla otros repos activos); guardar en el documento
   - **Verify:** `node --test test/check.test.mjs`
   - **Criteria:** CR1, CR2
   - **Resolved:** `2026-10-01T17:21:51Z`
-- [ ] Probar y conectar la foto tras cada transición y la creación, con canal de avisos, en ambos layouts
+- [x] Probar y conectar la foto tras cada transición y la creación, con canal de avisos, en ambos layouts
   - **Target:** `src/commands/agent.mjs, src/commands/new.mjs, src/commands/apply.mjs, src/viewer/domain.mjs, bin/changeledger.mjs, test/agent.test.mjs, test/apply.test.mjs, test/view.test.mjs`
   - **Verify:** `node --test test/agent.test.mjs test/apply.test.mjs test/view.test.mjs`
   - **Criteria:** CR1, CR4, CR8, CR9
+  - **Resolved:** `2026-10-01T17:21:52Z`
 - [ ] Documentar la clave en la plantilla de configuración y en la documentación
   - **Target:** `templates/config.yml, docs/`
   - **Verify:** `node --test test/config-migration.test.mjs`
