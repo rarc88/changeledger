@@ -2,9 +2,10 @@
 id: "20261001-155216"
 title: Registrar en el Log la versión de ChangeLedger que modifica cada change
 type: feature
-status: approved
+status: in-progress
 created: 2026-10-01T15:52:16Z
 depends_on: []
+branch: feature/20261001-155216
 related_to: ["20260924-184354", "20260628-113218", "20260720-125007", "20260824-134716", "20260809-113241"]
 owner: rarc88
 release_impact: minor
@@ -208,3 +209,5 @@ flowchart LR
 
 ## Log
 - **2026-10-01T16:09:46Z** `[status]` draft → approved (human via conversation)
+- **2026-10-01T16:10:04Z** `[status]` approved → in-progress
+- **2026-10-01T16:10:04Z** `[branch]` set: feature/20261001-155216 (auto)
