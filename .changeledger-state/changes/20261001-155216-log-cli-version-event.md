@@ -2,7 +2,7 @@
 id: "20261001-155216"
 title: Registrar en el Log la versión de ChangeLedger que modifica cada change
 type: feature
-status: draft
+status: approved
 created: 2026-10-01T15:52:16Z
 depends_on: []
 related_to: ["20260924-184354", "20260628-113218", "20260720-125007", "20260824-134716", "20260809-113241"]
@@ -207,3 +207,4 @@ flowchart LR
   - **Support:**
 
 ## Log
+- **2026-10-01T16:09:46Z** `[status]` draft → approved (human via conversation)
