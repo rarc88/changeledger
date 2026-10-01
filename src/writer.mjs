@@ -157,9 +157,11 @@ function replaceRange(text, start, end, replacement) {
   return `${text.slice(0, start)}${replacement}${text.slice(end)}`;
 }
 
-// Every Log event is attributed to the CLI version that produced it: before
-// inserting one, `appendLogEvent` stamps a `[version]` line when the running
-// version is not the last one the Log recorded (20261001-155216). The
+// Every event this function appends is attributed to the CLI version that
+// appended it: before inserting one, it stamps a `[version]` line when the
+// running version is not the last one the Log recorded, or when the Log has
+// none (20261001-155216). Lines written whole by `edit` or by an `apply`
+// document never pass through here and get no stamp. The
 // comparison is textual, not by precedence, so a lower version the repository
 // still allows is recorded too. `runningVersion` is a seam for tests; it
 // defaults to the installed version.

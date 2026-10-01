@@ -1941,8 +1941,8 @@ test('CR2: a concurrent write between load and write surfaces LedgerConflictErro
 
 // 20261001-155216 — the `[version]` stamp, driven through the real commands in
 // both layouts. A fixture change is walked to the wanted status by writing its
-// Log with a PREVIOUS_VERSION CLI (the writer's version seam), so the installed
-// version — whatever package.json says — always differs from the last stamp.
+// Log with a PREVIOUS_VERSION CLI (the writer's version seam); the helper
+// asserts that the installed version differs from PREVIOUS_VERSION.
 
 const LAYOUTS = ['legacy', 'state ref'];
 const STEPS = ['approved', 'in-progress', 'in-review', 'in-validation', 'done'];
@@ -2198,8 +2198,8 @@ for (const layout of LAYOUTS) {
 }
 
 // --- two installed versions against one repo (20261001-155216 CR10, CR1, CR5) ---
-// Each version is a copy of this checkout's CLI whose package.json says so, so
-// the commands below are the real binary at 0.17.0 and at 0.18.0.
+// Each version is a copy of this checkout's CLI with its package.json relabelled
+// 0.18.0 or 0.18.1: both run this checkout's code, not published releases.
 
 function cliRepo(cli, home) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-versions-'));
@@ -2229,20 +2229,20 @@ const fillFeature = (text) =>
     .replace('## Specification\n', '## Specification\n\nS\n')
     .replace('## Plan\n', '## Plan\n\n- [ ] do it\n  - **Support:**\n');
 
-test('20261001-155216 CR10: a change created and approved by 0.17.0 and finished by 0.18.0 records both versions once', () => {
+test('20261001-155216 CR10: a change created and approved by 0.18.0 and finished by 0.18.1 records both versions once', () => {
   const home = cliHome();
-  const v17 = installCli('0.17.0');
-  const v18 = installCli('0.18.0');
-  const root = cliRepo(v17, home);
+  const v180 = installCli('0.18.0');
+  const v181 = installCli('0.18.1');
+  const root = cliRepo(v180, home);
 
   assert.equal(
-    v17(['new', 'feature', 'demo', 'Demo', '--owner', 'ana'], { cwd: root, home }).code,
+    v180(['new', 'feature', 'demo', 'Demo', '--owner', 'ana'], { cwd: root, home }).code,
     0,
   );
   const file = onlyChangeFile(root);
   fs.writeFileSync(file, fillFeature(fs.readFileSync(file, 'utf8')));
   const id = parseChange(fs.readFileSync(file, 'utf8')).frontmatter.id;
-  assert.equal(v17(['approve', id], { cwd: root, home }).code, 0);
+  assert.equal(v180(['approve', id], { cwd: root, home }).code, 0);
 
   // Activate the repo with that document, as the other fixtures do.
   const name = path.basename(file);
@@ -2266,7 +2266,7 @@ test('20261001-155216 CR10: a change created and approved by 0.17.0 and finished
     ['status', id, 'in-review'],
     ['review', id, 'pass'],
   ]) {
-    const result = v18(args, { cwd: root, home });
+    const result = v181(args, { cwd: root, home });
     assert.equal(result.code, 0, `${args.join(' ')}: ${result.err}`);
   }
 
@@ -2275,8 +2275,8 @@ test('20261001-155216 CR10: a change created and approved by 0.17.0 and finished
   assert.deepEqual(
     versions.map(({ previous, version }) => ({ previous, version })),
     [
-      { previous: undefined, version: '0.17.0' },
-      { previous: '0.17.0', version: '0.18.0' },
+      { previous: undefined, version: '0.18.0' },
+      { previous: '0.18.0', version: '0.18.1' },
     ],
   );
   const step = (event) => `${event.type} ${event.from ?? ''}→${event.to ?? ''}`;
@@ -2292,10 +2292,10 @@ test('20261001-155216 CR10: a change created and approved by 0.17.0 and finished
   assert.equal(
     events.slice(started).filter((event) => event.type === 'version').length,
     0,
-    'every later event belongs to 0.18.0',
+    'every later event belongs to 0.18.1',
   );
   assert.equal(events.at(-1).type, 'review');
-  assert.equal(v18(['check'], { cwd: root, home }).code, 0);
+  assert.equal(v181(['check'], { cwd: root, home }).code, 0);
 });
 
 test('20261001-155216 CR1: a change created by 0.18.0 starts with exactly its own version', () => {

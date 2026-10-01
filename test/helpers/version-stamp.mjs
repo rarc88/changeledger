@@ -1,12 +1,18 @@
 // Shared by the suites that pin the `[version]` Log stamp (20261001-155216).
 // A "previous" CLI is simulated by seeding a Log whose last `[version]` is
-// PREVIOUS_VERSION, so the real installed version always differs from it.
+// PREVIOUS_VERSION; loading this helper asserts that the installed version
+// differs from it, so a release labelled PREVIOUS_VERSION fails loudly.
 
 import assert from 'node:assert/strict';
 import { VERSION } from '../../src/framing.mjs';
 import { parseLogEvent } from '../../src/lifecycle.mjs';
 
 export const PREVIOUS_VERSION = '0.17.0';
+assert.notEqual(
+  VERSION,
+  PREVIOUS_VERSION,
+  'PREVIOUS_VERSION must differ from the installed version',
+);
 
 // Typed events of the `## Log` section, in order.
 export function logEvents(text) {
@@ -34,8 +40,8 @@ export function eventsAdded(before, after) {
 
 export const versionEvents = (events) => events.filter((event) => event.type === 'version');
 
-// What creation lands for a composed document: the document plus the running
-// version's stamp at `created`. Written out by hand rather than through the
+// What creation lands for a composed document whose Log is empty and carries no
+// stamp: the document plus the running version's stamp at `created`. Written out by hand rather than through the
 // writer, so a test that expects it is not the writer checking itself.
 export function withCreationStamp(document, created) {
   const entry = `- **${created}** \`[version]\` ${VERSION}`;

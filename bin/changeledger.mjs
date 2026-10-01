@@ -109,7 +109,7 @@ const LOG_EVENT_PRODUCERS = Object.freeze({
   note: ['changeledger log'],
   version: [
     'changeledger new, changeledger apply (creation)',
-    'every command that writes a Log event, when the installed version changed',
+    'every command above that appends a Log event, when the Log has no stamp or its last one differs from the installed version (not edit or apply documents)',
   ],
 });
 
