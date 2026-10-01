@@ -2,7 +2,7 @@
 id: "20261001-155216"
 title: Registrar en el Log la versión de ChangeLedger que modifica cada change
 type: feature
-status: in-review
+status: in-progress
 created: 2026-10-01T15:52:16Z
 depends_on: []
 branch: feature/20261001-155216
@@ -223,3 +223,4 @@ flowchart LR
 - **2026-10-01T16:33:06Z** `[note]` Implementación delegada (subagente, mid tier). Decisiones no especificadas: (1) el payload parseado es {version} o {previous, version}, porque un tipo no transicional no puede llevar from/to; (2) la creación reutiliza la misma comparación textual: un documento --from que ya trae el sello de la versión vigente no recibe otro y uno con sello antiguo recibe old → VERSION; (3) todo new de chore crea ya su ## Log, y el scaffold de --print sale sin sello porque lo sella --from; (4) newChangeFrom ya no aterriza el texto byte-idéntico, sino el texto más el sello; (5) implement.md gana una cláusula: los comandos de ciclo de vida sellan version cuando la versión instalada difiere de la última sellada; (6) las versiones se simulan con el parámetro runningVersion de appendLogEvent, con VERSION real frente a una semilla 0.17.0 y con CLIs copiadas para CR5 y CR10. Residuos: fix <id> sólo repara líneas del Plan, así que el caso fix de CR7 usa un marcador [X]. Gate: pnpm verify en verde con 1591/1591 tests.
 - **2026-10-01T16:33:11Z** `[status]` in-progress → in-review
 - **2026-10-01T16:33:38Z** `[note]` Mandato del review: la superficie que el change gobierna — el rango dev..HEAD (commit b97b083) contra CR1-CR10 y el Plan, con las decisiones no especificadas del Log como puntos de escrutinio.
+- **2026-10-01T16:39:40Z** `[review]` in-review → in-progress (retry): Cinco afirmaciones universales falsas en la prosa entregada: (1) el comentario de appendLogEvent en src/writer.mjs dice que todo evento se atribuye a la versión que lo produjo, falso para edit y documentos de apply; (2) la ayuda del productor de version en bin/changeledger.mjs omite esa arista y el primer sello sin cambio de versión; (3) el bloque de CR10 en test/agent.test.mjs llama binario real a copias reetiquetadas del checkout; (4) los comentarios de test/agent.test.mjs y test/helpers/version-stamp.mjs afirman que VERSION siempre difiere de la semilla sin asertarlo; (5) el comentario de withCreationStamp sólo es correcto con un Log vacío.
