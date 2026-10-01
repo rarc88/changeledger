@@ -181,10 +181,11 @@ flowchart LR
   - **Verify:** `node --test test/lifecycle.test.mjs test/check.test.mjs`
   - **Criteria:** CR8
   - **Resolved:** `2026-10-01T16:33:03Z`
-- [ ] Escribir pruebas fallidas del sello en `appendLogEvent` y en los productores de ambos layouts
+- [x] Escribir pruebas fallidas del sello en `appendLogEvent` y en los productores de ambos layouts
   - **Target:** `test/writer.test.mjs, test/agent.test.mjs, test/apply.test.mjs, test/view.test.mjs`
   - **Verify:** `node --test test/writer.test.mjs test/agent.test.mjs test/apply.test.mjs test/view.test.mjs`
   - **Criteria:** CR2, CR3, CR4, CR5, CR6, CR7
+  - **Resolved:** `2026-10-01T16:33:03Z`
 - [ ] Sellar en `appendLogEvent` cuando el último `[version]` difiere de `VERSION`
   - **Target:** `src/writer.mjs`
   - **Verify:** `node --test test/writer.test.mjs test/agent.test.mjs test/apply.test.mjs test/view.test.mjs`
