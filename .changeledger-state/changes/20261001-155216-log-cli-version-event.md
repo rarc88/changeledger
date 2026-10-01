@@ -186,10 +186,11 @@ flowchart LR
   - **Verify:** `node --test test/writer.test.mjs test/agent.test.mjs test/apply.test.mjs test/view.test.mjs`
   - **Criteria:** CR2, CR3, CR4, CR5, CR6, CR7
   - **Resolved:** `2026-10-01T16:33:03Z`
-- [ ] Sellar en `appendLogEvent` cuando el último `[version]` difiere de `VERSION`
+- [x] Sellar en `appendLogEvent` cuando el último `[version]` difiere de `VERSION`
   - **Target:** `src/writer.mjs`
   - **Verify:** `node --test test/writer.test.mjs test/agent.test.mjs test/apply.test.mjs test/view.test.mjs`
   - **Criteria:** CR2, CR3, CR4, CR5, CR6, CR7
+  - **Resolved:** `2026-10-01T16:33:04Z`
 - [ ] Probar y sellar la creación en `new` (scaffold y `--from`) y en `apply` con `target: "new"`
   - **Target:** `src/commands/new.mjs, src/commands/apply.mjs, test/cli.test.mjs, test/apply.test.mjs`
   - **Verify:** `node --test test/cli.test.mjs test/apply.test.mjs`
