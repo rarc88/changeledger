@@ -2,7 +2,7 @@
 id: "20261001-155612"
 title: Registrar el consumo de tokens y su coste en cada transición con ccusage
 type: feature
-status: draft
+status: approved
 created: 2026-10-01T15:56:12Z
 depends_on: []
 related_to: ["20261001-155216", "20260711-155721", "20260808-151640"]
@@ -266,3 +266,4 @@ sin filtrar por proyecto (mezcla otros repos activos); guardar en el documento
   - **Support:**
 
 ## Log
+- **2026-10-01T16:09:47Z** `[status]` draft → approved (human via conversation)
