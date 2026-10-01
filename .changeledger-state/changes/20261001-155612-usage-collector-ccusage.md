@@ -2,9 +2,10 @@
 id: "20261001-155612"
 title: Registrar el consumo de tokens y su coste en cada transición con ccusage
 type: feature
-status: approved
+status: in-progress
 created: 2026-10-01T15:56:12Z
 depends_on: []
+branch: feature/20261001-155612
 related_to: ["20261001-155216", "20260711-155721", "20260808-151640"]
 owner: rarc88
 release_impact: minor
@@ -267,3 +268,5 @@ sin filtrar por proyecto (mezcla otros repos activos); guardar en el documento
 
 ## Log
 - **2026-10-01T16:09:47Z** `[status]` draft → approved (human via conversation)
+- **2026-10-01T16:56:41Z** `[status]` approved → in-progress
+- **2026-10-01T16:56:41Z** `[branch]` set: feature/20261001-155612 (auto)
