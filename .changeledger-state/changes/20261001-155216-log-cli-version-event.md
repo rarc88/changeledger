@@ -164,10 +164,11 @@ flowchart LR
 - **And** la línea «Types are …» del contexto de implementación incluye `` `version` `` en el mismo orden que `LOG_EVENT_TYPES`, seguida de su forma
 
 ### CR10 — El primer uso real a través de una actualización
-- **Given** un repo activado donde la CLI `0.17.0` creó un change y lo aprobó
-- **When** la instalación se actualiza a `0.18.0` y se ejecutan `changeledger status <id> in-progress`, `changeledger log <id> "avance"`, `changeledger status <id> in-review` y `changeledger review <id> pass`
-- **Then** el Log contiene exactamente dos líneas `[version]`: `0.17.0` antes de `draft → approved` y `0.17.0 → 0.18.0` antes de `approved → in-progress`
-- **And** cada evento posterior a esa segunda línea pertenece a `0.18.0` y `changeledger check` termina con código cero
+- **Given** un repo activado donde la CLI `0.18.0`, que ya sella, creó un change y lo aprobó
+- **When** la instalación se actualiza a `0.18.1` y se ejecutan `changeledger status <id> in-progress`, `changeledger log <id> "avance"`, `changeledger task <id> done 1`, `changeledger status <id> in-review` y `changeledger review <id> pass`
+- **Then** el Log contiene exactamente dos líneas `[version]`: `0.18.0` antes de `draft → approved` y `0.18.0 → 0.18.1` antes de `approved → in-progress`
+- **And** cada evento posterior a esa segunda línea pertenece a `0.18.1` y `changeledger check` termina con código cero
+- **And** un change creado por una versión anterior al sello, como la `0.17.0`, recibe en su primer evento la forma de CR4
 
 ## Plan
 
