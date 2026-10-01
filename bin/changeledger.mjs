@@ -107,6 +107,10 @@ const LOG_EVENT_PRODUCERS = Object.freeze({
   graduation: ['changeledger graduate'],
   archive: ['changeledger archive'],
   note: ['changeledger log'],
+  version: [
+    'changeledger new, changeledger apply (creation)',
+    'every command that writes a Log event, when the installed version changed',
+  ],
 });
 
 function logEventGrammarHelp() {

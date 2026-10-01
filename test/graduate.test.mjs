@@ -9,11 +9,14 @@ import { parseChange } from '../src/change.mjs';
 import { graduate, scaffoldSpec, skipGraduation } from '../src/commands/graduate.mjs';
 import { init } from '../src/commands/init.mjs';
 import { newChange } from '../src/commands/new.mjs';
+import { VERSION } from '../src/framing.mjs';
 import { loadRepo } from '../src/repo.mjs';
 import { parseSpec } from '../src/spec.mjs';
 import { STATE_REF, STATE_ROOT, writeActivation } from '../src/state-store.mjs';
+import { stampVersion } from '../src/writer.mjs';
 import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
+import { eventsAdded, PREVIOUS_VERSION, versionEvents } from './helpers/version-stamp.mjs';
 
 // Isolate the global registry so init() doesn't touch the real home.
 process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
@@ -75,10 +78,10 @@ function seedSpec(root, name, body) {
 // Activated variant: the change document (from `repo()`) and, optionally, a
 // pre-existing spec both live only in the state ref's snapshot — nothing on
 // disk backs either, so a fallback to the worktree would fail outright.
-function activatedRepo({ specName, specBody } = {}) {
+function activatedRepo({ specName, specBody, prepare = (text) => text } = {}) {
   const { root, file, id } = repo();
   const changeName = path.basename(file);
-  const changeText = fs.readFileSync(file, 'utf8');
+  const changeText = prepare(fs.readFileSync(file, 'utf8'));
   fs.rmSync(file);
 
   const files = {
@@ -747,3 +750,60 @@ test('skipGraduation on an active repo marks reviewed and logs the reason, one c
   assert.match(stateDocText(root, tip, `changes/${changeName}`), /no durable truth/);
   assert.equal(fs.existsSync(path.join(root, STATE_ROOT)), false);
 });
+
+// 20261001-155216 CR6 — graduation events are stamped like any other Log event,
+// in both layouts. The done change was last written by a PREVIOUS_VERSION CLI.
+const seedStamp = (text) => stampVersion(text, '2026-06-13T12:30:00Z', PREVIOUS_VERSION);
+
+const graduationLayouts = {
+  legacy: () => {
+    const fixture = repo();
+    fs.writeFileSync(fixture.file, seedStamp(fs.readFileSync(fixture.file, 'utf8')));
+    seedSpec(fixture.root, 'architecture.md', '\n# Arch\n\nCuerpo intacto.\n');
+    return { ...fixture, read: () => fs.readFileSync(fixture.file, 'utf8') };
+  },
+  'state ref': () => {
+    const { root, id, changeName } = activatedRepo({
+      specName: 'architecture.md',
+      specBody: '\n# Arch\n\nCuerpo intacto.\n',
+      prepare: seedStamp,
+    });
+    return {
+      root,
+      id,
+      read: () => stateDocText(root, stateRefTip(root), `changes/${changeName}`),
+    };
+  },
+};
+
+for (const [layout, build] of Object.entries(graduationLayouts)) {
+  test(`20261001-155216 CR6 (${layout}): graduate --into stamps the version before the graduation event`, () => {
+    const { root, id, read } = build();
+    const before = read();
+    graduate(id, 'architecture', root, { into: true });
+    const added = eventsAdded(before, read());
+    assert.deepEqual(added[0], {
+      at: added[1].at,
+      type: 'version',
+      previous: PREVIOUS_VERSION,
+      version: VERSION,
+    });
+    assert.equal(added[1].type, 'graduation');
+    assert.equal(versionEvents(added).length, 1);
+  });
+
+  test(`20261001-155216 CR6 (${layout}): graduate --skip stamps the version before the graduation event`, () => {
+    const { root, id, read } = build();
+    const before = read();
+    skipGraduation(id, 'no durable truth', root);
+    const added = eventsAdded(before, read());
+    assert.deepEqual(added[0], {
+      at: added[1].at,
+      type: 'version',
+      previous: PREVIOUS_VERSION,
+      version: VERSION,
+    });
+    assert.equal(added[1].type, 'graduation');
+    assert.equal(versionEvents(added).length, 1);
+  });
+}

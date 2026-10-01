@@ -155,11 +155,18 @@ function applyDocument(entry, { candidate, pending, descriptors }) {
     // the title, and a derivation that yields nothing fails loudly.
     const slug = entry.slug ?? parseChange(content).frontmatter?.title;
     const prepared = prepareNewChange(candidate, content, { slug: slugify(slug) });
+    // `prepared.text` is the document with its creation stamp: the candidate and
+    // the write carry that text, so later entries and the landing agree on it.
     candidate.changes = [
       ...candidate.changes,
-      { file: prepared.file, name: prepared.name, text: content, ...parseChange(content) },
+      {
+        file: prepared.file,
+        name: prepared.name,
+        ...parseChange(prepared.text),
+        text: prepared.text,
+      },
     ];
-    stage(pending, { ...prepared, text: content, baseline: undefined });
+    stage(pending, { ...prepared, baseline: undefined });
     descriptors.push(`new ${prepared.id}`);
     return;
   }

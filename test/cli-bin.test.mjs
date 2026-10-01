@@ -612,12 +612,12 @@ test('131649 CR9: archive help keeps the action and points preview to list', () 
 
 test('105457 CR1/CR3: archive CLI transmits owner filters and rejects id combinations', () => {
   const { root, env, id, changeFile } = doneRepo();
+  // `new` now scaffolds a Log for a chore too (the version stamp lives there),
+  // so the graduation event joins that last section instead of opening a second.
   const candidate = `${fs
     .readFileSync(changeFile, 'utf8')
-    .replace(
-      'status: done',
-      'status: done\nreviewed: true',
-    )}\n## Log\n\n- **2026-07-18T12:00:00Z** \`[graduation]\` skipped: no durable truth\n`;
+    .replace('status: done', 'status: done\nreviewed: true')
+    .trimEnd()}\n- **2026-07-18T12:00:00Z** \`[graduation]\` skipped: no durable truth\n`;
   assert.match(candidate, /\[graduation\]` skipped: no durable truth/);
   fs.writeFileSync(changeFile, candidate);
 

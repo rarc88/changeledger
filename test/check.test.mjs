@@ -156,6 +156,64 @@ test('20260824-134716 CR6: an invalid Log entry gives the complete canonical gra
   assert.doesNotMatch([...msgs(errors), ...msgs(warnings)].join('\n'), /fix --structured-sections/);
 });
 
+function versionLogChange(status, logLines) {
+  const text = [
+    '---',
+    'id: "20260613-120000"',
+    'title: X',
+    'type: feature',
+    `status: ${status}`,
+    'created: 2026-06-13T12:00:00Z',
+    'depends_on: []',
+    '---',
+    '',
+    '## Log',
+    '',
+    ...logLines,
+    '',
+  ].join('\n');
+  return change({
+    text,
+    frontmatter: { status },
+    stages: [{ key: 'request' }, { key: 'plan' }, { key: 'log', heading: 'Log', body: '- log' }],
+  });
+}
+
+test('20261001-155216 CR8: SemVer version events are valid and leave the reconstructed status alone', () => {
+  const subject = versionLogChange('in-progress', [
+    '- **2026-06-13T12:00:00Z** `[version]` 0.18.0-dev',
+    '- **2026-06-13T12:01:00Z** `[status]` draft → approved',
+    '- **2026-06-13T12:02:00Z** `[version]` 0.17.0 → 0.18.0-dev+abc.1',
+    '- **2026-06-13T12:02:00Z** `[status]` approved → in-progress',
+  ]);
+  const { errors } = run([subject]);
+  assert.deepEqual(msgs(errors), []);
+  // The same Log without the stamps reconstructs the same status, so the
+  // frontmatter comparison is the proof the version lines were skipped.
+  const wrong = versionLogChange('approved', [
+    '- **2026-06-13T12:00:00Z** `[version]` 0.18.0-dev',
+    '- **2026-06-13T12:01:00Z** `[status]` draft → approved',
+    '- **2026-06-13T12:02:00Z** `[version]` 0.17.0 → 0.18.0-dev+abc.1',
+    '- **2026-06-13T12:02:00Z** `[status]` approved → in-progress',
+  ]);
+  assert.match(
+    msgs(run([wrong]).errors).join('\n'),
+    /Log reconstructs status "in-progress" but frontmatter says "approved"/,
+  );
+});
+
+test('20261001-155216 CR8: non-SemVer version payloads get the invalid-event error naming version', () => {
+  for (const payload of ['latest', '0.17 → 0.18.0']) {
+    const subject = versionLogChange('draft', [
+      `- **2026-06-13T12:00:00Z** \`[version]\` ${payload}`,
+    ]);
+    const errors = msgs(run([subject]).errors);
+    const expected = `Log line 12: invalid typed event; valid types: ${LOG_EVENT_TYPES.join(', ')}; expected: - **YYYY-MM-DDTHH:MM:SSZ** \`[type]\` payload`;
+    assert.ok(errors.includes(expected), `${payload}: ${errors.join('\n')}`);
+    assert.match(expected, /\bversion\b/);
+  }
+});
+
 // Confirm-only (20260726-124836 CR5): src/check.mjs never validated `owner`,
 // so a change without it already passed cleanly — no production change needed.
 test('20260726-124836 CR5: a change with no owner in frontmatter reports no error or warning', () => {

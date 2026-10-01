@@ -2,7 +2,8 @@
 // and are the basis for the `changeledger status`/`log`/`task` mutation commands.
 
 import { parseDocument } from 'yaml';
-import { serializeLogEvent } from './lifecycle.mjs';
+import { VERSION } from './framing.mjs';
+import { parseLogEvent, serializeLogEvent } from './lifecycle.mjs';
 import { parseTaskBlocks, taskMetadataLine } from './task.mjs';
 import { serializeScalar } from './yaml.mjs';
 
@@ -156,17 +157,36 @@ function replaceRange(text, start, end, replacement) {
   return `${text.slice(0, start)}${replacement}${text.slice(end)}`;
 }
 
-export function appendLogEvent(text, event) {
+// Every Log event is attributed to the CLI version that produced it: before
+// inserting one, `appendLogEvent` stamps a `[version]` line when the running
+// version is not the last one the Log recorded (20261001-155216). The
+// comparison is textual, not by precedence, so a lower version the repository
+// still allows is recorded too. `runningVersion` is a seam for tests; it
+// defaults to the installed version.
+export function appendLogEvent(text, event, runningVersion = VERSION) {
   const entry = serializeLogEvent(event);
-  const lines = text.split('\n');
-  const start = lines.findIndex((l) => /^##\s+Log\s*$/.test(l));
-  // The Log is the lifecycle transition ledger, present in every change once its
-  // status moves. Some types (e.g. chore) don't scaffold it, so create it.
-  if (start === -1) {
-    const body = `${text.replace(/\s*$/, '')}\n\n## Log\n\n${entry}\n`;
-    return body;
-  }
+  const stamped = event.type === 'version' ? text : stampVersion(text, event.at, runningVersion);
+  return appendLogEntry(stamped, entry);
+}
 
+// Records `runningVersion` at `at` when the Log's last `[version]` differs from
+// it (or there is none): `[version] <version>` for the first stamp,
+// `[version] <last> → <version>` afterwards. Returns the text unchanged when
+// the last stamp already matches. Creation paths call it directly because they
+// write no event of their own.
+export function stampVersion(text, at, runningVersion = VERSION) {
+  const last = lastLoggedVersion(text);
+  if (last === runningVersion) return text;
+  const stamp = { at, type: 'version', version: runningVersion };
+  if (last !== undefined) stamp.previous = last;
+  return appendLogEntry(text, serializeLogEvent(stamp));
+}
+
+// The `## Log` section's line range `[start, end)` — `start` is the heading —
+// or null when the document has none.
+function logRange(lines) {
+  const start = lines.findIndex((l) => /^##\s+Log\s*$/.test(l));
+  if (start === -1) return null;
   let end = lines.length;
   for (let j = start + 1; j < lines.length; j++) {
     if (/^##\s+/.test(lines[j])) {
@@ -174,8 +194,31 @@ export function appendLogEvent(text, event) {
       break;
     }
   }
-  let at = end;
-  while (at > start + 1 && lines[at - 1].trim() === '') at--;
+  return { start, end };
+}
+
+function lastLoggedVersion(text) {
+  const lines = text.split('\n');
+  const range = logRange(lines);
+  if (!range) return undefined;
+  for (let j = range.end - 1; j > range.start; j--) {
+    const event = parseLogEvent(lines[j]);
+    if (event?.type === 'version') return event.version;
+  }
+  return undefined;
+}
+
+function appendLogEntry(text, entry) {
+  const lines = text.split('\n');
+  const range = logRange(lines);
+  // The Log is the lifecycle transition ledger, present in every change once its
+  // status moves. Some types (e.g. chore) don't scaffold it, so create it.
+  if (!range) {
+    return `${text.replace(/\s*$/, '')}\n\n## Log\n\n${entry}\n`;
+  }
+
+  let at = range.end;
+  while (at > range.start + 1 && lines[at - 1].trim() === '') at--;
 
   lines.splice(at, 0, entry);
   return lines.join('\n');
