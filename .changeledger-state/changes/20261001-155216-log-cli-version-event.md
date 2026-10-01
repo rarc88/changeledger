@@ -171,10 +171,11 @@ flowchart LR
 
 ## Plan
 
-- [ ] Escribir pruebas fallidas del tipo `version`: gramática, parser y serialización
+- [x] Escribir pruebas fallidas del tipo `version`: gramática, parser y serialización
   - **Target:** `test/lifecycle.test.mjs`
   - **Verify:** `node --test test/lifecycle.test.mjs`
   - **Criteria:** CR8
+  - **Resolved:** `2026-10-01T16:33:02Z`
 - [ ] Añadir `version` a `LOG_EVENT_DEFINITIONS` con su parser SemVer propio
   - **Target:** `src/lifecycle.mjs, src/version-guard.mjs`
   - **Verify:** `node --test test/lifecycle.test.mjs test/check.test.mjs`
