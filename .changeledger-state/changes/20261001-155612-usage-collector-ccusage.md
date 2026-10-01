@@ -238,10 +238,11 @@ sin filtrar por proyecto (mezcla otros repos activos); guardar en el documento
 
 ## Plan
 
-- [ ] Capturar fixtures reales de `ccusage` 20.0.26 y escribir pruebas fallidas del colector
+- [x] Capturar fixtures reales de `ccusage` 20.0.26 y escribir pruebas fallidas del colector
   - **Target:** `test/usage-collector.test.mjs, test/fixtures/ccusage/`
   - **Verify:** `node --test test/usage-collector.test.mjs`
   - **Criteria:** CR3, CR5, CR6, CR7, CR8
+  - **Resolved:** `2026-10-01T17:21:50Z`
 - [ ] Implementar el colector: llamadas con límite, respaldo offline, filtro por proyecto y worktrees, mapeo y registro
   - **Target:** `src/usage-collector.mjs`
   - **Verify:** `node --test test/usage-collector.test.mjs`
