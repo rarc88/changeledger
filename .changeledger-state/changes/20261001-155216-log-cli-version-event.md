@@ -206,10 +206,11 @@ flowchart LR
   - **Verify:** `node --test test/cli-bin.test.mjs test/contract.test.mjs`
   - **Criteria:** CR9
   - **Resolved:** `2026-10-01T16:33:05Z`
-- [ ] Probar el recorrido completo a través de una actualización en un repo activado
+- [x] Probar el recorrido completo a través de una actualización en un repo activado
   - **Target:** `test/agent.test.mjs`
   - **Verify:** `node --test test/agent.test.mjs`
   - **Criteria:** CR10
+  - **Resolved:** `2026-10-01T16:33:05Z`
 - [ ] Ejecutar el gate completo
   - **Verify:** `pnpm verify`
   - **Support:**
