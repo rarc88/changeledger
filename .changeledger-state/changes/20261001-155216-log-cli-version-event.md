@@ -196,10 +196,11 @@ flowchart LR
   - **Verify:** `node --test test/cli.test.mjs test/apply.test.mjs`
   - **Criteria:** CR1
   - **Resolved:** `2026-10-01T16:33:04Z`
-- [ ] Reorientar las pruebas existentes que fijan el contenido exacto del Log tras una mutación
+- [x] Reorientar las pruebas existentes que fijan el contenido exacto del Log tras una mutación
   - **Target:** `test/`
   - **Verify:** `pnpm test`
   - **Support:**
+  - **Resolved:** `2026-10-01T16:33:04Z`
 - [ ] Publicar el tipo en la ayuda y en el contrato de implementación
   - **Target:** `bin/changeledger.mjs, templates/contract/implement.md`
   - **Verify:** `node --test test/cli-bin.test.mjs test/contract.test.mjs`
