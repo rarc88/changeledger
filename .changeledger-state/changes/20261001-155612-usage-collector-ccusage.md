@@ -258,10 +258,11 @@ sin filtrar por proyecto (mezcla otros repos activos); guardar en el documento
   - **Verify:** `node --test test/agent.test.mjs test/apply.test.mjs test/view.test.mjs`
   - **Criteria:** CR1, CR4, CR8, CR9
   - **Resolved:** `2026-10-01T17:21:52Z`
-- [ ] Documentar la clave en la plantilla de configuración y en la documentación
+- [x] Documentar la clave en la plantilla de configuración y en la documentación
   - **Target:** `templates/config.yml, docs/`
   - **Verify:** `node --test test/config-migration.test.mjs`
   - **Support:**
+  - **Resolved:** `2026-10-01T17:21:52Z`
 - [ ] Recorrer el primer uso real con `ccusage` 20.0.26 en este repo
   - **Target:** `.changeledger/config.yml`
   - **Verify:** verify: manual — crear, aprobar e iniciar un change de prueba desde Claude Code y revisar los tres registros
