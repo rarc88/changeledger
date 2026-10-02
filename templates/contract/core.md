@@ -38,7 +38,8 @@ only when trivially small.
 
 Every delegation is one level deep: a subagent never delegates further. One owner per write
 surface; concurrent subagents must not share files. Get the prompt skeleton from
-`changeledger agent-prompt <role>` (investigation | implementation | review | post-review);
+`changeledger agent-prompt <role>`
+(investigation | implementation | review | post-review | graduation-review);
 the stage context owns what the prompt must contain. A subagent returns findings or a diff
 receipt, not narrative. `post-review` is a read-only inspection of a change already in
 `in-validation`; it never issues a verdict or moves the change.

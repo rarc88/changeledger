@@ -11,7 +11,7 @@ import { contractTemplatesDir } from '../src/paths.mjs';
 
 const execFileAsync = promisify(execFile);
 const bin = path.resolve('bin/changeledger.mjs');
-const ROLES = ['investigation', 'implementation', 'review', 'post-review'];
+const ROLES = ['investigation', 'implementation', 'review', 'post-review', 'graduation-review'];
 
 // npm ships as the `npm.cmd` shim on Windows; execFile does not resolve
 // shims through PATH the way a shell would, so the command must be
@@ -57,13 +57,16 @@ test('CR1: agent-prompt works outside an initialized repo (static package asset)
 test('CR2: an unknown role fails with a non-zero exit listing the valid roles', async () => {
   assert.throws(
     () => buildAgentPrompt('scaffolding'),
-    /valid roles: investigation, implementation, review, post-review/,
+    /valid roles: investigation, implementation, review, post-review, graduation-review$/,
   );
   await assert.rejects(
     execFileAsync(process.execPath, [bin, 'agent-prompt', 'scaffolding']),
     (err) => {
       assert.notEqual(err.code, 0);
-      assert.match(err.stderr, /investigation, implementation, review, post-review/);
+      assert.match(
+        err.stderr,
+        /investigation, implementation, review, post-review, graduation-review/,
+      );
       return true;
     },
   );
@@ -72,7 +75,7 @@ test('CR2: an unknown role fails with a non-zero exit listing the valid roles', 
 test('20260726-141123 CR2: the retired role name audit never resolves, no alias', () => {
   assert.throws(
     () => buildAgentPrompt('audit'),
-    /^Error: Unknown role "audit" — valid roles: investigation, implementation, review, post-review$/,
+    /^Error: Unknown role "audit" — valid roles: investigation, implementation, review, post-review, graduation-review$/,
   );
 });
 
@@ -96,8 +99,8 @@ test('CR3: every skeleton materializes the full delegation contract', () => {
     assert.match(body, /Return to the orchestrator/, `${role} missing return contract`);
   }
 
-  // Investigation, review and post-review forbid any write, by effect — no tool names.
-  for (const role of ['investigation', 'review', 'post-review']) {
+  // Every read-only role forbids any write, by effect — no tool names.
+  for (const role of ['investigation', 'review', 'post-review', 'graduation-review']) {
     const body = prose(role);
     assert.match(body, /do not modify any file/i, `${role} must forbid file writes`);
     assert.match(body, /do not change Git state/i, `${role} must forbid git writes`);
@@ -169,6 +172,13 @@ test('165310 CR1: the review skeleton bounds the inspection to the declared mand
   }
 });
 
+// 20261002-152555 CR3: the spec diff lives in the state journal on an activated
+// repo and in the worktree on an inactive one, so the skeleton leaves its source
+// as a placeholder — structural, pinned literally like the CR3 loop's fields.
+test('152555 CR3: the graduation-review skeleton leaves the spec diff source as a placeholder', () => {
+  assert.match(prose('graduation-review'), /\{\{spec_diff_source\}\}/);
+});
+
 test('CR4: each role loads available context without inventing a change', () => {
   for (const role of ROLES) {
     assert.match(
@@ -182,7 +192,7 @@ test('CR4: each role loads available context without inventing a change', () => 
       `${role} must load its delegated capsule`,
     );
   }
-  for (const role of ['implementation', 'review', 'post-review']) {
+  for (const role of ['implementation', 'review', 'post-review', 'graduation-review']) {
     assert.match(
       prose(role),
       new RegExp(`changeledger agent-context ${role} \\{\\{change_id\\}\\}`),

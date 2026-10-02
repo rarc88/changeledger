@@ -6,7 +6,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
-import { buildAgentContext } from '../src/commands/agent-context.mjs';
+import { AGENT_ROLES, buildAgentContext } from '../src/commands/agent-context.mjs';
 import {
   buildContext,
   emittedLines as contextEmittedLines,
@@ -1203,10 +1203,14 @@ test('144327 CR5: core discovers agent-prompt before a draft exists, within budg
   const root = repo();
   const core = buildContext(undefined, root);
   const norm = core.replace(/\s+/g, ' ');
-  // The pointer's four roles are a command's argument set, not prose, so they stay;
-  // 20260730-002730 retired the sentence that introduced them.
+  // The pointer's roles are a command's argument set, not prose, so they stay;
+  // 20260730-002730 retired the sentence that introduced them. Since 20261002-152555
+  // CR6 the set is the command's own, so a new role cannot go unannounced.
   assert.match(norm, /`changeledger agent-prompt <role>`/);
-  assert.match(norm, /investigation \| implementation \| review \| post-review/);
+  assert.ok(
+    norm.includes(`(${AGENT_ROLES.join(' | ')})`),
+    `core does not announce the agent-prompt roles ${AGENT_ROLES.join(' | ')}`,
+  );
   // The skeleton bodies are NOT inlined into the core, and the pointer is not
   // duplicated into the delegation fragment.
   assert.doesNotMatch(core, /Delegation skeleton — role:/);
@@ -2984,6 +2988,7 @@ test('143656 CR4: retired phrases stay retired recursively and the fragment inve
   // Same guard for the two composed capsule subdirectories.
   const agentContexts = inventory('agent-contexts/');
   assert.deepEqual(agentContexts, [
+    'graduation-review.md',
     'implementation.md',
     'investigation.md',
     'post-review.md',
@@ -2991,6 +2996,7 @@ test('143656 CR4: retired phrases stay retired recursively and the fragment inve
   ]);
   const agentPrompts = inventory('agent-prompts/');
   assert.deepEqual(agentPrompts, [
+    'graduation-review.md',
     'implementation.md',
     'investigation.md',
     'post-review.md',
@@ -3026,7 +3032,7 @@ test('162015 CR3/CR4: delegation.md points at the unit instead of redefining it'
 //
 // The phrase-level pins over `templates/contract/` prose are retired: every one of
 // them charged a retarget, a mutant and review scrutiny to each rewrite of a
-// sentence, and that cost is what the decision removes. Seventeen carrier obligations
+// sentence, and that cost is what the decision removes. Nineteen carrier obligations
 // keep a guard anyway, because losing one in silence is a different failure class
 // from rewording one (finding 38: normative prose lost with nothing noticing, three
 // times, exploit proven live).
@@ -3449,6 +3455,132 @@ const CONCEPT_GUARDS = [
           'i',
         ),
         'close no longer falls back to the Specification or Proposal without a seed_stage',
+      );
+    },
+  },
+  {
+    entry: 18,
+    obligation:
+      'the graduation-review delegate checks each affected spec diff read-only and recommends apply or correct',
+    // 20261002-152555 CR4, judged on the composed capsule, cut before the selected
+    // change so its body cannot satisfy it.
+    verify: () => {
+      const root = repo();
+      const capsule = flattened(
+        buildAgentContext(
+          'graduation-review',
+          addChange(root, 'done', '20261002-152604'),
+          root,
+        ).split('# Selected change')[0],
+      );
+      const deny = '\\b(do not|never|must not|may not)\\b[^.;]{0,15}';
+      for (const [object, what] of [
+        ['\\b(modify|edit|write)\\b[^.;]{0,15}\\bfiles?\\b', 'files'],
+        ['\\b(change|modify|touch)\\b[^.;]{0,15}\\bGit\\b', 'Git'],
+        ['\\b(mutate|modify|write)\\b[^.;]{0,15}\\bledger\\b', 'the ledger'],
+        ['\\b(move|transition|advance)\\b[^.;]{0,15}\\bchange\\b', 'the change status'],
+      ]) {
+        assert.match(
+          capsule,
+          new RegExp(`${deny}${object}`, 'i'),
+          `the graduation-review capsule no longer forbids touching ${what}`,
+        );
+      }
+      assert.doesNotMatch(
+        capsule,
+        /changeledger (status|task|log|review|validation|graduate|archive|approve|reopen|discard)\b/,
+        'the graduation-review capsule names a lifecycle command',
+      );
+      // Spec, diff, code and change in one sentence, in any order.
+      const window = '[^.]{0,250}';
+      assert.match(
+        capsule,
+        new RegExp(
+          [
+            '\\b(each|every|all)\\b[^.;]{0,20}\\bspecs?\\b',
+            '\\bdiff\\b',
+            '\\b(contrast|compar|check|verif)\\w*',
+            '\\bcode\\b',
+            '\\bchange\\b',
+          ]
+            .map((term) => `(?=${window}${term})`)
+            .join(''),
+          'i',
+        ),
+        'the graduation-review capsule no longer contrasts each spec diff with the code and the change',
+      );
+      for (const [rule, what] of [
+        [/\bcurrent\b[^.;]{0,30}\btruth\b/i, 'current truth'],
+        [/\b(no|never|not|without)\b[^.;]{0,25}\bchronolog/i, 'no chronology'],
+        [
+          /\b(no|never|not|without)\b[^.;]{0,15}\bCR\b[^.;]{0,40}\b(structure|headings?)\b/i,
+          'no CR structure',
+        ],
+        [
+          /\b(universal\w*|quantif\w*)\b[^.;]{0,80}\b(holds?|verif\w*|confirm\w*|check\w*|narrow\w*)\b/i,
+          'universal claims verified',
+        ],
+      ]) {
+        assert.match(capsule, rule, `the graduation-review capsule no longer checks ${what}`);
+      }
+      assert.match(
+        capsule,
+        /\bfindings?\b[^.;]{0,30}\bevidence\b/i,
+        'the graduation-review capsule no longer returns findings with evidence',
+      );
+      assert.match(
+        capsule,
+        /\brecommend\w*\b[^.]{0,80}\bapply\b[^.]{0,80}\bcorrect\b/i,
+        'the graduation-review capsule no longer recommends apply or correct',
+      );
+    },
+  },
+  {
+    entry: 19,
+    obligation:
+      'a review_required closure that creates or corrects specs is checked by graduation-review before the first --into',
+    // 20261002-152555 CR5, judged on what `context <id>` composes for a `done`
+    // change, cut before the selected change so its body cannot satisfy it.
+    verify: () => {
+      const root = repo();
+      const close = flattened(
+        buildContext(addChange(root, 'done', '20261002-152605'), root).split(
+          '# Selected change',
+        )[0],
+      );
+      // review_required, creating or correcting specs, delegating the role and the
+      // first `--into` in one sentence, in any order.
+      const window = '[^.]{0,250}';
+      assert.match(
+        close,
+        new RegExp(
+          [
+            '\\breview_required\\b',
+            '\\b(creat|correct)\\w*\\b[^.;]{0,30}\\bspecs?\\b',
+            '\\bdelegat\\w*',
+            '`graduation-review`',
+            '\\bbefore\\b[^.;]{0,30}\\b(first|any)\\b[^.;]{0,10}`--into`',
+          ]
+            .map((term) => `(?=${window}${term})`)
+            .join(''),
+          'i',
+        ),
+        'close no longer delegates graduation-review before the first --into',
+      );
+      assert.match(
+        close,
+        /\bfindings?\b[^.;]{0,80}\b(correct|fix)\w*\b[^.;]{0,60}\bdelegat\w*\b[^.;]{0,40}\b(fresh|new|another)\b[^.;]{0,20}\b(reviewer|delegate|subagent)\b/i,
+        'close no longer re-delegates to a fresh reviewer after correcting findings',
+      );
+      assert.match(
+        close,
+        /\b(record|log|note)\w*\b[^.;]{0,40}\b(outcome|result|recommendation)\b[^.;]{0,40}(\bLog\b|`changeledger log\b)/i,
+        'close no longer records the graduation-review outcome in the Log',
+      );
+      assert.match(
+        close,
+        /`--skip`[^.;]{0,40}\b(no|none|not|without)\b[^.;]{0,30}\breview\b|\b(no|none|not|without)\b[^.;]{0,30}\breview\b[^.;]{0,40}`--skip`/i,
+        'close no longer exempts --skip from the graduation review',
       );
     },
   },
