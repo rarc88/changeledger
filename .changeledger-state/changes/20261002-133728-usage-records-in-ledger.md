@@ -2,7 +2,7 @@
 id: "20261002-133728"
 title: Guardar los registros de consumo en el ledger
 type: feature
-status: in-review
+status: in-progress
 created: 2026-10-02T13:37:28Z
 depends_on: ["20261001-155612"]
 branch: feature/20261002-133728
@@ -232,3 +232,4 @@ humano para dividirlo por layout.
 - **2026-10-02T16:00:33Z** `[note]` CR9 recorrido por el orquestador con autorización del humano: con git config changeledger.usage.collector ccusage y la CLI de esta rama, el change de prueba 20261002-155917 se creó, aprobó e inició; la ref de estado ganó tres commits usage: <id> <event> tras sus transiciones, cada uno con un registro en .changeledger-state/usage/; tras changeledger sync, un segundo clon de GitHub activado vio en su ref los tres registros (created, draft → approved, approved → in-progress), sin error, con recorded_by rarc88 y pricing online, y su check terminó sin errores. El change de prueba se descartó, su rama se borró, el valor de git config se retiró y el clon temporal se eliminó. Hallazgo: en cuanto la ref de estado contiene un registro, la CLI instalada 0.17.0, que no conoce la colección usage, falla en cualquier comando con invalid state path; el guard de min_cli_version no la detiene porque la lectura del snapshot falla antes. La ref publicada en origin ya contiene registros.
 - **2026-10-02T16:17:20Z** `[status]` in-progress → in-review
 - **2026-10-02T16:17:23Z** `[note]` Mandato del review: la superficie que el change gobierna — el rango dev..HEAD (93d00ba) contra CR1-CR10 y el Plan, con las decisiones no especificadas y los residuos del Log como puntos de escrutinio; el hallazgo de compatibilidad con CLIs anteriores queda fuera del mandato, documentado como 20261002-161641.
+- **2026-10-02T16:28:07Z** `[review]` in-review → in-progress (retry): D1: en legacy, con .changeledger/usage/ en .gitignore, changeledger commit --id falla por el git add de los registros y bloquea todos los commits del change; la medición no debe bloquear commit. D2: con la ref de estado una colisión de sufijo sobrescribe un registro sin aviso, y lo desmienten tres textos universales (import dice que el contenido nunca se reescribe, el test CR3 de no sobrescritura sólo corre en legacy, y mutateState dice que los registros nunca se eliminan cuando el fast-forward de sync sí puede). D3: un registro sin change se reporta como change "undefined".
