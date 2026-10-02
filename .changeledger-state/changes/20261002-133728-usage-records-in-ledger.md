@@ -2,7 +2,7 @@
 id: "20261002-133728"
 title: Guardar los registros de consumo en el ledger
 type: feature
-status: in-progress
+status: in-review
 created: 2026-10-02T13:37:28Z
 depends_on: ["20261001-155612"]
 branch: feature/20261002-133728
@@ -250,3 +250,4 @@ humano para dividirlo por layout.
 - **2026-10-02T16:48:18Z** `[review]` in-review → in-progress (retry): Quinta ronda: la última frase del párrafo dice que changeledger sync fusiona los registros de dos clones, pero en clones no activados sync no hace nada; debe acotarse a un repositorio activado.
 - **2026-10-02T16:48:18Z** `[note]` Corrección del orquestador tras la quinta ronda: la frase de sync queda acotada a un repositorio activado, con la redacción que propuso el revisor.
 - **2026-10-02T16:50:00Z** `[note]` Sexta ronda autorizada por el humano: confirma el mismo revisor de la quinta, limitado a comprobar que su redacción quedó aplicada tal cual y que el resto del párrafo no cambió.
+- **2026-10-02T16:50:00Z** `[status]` in-progress → in-review
