@@ -178,10 +178,11 @@ humano para dividirlo por layout.
 
 ## Plan
 
-- [ ] Escribir pruebas fallidas de la colección `usage` en el store: rutas, lectura, integridad e identidad
+- [x] Escribir pruebas fallidas de la colección `usage` en el store: rutas, lectura, integridad e identidad
   - **Target:** `test/state-store.test.mjs, test/repo.test.mjs`
   - **Verify:** `node --test test/state-store.test.mjs test/repo.test.mjs`
   - **Criteria:** CR1, CR5, CR10
+  - **Resolved:** `2026-10-02T15:57:39Z`
 - [ ] Añadir `usage` a las colecciones del store, a la carga del ledger en ambos layouts y a la integridad de identidades
   - **Target:** `src/state-store.mjs, src/repo.mjs`
   - **Verify:** `node --test test/state-store.test.mjs test/repo.test.mjs`
