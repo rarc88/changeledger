@@ -82,7 +82,10 @@ types:
   # Persistent truth about a topic, checked against what the code does; it
   # changes no application code. With `tdd: false` it is reviewed on its
   # criteria alone, without a Plan — see `changeledger context spec`.
+  # `seed_stage` names the stage `graduate --new` seeds the spec from
+  # (default: specification, else proposal).
   documentation:
     stages: [request, investigation, specification, log]
     review_required: true
     tdd: false
+    seed_stage: investigation

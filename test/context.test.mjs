@@ -3026,7 +3026,7 @@ test('162015 CR3/CR4: delegation.md points at the unit instead of redefining it'
 //
 // The phrase-level pins over `templates/contract/` prose are retired: every one of
 // them charged a retarget, a mutant and review scrutiny to each rewrite of a
-// sentence, and that cost is what the decision removes. Sixteen carrier obligations
+// sentence, and that cost is what the decision removes. Seventeen carrier obligations
 // keep a guard anyway, because losing one in silence is a different failure class
 // from rewording one (finding 38: normative prose lost with nothing noticing, three
 // times, exploit proven live).
@@ -3416,6 +3416,39 @@ const CONCEPT_GUARDS = [
         flattened(contractFragment('readiness.md')),
         override,
         'readiness no longer carries the per-type tdd override',
+      );
+    },
+  },
+  {
+    entry: 17,
+    obligation:
+      'graduate --new seeds from the stage the type declares as seed_stage, else from the Specification or Proposal',
+    // 20261002-113435 CR6, judged on what `context <id>` composes for a `done`
+    // change, cut before the selected change so its body cannot satisfy it.
+    verify: () => {
+      const root = repo();
+      const close = flattened(
+        buildContext(addChange(root, 'done', '20261002-120000'), root).split(
+          '# Selected change',
+        )[0],
+      );
+      // A dot followed by a non-space (`types.<type>.seed_stage`) is no sentence end.
+      const clause = '(?:[^.;]|\\.(?!\\s))';
+      assert.match(
+        close,
+        new RegExp(
+          `--new\\b(?=${clause}{0,200}\\bseed\\w*)(?=${clause}{0,200}\\btypes?\\b)(?=${clause}{0,200}\`[^\`]*seed_stage\`)`,
+          'i',
+        ),
+        'close no longer seeds --new from the stage the type declares as seed_stage',
+      );
+      assert.match(
+        close,
+        new RegExp(
+          `\`[^\`]*seed_stage\`${clause}{0,80}\\b(else|otherwise|unless|without|absent|lacking|falls? back|undeclared|not declared|none)\\b${clause}{0,60}\\bSpecification\\b${clause}{0,60}\\bProposal\\b`,
+          'i',
+        ),
+        'close no longer falls back to the Specification or Proposal without a seed_stage',
       );
     },
   },
