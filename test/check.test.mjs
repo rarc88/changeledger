@@ -631,6 +631,41 @@ test('20260731-161654 CR3/CR4: optional and unknown git configuration stays unto
   }
 });
 
+test('181346 CR1: check reports a malformed git.release_branch', () => {
+  for (const bad of ['', '  ', 7, false, []]) {
+    const candidate = { ...config, git: { integration_branch: 'dev', release_branch: bad } };
+    const { errors } = checkRepo({ config: candidate, changes: [] });
+    assert.deepEqual(msgs(errors), ['config "git.release_branch" must be a non-empty string']);
+  }
+  // A non-mapping `git` is reported once, not once per declared branch.
+  const { errors } = checkRepo({ config: { ...config, git: 'main' }, changes: [] });
+  assert.deepEqual(msgs(errors), ['config "git" must be a mapping']);
+});
+
+test('181346 CR2: check reports an integrates_into outside integration and release', () => {
+  for (const bad of ['prod', '', null, true, ['release']]) {
+    const candidate = {
+      ...config,
+      types: { ...config.types, bug: { stages: ['request', 'plan'], integrates_into: bad } },
+    };
+    const { errors } = checkRepo({ config: candidate, changes: [] });
+    assert.deepEqual(msgs(errors), [
+      'config type "bug": integrates_into must be "integration" or "release"',
+    ]);
+  }
+});
+
+test('181346 CR2/CR4: valid roles pass, and an undeclared release branch is not a config error', () => {
+  for (const role of ['integration', 'release']) {
+    const candidate = {
+      ...config,
+      git: { integration_branch: 'dev' },
+      types: { ...config.types, bug: { stages: ['request', 'plan'], integrates_into: role } },
+    };
+    assert.deepEqual(checkRepo({ config: candidate, changes: [] }).errors, []);
+  }
+});
+
 test('171002 CR1/CR5: every config with done requires in-validation before it', () => {
   const missing = {
     ...config,

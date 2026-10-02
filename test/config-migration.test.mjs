@@ -304,7 +304,7 @@ test('113219 CR1: init creates config with the current schema_version', () => {
   assert.equal(config.min_cli_version, '0.17.0');
   assert.match(
     configText,
-    /specs_dir: \.changeledger\/specs\n\n# Git integration: change branches start from and merge into this branch\.\n# `change_branch_format` may use `\{type\}` and exactly one `\{id\}`; use null or remove it to opt out\.\ngit:\n {2}integration_branch:\n {2}change_branch_format: "\{type\}\/\{id\}"\s*$/m,
+    /specs_dir: \.changeledger\/specs\n\n# Git integration: change branches start from and merge into this branch\.\n# `change_branch_format` may use `\{type\}` and exactly one `\{id\}`; use null or remove it to opt out\.\ngit:\n {2}integration_branch:\n(?: {2}release_branch:\n)? {2}change_branch_format: "\{type\}\/\{id\}"\s*$/m,
   );
   assert.equal(config.git.integration_branch, null);
   assert.equal(config.git.change_branch_format, '{type}/{id}');

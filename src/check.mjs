@@ -10,6 +10,8 @@ import { parseChange } from './change.mjs';
 import {
   changeBranchFormat,
   integrationBranch,
+  integrationRoleError,
+  releaseBranch,
   renderChangeBranch,
   USAGE_COLLECTOR_GIT_KEY,
   usageCollector,
@@ -853,10 +855,14 @@ function checkConfig(config, err) {
   if ('stages' in c && !Array.isArray(c.stages)) err(null, 'config "stages" must be a list');
   if ('types' in c && !isMapping(c.types)) err(null, 'config "types" must be a mapping');
   if ('git' in c) {
-    try {
-      integrationBranch(c);
-    } catch (error) {
-      err(null, error.message);
+    // A non-mapping `git` is one defect, reported once rather than per branch key.
+    const resolvers = isMapping(c.git) ? [integrationBranch, releaseBranch] : [integrationBranch];
+    for (const resolve of resolvers) {
+      try {
+        resolve(c);
+      } catch (error) {
+        err(null, error.message);
+      }
     }
   }
   if ('readiness' in c) checkReadinessConfig(c.readiness, err);
@@ -880,6 +886,8 @@ function checkConfig(config, err) {
       err(null, `config type "${type}": review_required must be a boolean`);
     if ('tdd' in def && typeof def.tdd !== 'boolean')
       err(null, `config type "${type}": tdd must be a boolean`);
+    const roleError = integrationRoleError(type, def);
+    if (roleError) err(null, roleError);
     if ('seed_stage' in def) {
       if (typeof def.seed_stage !== 'string')
         err(null, `config type "${type}": seed_stage must be a string`);

@@ -2,8 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { effectiveTdd } from '../check.mjs';
 import {
+  changeIntegrationBranch,
   findChangeledgerDir,
-  integrationBranch,
   loadEffectiveConfig,
   renderChangeBranch,
 } from '../config.mjs';
@@ -99,7 +99,9 @@ function effectiveLanguage(config) {
 // and tdd with defaults already resolved. The integration branch appears only
 // when declared — absence means the repo keeps branch auto-detection.
 // `type` resolves the tdd of a selected change's type (`types.<type>.tdd`
-// overrides the global value); without it the global value is published.
+// overrides the global value) and its integration branch (`integrates_into:
+// release` publishes `git.release_branch`, and an undeclared one fails rather
+// than publishing the repo's); without it the global values are published.
 // Called with `includeTdd: false` for a change-id capture whose type never
 // activates `specification`: `readiness.md` (the only fragment that defines
 // the obligation) is not composed for it, so publishing `tdd=on` would hand it
@@ -109,7 +111,7 @@ function effectiveLanguage(config) {
 export function transversalPolicy(config, { includeTdd = true, type = undefined } = {}) {
   const tdd = includeTdd ? ` — tdd=${effectiveTdd(config, type) ? 'on' : 'off'}` : '';
   const base = `Effective policy: language=${effectiveLanguage(config)}${tdd}`;
-  const branch = integrationBranch(config);
+  const branch = changeIntegrationBranch(config, type);
   return branch ? `${base} — integration_branch=${branch}` : base;
 }
 

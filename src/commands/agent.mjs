@@ -8,7 +8,7 @@ import { mutateFileAtomic, withFileLock } from '../atomic-write.mjs';
 import { parseChange } from '../change.mjs';
 import { mutateLedgerFile, repoIsActivated, writeLedgerFiles } from '../change-store.mjs';
 import { assertChangeTextValid, assertStagesNotEmpty } from '../check.mjs';
-import { findChangeledgerDir, integrationBranch, renderChangeBranch } from '../config.mjs';
+import { changeIntegrationBranch, findChangeledgerDir, renderChangeBranch } from '../config.mjs';
 import { assertSupportedSchema } from '../config-migration.mjs';
 import {
   currentBranch,
@@ -84,7 +84,9 @@ function assertImplementationBranch(config, change, repoRoot, gitRun) {
     );
   }
 
-  const baseline = integrationBranch(config);
+  // The base follows the role of the change's type (`integrates_into`), so a
+  // release type descends from `git.release_branch` (20261002-181346).
+  const baseline = changeIntegrationBranch(config, change.type);
   if (baseline && !isAncestor(repoRoot, baseline, 'HEAD', gitRun)) {
     throw new Error(`branch "${expected}" must descend from integration branch "${baseline}"`);
   }

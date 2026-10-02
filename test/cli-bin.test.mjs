@@ -1788,3 +1788,20 @@ test('113435 CR4: init sets the documentation seed_stage to investigation and ch
   const checked = runIn(root, env, 'check');
   assert.equal(checked.code, 0, checked.err);
 });
+
+// 20261002-181346 CR7 — `init` declares an empty `git.release_branch` next to
+// `git.integration_branch`, and the generated config stays valid.
+test('181346 CR7: init declares an empty git.release_branch beside integration_branch', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
+  assert.equal(runIn(root, env, 'init').code, 0);
+  const config = parseYaml(fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8'));
+  assert.ok(Object.hasOwn(config.git, 'release_branch'), 'git.release_branch is not declared');
+  assert.equal(config.git.release_branch, null);
+  const keys = Object.keys(config.git);
+  assert.equal(keys.indexOf('release_branch'), keys.indexOf('integration_branch') + 1);
+  const checked = runIn(root, env, 'check');
+  assert.equal(checked.code, 0, checked.err);
+});

@@ -7,6 +7,7 @@ import { test } from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
 import { pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
+import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import { parseChange } from '../src/change.mjs';
 import { writeLedgerFiles } from '../src/change-store.mjs';
 import {
@@ -246,6 +247,98 @@ test('161655 CR7: integration branch alone keeps lifecycle branch checks disable
   assert.doesNotThrow(() =>
     status(fixture.id, 'in-progress', fixture.root, { ownerHandle: () => '' }),
   );
+});
+
+// --- 20261002-181346: a type's `integrates_into` picks the branch it starts from ---
+
+// `main` carries a release commit `dev` lacks, so a branch cut from `dev` does
+// not descend from `main`: the guard below is judged on which base it resolves.
+// `releaseBranch: null` leaves `git.release_branch` undeclared (CR4).
+function releaseTypeRepo({ releaseBranch = 'main' } = {}) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-agent-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  initializeRepo(root);
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  const config = parseYaml(fs.readFileSync(configFile, 'utf8'));
+  config.git = { integration_branch: 'dev', change_branch_format: '{type}/{id}' };
+  if (releaseBranch) config.git.release_branch = releaseBranch;
+  config.types.fix = {
+    stages: ['request', 'investigation', 'specification', 'plan', 'log'],
+    integrates_into: 'release',
+  };
+  fs.writeFileSync(configFile, stringifyYaml(config));
+
+  const changes = {};
+  for (const [type, slug, now] of [
+    ['fix', 'release-fix', '2026-10-02T18:00:00Z'],
+    ['feature', 'dev-feature', '2026-10-02T18:00:01Z'],
+  ]) {
+    const file = newChange({ type, slug, title: slug, now }, root, { ownerHandle: () => '' });
+    const text = fs
+      .readFileSync(file, 'utf8')
+      .replace('## Request\n', '## Request\n\nR\n')
+      .replace('## Investigation\n', '## Investigation\n\nI\n')
+      .replace('## Proposal\n', '## Proposal\n\nP\n')
+      .replace('## Specification\n', '## Specification\n\nS\n')
+      .replace('## Plan\n', '## Plan\n\n- [ ] do it\n  - **Support:**\n');
+    fs.writeFileSync(file, text);
+    changes[type] = { file, id: parseChange(text).frontmatter.id };
+  }
+
+  initGitFixture(root, { args: ['-b', 'main'] });
+  git(root, ['config', 'commit.gpgsign', 'false']);
+  git(root, ['add', '.']);
+  git(root, ['commit', '-q', '-m', 'chore: baseline']);
+  git(root, ['branch', 'dev']);
+  fs.writeFileSync(path.join(root, 'RELEASE'), '1\n');
+  git(root, ['add', 'RELEASE']);
+  git(root, ['commit', '-q', '-m', 'chore: release']);
+  for (const { id } of Object.values(changes)) status(id, 'approved', root);
+  return { root, changes };
+}
+
+function startOn(root, { id, type }, base) {
+  git(root, ['checkout', '-q', '-b', `${type}/${id}`, base]);
+  status(id, 'in-progress', root, { ownerHandle: () => '' });
+}
+
+test('181346 CR3: a release type must start from git.release_branch, not the integration branch', () => {
+  const { root, changes } = releaseTypeRepo();
+  const { file, id } = changes.fix;
+  const before = fs.readFileSync(file, 'utf8');
+
+  assert.throws(
+    () => startOn(root, { id, type: 'fix' }, 'dev'),
+    (error) => error.message === `branch "fix/${id}" must descend from integration branch "main"`,
+  );
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+
+  git(root, ['checkout', '-q', 'main']);
+  git(root, ['branch', '-D', `fix/${id}`]);
+  startOn(root, { id, type: 'fix' }, 'main');
+  assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'in-progress');
+});
+
+test('181346 CR4: a release type without git.release_branch does not start', () => {
+  const { root, changes } = releaseTypeRepo({ releaseBranch: null });
+  const { file, id } = changes.fix;
+  const before = fs.readFileSync(file, 'utf8');
+
+  assert.throws(
+    () => startOn(root, { id, type: 'fix' }, 'main'),
+    (error) =>
+      error.message === 'type "fix" integrates into git.release_branch, which is not declared',
+  );
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
+test('181346 CR5: a type without integrates_into still starts from the integration branch', () => {
+  const { root, changes } = releaseTypeRepo();
+  const { file, id } = changes.feature;
+
+  startOn(root, { id, type: 'feature' }, 'dev');
+
+  assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'in-progress');
 });
 
 function futureSchemaRepo() {
