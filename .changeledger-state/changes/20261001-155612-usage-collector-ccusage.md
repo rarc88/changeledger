@@ -311,3 +311,4 @@ sin filtrar por proyecto (mezcla otros repos activos); guardar en el documento
 - **2026-10-02T13:45:56Z** `[status]` in-progress → in-review
 - **2026-10-02T13:45:56Z** `[note]` Mandato de la confirmación (tercera ronda): sólo el diff sin commitear frente a HEAD (ee978f2), cerrando la regresión de señales y collectUsage(null) del review fail anterior, sin reabrir los defectos ya confirmados como cerrados, más cualquier regresión que introduzca.
 - **2026-10-02T13:46:08Z** `[status]` in-review → in-progress
+- **2026-10-02T13:46:08Z** `[note]` Corrección del orquestador a la nota anterior: el pnpm verify del orquestador falló (1560 tests, 2 en rojo) tras registrar la nota de gate en verde del corrector; el candidato vuelve a in-progress sin veredicto y el mandato de confirmación anterior queda sin efecto hasta que el gate pase.
