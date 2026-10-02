@@ -19,6 +19,7 @@ import { newChange, newChangeFrom, scaffoldChange } from '../src/commands/new.mj
 import { readSnapshot, STATE_REF, STATE_ROOT, writeActivation } from '../src/state-store.mjs';
 import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
+import { withCreationStamp } from './helpers/version-stamp.mjs';
 
 process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
 
@@ -291,7 +292,11 @@ test('CR6: --from lands the complete document in one commit', () => {
   );
 
   assert.equal(written, `changes/${scaffold.name}`);
-  assert.equal(stateDoc(root, written), document);
+  // Creation adds only its `[version]` stamp (20261001-155216) to the composed text.
+  assert.equal(
+    stateDoc(root, written),
+    withCreationStamp(document, parseChange(document).frontmatter.created),
+  );
   assert.equal(stateCommits(root) - before, 1);
   assert.equal(git(root, ['log', '-1', '--format=%s', STATE_REF]), `new: ${scaffold.id}`);
 });

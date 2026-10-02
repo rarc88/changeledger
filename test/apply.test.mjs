@@ -15,9 +15,18 @@ import { show } from '../src/commands/agent.mjs';
 import { apply } from '../src/commands/apply.mjs';
 import { init as initializeRepo } from '../src/commands/init.mjs';
 import { newChange, scaffoldChange } from '../src/commands/new.mjs';
+import { VERSION } from '../src/framing.mjs';
 import { STATE_REF, STATE_ROOT, writeActivation } from '../src/state-store.mjs';
+import { appendLogEvent, setStatus } from '../src/writer.mjs';
 import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
+import {
+  eventsAdded,
+  logEvents,
+  PREVIOUS_VERSION,
+  versionEvents,
+  withCreationStamp,
+} from './helpers/version-stamp.mjs';
 
 process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
 
@@ -63,9 +72,9 @@ function inactiveRepo() {
 // The worktree copies are removed before activation, so any read or write that
 // fell back to disk fails outright instead of silently succeeding on a stale
 // document.
-function activatedRepo({ status = 'draft', spec = specText() } = {}) {
+function activatedRepo({ status = 'draft', spec = specText(), prepare = (text) => text } = {}) {
   const { root, file, name, text: draft, id } = baseRepo();
-  const text = draft.replace('status: draft', `status: ${status}`);
+  const text = prepare(draft.replace('status: draft', `status: ${status}`));
   const configText = fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8');
   fs.rmSync(file);
   fs.rmSync(path.join(root, '.changeledger', 'specs'), { recursive: true, force: true });
@@ -134,8 +143,15 @@ test('CR1: a manifest of N documents lands in exactly one commit', () => {
 
   assert.equal(stateCommits(root) - before, 1);
   assert.equal(stateDoc(root, `changes/${name}`), edited);
-  assert.equal(stateDoc(root, 'changes/20260811-100000-alpha.md'), a);
-  assert.equal(stateDoc(root, 'changes/20260811-100001-beta.md'), b);
+  // A `new` entry lands with its creation stamp (20261001-155216), nothing else added.
+  assert.equal(
+    stateDoc(root, 'changes/20260811-100000-alpha.md'),
+    withCreationStamp(a, '2026-08-11T10:00:00Z'),
+  );
+  assert.equal(
+    stateDoc(root, 'changes/20260811-100001-beta.md'),
+    withCreationStamp(b, '2026-08-11T10:00:01Z'),
+  );
   assert.match(git(root, ['log', '-1', '--format=%s', STATE_REF]), /^apply: /);
   assert.equal(fs.existsSync(path.join(root, STATE_ROOT)), false);
 });
@@ -284,7 +300,7 @@ test('CR6: an inactive repo gets the same effect with no commit anywhere', () =>
   assert.match(landed, /`\[note\]` nota del lote/);
   assert.equal(
     fs.readFileSync(path.join(root, '.changeledger/changes/20260811-100000-alpha.md'), 'utf8'),
-    a,
+    withCreationStamp(a, '2026-08-11T10:00:00Z'),
   );
   assert.equal(Number(git(root, ['rev-list', '--count', '--all'])), commitsBefore);
   assert.equal(git(root, ['for-each-ref', '--format=%(refname)', 'refs/heads/changeledger']), '');
@@ -496,3 +512,124 @@ test('CR2: a manifest that is not a JSON array of entries is refused by shape', 
 
   assert.equal(stateTip(root), tip);
 });
+
+// 20261001-155216 — a version stamp rides the batch like any other Log entry.
+// The seeded change was last touched by a PREVIOUS_VERSION CLI.
+
+const STAMPED_AT = '2026-06-13T12:30:00Z';
+const seedStamp = (text) =>
+  appendLogEvent(
+    setStatus(text, 'approved'),
+    { at: STAMPED_AT, type: 'status', from: 'draft', to: 'approved' },
+    PREVIOUS_VERSION,
+  );
+
+const stampedLayouts = {
+  legacy: () => {
+    const { root, file, id, name } = inactiveRepo();
+    fs.writeFileSync(file, seedStamp(fs.readFileSync(file, 'utf8')));
+    return { root, id, name, read: () => fs.readFileSync(file, 'utf8') };
+  },
+  'state ref': () => {
+    const { root, id, name } = activatedRepo({ prepare: seedStamp, status: 'approved' });
+    return { root, id, name, read: () => stateDoc(root, `changes/${name}`) };
+  },
+};
+
+for (const [layout, build] of Object.entries(stampedLayouts)) {
+  test(`20261001-155216 CR6 (${layout}): a status event in a batch is preceded by the version stamp`, () => {
+    const { root, id, read } = build();
+    const before = read();
+
+    apply(
+      {
+        from: manifest(root, [
+          { op: 'owner', id, name: 'rarc88' },
+          { op: 'status', id, to: 'in-progress' },
+        ]),
+      },
+      root,
+    );
+
+    const added = eventsAdded(before, read());
+    assert.deepEqual(added[0], {
+      at: added[1].at,
+      type: 'version',
+      previous: PREVIOUS_VERSION,
+      version: VERSION,
+    });
+    // A git-backed checkout may append its automatic `branch` event after these.
+    assert.deepEqual(
+      added.slice(1, 3).map((event) => event.type),
+      ['owner', 'status'],
+    );
+    assert.equal(versionEvents(added).length, 1);
+  });
+
+  test(`20261001-155216 CR7 (${layout}): a document entry on an existing change adds no version line`, () => {
+    const { root, id, read } = build();
+    const before = read();
+    const edited = before.replace('Cuerpo redactado', 'Cuerpo reescrito');
+
+    apply({ from: manifest(root, [{ target: `change:${id}`, content: edited }]) }, root);
+
+    assert.equal(read(), edited);
+    assert.deepEqual(eventsAdded(before, read()), []);
+  });
+}
+
+// CR1 — a `new` entry writes no event of its own, so it is stamped at the
+// document's `created` instant, in both layouts and whatever follows it.
+for (const [layout, build] of [
+  [
+    'legacy',
+    () => ({
+      ...inactiveRepo(),
+      read: (root, name) =>
+        fs.readFileSync(path.join(root, '.changeledger', 'changes', name), 'utf8'),
+    }),
+  ],
+  [
+    'state ref',
+    () => ({ ...activatedRepo(), read: (root, name) => stateDoc(root, `changes/${name}`) }),
+  ],
+]) {
+  test(`20261001-155216 CR1 (${layout}): a "new" entry lands stamped at created, and a later event in the batch adds no second stamp`, () => {
+    const { root, read } = build();
+    const a = draftFor(root, { slug: 'alpha', title: 'Alpha', now: '2026-08-11T10:00:00Z' });
+    const alphaId = parseChange(a).frontmatter.id;
+    assert.deepEqual(logEvents(a), []);
+
+    apply(
+      {
+        from: manifest(root, [
+          { target: 'new', slug: 'alpha', content: a },
+          { op: 'log', id: alphaId, message: 'nota del lote' },
+        ]),
+      },
+      root,
+    );
+
+    const landed = read(root, `${alphaId}-alpha.md`);
+    const { created } = parseChange(landed).frontmatter;
+    assert.deepEqual(
+      logEvents(landed).map(({ at, type, version, message }) => ({ at, type, version, message })),
+      [
+        { at: created, type: 'version', version: VERSION, message: undefined },
+        { at: logEvents(landed)[1].at, type: 'note', version: undefined, message: 'nota del lote' },
+      ],
+    );
+  });
+
+  test(`20261001-155216 CR1 (${layout}): a lone "new" entry's Log is exactly the stamp`, () => {
+    const { root, read } = build();
+    const b = draftFor(root, { slug: 'beta', title: 'Beta', now: '2026-08-11T10:00:01Z' });
+    const betaId = parseChange(b).frontmatter.id;
+
+    apply({ from: manifest(root, [{ target: 'new', slug: 'beta', content: b }]) }, root);
+
+    const landed = read(root, `${betaId}-beta.md`);
+    const { created } = parseChange(landed).frontmatter;
+    assert.deepEqual(logEvents(landed), [{ at: created, type: 'version', version: VERSION }]);
+  });
+}

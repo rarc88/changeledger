@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { parseChange } from '../src/change.mjs';
+import { VERSION } from '../src/framing.mjs';
+import { parseLogEvent } from '../src/lifecycle.mjs';
 import {
   appendLogEvent,
   setArchived,
@@ -11,6 +13,7 @@ import {
   setSpecUpdated,
   setStatus,
   setTask,
+  stampVersion,
 } from '../src/writer.mjs';
 
 const DOC = `---
@@ -75,6 +78,127 @@ test('appendLogEvent adds a typed entry at the end of Log', () => {
     message: 'moved — [status] | freely',
   });
   assert.match(out, /- \*\*2026-06-13T13:00:00Z\*\* `\[note\]` moved — \[status\] \| freely\n?$/);
+});
+
+// 20261001-155216: `appendLogEvent` stamps the running CLI version before the
+// event it inserts. The third parameter is the running version (it defaults to
+// the installed one), so these tests simulate any CLI without touching
+// package.json.
+const stampedDoc = (...versionLines) =>
+  DOC.replace(
+    '`[note]` created\n',
+    `\`[note]\` created\n${versionLines
+      .map((payload) => `- **2026-06-13T12:30:00Z** \`[version]\` ${payload}\n`)
+      .join('')}`,
+  );
+const logLines = (text) =>
+  text
+    .slice(text.indexOf('## Log'))
+    .split('\n')
+    .filter((line) => line.startsWith('- '));
+const NOTE_AT = '2026-06-13T13:00:00Z';
+const note = (message = 'nota') => ({ at: NOTE_AT, type: 'note', message });
+
+test('20261001-155216 CR2: an event after the same running version adds no version line', () => {
+  const out = appendLogEvent(stampedDoc('0.18.0'), note(), '0.18.0');
+  assert.deepEqual(logLines(out).slice(-2), [
+    '- **2026-06-13T12:30:00Z** `[version]` 0.18.0',
+    `- **${NOTE_AT}** \`[note]\` nota`,
+  ]);
+  assert.equal(logLines(out).length, 3);
+});
+
+test('20261001-155216 CR3: a different running version stamps previous → running before the event, once', () => {
+  const once = appendLogEvent(stampedDoc('0.17.0'), note('uno'), '0.18.0');
+  assert.deepEqual(logLines(once).slice(-3), [
+    '- **2026-06-13T12:30:00Z** `[version]` 0.17.0',
+    `- **${NOTE_AT}** \`[version]\` 0.17.0 → 0.18.0`,
+    `- **${NOTE_AT}** \`[note]\` uno`,
+  ]);
+  const twice = appendLogEvent(once, { ...note('dos'), at: '2026-06-13T14:00:00Z' }, '0.18.0');
+  assert.equal(
+    logLines(twice).filter((line) => line.includes('`[version]`')).length,
+    2,
+    'the second event does not repeat the stamp',
+  );
+  assert.equal(logLines(twice).at(-1), '- **2026-06-13T14:00:00Z** `[note]` dos');
+});
+
+test('20261001-155216 CR4: a Log without any version line gets the bare running version', () => {
+  const out = appendLogEvent(DOC, note(), '0.18.0');
+  assert.deepEqual(logLines(out).slice(-2), [
+    `- **${NOTE_AT}** \`[version]\` 0.18.0`,
+    `- **${NOTE_AT}** \`[note]\` nota`,
+  ]);
+});
+
+test('20261001-155216 CR5: a lower running version is stamped as well', () => {
+  const out = appendLogEvent(stampedDoc('0.18.1'), note(), '0.18.0');
+  assert.deepEqual(logLines(out).slice(-2), [
+    `- **${NOTE_AT}** \`[version]\` 0.18.1 → 0.18.0`,
+    `- **${NOTE_AT}** \`[note]\` nota`,
+  ]);
+});
+
+test('20261001-155216: equality is textual, so build metadata that precedence ignores still stamps', () => {
+  assert.equal(
+    logLines(appendLogEvent(stampedDoc('0.18.0-dev'), note(), '0.18.0-dev')).length,
+    3,
+    'identical prerelease text adds nothing',
+  );
+  assert.equal(
+    logLines(appendLogEvent(stampedDoc('0.18.0+a'), note(), '0.18.0+b')).at(-2),
+    `- **${NOTE_AT}** \`[version]\` 0.18.0+a → 0.18.0+b`,
+  );
+});
+
+test('20261001-155216: the last version line decides, and only one inside ## Log counts', () => {
+  const fenced = DOC.replace(
+    '## Log',
+    '## Notes\n\n- **2026-06-13T12:00:00Z** `[version]` 0.18.0\n\n## Log',
+  );
+  assert.equal(
+    logLines(appendLogEvent(fenced, note(), '0.18.0')).at(-2),
+    `- **${NOTE_AT}** \`[version]\` 0.18.0`,
+  );
+  const history = stampedDoc('0.16.0', '0.16.0 → 0.17.0', '0.17.0 → 0.18.0');
+  assert.equal(logLines(appendLogEvent(history, note(), '0.18.0')).length, 5);
+});
+
+test('20261001-155216: a version event itself is never preceded by a stamp', () => {
+  const out = appendLogEvent(
+    DOC,
+    { at: NOTE_AT, type: 'version', previous: '0.17.0', version: '0.18.0' },
+    '0.19.0',
+  );
+  assert.deepEqual(logLines(out).slice(-1), [`- **${NOTE_AT}** \`[version]\` 0.17.0 → 0.18.0`]);
+  assert.equal(logLines(out).length, 2);
+});
+
+test('20261001-155216: the Log section a chore lacks is created with the stamp first', () => {
+  const noLog = DOC.replace(/\n## Log\n[\s\S]*$/, '');
+  const out = appendLogEvent(noLog, note(), '0.18.0');
+  assert.match(
+    out,
+    new RegExp(
+      `## Log\\n\\n- \\*\\*${NOTE_AT}\\*\\* \`\\[version\\]\` 0\\.18\\.0\\n- \\*\\*${NOTE_AT}\\*\\* \`\\[note\\]\` nota\\n$`,
+    ),
+  );
+});
+
+test('20261001-155216: without a version argument the installed version is used', () => {
+  const out = appendLogEvent(DOC, note());
+  assert.equal(parseLogEvent(logLines(out).at(-2)).version, VERSION);
+});
+
+test('20261001-155216 CR1: stampVersion writes one bare entry at the given instant, and nothing when current', () => {
+  const stamped = stampVersion(DOC, NOTE_AT, '0.18.0');
+  assert.deepEqual(logLines(stamped).slice(-1), [`- **${NOTE_AT}** \`[version]\` 0.18.0`]);
+  assert.equal(logLines(stamped).length, 2);
+  assert.equal(stampVersion(stamped, '2026-06-13T14:00:00Z', '0.18.0'), stamped);
+  assert.deepEqual(logLines(stampVersion(stamped, NOTE_AT, '0.19.0')).slice(-1), [
+    `- **${NOTE_AT}** \`[version]\` 0.18.0 → 0.19.0`,
+  ]);
 });
 
 test('setTask done marks the task and appends the timestamp, keeping criteria', () => {
@@ -277,7 +401,11 @@ x
   });
   const log = parseChange(out).stages.find((s) => s.key === 'log');
   assert.ok(log, 'a ## Log section is created');
-  assert.match(out, /## Log\n\n- \*\*2026-06-13T13:00:00Z\*\* `\[status\]` draft → approved\n$/);
+  // The new Log opens with the version stamp, then the event, at one instant.
+  assert.match(
+    out,
+    /## Log\n\n- \*\*2026-06-13T13:00:00Z\*\* `\[version\]` \S+\n- \*\*2026-06-13T13:00:00Z\*\* `\[status\]` draft → approved\n$/,
+  );
 });
 
 test('setReviewed adds and removes the reviewed flag', () => {

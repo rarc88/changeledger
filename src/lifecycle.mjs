@@ -4,6 +4,8 @@
 // policy on top (approval plus final acceptance); it never relaxes
 // this graph.
 
+import { isValidCliVersion } from './version-guard.mjs';
+
 export const CANONICAL_STATUSES = [
   'draft',
   'approved',
@@ -109,6 +111,15 @@ function parseGraduationPayload(payload) {
   return null;
 }
 
+// `<semver>` for the first stamp of a change, `<previous> → <semver>` when the
+// running version differs from the last stamped one. Both ends share the
+// SemVer grammar `min_cli_version` is validated with.
+function parseVersionPayload(payload) {
+  const parts = payload.split(' → ');
+  if (parts.length > 2 || !parts.every(isValidCliVersion)) return null;
+  return parts.length === 2 ? { previous: parts[0], version: parts[1] } : { version: parts[0] };
+}
+
 export const LOG_EVENT_DEFINITIONS = Object.freeze({
   status: Object.freeze({
     form: '<from> → <to> [(detail)] [: reason]',
@@ -158,6 +169,12 @@ export const LOG_EVENT_DEFINITIONS = Object.freeze({
     transition: false,
     parse: (payload) => (payload ? { message: payload } : null),
   }),
+  version: Object.freeze({
+    form: '<semver> | <semver> → <semver>',
+    canonicalPayload: '0.17.0 → 0.18.0',
+    transition: false,
+    parse: parseVersionPayload,
+  }),
 });
 
 export const LOG_EVENT_TYPES = Object.keys(LOG_EVENT_DEFINITIONS);
@@ -201,6 +218,8 @@ export function serializeLogEvent(event) {
         : `skipped${event.reason ? `: ${event.reason}` : ''}`;
   } else if (type === 'archive') {
     payload = 'archived';
+  } else if (type === 'version') {
+    payload = event.previous ? `${event.previous} → ${event.version}` : event.version;
   } else if (type === 'note') {
     // The rendered line already prepends the literal `` `[note]` `` tag
     // (below); a caller-supplied message that repeats it verbatim at the very

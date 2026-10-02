@@ -76,7 +76,7 @@ Every top-level Log entry has a strict ISO UTC timestamp and canonical type:
 - **2026-06-13T14:30:00Z** `[note]` arbitrary text — even `[status]` and `|`
 ```
 
-Types are `status`, `review`, `validation`, `owner`, `branch`, `graduation`, `archive`, `note`.
+Types are `status`, `review`, `validation`, `owner`, `branch`, `graduation`, `archive`, `note`, `version`.
 Each transition event (`status`, `review`, `validation`) records exactly one transition, with the payload form for its type:
 
 - status: <from> → <to> [(detail)] [: reason]
@@ -87,8 +87,9 @@ Each transition event (`status`, `review`, `validation`) records exactly one tra
 - graduation: spec: `<file>` [(detail)] | skipped [: reason]
 - archive: archived
 - note: <non-empty text>
+- version: <semver> | <semver> → <semver>
 
-Lifecycle commands write their type; `changeledger log` writes an opaque `note` that cannot simulate an operational event. Continuation prose is allowed, but every top-level `- ` line must be a valid typed event.
+Lifecycle commands write their type, and stamp `version` whenever the installed version differs from the last one stamped; `changeledger log` writes an opaque `note` that cannot simulate an operational event. Continuation prose is allowed, but every top-level `- ` line must be a valid typed event.
 
 When implementation and every task are complete, move to `in-review` if the type
 requires independent review by running this ordered gate — do not reconstruct it from memory:

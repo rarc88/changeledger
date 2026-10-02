@@ -36,9 +36,10 @@ import { readRegistry, register, registryPath } from '../src/registry.mjs';
 import { loadRepo, loadRepoAsync } from '../src/repo.mjs';
 import { STATE_REF, writeActivation } from '../src/state-store.mjs';
 import { cleanMissingProjects, readLedgerDocument, serialize } from '../src/viewer/domain.mjs';
-import { setBranch } from '../src/writer.mjs';
+import { setBranch, stampVersion } from '../src/writer.mjs';
 import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
+import { eventsAdded, PREVIOUS_VERSION, versionEvents } from './helpers/version-stamp.mjs';
 
 const TOKEN = 'test-token';
 
@@ -1387,6 +1388,63 @@ test('CR1: changeStatus moves the lifecycle and logs it', () => {
   assert.equal(res.code, 200);
   assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'approved');
 });
+
+// 20261001-155216 CR6 — the viewer's transitions reuse the lifecycle commands,
+// so a move it makes is stamped like any command's, in both layouts.
+for (const layout of ['legacy', 'state ref']) {
+  test(`20261001-155216 CR6 (${layout}): a viewer approval is preceded by the version stamp`, () => {
+    isolatedHome();
+    const root = newRepo();
+    disableChangeBranchFormat(root);
+    const { file, id } = draftChange(root);
+    const name = path.basename(file);
+    const seeded = stampVersion(
+      fs.readFileSync(file, 'utf8'),
+      '2026-06-13T12:30:00Z',
+      PREVIOUS_VERSION,
+    );
+    let read = () => fs.readFileSync(file, 'utf8');
+    if (layout === 'legacy') {
+      fs.writeFileSync(file, seeded);
+    } else {
+      const configText = fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8');
+      fs.rmSync(file);
+      initGitFixture(root);
+      const tree = buildTree(root, {
+        '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
+        '.changeledger-state/config.yml': configText,
+        [`.changeledger-state/changes/${name}`]: seeded,
+      });
+      updateRef(root, STATE_REF, commitTree(root, tree, { message: 'chore: state' }));
+      writeActivation(root, { stateRef: STATE_REF });
+      read = () =>
+        execFileSync(
+          'git',
+          ['cat-file', 'blob', `${STATE_REF}:.changeledger-state/changes/${name}`],
+          {
+            cwd: root,
+            env: sanitizedEnv(),
+            encoding: 'utf8',
+          },
+        );
+    }
+    const before = read();
+    const { projects, current } = resolveProjects(root, true);
+
+    const res = changeStatus(projects, { project: current, id, status: 'approved' });
+
+    assert.equal(res.code, 200, JSON.stringify(res.body));
+    const added = eventsAdded(before, read());
+    assert.deepEqual(added[0], {
+      at: added[1].at,
+      type: 'version',
+      previous: PREVIOUS_VERSION,
+      version: VERSION,
+    });
+    assert.equal(added[1].type, 'status');
+    assert.equal(versionEvents(added).length, 1);
+  });
+}
 
 test('171002 CR2/CR3: viewer accepts or rejects only a change in validation', () => {
   isolatedHome();
