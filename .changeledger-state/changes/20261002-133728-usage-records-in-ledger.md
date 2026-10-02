@@ -217,9 +217,10 @@ humano para dividirlo por layout.
   - **Target:** `src/usage-collector.mjs`
   - **Verify:** verify: manual — change de prueba autorizado, sync y segundo clon activado que ve los tres registros
   - **Criteria:** CR9
-- [ ] Ejecutar el gate completo
+- [x] Ejecutar el gate completo
   - **Verify:** `pnpm verify`
   - **Support:**
+  - **Resolved:** `2026-10-02T15:57:42Z`
 
 ## Log
 - **2026-10-02T15:24:42Z** `[status]` draft → approved (human via conversation)
