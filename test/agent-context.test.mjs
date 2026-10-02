@@ -354,7 +354,13 @@ test('183520 CR2: with no mandate declared the review capsule applies the full a
 // still at 350 only `investigation` would report while implementation, review
 // and post-review stayed silently unexecuted. Four independent tests is what
 // proves all four measured capsules actually exceed 350 tokens.
-for (const role of ['investigation', 'implementation', 'review', 'post-review']) {
+for (const role of [
+  'investigation',
+  'implementation',
+  'review',
+  'post-review',
+  'graduation-review',
+]) {
   test(`20260728-212043 CR6: ${role} prompt capsule fits the shared agent budget`, () => {
     assertWithinBudget(`${role} prompt capsule`, buildAgentPrompt(role), agentBudget);
   });
@@ -405,7 +411,7 @@ test('20260726-141123 CR2: the retired role name audit never resolves as a role,
   const root = repo();
   assert.throws(
     () => buildAgentContext('audit', undefined, root),
-    /^Error: Unknown role "audit" — valid roles: investigation, implementation, review, post-review$/,
+    /^Error: Unknown role "audit" — valid roles: investigation, implementation, review, post-review, graduation-review$/,
   );
 });
 
@@ -450,8 +456,73 @@ test('201703 CR3: post-review capsule fits the shared agent budget and lists in 
   assertWithinBudget('post-review capsule', base, agentBudget);
   assert.throws(
     () => buildAgentContext('scaffolding', undefined, root),
-    /valid roles: investigation, implementation, review, post-review/,
+    /valid roles: investigation, implementation, review, post-review, graduation-review$/,
   );
+});
+
+// 20261002-152555 — `graduation-review` checks the spec reconciliation a closure
+// drafted, so the change it reads is always `done`.
+test('152555 CR1: graduation-review context on a done change is framed with policy, capsule and change', () => {
+  const root = repo();
+  const id = '20261002-152601';
+  const selected = addChange(root, 'done', id);
+  const out = buildAgentContext('graduation-review', id, root);
+  const lines = out.trimEnd().split('\n');
+  assert.equal(
+    lines[0],
+    `===== CHANGELEDGER AGENT CONTEXT BEGIN — role: graduation-review — change: #${id} — v${VERSION} =====`,
+  );
+  assert.match(lines[2], /^Effective policy: /);
+  assert.equal(
+    lines.at(-1),
+    '===== CHANGELEDGER AGENT CONTEXT END — if this line is missing, the output was truncated: stop and re-run =====',
+  );
+  const capsuleFile = new URL(
+    '../templates/contract/agent-contexts/graduation-review.md',
+    import.meta.url,
+  );
+  const capsule = fs.readFileSync(capsuleFile, 'utf8').trim();
+  const [base, change] = out.split('\n# Selected change');
+  assert.ok(base.includes(capsule), 'the graduation-review capsule is not composed');
+  assert.ok(change.includes(selected.trim()), 'the selected change is not composed');
+});
+
+test('152555 CR2: graduation-review requires done and requires a change id', async () => {
+  const root = repo();
+  const inValidation = '20261002-152602';
+  addChange(root, 'in-validation', inValidation);
+  assert.throws(
+    () => buildAgentContext('graduation-review', inValidation, root),
+    /^Error: role graduation-review requires change status done; got in-validation$/,
+  );
+  assert.throws(
+    () => buildAgentContext('graduation-review', undefined, root),
+    /^Error: role graduation-review requires a change id$/,
+  );
+  // The CLI surfaces the same refusal and emits no BEGIN line.
+  const failure = await execFileAsync(
+    process.execPath,
+    [bin, 'agent-context', 'graduation-review', inValidation],
+    { cwd: root },
+  ).then(
+    () => null,
+    (e) => e,
+  );
+  assert.ok(failure, 'the CLI must fail');
+  assert.notEqual(failure.code, 0);
+  assert.match(
+    failure.stderr,
+    /role graduation-review requires change status done; got in-validation/,
+  );
+  assert.doesNotMatch(failure.stdout, /AGENT CONTEXT BEGIN/);
+});
+
+test('152555 CR7: graduation-review capsule fits the shared agent budget', () => {
+  const root = repo();
+  const id = '20261002-152603';
+  addChange(root, 'done', id);
+  const base = buildAgentContext('graduation-review', id, root).split('\n# Selected change')[0];
+  assertWithinBudget('graduation-review capsule', base, agentBudget);
 });
 
 test('144327 CR7: agent-context is wired through the CLI', async () => {

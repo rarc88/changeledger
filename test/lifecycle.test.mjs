@@ -431,3 +431,98 @@ test('113320 CR8: a documentation change without a Plan reaches in-validation', 
   ok('review', id, 'pass');
   assert.match(fs.readFileSync(file, 'utf8'), /^status: in-validation$/m);
 });
+
+// 20261002-152555 CR8 — first use of `graduation-review`, through the spawned CLI
+// on a freshly initialised repo: a feature change reaches `done`, the orchestrator
+// corrects the body of an existing spec, takes the role's skeleton and capsule,
+// records the review outcome and only then links the spec with `--into`.
+test('152555 CR8: a graduation review is recorded before the first --into of a done feature', () => {
+  const bin = fileURLToPath(new URL('../bin/changeledger.mjs', import.meta.url));
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-gradrev-e2e-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  initGitFixture(root);
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
+  const ok = (...args) => {
+    try {
+      return execFileSync('node', [bin, ...args], { cwd: root, env, encoding: 'utf8' });
+    } catch (e) {
+      assert.fail(`${args.join(' ')} exited ${e.status}: ${e.stdout ?? ''}${e.stderr ?? ''}`);
+    }
+  };
+
+  ok('init');
+  const specFile = path.join(root, '.changeledger', 'specs', 'auth.md');
+  fs.mkdirSync(path.dirname(specFile), { recursive: true });
+  fs.writeFileSync(
+    specFile,
+    '---\ntitle: Authentication\nupdated: 2026-10-01T10:00:00Z\ntags: []\ngraduated_from: []\n---\n\n`src/auth.mjs` `login` returns a token.\n',
+  );
+  ok('new', 'feature', 'auth-session', 'Auth session', '--owner', 'Test User');
+  const dir = path.join(root, '.changeledger', 'changes');
+  const [name] = fs.readdirSync(dir);
+  const file = path.join(dir, name);
+  const id = name.slice(0, 15);
+  fs.writeFileSync(
+    file,
+    fs
+      .readFileSync(file, 'utf8')
+      .replace('## Request\n', '## Request\n\nLogin must return a session.\n')
+      .replace(
+        '## Investigation\n',
+        '## Investigation\n\n`src/auth.mjs` `login` returns a token.\n',
+      )
+      .replace('## Proposal\n', '## Proposal\n\nReturn a session.\n')
+      .replace(
+        '## Specification\n',
+        '## Specification\n\n### CR1 — Session\n- **Given** valid credentials\n- **When** `login` runs\n- **Then** it returns a session\n',
+      )
+      .replace(
+        '## Plan\n',
+        '## Plan\n\n- [ ] Return a session\n  - **Target:** `src/auth.mjs`\n  - **Verify:** `node --test test/auth.test.mjs`\n  - **Criteria:** CR1\n',
+      ),
+  );
+
+  ok('approve', id);
+  execFileSync('git', ['checkout', '-q', '-b', `feature/${id}`], {
+    cwd: root,
+    env: sanitizedEnv(),
+  });
+  ok('status', id, 'in-progress');
+  ok('task', id, 'done', '1');
+  ok('status', id, 'in-review');
+  ok('review', id, 'pass');
+  ok('validation', id, 'pass');
+  assert.match(fs.readFileSync(file, 'utf8'), /^status: done$/m);
+
+  // The closure corrects the existing spec's body, then has it reviewed.
+  fs.writeFileSync(
+    specFile,
+    fs.readFileSync(specFile, 'utf8').replace('returns a token', 'returns a session'),
+  );
+  assert.match(
+    ok('agent-prompt', 'graduation-review'),
+    /^===== CHANGELEDGER AGENT PROMPT BEGIN — role: graduation-review — v/,
+  );
+  assert.match(
+    ok('agent-context', 'graduation-review', id),
+    new RegExp(
+      `^===== CHANGELEDGER AGENT CONTEXT BEGIN — role: graduation-review — change: #${id} — v`,
+    ),
+  );
+  const outcome = 'graduation-review: apply — no findings';
+  ok('log', id, outcome);
+  ok('graduate', id, 'auth', '--into');
+
+  const events = fs
+    .readFileSync(file, 'utf8')
+    .split('\n')
+    .map((line) => parseLogEvent(line))
+    .filter(Boolean);
+  const note = events.findIndex((e) => e.type === 'note' && e.message === outcome);
+  const graduation = events.findIndex((e) => e.type === 'graduation' && e.spec === 'auth.md');
+  assert.notEqual(note, -1, 'the review outcome is not in the Log');
+  assert.notEqual(graduation, -1, 'the graduation event is not in the Log');
+  assert.ok(note < graduation, 'the review outcome is not logged before the graduation');
+  assert.match(fs.readFileSync(specFile, 'utf8'), /`login` returns a session\./);
+});

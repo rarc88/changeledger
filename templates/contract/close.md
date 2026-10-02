@@ -29,6 +29,11 @@ First decide whether accepted work changed persistent truth:
   do not archive until every affected spec is linked.
 - Use `--skip` only when no persistent truth changed.
 
+In a type with `review_required`, when closure creates or corrects specs, delegate
+`graduation-review` once the reconciliation is drafted and before the first
+`--into`. On findings, correct the draft and delegate again to a fresh reviewer;
+record the outcome with `changeledger log <id>`. `--skip` needs no such review.
+
 CR identifiers and headings are local traceability for a change; they must not
 remain as structure in specs. Rewrite their substance as concise durable truth.
 Both `--into` and `changeledger check` reject CR headings outside code fences.

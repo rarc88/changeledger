@@ -223,13 +223,15 @@ test('111457 CR5/CR6: fix help exposes the scoped graduation-links migration', (
 
 test('20260824-134716 CR2: static CLI domains are complete in help and invalid-value errors', () => {
   for (const [command, values] of [
-    ['agent-prompt', 'investigation | implementation | review | post-review'],
-    ['agent-context', 'investigation | implementation | review | post-review'],
+    ['agent-prompt', 'investigation | implementation | review | post-review | graduation-review'],
+    ['agent-context', 'investigation | implementation | review | post-review | graduation-review'],
     ['validation', 'pass|fail'],
     ['review', 'pass|fail'],
     ['task', 'done|block'],
   ]) {
-    assert.match(run(command, '--help').out, new RegExp(values.replace(/[|]/g, '\\|')));
+    // Commander wraps a long argument description, so the help is read flattened.
+    const help = run(command, '--help').out.replace(/\s+/g, ' ');
+    assert.match(help, new RegExp(values.replace(/[|]/g, '\\|')));
   }
   const invalid = run('task', 'an-id', 'guess', '1');
   assert.notEqual(invalid.code, 0);
