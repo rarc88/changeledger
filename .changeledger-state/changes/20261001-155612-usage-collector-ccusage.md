@@ -285,9 +285,10 @@ sin filtrar por proyecto (mezcla otros repos activos); guardar en el documento
   - **Verify:** `node --test test/check.test.mjs test/usage-collector.test.mjs test/agent.test.mjs test/apply.test.mjs test/view.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4, CR8, CR9
   - **Resolved:** `2026-10-02T13:21:14Z`
-- [ ] Repetir el gate completo tras el cambio de activación
+- [x] Repetir el gate completo tras el cambio de activación
   - **Verify:** `pnpm verify`
   - **Support:**
+  - **Resolved:** `2026-10-02T13:21:14Z`
 
 ## Log
 - **2026-10-01T16:09:47Z** `[status]` draft → approved (human via conversation)
