@@ -55,7 +55,7 @@ rama; los tipos, estados y etapas provienen de la configuración efectiva del
 repo. Los modos de migración de `fix` son mutuamente excluyentes, al igual que
 `review --retry` y `--block`; una combinación ambigua falla antes de escribir.
 La ayuda de `log` explica que el comando sólo escribe `note`, muestra un ejemplo
-concreto y enumera los ocho tipos válidos con sus payloads y comandos productores
+concreto y enumera los nueve tipos válidos con sus payloads y comandos productores
 a partir de `LOG_EVENT_DEFINITIONS`. El flujo por lotes de `apply` se presenta
 por separado. La ayuda de cada comando marca con `(required)` las opciones
 obligatorias que el parser exige.
