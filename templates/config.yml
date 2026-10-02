@@ -26,6 +26,7 @@ release:
   impacts:
     feature: minor
     bug: patch
+    hotfix: patch
     audit: none
     refactor: none
     chore: none
@@ -68,6 +69,13 @@ types:
   bug:
     stages: [request, investigation, specification, plan, log]
     review_required: true
+  # A fix to released code: it starts from and integrates into
+  # `git.release_branch`. Declare that branch before drafting one: until then
+  # `changeledger context <id>` and `agent-context` refuse a change of this type.
+  hotfix:
+    stages: [request, investigation, specification, plan, log]
+    review_required: true
+    integrates_into: release
   audit:
     stages: [request, investigation, log]
   refactor:

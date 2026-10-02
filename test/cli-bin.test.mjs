@@ -255,7 +255,10 @@ test('20260824-134716 CR2: repo-configured domains appear in help and invalid er
       .replace('types:\n', 'types:\n  custom:\n    stages: [request, log]\n'),
   );
   const help = runIn(root, env, 'check', '--help').out;
-  assert.match(help, /effective types: custom, feature, bug, audit, refactor, chore, quick/);
+  assert.match(
+    help,
+    /effective types: custom, feature, bug, hotfix, audit, refactor, chore, quick/,
+  );
   assert.match(
     help,
     /effective statuses: draft, approved, in-progress, in-review, in-validation, blocked, done, discarded/,
@@ -268,7 +271,7 @@ test('20260824-134716 CR2: repo-configured domains appear in help and invalid er
   assert.notEqual(invalid.code, 0);
   assert.match(
     invalid.err,
-    /Allowed choices are custom, feature, bug, audit, refactor, chore, quick/,
+    /Allowed choices are custom, feature, bug, hotfix, audit, refactor, chore, quick/,
   );
 });
 
@@ -1802,6 +1805,30 @@ test('181346 CR7: init declares an empty git.release_branch beside integration_b
   assert.equal(config.git.release_branch, null);
   const keys = Object.keys(config.git);
   assert.equal(keys.indexOf('release_branch'), keys.indexOf('integration_branch') + 1);
+  const checked = runIn(root, env, 'check');
+  assert.equal(checked.code, 0, checked.err);
+});
+
+// 20261002-181428 CR1 — `init` ships the `hotfix` type after `bug`: the stages
+// and review of `bug`, integrated into the release branch, with a patch release
+// impact. The generated config, whose `git.release_branch` is still empty, stays
+// valid.
+test('181428 CR1: init declares the hotfix type after bug and check stays clean', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
+  assert.equal(runIn(root, env, 'init').code, 0);
+  const config = parseYaml(fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8'));
+  assert.deepEqual(config.types.hotfix, {
+    stages: ['request', 'investigation', 'specification', 'plan', 'log'],
+    review_required: true,
+    integrates_into: 'release',
+  });
+  const types = Object.keys(config.types);
+  assert.equal(types.indexOf('hotfix'), types.indexOf('bug') + 1);
+  assert.equal(config.release.impacts.hotfix, 'patch');
+  assert.equal(config.git.release_branch, null);
   const checked = runIn(root, env, 'check');
   assert.equal(checked.code, 0, checked.err);
 });
