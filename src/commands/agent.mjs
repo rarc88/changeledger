@@ -21,7 +21,8 @@ import {
   defaultRun as defaultGitRun,
   ownerHandle as defaultOwnerHandle,
   isAncestor,
-  mergeBase,
+  mergeBases,
+  refExists,
 } from '../git.mjs';
 import { assertTransition, parseLogEvent } from '../lifecycle.mjs';
 import { nowUtc } from '../paths.mjs';
@@ -100,19 +101,23 @@ function assertImplementationBranch(config, change, repoRoot, gitRun) {
   // A change that integrates into another branch than `git.integration_branch`
   // (a release type) must not carry integration work that branch does not have
   // yet: when `dev` is ahead of `main`, a branch cut from `dev` still descends
-  // from `main` and passes the check above (20261002-204623). Everything the
-  // branch shares with the integration branch must already be in `baseline`.
-  // No merge base (unrelated histories, or a ref absent locally) fails closed,
-  // like the ancestry check above.
+  // from `main` and passes the check above (20261002-204623). The commits
+  // reachable from both `HEAD` and the integration branch are exactly the
+  // ancestors of their merge bases, so requiring every merge base (criss-cross
+  // merges leave several) to be in `baseline` means no integration commit
+  // outside `baseline` is shared with `HEAD`. It does not inspect commits that
+  // are only on `HEAD`. With no merge base it fails closed, like the ancestry
+  // check above, naming which cause applies.
   const integration = integrationBranch(config);
   if (integration && integration !== baseline) {
-    const shared = mergeBase(repoRoot, 'HEAD', integration, gitRun);
-    if (!shared) {
-      throw new Error(
-        `branch "${expected}" cannot be compared with integration branch "${integration}": no merge base found`,
-      );
+    const bases = mergeBases(repoRoot, 'HEAD', integration, gitRun);
+    if (bases.length === 0) {
+      const cause = refExists(repoRoot, integration, gitRun)
+        ? `it shares no history with integration branch "${integration}"`
+        : `integration branch "${integration}" does not exist locally — create it (e.g. from its remote-tracking copy) before starting`;
+      throw new Error(`branch "${expected}" cannot start: ${cause}`);
     }
-    if (!isAncestor(repoRoot, shared, baseline, gitRun)) {
+    if (!bases.every((base) => isAncestor(repoRoot, base, baseline, gitRun))) {
       throw new Error(
         `branch "${expected}" contains commits of "${integration}" that are not in "${baseline}"`,
       );

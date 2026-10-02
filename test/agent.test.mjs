@@ -442,6 +442,58 @@ test('204623 CR4: an integration type with commits of its own still starts', () 
   assert.equal(startsInProgress(file), true);
 });
 
+// Criss-cross: `dev` merged `feat/y` and then `main`, so `HEAD` (cut from `main`,
+// then merged `feat/y`) and `dev` have two merge bases, X (in `main`) and Y (not
+// in `main`). Commit dates are pinned so plain `git merge-base` picks X.
+test('204623 CR1: a criss-cross with an unpublished merge base does not start', () => {
+  const { root, changes } = releaseTypeRepo({ shape: 'same' });
+  const { file, id } = changes.fix;
+  const at = (date, args) =>
+    execFileSync('git', args, {
+      cwd: root,
+      env: sanitizedEnv({ GIT_AUTHOR_DATE: date, GIT_COMMITTER_DATE: date }),
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+  const commitFile = (name, date) => {
+    fs.writeFileSync(path.join(root, name), '1\n');
+    at(date, ['add', name]);
+    at(date, ['commit', '-q', '-m', `chore: ${name}`]);
+  };
+  at('2026-01-01T00:00:00Z', ['checkout', '-q', '-b', 'feat/y']);
+  commitFile('Y', '2026-01-02T00:00:00Z');
+  at('2026-01-05T00:00:00Z', ['checkout', '-q', 'main']);
+  commitFile('X', '2026-01-05T00:00:00Z');
+  at('2026-01-06T00:00:00Z', ['checkout', '-q', 'dev']);
+  at('2026-01-06T00:00:00Z', ['merge', '-q', '--no-ff', '-m', 'merge y', 'feat/y']);
+  at('2026-01-07T00:00:00Z', ['merge', '-q', '--no-ff', '-m', 'merge main', 'main']);
+  at('2026-01-08T00:00:00Z', ['checkout', '-q', '-b', `fix/${id}`, 'main']);
+  at('2026-01-08T00:00:00Z', ['merge', '-q', '--no-ff', '-m', 'merge y', 'feat/y']);
+  const before = fs.readFileSync(file, 'utf8');
+  const tip = (ref) => git(root, ['rev-parse', ref]).trim();
+  const bases = git(root, ['merge-base', '--all', 'HEAD', 'dev']).trim().split('\n');
+  assert.deepEqual(bases.sort(), [tip('main'), tip('feat/y')].sort());
+
+  assert.throws(
+    () => status(id, 'in-progress', root, { ownerHandle: () => '' }),
+    (error) =>
+      error.message === `branch "fix/${id}" contains commits of "dev" that are not in "main"`,
+  );
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
+test('204623: a missing release branch ref still fails the ancestry check', () => {
+  const { root, changes } = releaseTypeRepo({ shape: 'dev-ahead' });
+  const { id } = changes.fix;
+  git(root, ['checkout', '-q', '-b', `fix/${id}`, 'main']);
+  git(root, ['branch', '-m', 'main', 'gone']);
+
+  assert.throws(
+    () => status(id, 'in-progress', root, { ownerHandle: () => '' }),
+    (error) => error.message === `branch "fix/${id}" must descend from integration branch "main"`,
+  );
+});
+
 test('204623 CR5: without git.integration_branch there is nothing to compare against', () => {
   for (const base of ['main', 'dev']) {
     const { root, changes } = releaseTypeRepo({ shape: 'dev-ahead', integrationBranch: null });
@@ -453,7 +505,7 @@ test('204623 CR5: without git.integration_branch there is nothing to compare aga
   }
 });
 
-test('204623: an integration branch with no local ref fails closed', () => {
+test('204623: an integration branch absent locally fails closed and says so', () => {
   const { root, changes } = releaseTypeRepo({ shape: 'dev-ahead' });
   const { file, id } = changes.fix;
   git(root, ['branch', '-D', 'dev']);
@@ -463,12 +515,12 @@ test('204623: an integration branch with no local ref fails closed', () => {
     () => startOn(root, { id, type: 'fix' }, 'main'),
     (error) =>
       error.message ===
-      `branch "fix/${id}" cannot be compared with integration branch "dev": no merge base found`,
+      `branch "fix/${id}" cannot start: integration branch "dev" does not exist locally — create it (e.g. from its remote-tracking copy) before starting`,
   );
   assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
 
-test('204623: an integration branch with unrelated history fails closed', () => {
+test('204623: an integration branch with unrelated history fails closed and says so', () => {
   const { root, changes } = releaseTypeRepo({ shape: 'dev-ahead' });
   const { file, id } = changes.fix;
   const emptyTree = git(root, ['hash-object', '-t', 'tree', '/dev/null']).trim();
@@ -481,7 +533,7 @@ test('204623: an integration branch with unrelated history fails closed', () => 
     () => status(id, 'in-progress', root, { ownerHandle: () => '' }),
     (error) =>
       error.message ===
-      `branch "fix/${id}" cannot be compared with integration branch "dev": no merge base found`,
+      `branch "fix/${id}" cannot start: it shares no history with integration branch "dev"`,
   );
   assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
