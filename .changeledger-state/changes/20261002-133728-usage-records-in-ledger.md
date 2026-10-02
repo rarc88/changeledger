@@ -198,10 +198,11 @@ humano para dividirlo por layout.
   - **Verify:** `node --test test/commit.test.mjs`
   - **Criteria:** CR2
   - **Resolved:** `2026-10-02T15:57:40Z`
-- [ ] Probar y validar los registros en `check`
+- [x] Probar y validar los registros en `check`
   - **Target:** `src/check.mjs, src/commands/check.mjs, test/check.test.mjs`
   - **Verify:** `node --test test/check.test.mjs`
   - **Criteria:** CR4
+  - **Resolved:** `2026-10-02T15:57:41Z`
 - [ ] Probar y llevar la colección en `cutover`, `import` y `sync`
   - **Target:** `src/commands/ledger-tree.mjs, src/commands/import.mjs, src/commands/cutover.mjs, test/cutover.test.mjs, test/import.test.mjs, test/sync.test.mjs`
   - **Verify:** `node --test test/cutover.test.mjs test/import.test.mjs test/sync.test.mjs`
