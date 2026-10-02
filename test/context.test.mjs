@@ -991,6 +991,71 @@ test('181428 CR2: a change integrating outside git.integration_branch publishes 
   }
 });
 
+// 20261002-181428 CR7: `release_types=` names the types that integrate into
+// `git.release_branch`, only while that branch is declared. `types` replaces
+// the template's types; `releaseBranch: 'absent'` removes the key.
+function releaseTypesRepo({ releaseBranch = 'main', types } = {}) {
+  const root = repo();
+  const file = path.join(root, '.changeledger', 'config.yml');
+  const config = parseYaml(fs.readFileSync(file, 'utf8'));
+  config.git = { ...config.git, integration_branch: 'dev', release_branch: releaseBranch };
+  if (releaseBranch === 'absent') delete config.git.release_branch;
+  const bug = config.types.bug;
+  config.types = types ?? {
+    feature: config.types.feature,
+    bug,
+    hotfix: { ...bug, integrates_into: 'release' },
+  };
+  fs.writeFileSync(file, stringifyYaml(config));
+  return root;
+}
+
+const releaseTypeCaptures = (root, ids = []) => [
+  buildContext(undefined, root),
+  buildContext('spec', root),
+  buildContext('implement', root),
+  buildAgentContext('investigation', undefined, root),
+  ...ids.flatMap((id) => [buildContext(id, root), buildAgentContext('implementation', id, root)]),
+];
+
+test('181428 CR7: core, mode, change and delegate contexts publish release_types with a declared release branch', () => {
+  const root = releaseTypesRepo();
+  const ids = [
+    writeRawChange(root, { id: '20261002-181601', status: 'approved', type: 'hotfix' }),
+    writeRawChange(root, { id: '20261002-181602', status: 'approved', type: 'bug' }),
+  ];
+  for (const capture of releaseTypeCaptures(root, ids)) {
+    const policy = policyLineOf(capture);
+    assert.match(policy, / — release_types=hotfix( |$)/, policy);
+  }
+  // Several release types follow the key order of `config.types` as JavaScript
+  // enumerates it: integer-like names first, then insertion order — not sorted.
+  const several = releaseTypesRepo({
+    types: {
+      zfix: { stages: ['request', 'log'], integrates_into: 'release' },
+      bug: { stages: ['request', 'log'] },
+      hotfix: { stages: ['request', 'log'], integrates_into: 'release' },
+      2024: { stages: ['request', 'log'], integrates_into: 'release' },
+    },
+  });
+  assert.match(
+    policyLineOf(buildContext('spec', several)),
+    / — release_types=2024,zfix,hotfix( |$)/,
+  );
+});
+
+test('181428 CR7: no release_types without a declared release branch or a release type', () => {
+  for (const root of [
+    releaseTypesRepo({ releaseBranch: null }),
+    releaseTypesRepo({ releaseBranch: 'absent' }),
+    releaseTypesRepo({ types: { bug: { stages: ['request', 'log'] } } }),
+  ]) {
+    for (const capture of releaseTypeCaptures(root)) {
+      assert.doesNotMatch(policyLineOf(capture), /release_types=/, policyLineOf(capture));
+    }
+  }
+});
+
 test('181428 CR2: mode contexts and an undeclared git.integration_branch publish no back_merge_branch', () => {
   const { root } = hotfixRepo();
   for (const mode of [undefined, 'implement', 'spec']) {
@@ -3756,34 +3821,51 @@ const CONCEPT_GUARDS = [
   {
     entry: 21,
     obligation:
-      'a defect makes the agent ask the human between a normal fix and a type that integrates into the release branch, never inferring it, before any draft',
-    // 20261002-181428 CR3. Bound to the role (`integrates_into: release`), not to
-    // a type name. A sentence ends at a period followed by whitespace, so a dotted
-    // name such as `config.yml` does not cut the window.
-    verify: (pack) => {
-      const spec = pack('spec');
+      'a defect makes the agent ask the human between a normal fix and the published release_types, never inferring it and drafting nothing until answered, and without release_types neither asking nor proposing one',
+    // 20261002-181428 CR3. Bound to the published `release_types=` field, never
+    // to reading `config.yml` or to a type name. Judged on a spec pack whose own
+    // policy line publishes `release_types=`, so only the backticked prose can
+    // satisfy it. A sentence ends at a period followed by whitespace.
+    verify: () => {
+      const root = repo();
+      setConfig(root, [[/^ {2}release_branch:$/m, '  release_branch: main']]);
+      const spec = flattened(buildContext('spec', root));
+      assert.match(
+        spec,
+        / — release_types=\S+/,
+        'fixture: the policy line publishes no release_types',
+      );
       const sentence = (terms) =>
         new RegExp(terms.map((term) => `(?=(?:[^.]|\\.(?=\\S)){0,300}${term})`).join(''), 'i');
       assert.match(
         spec,
         sentence([
           '\\bdefects?\\b',
-          '(`integrates_into: release`|\\bintegrat\\w*\\b[^.;]{0,15}\\binto\\b[^.;]{0,20}\\brelease\\b)',
+          '`release_types=`',
           '\\bask\\w*\\b[^.;]{0,30}\\bhuman\\b',
           '\\bexplicit\\w*',
           '(\\bnormal\\b[^.;]{0,15}\\bfix\\b|`bug`)',
         ]),
-        'spec no longer has a defect make the agent explicitly ask the human between a normal fix and the release type',
+        'spec no longer has a defect make the agent explicitly ask the human between a normal fix and the published release types',
       );
       assert.match(
         spec,
         /\b(never|not|no)\b[^.;]{0,20}\binfer\w*\b[^.;]{0,30}\b(answer|type|choice|classification)\b/i,
-        'spec no longer forbids inferring the answer between a normal fix and the release type',
+        'spec no longer forbids inferring the answer between a normal fix and a release type',
       );
       assert.match(
         spec,
         /\b(no|not|never)\b[^.;]{0,30}\bdrafts?\b[^.;]{0,40}\b(until|before)\b[^.;]{0,40}\b(answer\w*|repl\w*|decid\w*|respon\w*)\b|\bdrafts?\b[^.;]{0,40}\bonly\s+after\b[^.;]{0,40}\b(answer\w*|repl\w*|decid\w*|respon\w*)\b/i,
         'spec no longer withholds the draft until the human answers',
+      );
+      assert.match(
+        spec,
+        sentence([
+          '(\\b(without|absent|unless|lacking|missing)\\b[^.;]{0,40}`release_types=`|`release_types=`[^.;]{0,40}\\b(absent|missing|unpublished|not published)\\b)',
+          '\\b(neither|nor|not|never|no)\\b[^.;]{0,15}\\b(ask|question)\\w*',
+          '\\b(propos|suggest|offer)\\w*\\b[^.;]{0,30}\\brelease\\b',
+        ]),
+        'spec no longer forbids asking about or proposing a release type without release_types',
       );
     },
   },

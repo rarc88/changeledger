@@ -70,7 +70,8 @@ types:
     stages: [request, investigation, specification, plan, log]
     review_required: true
   # A fix to released code: it starts from and integrates into
-  # `git.release_branch`, which must be declared before it goes `in-progress`.
+  # `git.release_branch`. Declare that branch before drafting one: until then
+  # `changeledger context <id>` and `agent-context` refuse a change of this type.
   hotfix:
     stages: [request, investigation, specification, plan, log]
     review_required: true

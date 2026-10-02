@@ -70,10 +70,11 @@ divergence from an existing spec before `in-review`, else the change goes
 `blocked`; corrections to existing specs are drafted inside the change, where
 the reviewer sees them.
 
-When you classify a problem as a defect and `config.yml` declares a type with
-`integrates_into: release`, explicitly ask the human whether it is a normal fix
-(`bug`, into the integration branch) or of that type (into the release branch).
-Never infer the answer, and create no draft until the human answers.
+When you classify a problem as a defect and the `Effective policy:` line
+publishes `release_types=`, explicitly ask the human whether it is a normal fix
+(`bug`, into the integration branch) or one of those types (into the release
+branch). Never infer the answer, and create no draft until the human answers.
+Without `release_types=`, neither ask nor propose a release type.
 
 Before writing Investigation, run `changeledger search <terms from the request>`;
 during Investigation, classify every relevant change discovered, regardless of

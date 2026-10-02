@@ -6,6 +6,7 @@ import {
   findChangeledgerDir,
   integrationBranch,
   loadEffectiveConfig,
+  releaseBranch,
   renderChangeBranch,
 } from '../config.mjs';
 import { beginSentinel, endSentinel, VERSION } from '../framing.mjs';
@@ -106,6 +107,9 @@ function effectiveLanguage(config) {
 // A change integrating into a branch other than a declared
 // `git.integration_branch` also publishes that branch as `back_merge_branch`,
 // where its integrated result must be brought too (20261002-181428).
+// Every composition also publishes `release_types`, the types that integrate
+// into `git.release_branch`, while that branch is declared: the only state in
+// which a change of those types can be loaded (20261002-181428 CR7).
 // Called with `includeTdd: false` for a change-id capture whose type never
 // activates `specification`: `readiness.md` (the only fragment that defines
 // the obligation) is not composed for it, so publishing `tdd=on` would hand it
@@ -114,12 +118,23 @@ function effectiveLanguage(config) {
 // obligation, which needs no definition.
 export function transversalPolicy(config, { includeTdd = true, type = undefined } = {}) {
   const tdd = includeTdd ? ` — tdd=${effectiveTdd(config, type) ? 'on' : 'off'}` : '';
-  const base = `Effective policy: language=${effectiveLanguage(config)}${tdd}`;
+  const base = `Effective policy: language=${effectiveLanguage(config)}${tdd}${releaseTypes(config)}`;
   const branch = changeIntegrationBranch(config, type);
   if (!branch) return base;
   const repoBranch = integrationBranch(config);
   const backMerge = repoBranch && repoBranch !== branch ? ` — back_merge_branch=${repoBranch}` : '';
   return `${base} — integration_branch=${branch}${backMerge}`;
+}
+
+// Key order of `config.types` as JavaScript enumerates it: integer-like names
+// first, then insertion order. The release branch is read only when some type
+// integrates into it, so a repo without release types never depends on that key.
+function releaseTypes(config) {
+  const types = config?.types;
+  if (types === null || typeof types !== 'object') return '';
+  const names = Object.keys(types).filter((name) => types[name]?.integrates_into === 'release');
+  if (names.length === 0 || releaseBranch(config) === undefined) return '';
+  return ` — release_types=${names.join(',')}`;
 }
 
 // A change's `type` selects which stages the capture composes and which
