@@ -2,7 +2,7 @@
 id: "20261002-133728"
 title: Guardar los registros de consumo en el ledger
 type: feature
-status: in-review
+status: in-progress
 created: 2026-10-02T13:37:28Z
 depends_on: ["20261001-155612"]
 branch: feature/20261002-133728
@@ -239,3 +239,4 @@ humano para dividirlo por layout.
 - **2026-10-02T16:38:55Z** `[note]` Corrección del orquestador: la frase del apartado legacy de docs/usage-capture.md queda acotada a la preparación de registros, como el comentario de commit.mjs, y se reajusta una línea que superaba el ancho del párrafo.
 - **2026-10-02T16:41:28Z** `[note]` Tercera ronda autorizada por el humano, limitada a la redacción de docs/usage-capture.md y del comentario de src/commands/commit.mjs. Mandato: sólo esos dos archivos del diff sin commitear frente a HEAD (93d00ba); el resto del diff ya quedó confirmado.
 - **2026-10-02T16:41:28Z** `[status]` in-progress → in-review
+- **2026-10-02T16:42:11Z** `[review]` in-review → in-progress (retry): Tercera ronda: la frase sobre el sufijo afirma que si falla la comprobación de si un nombre existe el registro no se publica, pero stateHolds trata cualquier fallo de git cat-file -e como nombre libre y el registro se publica; sólo un nombre realmente ocupado se rechaza con usage: record not published. Además una línea del párrafo mide 90 columnas.
