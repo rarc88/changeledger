@@ -5,7 +5,8 @@ redefine what should be tested.
 
 The `tdd` flag in `.changeledger/config.yml` defaults to `true`; set `tdd` to
 `false` only for exploratory repos where behavior is intentionally still being
-discovered.
+discovered. `types.<type>.tdd` overrides the global value for that type's
+changes.
 
 With `tdd: true`, a change is ready only when:
 

@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { parse as parseYaml } from 'yaml';
 import { status, task, validation } from '../src/commands/agent.mjs';
 import { buildMigration } from '../src/config-migration.mjs';
 import { LOG_EVENT_DEFINITIONS } from '../src/lifecycle.mjs';
@@ -1750,4 +1751,23 @@ test('CR2: two concurrent CLI writes — exactly one succeeds, the loser gets th
   const noteACount = (listed.match(/note A/g) ?? []).length;
   const noteBCount = (listed.match(/note B/g) ?? []).length;
   assert.equal(noteACount + noteBCount, 1);
+});
+
+// 20261002-113320 CR7 — `init` ships the `documentation` type: review without a
+// Plan (its effective tdd is off) and no release impact, valid as generated.
+test('113320 CR7: init declares the documentation type and check stays clean', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
+  assert.equal(runIn(root, env, 'init').code, 0);
+  const config = parseYaml(fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8'));
+  assert.deepEqual(config.types.documentation, {
+    stages: ['request', 'investigation', 'specification', 'log'],
+    review_required: true,
+    tdd: false,
+  });
+  assert.equal(config.release.impacts.documentation, 'none');
+  const checked = runIn(root, env, 'check');
+  assert.equal(checked.code, 0, checked.err);
 });
