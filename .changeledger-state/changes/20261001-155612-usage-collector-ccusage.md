@@ -2,7 +2,7 @@
 id: "20261001-155612"
 title: Registrar el consumo de tokens y su coste en cada transición con ccusage
 type: feature
-status: in-review
+status: in-progress
 created: 2026-10-01T15:56:12Z
 depends_on: []
 branch: feature/20261001-155612
@@ -301,3 +301,4 @@ sin filtrar por proyecto (mezcla otros repos activos); guardar en el documento
 - **2026-10-02T13:22:02Z** `[note]` CR10 recorrido por el orquestador con autorización del humano: con git config changeledger.usage.collector ccusage y la CLI de esta rama, el change de prueba 20261002-132127 se creó, aprobó e inició; quedaron tres registros (created, draft → approved, approved → in-progress), pricing online, sin error ni exclusiones, con la sesión actual 30628da2 en cada uno y tokens no decrecientes entre registros consecutivos (opus 5.5 y sonnet 5.5, ambos con precio online). El change de prueba se descartó, su rama se borró y el valor de git config se retiró; el registro de descarte también dejó su cuarta foto.
 - **2026-10-02T13:22:08Z** `[status]` in-progress → in-review
 - **2026-10-02T13:22:11Z** `[note]` Mandato del review: la superficie que el change gobierna — el rango dev..HEAD (88a3ee0, ee978f2) contra CR1-CR10 enmendados y el Plan, con las decisiones no especificadas y los residuos del Log como puntos de escrutinio.
+- **2026-10-02T13:30:07Z** `[review]` in-review → in-progress (retry): Dos defectos corregibles dentro del alcance: (1) al vencer el límite de 10 s sólo muere npx y el ccusage real queda vivo indefinidamente (probado: sigue más de 21 s después del ETIMEDOUT, adoptado por systemd --user); hay que matar el árbol de procesos completo; (2) el comentario de defaultCcusageRunner afirma que los argumentos son tokens fijos más fuentes validadas, falso cuando CHANGELEDGER_USAGE_COMMAND empieza por npx en Windows, donde además shell: true con arreglo de argumentos emite en Node 24 un DeprecationWarning DEP0190 sin el prefijo usage: que exige la Proposal. Detalles: collectUsage dice que nunca lanza pero lanza sin projectPaths; el comentario de src/commands/check.mjs dice que el valor se lee del disco cuando lo lee un proceso git config.
