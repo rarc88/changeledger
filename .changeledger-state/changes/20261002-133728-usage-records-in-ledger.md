@@ -203,10 +203,11 @@ humano para dividirlo por layout.
   - **Verify:** `node --test test/check.test.mjs`
   - **Criteria:** CR4
   - **Resolved:** `2026-10-02T15:57:41Z`
-- [ ] Probar y llevar la colección en `cutover`, `import` y `sync`
+- [x] Probar y llevar la colección en `cutover`, `import` y `sync`
   - **Target:** `src/commands/ledger-tree.mjs, src/commands/import.mjs, src/commands/cutover.mjs, test/cutover.test.mjs, test/import.test.mjs, test/sync.test.mjs`
   - **Verify:** `node --test test/cutover.test.mjs test/import.test.mjs test/sync.test.mjs`
   - **Criteria:** CR3, CR6
+  - **Resolved:** `2026-10-02T15:57:41Z`
 - [ ] Actualizar la documentación del colector
   - **Target:** `docs/usage-capture.md`
   - **Verify:** `pnpm test`
