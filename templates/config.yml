@@ -16,7 +16,8 @@ language: en
 
 # Definition of Ready policy. When true (default), changes are documented
 # test-grade and implemented via TDD; `changeledger check` warns on criteria ↔ task
-# coverage gaps. Set false for exploratory repos. See `changeledger context spec`.
+# coverage gaps. Set false for exploratory repos. A type's own `tdd` overrides
+# this value for its changes. See `changeledger context spec`.
 tdd: true
 
 # Default SemVer impact for a completed change. A change may override its type
@@ -29,6 +30,7 @@ release:
     refactor: none
     chore: none
     quick: patch
+    documentation: none
 
 # Definition of Ready path/command hints. Tasks that reference CRs must name at
 # least one target and one verification matching these patterns; a warning in
@@ -77,3 +79,10 @@ types:
   # the correct type — see `changeledger context spec`.
   quick:
     stages: [request, log]
+  # Persistent truth about a topic, checked against what the code does; it
+  # changes no application code. With `tdd: false` it is reviewed on its
+  # criteria alone, without a Plan — see `changeledger context spec`.
+  documentation:
+    stages: [request, investigation, specification, log]
+    review_required: true
+    tdd: false

@@ -3610,3 +3610,107 @@ test('162616 CR7: a discarded change is still exempt from its own unclassified-m
     [],
   );
 });
+
+// --- 20261002-113320: per-type tdd and the documentation type ---
+
+const DOC_STAGES = ['request', 'investigation', 'specification', 'log'];
+const perTypeTddConfig = (over = {}) => ({
+  ...tddConfig,
+  stages: ['request', 'investigation', 'proposal', 'specification', 'plan', 'log'],
+  types: {
+    feature: { stages: ['request', 'specification', 'plan', 'log'] },
+    documentation: { stages: DOC_STAGES, review_required: true, tdd: false },
+  },
+  ...over,
+});
+
+// One `approved` change whose only criterion no Plan task covers. The type
+// decides whether `## Plan` exists at all.
+function uncoveredChange(id, type) {
+  const plan =
+    type === 'documentation' ? '' : '## Plan\n\n- [ ] Unrelated support\n  - **Support:**\n\n';
+  const investigation = type === 'documentation' ? '## Investigation\n\nI\n\n' : '';
+  const text = `---
+id: "${id}"
+title: X
+type: ${type}
+status: approved
+created: 2026-06-13T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+R
+
+${investigation}## Specification
+
+### CR1 — x
+- **Given** a
+- **When** b
+- **Then** c
+
+${plan}## Log
+`;
+  return { name: `${id}-x.md`, text, ...parseChange(text) };
+}
+
+const uncoveredBy = (errors, file) =>
+  errors.filter((e) => e.file === file && e.message === 'CR1 is not covered by any Plan task');
+
+test('113320 CR1: tdd: false on the type disables coverage only for that type', () => {
+  const doc = uncoveredChange('20260613-120001', 'documentation');
+  const feat = uncoveredChange('20260613-120002', 'feature');
+  const { errors } = checkRepo({ config: perTypeTddConfig({ tdd: true }), changes: [doc, feat] });
+  assert.deepEqual(uncoveredBy(errors, doc.name), [], msgs(errors).join('\n'));
+  assert.equal(uncoveredBy(errors, feat.name).length, 1, msgs(errors).join('\n'));
+});
+
+test('113320 CR2: tdd: true on the type overrides a global tdd: false', () => {
+  const cfg = perTypeTddConfig({ tdd: false });
+  cfg.types.feature = { ...cfg.types.feature, tdd: true };
+  const feat = uncoveredChange('20260613-120002', 'feature');
+  const { errors } = checkRepo({ config: cfg, changes: [feat] });
+  assert.equal(uncoveredBy(errors, feat.name).length, 1, msgs(errors).join('\n'));
+});
+
+test('113320 CR3: a non-boolean type tdd is rejected with its literal error', () => {
+  const cfg = perTypeTddConfig();
+  cfg.types.documentation = { ...cfg.types.documentation, tdd: 'no' };
+  const { errors } = checkRepo({ config: cfg, changes: [] });
+  assert.ok(
+    msgs(errors).includes('config type "documentation": tdd must be a boolean'),
+    msgs(errors).join('\n'),
+  );
+});
+
+test('113320 CR6: review_required asks only for specification when effective tdd is off', () => {
+  const stageErrors = (cfg) =>
+    msgs(checkRepo({ config: cfg, changes: [] }).errors).filter((m) =>
+      m.includes('requires active stages'),
+    );
+  const typed = (def, over = {}) => perTypeTddConfig({ ...over, types: { doc: def } });
+
+  assert.deepEqual(
+    stageErrors(typed({ stages: DOC_STAGES, review_required: true, tdd: false })),
+    [],
+  );
+  // Effective tdd on: through the type itself, and through the global default.
+  for (const cfg of [
+    typed({ stages: DOC_STAGES, review_required: true, tdd: true }, { tdd: false }),
+    typed({ stages: DOC_STAGES, review_required: true }, { tdd: true }),
+  ]) {
+    assert.deepEqual(stageErrors(cfg), [
+      'config type "doc": review_required: true requires active stages: plan',
+    ]);
+  }
+  // Effective tdd off through the global value alone, without specification.
+  assert.deepEqual(
+    stageErrors(typed({ stages: ['request', 'log'], review_required: true }, { tdd: false })),
+    ['config type "doc": review_required: true requires active stages: specification'],
+  );
+  assert.deepEqual(
+    stageErrors(typed({ stages: ['request', 'log'], review_required: true, tdd: false })),
+    ['config type "doc": review_required: true requires active stages: specification'],
+  );
+});

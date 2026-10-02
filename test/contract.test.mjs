@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { marked } from 'marked';
+import { buildContext } from '../src/commands/context.mjs';
 import { init } from '../src/commands/init.mjs';
 import { registerRepo } from '../src/commands/register.mjs';
 import { checkContract, REFERENCE, removeLegacyContract } from '../src/contract.mjs';
@@ -694,4 +695,58 @@ test("20260728-212043 CR2: this repo's own AGENTS.md bootstrap matches the publi
     agents.includes(REFERENCE.trim()),
     "AGENTS.md's installed bootstrap block must be byte-identical to the published REFERENCE",
   );
+});
+
+// 20261002-113320 CR9 — concept guard over the `spec` pack. The `documentation`
+// type carries its execution rules as its own CRs, so the paragraph that defines
+// it must keep each obligation. Matched by concept, clause by clause: a clause
+// (text between `.`, `;` or `:` and a space) must contain every keyword group of an obligation,
+// in any order, so the paragraph can be rewritten without retargeting this.
+test('113320 CR9 concept guard: the spec pack defines the documentation type and the tdd override', () => {
+  const dir = root();
+  init(dir);
+  const pack = buildContext('spec', dir);
+  const flat = (text) => text.replace(/\s+/g, ' ');
+  const clauses = (text) => flat(text).split(/[.;:](?=\s|$)/);
+  const hasClause = (text, ...groups) =>
+    clauses(text).some((clause) => groups.every((group) => group.test(clause)));
+  const definition = pack
+    .split(/\n\s*\n/)
+    .filter((paragraph) => /^`documentation`/.test(paragraph.trim()))
+    .join('\n\n');
+  assert.ok(definition, 'the spec pack has no paragraph defining `documentation`');
+
+  const obligations = [
+    ['deliverable is persistent truth contrasted with code', /\bpersistent truth\b/i, /\bcode\b/i],
+    ['no application code is changed', /\b(no|never|not)\b/i, /\bapplication code\b/i],
+    ["written as the change's own CRs", /\b(CRs?|criteri\w*)\b/i, /\b(own|its)\b/i],
+    ['perimeter fixed from who calls what', /\bperimeter\b/i, /\bcall(s|ers?|ed)?\b/i],
+    ['perimeter fixed in the draft', /\bperimeter\b/i, /\bdraft\w*\b/i],
+    ['every claim cites path and symbol', /\bclaims?\b/i, /\bpaths?\b/i, /\bsymbols?\b/i],
+    [
+      'the human decides every divergence before in-review, else blocked',
+      /\bhuman\b/i,
+      /\bdivergen\w*/i,
+      /`in-review`/,
+      /`blocked`/,
+    ],
+    [
+      'spec corrections drafted inside the change for the reviewer',
+      /\bcorrect\w*/i,
+      /\bspecs?\b/i,
+      /\b(in|inside|within)\b[^.;]{0,10}\bchange\b/i,
+      /\breview\w*/i,
+    ],
+  ];
+  for (const [obligation, ...groups] of obligations) {
+    assert.ok(hasClause(definition, ...groups), `documentation definition lost: ${obligation}`);
+  }
+
+  const readiness = fs.readFileSync(
+    new URL('../templates/contract/readiness.md', import.meta.url),
+    'utf8',
+  );
+  const override = [/`types\.<type>\.tdd`/, /\b(overrides?|precedence|prevails)\b/i, /\bglobal\b/i];
+  assert.ok(hasClause(readiness, ...override), 'readiness lost the per-type tdd override');
+  assert.ok(hasClause(pack, ...override), 'the spec pack no longer composes the tdd override');
 });

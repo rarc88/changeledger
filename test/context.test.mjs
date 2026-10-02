@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import { buildAgentContext } from '../src/commands/agent-context.mjs';
 import {
   buildContext,
@@ -3363,3 +3364,63 @@ for (const { entry, obligation, verify } of CONCEPT_GUARDS) {
     verify(pack);
   });
 }
+
+// --- 20261002-113320: per-type tdd in change-id captures ---
+
+// Declares the `documentation` type of 113320 CR1 whatever the template ships,
+// so the capture is judged on the resolver, not on the template's content.
+function declareDocumentationType(root, globalTdd = true) {
+  const file = path.join(root, '.changeledger', 'config.yml');
+  const config = parseYaml(fs.readFileSync(file, 'utf8'));
+  config.tdd = globalTdd;
+  config.types.documentation = {
+    stages: ['request', 'investigation', 'specification', 'log'],
+    review_required: true,
+    tdd: false,
+  };
+  fs.writeFileSync(file, stringifyYaml(config));
+}
+
+function writeDocumentationChange(root, id, status) {
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'changes', `${id}-doc-fixture.md`),
+    `---
+id: "${id}"
+title: Doc fixture
+type: documentation
+status: ${status}
+created: 2026-10-02T11:33:20Z
+depends_on: []
+---
+
+## Request
+
+Document the topic.
+
+## Investigation
+
+Evidence.
+
+## Specification
+
+### CR1 — Claim
+- **Given** the code
+- **When** read
+- **Then** it matches
+
+## Log
+`,
+  );
+}
+
+test('113320 CR4: a tdd-off change publishes tdd=off and composes no readiness', () => {
+  const root = repo();
+  declareDocumentationType(root);
+  const id = '20261002-113321';
+  writeDocumentationChange(root, id, 'draft');
+  const output = buildContext(id, root);
+  const policy = output.split('\n').find((line) => line.startsWith('Effective policy:'));
+  assert.match(policy, /tdd=off/);
+  assert.doesNotMatch(output, /# Definition of Ready/);
+  assert.match(output, /# Authoring a Change/);
+});
