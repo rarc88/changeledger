@@ -2,7 +2,7 @@
 id: "20261002-133728"
 title: Guardar los registros de consumo en el ledger
 type: feature
-status: in-review
+status: in-progress
 created: 2026-10-02T13:37:28Z
 depends_on: ["20261001-155612"]
 branch: feature/20261002-133728
@@ -243,3 +243,4 @@ humano para dividirlo por layout.
 - **2026-10-02T16:42:35Z** `[note]` Corrección del orquestador tras la tercera ronda: el párrafo del sufijo dice ahora que, con la ref de estado, publicar en un nombre ya ocupado se rechaza con usage: record not published en vez de sobrescribir, sin afirmar nada sobre un fallo de la comprobación de existencia, y se reajusta a 80 columnas.
 - **2026-10-02T16:43:00Z** `[note]` Cuarta ronda autorizada por el humano, limitada al párrafo del sufijo de docs/usage-capture.md.
 - **2026-10-02T16:43:01Z** `[status]` in-progress → in-review
+- **2026-10-02T16:43:41Z** `[review]` in-review → in-progress (retry): Cuarta ronda: la primera frase del párrafo dice que un nombre ocupado saca otro sufijo en ambos layouts, pero con la ref de estado stateHolds trata un fallo de git cat-file -e como nombre libre y no vuelve a sortear; sólo la guarda de mutateState lo rechaza después (y con bytes idénticos no hay nada que rechazar).
