@@ -280,10 +280,11 @@ sin filtrar por proyecto (mezcla otros repos activos); guardar en el documento
   - **Verify:** `pnpm verify`
   - **Support:**
   - **Resolved:** `2026-10-01T17:21:52Z`
-- [ ] Mover la activación a `git config changeledger.usage.collector`, retirar la clave de `config.yml` y su plantilla, y actualizar pruebas y documentación
+- [x] Mover la activación a `git config changeledger.usage.collector`, retirar la clave de `config.yml` y su plantilla, y actualizar pruebas y documentación
   - **Target:** `src/config.mjs, src/check.mjs, src/usage-collector.mjs, templates/config.yml, docs/usage-capture.md, test/`
   - **Verify:** `node --test test/check.test.mjs test/usage-collector.test.mjs test/agent.test.mjs test/apply.test.mjs test/view.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4, CR8, CR9
+  - **Resolved:** `2026-10-02T13:21:14Z`
 - [ ] Repetir el gate completo tras el cambio de activación
   - **Verify:** `pnpm verify`
   - **Support:**
