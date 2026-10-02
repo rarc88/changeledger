@@ -21,6 +21,13 @@ estado que en el layout legacy. La activación sigue siendo por clon en
 `git config changeledger.usage.collector`: cada persona decide si mide, y lo
 que mide se comparte.
 
+La finalidad de guardarlos es analizarlos después: un módulo de análisis común
+alimentará el comando `changeledger analyze`, pensado para que un agente
+consulte cifras agregadas sin leer los registros en bruto, y un panel del
+viewer para el humano. Por eso los registros deben poder cargarse junto al resto
+del ledger, en ambos layouts, por la misma costura de lectura que usan la CLI y
+el viewer.
+
 El humano autoriza explícitamente (2026-10-02) ampliar el techo de
 `global-state-scope` para que el árbol de la ref de estado incluya los
 registros de consumo; la spec se actualiza en la graduación.
