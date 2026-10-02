@@ -213,10 +213,11 @@ humano para dividirlo por layout.
   - **Verify:** `pnpm test`
   - **Support:**
   - **Resolved:** `2026-10-02T15:57:42Z`
-- [ ] Recorrer el primer uso real compartido entre dos clones
+- [x] Recorrer el primer uso real compartido entre dos clones
   - **Target:** `src/usage-collector.mjs`
   - **Verify:** verify: manual — change de prueba autorizado, sync y segundo clon activado que ve los tres registros
   - **Criteria:** CR9
+  - **Resolved:** `2026-10-02T16:00:33Z`
 - [x] Ejecutar el gate completo
   - **Verify:** `pnpm verify`
   - **Support:**
