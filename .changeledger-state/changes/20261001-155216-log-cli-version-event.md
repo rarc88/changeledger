@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-10-01T15:52:16Z
 depends_on: []
+reviewed: true
 branch: feature/20261001-155216
 related_to: ["20260924-184354", "20260628-113218", "20260720-125007", "20260824-134716", "20260809-113241"]
 owner: rarc88
@@ -230,3 +231,4 @@ flowchart LR
 - **2026-10-01T16:52:54Z** `[note]` Mandato de la confirmación: sólo el diff sin commitear frente a HEAD (b97b083), los cinco defectos del review fail anterior y la enmienda de CR10 autorizada por el humano, más cualquier regresión que introduzcan.
 - **2026-10-01T16:56:32Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-10-02T15:24:41Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-10-02T15:25:11Z** `[graduation]` spec: `data-model.md`
