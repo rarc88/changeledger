@@ -74,7 +74,7 @@ test('225637 CR1: schema 2 gains a documented blank integration branch at schema
   assert.match(result.yaml, /^schema_version: 6$/m);
   assert.match(
     result.yaml,
-    /project_name: myrepo\n\n# Git integration: change branches start from and merge into this branch\ngit:\n {2}integration_branch:\n {2}change_branch_format: "\{type\}\/\{id\}"\s*$/m,
+    /project_name: myrepo\n\n# Git integration: change branches start from and merge into `integration_branch`; types with `integrates_into: release` use `release_branch` instead\.\ngit:\n {2}integration_branch:\n {2}change_branch_format: "\{type\}\/\{id\}"\s*$/m,
   );
   assert.deepEqual(result.changes, [
     'updated schema_version: 2 → 6',
@@ -304,7 +304,7 @@ test('113219 CR1: init creates config with the current schema_version', () => {
   assert.equal(config.min_cli_version, '0.17.0');
   assert.match(
     configText,
-    /specs_dir: \.changeledger\/specs\n\n# Git integration: change branches start from and merge into this branch\.\n# `change_branch_format` may use `\{type\}` and exactly one `\{id\}`; use null or remove it to opt out\.\ngit:\n {2}integration_branch:\n(?: {2}release_branch:\n)? {2}change_branch_format: "\{type\}\/\{id\}"\s*$/m,
+    /specs_dir: \.changeledger\/specs\n\n# Git integration: change branches start from and merge into `integration_branch`; types with `integrates_into: release` use `release_branch` instead\.\n# `change_branch_format` may use `\{type\}` and exactly one `\{id\}`; use null or remove it to opt out\.\ngit:\n {2}integration_branch:\n(?: {2}release_branch:\n)? {2}change_branch_format: "\{type\}\/\{id\}"\s*$/m,
   );
   assert.equal(config.git.integration_branch, null);
   assert.equal(config.git.change_branch_format, '{type}/{id}');
@@ -1140,7 +1140,7 @@ project_name: myrepo
     .replace(
       '    stages: [request, plan, log]',
       '    stages: [request, specification, plan, log]',
-    )}\n# Git integration: change branches start from and merge into this branch\ngit:\n  integration_branch:\n  change_branch_format: "{type}/{id}"\n`;
+    )}\n# Git integration: change branches start from and merge into \`integration_branch\`; types with \`integrates_into: release\` use \`release_branch\` instead.\ngit:\n  integration_branch:\n  change_branch_format: "{type}/{id}"\n`;
   assert.equal(
     withoutReadiness(migrated),
     expected,
