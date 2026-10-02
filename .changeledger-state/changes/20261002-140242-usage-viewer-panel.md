@@ -2,7 +2,7 @@
 id: "20261002-140242"
 title: Mostrar el análisis de consumo en el viewer
 type: feature
-status: draft
+status: approved
 created: 2026-10-02T14:02:42Z
 depends_on: ["20261002-140038"]
 related_to: ["20261002-133728", "20260711-155721"]
@@ -122,3 +122,4 @@ obliga a una petición por cada cambio de filtro y rompe el patrón de
   - **Support:**
 
 ## Log
+- **2026-10-02T15:24:43Z** `[status]` draft → approved (human via conversation)
