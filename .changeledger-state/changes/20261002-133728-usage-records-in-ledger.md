@@ -2,7 +2,7 @@
 id: "20261002-133728"
 title: Guardar los registros de consumo en el ledger
 type: feature
-status: in-review
+status: in-progress
 created: 2026-10-02T13:37:28Z
 depends_on: ["20261001-155612"]
 branch: feature/20261002-133728
@@ -235,3 +235,4 @@ humano para dividirlo por layout.
 - **2026-10-02T16:28:07Z** `[review]` in-review → in-progress (retry): D1: en legacy, con .changeledger/usage/ en .gitignore, changeledger commit --id falla por el git add de los registros y bloquea todos los commits del change; la medición no debe bloquear commit. D2: con la ref de estado una colisión de sufijo sobrescribe un registro sin aviso, y lo desmienten tres textos universales (import dice que el contenido nunca se reescribe, el test CR3 de no sobrescritura sólo corre en legacy, y mutateState dice que los registros nunca se eliminan cuando el fast-forward de sync sí puede). D3: un registro sin change se reporta como change "undefined".
 - **2026-10-02T16:34:06Z** `[note]` Corrección del retry (subagente corrector): D1, commit deja fuera los registros sin seguimiento que git ignora y lo avisa con usage: records ignored by git were not staged, convierte cualquier otro fallo de preparación en el aviso usage: records not staged y nunca bloquea el commit, y prepara con git add -f los registros ya versionados bajo una regla de ignorado; D2, mutateState rechaza cambiar los bytes de un registro existente y el colector vuelve a sortear el sufijo también con la ref de estado (costura usage.randomSuffix), con la prueba de colisión en ambos layouts y los textos acotados a lo que garantizan; D3, check reporta missing "change" y missing "schema". Residuos: integridad en el fast-forward y merge de sync, sin timeout ni caché para la llamada a gh de recorded_by, registros de schema desconocido bloquean apply, un git cat-file extra por publicación. Gate del orquestador: pnpm verify en verde con 1698/1698 tests. Mandato de la confirmación: sólo el diff sin commitear frente a HEAD (93d00ba) y los defectos D1-D3 del review fail anterior, más cualquier regresión que introduzca.
 - **2026-10-02T16:34:07Z** `[status]` in-progress → in-review
+- **2026-10-02T16:38:55Z** `[review]` in-review → in-progress (retry): Confirmación: D1-D3 cerrados sin regresiones, pero las dos ediciones de redacción que el orquestador añadió al candidato dejaron una frase falsa: el apartado legacy de docs/usage-capture.md seguía diciendo Measurement never blocks the commit, desmentido por un .changeledger/usage ilegible (EACCES al cargar el ledger, commit --id sale con 1).
