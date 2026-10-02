@@ -101,9 +101,11 @@ function effectiveLanguage(config) {
 // `type` resolves the tdd of a selected change's type (`types.<type>.tdd`
 // overrides the global value); without it the global value is published.
 // Called with `includeTdd: false` for a change-id capture whose type never
-// serves `readiness.md` (the only fragment that defines the `tdd` obligation)
-// — publishing the line unconditionally would hand such a type an obligation
-// with no definition anywhere in the same capture (CR5).
+// activates `specification`: `readiness.md` (the only fragment that defines
+// the obligation) is not composed for it, so publishing `tdd=on` would hand it
+// an obligation with no definition in the same capture (CR5). A type with
+// `specification` and tdd off publishes `tdd=off`: the absence of the
+// obligation, which needs no definition.
 export function transversalPolicy(config, { includeTdd = true, type = undefined } = {}) {
   const tdd = includeTdd ? ` — tdd=${effectiveTdd(config, type) ? 'on' : 'off'}` : '';
   const base = `Effective policy: language=${effectiveLanguage(config)}${tdd}`;
@@ -134,11 +136,11 @@ function changePolicyBlock(config, change) {
   const { type } = change;
   const typeConfig = assertKnownType(config, type);
   const reviewRequired = typeConfig.review_required === true ? 'yes' : 'no';
-  const servesReadiness = typeConfig.stages.includes('specification');
+  const hasSpecification = typeConfig.stages.includes('specification');
   const changeBranch = renderChangeBranch(config, change);
   const branch = changeBranch ? ` — change_branch=${changeBranch}` : '';
   const lines = [
-    `${transversalPolicy(config, { includeTdd: servesReadiness, type })}${branch} — review_required(${type})=${reviewRequired}`,
+    `${transversalPolicy(config, { includeTdd: hasSpecification, type })}${branch} — review_required(${type})=${reviewRequired}`,
     `Active stages(${type})=${typeConfig.stages.join(', ')}`,
   ];
   return lines.join('\n');

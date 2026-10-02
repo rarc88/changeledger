@@ -3026,7 +3026,7 @@ test('162015 CR3/CR4: delegation.md points at the unit instead of redefining it'
 //
 // The phrase-level pins over `templates/contract/` prose are retired: every one of
 // them charged a retarget, a mutant and review scrutiny to each rewrite of a
-// sentence, and that cost is what the decision removes. Fifteen carrier obligations
+// sentence, and that cost is what the decision removes. Sixteen carrier obligations
 // keep a guard anyway, because losing one in silence is a different failure class
 // from rewording one (finding 38: normative prose lost with nothing noticing, three
 // times, exploit proven live).
@@ -3346,6 +3346,76 @@ const CONCEPT_GUARDS = [
         pack('core'),
         /\bnot yet activated\b[^.;]{0,90}\bcutover\b|\bcutover\b[^.;]{0,80}\bintegration branch\b/i,
         'core no longer names cutover as the adoption entry point',
+      );
+    },
+  },
+  {
+    entry: 16,
+    obligation:
+      'the documentation type carries its execution rules as its own CRs, and types.<type>.tdd overrides the global tdd',
+    // 20261002-113320 CR9. Removing any one obligation from the definition (or
+    // the override from readiness) fails its own assertion — verified one at a
+    // time: the pack's other mentions of persistent truth, paths and symbols or
+    // `blocked` satisfy none of them today. Verified to pass when the paragraph
+    // opens "The `documentation` type delivers…" and when the `blocked`
+    // fallback becomes its own sentence.
+    verify: (pack) => {
+      const spec = pack('spec');
+      assert.match(
+        spec,
+        /`documentation`[^.;]{0,80}\bpersistent truth\b[^.;]{0,120}\bcode\b/i,
+        'spec no longer defines documentation as persistent truth contrasted with the code',
+      );
+      assert.match(
+        spec,
+        /\b(no|never|not|without)\b[^.;]{0,40}\bapplication code\b/i,
+        'spec no longer keeps documentation out of application code',
+      );
+      assert.match(
+        spec,
+        /\b(execution rules|obligations)\b[^.;]{0,60}\b(own|its)\b[^.;]{0,10}\b(CRs?|criteria)\b/i,
+        "spec no longer has the documentation rules written as the change's own CRs",
+      );
+      assert.match(
+        spec,
+        /\bperimeter\b[^.;]{0,80}\b(calls?|callers?|call graph|call sites?)\b/i,
+        'spec no longer fixes the documentation perimeter from who calls what',
+      );
+      assert.match(
+        spec,
+        /\bperimeter\b[^.;]{0,40}\bdraft\b|\bdraft\b[^.;]{0,40}\bperimeter\b/i,
+        'spec no longer fixes the documentation perimeter in the draft',
+      );
+      assert.match(
+        spec,
+        /\b(claims?|statements?)\b[^.;]{0,40}\bcit\w*\b[^.;]{0,30}\bpaths?\b[^.;]{0,20}\bsymbols?\b|\bpaths?\b[^.;]{0,20}\bsymbols?\b[^.;]{0,40}\b(each|every)\b[^.;]{0,20}\b(claims?|statements?)\b/i,
+        'spec no longer obliges every documentation claim to cite path and symbol',
+      );
+      // Human, divergence and `in-review` in one clause, in any order.
+      assert.match(
+        spec,
+        /(?=[^.;]{0,200}\bhuman\b)(?=[^.;]{0,200}\bdivergen)(?=[^.;]{0,200}`in-review`)/i,
+        'spec no longer has the human decide every divergence before in-review',
+      );
+      // The `blocked` fallback may sit in its own sentence after the rule.
+      assert.match(
+        spec,
+        /\bdivergen\w*[\s\S]{0,300}\b(decision|decid\w*|else|otherwise|without|missing|absent)\b[^.;]{0,60}`blocked`/i,
+        'spec no longer sends a change with an undecided divergence to blocked',
+      );
+      assert.match(
+        spec,
+        /\bcorrections?\b[^.;]{0,40}\bspecs?\b[^.;]{0,60}\b(inside|within|in)\b[^.;]{0,10}\bchange\b[^.;]{0,60}\breview\w*/i,
+        'spec no longer drafts spec corrections inside the change for the reviewer',
+      );
+      // Dots inside the key path are not sentence ends.
+      const override =
+        /`types\.<type>\.tdd`(?:[^.;]|\.(?!\s)){0,80}\b(overrides?|takes precedence over|prevails over)\b[^.;]{0,40}\bglobal\b/i;
+      assert.match(spec, override, 'the spec pack no longer composes the per-type tdd override');
+      assert.match(
+        flattened(contractFragment('readiness.md')),
+        override,
+        'readiness no longer carries the per-type tdd override',
       );
     },
   },
