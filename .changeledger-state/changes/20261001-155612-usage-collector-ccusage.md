@@ -2,7 +2,7 @@
 id: "20261001-155612"
 title: Registrar el consumo de tokens y su coste en cada transición con ccusage
 type: feature
-status: in-progress
+status: in-review
 created: 2026-10-01T15:56:12Z
 depends_on: []
 branch: feature/20261001-155612
@@ -313,3 +313,4 @@ sin filtrar por proyecto (mezcla otros repos activos); guardar en el documento
 - **2026-10-02T13:46:08Z** `[status]` in-review → in-progress
 - **2026-10-02T13:46:08Z** `[note]` Corrección del orquestador a la nota anterior: el pnpm verify del orquestador falló (1560 tests, 2 en rojo) tras registrar la nota de gate en verde del corrector; el candidato vuelve a in-progress sin veredicto y el mandato de confirmación anterior queda sin efecto hasta que el gate pase.
 - **2026-10-02T13:48:44Z** `[note]` Gate del orquestador repetido tras liberar los inodos de /tmp, agotados por los directorios temporales que la suite deja en cada ejecución (unos 34.500 por pnpm verify): pnpm verify en verde con 1581/1581 tests. Mandato de la confirmación (tercera ronda): sólo el diff sin commitear frente a HEAD (ee978f2), cerrando la regresión de señales y collectUsage(null) del review fail anterior, sin reabrir los defectos ya confirmados como cerrados, más cualquier regresión que introduzca.
+- **2026-10-02T13:48:44Z** `[status]` in-progress → in-review
