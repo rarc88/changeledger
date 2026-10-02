@@ -8,7 +8,12 @@ import { mutateFileAtomic, withFileLock } from '../atomic-write.mjs';
 import { parseChange } from '../change.mjs';
 import { mutateLedgerFile, repoIsActivated, writeLedgerFiles } from '../change-store.mjs';
 import { assertChangeTextValid, assertStagesNotEmpty } from '../check.mjs';
-import { changeIntegrationBranch, findChangeledgerDir, renderChangeBranch } from '../config.mjs';
+import {
+  changeIntegrationBranch,
+  findChangeledgerDir,
+  integrationBranch,
+  renderChangeBranch,
+} from '../config.mjs';
 import { assertSupportedSchema } from '../config-migration.mjs';
 import {
   currentBranch,
@@ -16,6 +21,7 @@ import {
   defaultRun as defaultGitRun,
   ownerHandle as defaultOwnerHandle,
   isAncestor,
+  mergeBase,
 } from '../git.mjs';
 import { assertTransition, parseLogEvent } from '../lifecycle.mjs';
 import { nowUtc } from '../paths.mjs';
@@ -89,6 +95,28 @@ function assertImplementationBranch(config, change, repoRoot, gitRun) {
   const baseline = changeIntegrationBranch(config, change.type);
   if (baseline && !isAncestor(repoRoot, baseline, 'HEAD', gitRun)) {
     throw new Error(`branch "${expected}" must descend from integration branch "${baseline}"`);
+  }
+
+  // A change that integrates into another branch than `git.integration_branch`
+  // (a release type) must not carry integration work that branch does not have
+  // yet: when `dev` is ahead of `main`, a branch cut from `dev` still descends
+  // from `main` and passes the check above (20261002-204623). Everything the
+  // branch shares with the integration branch must already be in `baseline`.
+  // No merge base (unrelated histories, or a ref absent locally) fails closed,
+  // like the ancestry check above.
+  const integration = integrationBranch(config);
+  if (integration && integration !== baseline) {
+    const shared = mergeBase(repoRoot, 'HEAD', integration, gitRun);
+    if (!shared) {
+      throw new Error(
+        `branch "${expected}" cannot be compared with integration branch "${integration}": no merge base found`,
+      );
+    }
+    if (!isAncestor(repoRoot, shared, baseline, gitRun)) {
+      throw new Error(
+        `branch "${expected}" contains commits of "${integration}" that are not in "${baseline}"`,
+      );
+    }
   }
 }
 

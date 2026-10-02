@@ -141,6 +141,17 @@ export function isAncestor(cwd, ancestor, descendant = 'HEAD', run = defaultRun)
   }
 }
 
+// The best common ancestor of two refs, or '' when git finds none (unrelated
+// histories) or fails (a ref that does not resolve). Callers that need to tell
+// the two apart must check the refs themselves.
+export function mergeBase(cwd, a, b, run = defaultRun) {
+  try {
+    return String(run(['merge-base', a, b], cwd)).trim();
+  } catch {
+    return '';
+  }
+}
+
 // git's default `diff --name-only` output is a *presentation* surface: the
 // surrounding repo's configuration changes its format, so parsing it unpinned
 // makes every config axis a hole in `commit()`'s guard. Two review rounds found
