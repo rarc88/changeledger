@@ -2,7 +2,7 @@
 id: "20261002-113435"
 title: Fase de semilla de graduación configurable por tipo
 type: feature
-status: draft
+status: approved
 created: 2026-10-02T11:34:35Z
 depends_on: ["20261002-113320"]
 related_to: []
@@ -137,3 +137,4 @@ graduación.
   - **Verify:** `pnpm verify`
 
 ## Log
+- **2026-10-02T13:03:23Z** `[status]` draft → approved (human via conversation)
