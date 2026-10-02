@@ -2,7 +2,7 @@
 id: "20261002-133728"
 title: Guardar los registros de consumo en el ledger
 type: feature
-status: in-review
+status: in-validation
 created: 2026-10-02T13:37:28Z
 depends_on: ["20261001-155612"]
 branch: feature/20261002-133728
@@ -251,3 +251,4 @@ humano para dividirlo por layout.
 - **2026-10-02T16:48:18Z** `[note]` Corrección del orquestador tras la quinta ronda: la frase de sync queda acotada a un repositorio activado, con la redacción que propuso el revisor.
 - **2026-10-02T16:50:00Z** `[note]` Sexta ronda autorizada por el humano: confirma el mismo revisor de la quinta, limitado a comprobar que su redacción quedó aplicada tal cual y que el resto del párrafo no cambió.
 - **2026-10-02T16:50:00Z** `[status]` in-progress → in-review
+- **2026-10-02T16:50:19Z** `[review]` in-review → in-validation (delegated subagent, clean context)
