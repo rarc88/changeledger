@@ -180,11 +180,11 @@ humano para dividirlo por layout.
 - [ ] Escribir pruebas fallidas de la colección `usage` en el store: rutas, lectura, integridad e identidad
   - **Target:** `test/state-store.test.mjs, test/repo.test.mjs`
   - **Verify:** `node --test test/state-store.test.mjs test/repo.test.mjs`
-  - **Criteria:** CR1, CR5
-- [ ] Añadir `usage` a las colecciones del store y a la integridad de identidades
+  - **Criteria:** CR1, CR5, CR10
+- [ ] Añadir `usage` a las colecciones del store, a la carga del ledger en ambos layouts y a la integridad de identidades
   - **Target:** `src/state-store.mjs, src/repo.mjs`
   - **Verify:** `node --test test/state-store.test.mjs test/repo.test.mjs`
-  - **Criteria:** CR1, CR5
+  - **Criteria:** CR1, CR5, CR10
 - [ ] Probar y publicar el registro desde el colector en ambos layouts, con `recorded_by` y reintento único
   - **Target:** `src/usage-collector.mjs, test/usage-collector.test.mjs, test/agent.test.mjs`
   - **Verify:** `node --test test/usage-collector.test.mjs test/agent.test.mjs`
