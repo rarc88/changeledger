@@ -252,6 +252,22 @@ function reportStatus(repoRoot, { local }, output, run) {
   return 0;
 }
 
+// The remote-tracking copy an earlier fetch left behind, read the way `activate`
+// reads it and never refreshed: an unactivated checkout does no network I/O. An
+// ambiguous remote set is not a reason to fail here — the checkout is inactive,
+// so it falls back to the plain message like having no remote at all.
+function publishedTrackingRef(repoRoot, run) {
+  let remote;
+  try {
+    remote = resolveRemote(repoRoot, run);
+  } catch {
+    return null;
+  }
+  if (remote === null) return null;
+  const ref = `refs/remotes/${remote}/${STATE_BRANCH}`;
+  return optionalRefOid(repoRoot, ref, run) === null ? null : { remote, ref };
+}
+
 export function sync(
   { status = false } = {},
   cwd = process.cwd(),
@@ -271,10 +287,17 @@ export function sync(
   // unactivated checkout is told what the manual step is and nothing else.
   const local = readStateRef(repoRoot, run);
   if (resolveOwnedActivation(repoRoot, run) === null) {
+    if (local !== null) {
+      output.log(
+        `${STATE_REF} is present but this checkout is not activated — run \`changeledger activate\` to adopt it. sync changed nothing.`,
+      );
+      return 0;
+    }
+    const published = publishedTrackingRef(repoRoot, run);
     output.log(
-      local === null
+      published === null
         ? `Nothing to sync: this repo is not activated and ${STATE_REF} does not exist here.`
-        : `${STATE_REF} is present but this checkout is not activated — run \`changeledger activate\` to adopt it. sync changed nothing.`,
+        : `${published.ref} exists: the remote "${published.remote}" publishes global state, but this checkout is not activated — run \`changeledger activate\` to adopt it. sync changed nothing.`,
     );
     return 0;
   }

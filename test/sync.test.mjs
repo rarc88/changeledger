@@ -489,3 +489,123 @@ test('20260811-151426 CR3: a reconciliation whose merged tree is invalid leaves 
   assert.notEqual(cli(a, 'sync').code, 0, 'the failure is idempotent — no half-written state');
   assert.equal(refOid(a, STATE_REF), localTip);
 });
+
+// --- 20261002-152923: an unactivated clone is told the remote publishes state --
+
+const PUBLISHES_MESSAGE =
+  'refs/remotes/origin/changeledger/state exists: the remote "origin" publishes global state, but this checkout is not activated — run `changeledger activate` to adopt it. sync changed nothing.';
+const NOTHING_MESSAGE = `Nothing to sync: this repo is not activated and ${STATE_REF} does not exist here.`;
+
+// A real `git clone` of a remote that carries a published state ref: the clone
+// holds the remote-tracking copy and, exactly as after a fresh clone, neither
+// the local state ref nor the activation.
+function unactivatedClone() {
+  const remote = tmpdir('changeledger-sync-remote-');
+  initGitFixture(remote, { args: ['--bare', '-b', 'main'] });
+  const { root: source, revision } = activatedRepo();
+  git(source, ['remote', 'add', 'origin', remote]);
+  git(source, ['push', '-q', 'origin', 'main', STATE_REF]);
+  const parent = tmpdir('changeledger-sync-clone-');
+  const clone = path.join(parent, 'clone');
+  git(parent, ['clone', '-q', remote, clone]);
+  git(clone, ['config', 'user.name', 'Test User']);
+  git(clone, ['config', 'user.email', 'test@example.com']);
+  return { remote, source, clone, revision };
+}
+
+function worktreeSnapshot(root) {
+  return git(root, ['status', '--porcelain', '--untracked-files=all']);
+}
+
+test('20261002-152923 CR1: sync in an unactivated clone says the remote publishes state and changes nothing', () => {
+  const { clone, revision } = unactivatedClone();
+  assert.equal(optionalOid(clone, STATE_REF), null);
+  assert.equal(refOid(clone, TRACKING_REF), revision);
+  const before = worktreeSnapshot(clone);
+
+  const { code, out, err } = cli(clone, 'sync');
+
+  assert.equal(code, 0, err);
+  assert.equal(out.trim(), PUBLISHES_MESSAGE);
+  assert.equal(optionalOid(clone, STATE_REF), null, 'sync must not create the local state ref');
+  assert.equal(optionalOid(clone, ACTIVATION_REF), null, 'sync must not activate anything');
+  assert.equal(worktreeSnapshot(clone), before, 'sync must not touch the worktree');
+});
+
+test('20261002-152923 CR2: sync --status in the same clone says the same thing', () => {
+  const { clone } = unactivatedClone();
+
+  const { code, out, err } = cli(clone, 'sync', '--status');
+
+  assert.equal(code, 0, err);
+  assert.equal(out.trim(), PUBLISHES_MESSAGE);
+});
+
+test('20261002-152923 CR3: without a remote-tracking copy the current message stands, with and without a remote', () => {
+  const { root } = seedLedgerRepo();
+  const withoutRemote = cli(root, 'sync');
+  assert.equal(withoutRemote.code, 0, withoutRemote.err);
+  assert.equal(withoutRemote.out.trim(), NOTHING_MESSAGE);
+
+  git(root, ['remote', 'add', 'origin', path.join(os.tmpdir(), 'changeledger-absent-remote.git')]);
+  const withRemote = cli(root, 'sync');
+  assert.equal(withRemote.code, 0, withRemote.err);
+  assert.equal(withRemote.out.trim(), NOTHING_MESSAGE);
+});
+
+test('20261002-152923: an ambiguous remote set in an unactivated clone keeps the current message instead of failing', () => {
+  const { root } = seedLedgerRepo();
+  git(root, ['remote', 'add', 'alpha', path.join(os.tmpdir(), 'changeledger-absent-alpha.git')]);
+  git(root, ['remote', 'add', 'beta', path.join(os.tmpdir(), 'changeledger-absent-beta.git')]);
+
+  const { code, out, err } = cli(root, 'sync');
+
+  assert.equal(code, 0, err);
+  assert.equal(out.trim(), NOTHING_MESSAGE);
+});
+
+test('20261002-152923 CR4: the notice needs no network — an unreachable origin and no network subprocess', () => {
+  const { clone } = unactivatedClone();
+  git(clone, ['remote', 'set-url', 'origin', path.join(os.tmpdir(), 'changeledger-absent.git')]);
+  const { run, argv } = spyRun();
+  const output = capturingOutput();
+
+  const code = syncCommand({}, clone, output, run);
+
+  assert.equal(code, 0);
+  assert.deepEqual(output.lines, [PUBLISHES_MESSAGE]);
+  assert.ok(argv.length > 0, 'the notice path must really have run git');
+  assert.deepEqual(networkCalls(argv), []);
+  const real = cli(clone, 'sync');
+  assert.equal(real.code, 0, real.err);
+  assert.equal(real.out.trim(), PUBLISHES_MESSAGE);
+});
+
+test('20261002-152923 CR5: list in the unactivated clone serves the worktree exactly as without the tracking copy', () => {
+  const { clone } = unactivatedClone();
+  const withCopy = cli(clone, 'list', '--all', '--json');
+  assert.equal(withCopy.code, 0, withCopy.err);
+
+  git(clone, ['update-ref', '-d', TRACKING_REF]);
+  const withoutCopy = cli(clone, 'list', '--all', '--json');
+
+  assert.equal(withoutCopy.code, 0, withoutCopy.err);
+  assert.equal(withCopy.out, withoutCopy.out);
+});
+
+test('20261002-152923 CR6: clone, sync, activate and sync --status walk from the notice to an agreeing journal', () => {
+  const { clone, revision } = unactivatedClone();
+
+  const first = cli(clone, 'sync');
+  assert.equal(first.code, 0, first.err);
+  assert.equal(first.out.trim(), PUBLISHES_MESSAGE);
+
+  const activate = cli(clone, 'activate');
+  assert.equal(activate.code, 0, activate.err);
+  assert.match(activate.out, /Seeded .* from refs\/remotes\/origin at /);
+  assert.equal(refOid(clone, STATE_REF), revision);
+
+  const status = cli(clone, 'sync', '--status');
+  assert.equal(status.code, 0, status.err);
+  assert.match(status.out, /Relation: identical — the last fetch and the local journal agree/);
+});
