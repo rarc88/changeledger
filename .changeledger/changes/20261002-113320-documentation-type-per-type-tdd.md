@@ -2,7 +2,7 @@
 id: "20261002-113320"
 title: Tipo de change documentation y tdd por tipo
 type: feature
-status: draft
+status: approved
 created: 2026-10-02T11:33:20Z
 depends_on: []
 related_to: []
@@ -241,3 +241,4 @@ Los criterios que pide el párrafo:
   - **Verify:** `pnpm verify`
 
 ## Log
+- **2026-10-02T13:03:15Z** `[status]` draft → approved (human via conversation)
