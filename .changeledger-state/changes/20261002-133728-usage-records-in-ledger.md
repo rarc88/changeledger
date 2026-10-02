@@ -208,10 +208,11 @@ humano para dividirlo por layout.
   - **Verify:** `node --test test/cutover.test.mjs test/import.test.mjs test/sync.test.mjs`
   - **Criteria:** CR3, CR6
   - **Resolved:** `2026-10-02T15:57:41Z`
-- [ ] Actualizar la documentación del colector
+- [x] Actualizar la documentación del colector
   - **Target:** `docs/usage-capture.md`
   - **Verify:** `pnpm test`
   - **Support:**
+  - **Resolved:** `2026-10-02T15:57:42Z`
 - [ ] Recorrer el primer uso real compartido entre dos clones
   - **Target:** `src/usage-collector.mjs`
   - **Verify:** verify: manual — change de prueba autorizado, sync y segundo clon activado que ve los tres registros
