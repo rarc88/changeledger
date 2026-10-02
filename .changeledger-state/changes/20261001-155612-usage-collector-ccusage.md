@@ -2,7 +2,7 @@
 id: "20261001-155612"
 title: Registrar el consumo de tokens y su coste en cada transición con ccusage
 type: feature
-status: in-review
+status: in-progress
 created: 2026-10-01T15:56:12Z
 depends_on: []
 branch: feature/20261001-155612
@@ -310,3 +310,4 @@ sin filtrar por proyecto (mezcla otros repos activos); guardar en el documento
 - **2026-10-02T13:45:56Z** `[note]` Corrección de la tercera ronda: el supervisor captura SIGINT, SIGTERM y SIGHUP, mata el grupo de procesos de la llamada (taskkill /T /F en Windows) y sale con 128+n; un error al escribir stdout, stderr o el resultado también mata el grupo; collectUsage destructura dentro del try y devuelve un resultado de fallo ante una entrada nula; los nombres y comentarios hablan de grupo de procesos, no de árbol. Residuos: señales sin probar en Windows; si el propio supervisor recibe SIGKILL el grupo queda vivo; un descendiente con sesión propia escapa. Gate: pnpm verify en verde con 1581/1581 tests.
 - **2026-10-02T13:45:56Z** `[status]` in-progress → in-review
 - **2026-10-02T13:45:56Z** `[note]` Mandato de la confirmación (tercera ronda): sólo el diff sin commitear frente a HEAD (ee978f2), cerrando la regresión de señales y collectUsage(null) del review fail anterior, sin reabrir los defectos ya confirmados como cerrados, más cualquier regresión que introduzca.
+- **2026-10-02T13:46:08Z** `[status]` in-review → in-progress
