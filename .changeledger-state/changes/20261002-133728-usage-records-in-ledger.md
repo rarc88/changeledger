@@ -188,10 +188,11 @@ humano para dividirlo por layout.
   - **Verify:** `node --test test/state-store.test.mjs test/repo.test.mjs`
   - **Criteria:** CR1, CR5, CR10
   - **Resolved:** `2026-10-02T15:57:40Z`
-- [ ] Probar y publicar el registro desde el colector en ambos layouts, con `recorded_by` y reintento único
+- [x] Probar y publicar el registro desde el colector en ambos layouts, con `recorded_by` y reintento único
   - **Target:** `src/usage-collector.mjs, test/usage-collector.test.mjs, test/agent.test.mjs`
   - **Verify:** `node --test test/usage-collector.test.mjs test/agent.test.mjs`
   - **Criteria:** CR1, CR2, CR7, CR8
+  - **Resolved:** `2026-10-02T15:57:40Z`
 - [ ] Probar y preparar en `changeledger commit` los registros pendientes del change
   - **Target:** `src/commands/commit.mjs, test/commit.test.mjs`
   - **Verify:** `node --test test/commit.test.mjs`
