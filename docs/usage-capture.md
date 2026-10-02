@@ -95,9 +95,14 @@ Records are the ledger's `usage` collection, one flat file per record:
 ```
 
 `<id>` is the change, `<YYYYMMDDTHHMMSSZ>` the event's instant and `<8 hex>` a
-random suffix. Two clones that record the same change in the same second
-write different paths unless their random suffixes coincide (one chance in
-2³² per pair), so `changeledger sync` merges their records like any other
+random suffix. In the worktree layout a name that is already taken draws a new
+suffix. In the state ref the collector draws a new suffix when its existence
+check finds the name taken; if that check misses it and the new record's bytes
+differ, `mutateState` refuses to change the existing record, so the new record
+is not published and a `usage: record not published` warning is shown. Two
+clones that record the same change in the same second write different paths
+unless their random suffixes coincide (one chance in 2³² per pair), so in an
+activated repository `changeledger sync` merges their records like any other
 disjoint documents.
 
 - Activated repository: each record is published as its own commit on the state
@@ -109,14 +114,19 @@ disjoint documents.
   unstaged. `changeledger commit` stages the records whose file name carries
   one of the change ids of that commit, never another change's, so they travel
   with the change's commit like its Log. A `--no-change` commit stages none, and
-  a commit in an activated repository stages none either.
+  a commit in an activated repository stages none either. Staging records does
+  not block the commit: untracked records that git ignores are left unstaged and
+  named in one `usage: records ignored by git were not staged: …` warning, and
+  any other staging failure becomes a `usage: records not staged: …` warning.
+  Loading the ledger, records included, can still fail the command, as it
+  always could.
 
 The repository's linked worktrees record into the ledger they work on: the
 shared state ref when activated, their own worktree otherwise. ChangeLedger has
 no command that edits or deletes a record; `cutover` and `import --from <ref>` carry
 them under the same name (`import` identifies a record by its file name, so the
 same name with different bytes is a conflict), and a state-ref mutation that
-would drop one is refused, even through an explicit removal. `sync`'s
+would drop or rewrite one is refused, even through an explicit removal. `sync`'s
 reconciliation and fast-forward do not run that check: they keep whatever
 the two journals hold. Records from the first version of the collector, kept in
 `<git-common-dir>/changeledger/usage/`, are neither read nor migrated.

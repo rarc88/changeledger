@@ -256,6 +256,9 @@ function usageRecordIssue({ name, record, error }) {
   if (!parsed) return `name must follow ${USAGE_RECORD_NAME_FORM}`;
   if (error) return error;
   if (!isMapping(record)) return 'must be a JSON object';
+  for (const field of ['schema', 'change']) {
+    if (record[field] === undefined || record[field] === null) return `missing "${field}"`;
+  }
   if (record.schema !== USAGE_RECORD_SCHEMA) {
     return `schema must be ${USAGE_RECORD_SCHEMA}, got ${JSON.stringify(record.schema)}`;
   }

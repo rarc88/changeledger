@@ -3760,6 +3760,10 @@ const INVALID_RECORDS = {
     `${USAGE_CHECK_ID}--20261002T153236Z-0a1b2c40.json`,
     usageRecordText('20261002-999999'),
   ],
+  'no change field': [
+    `${USAGE_CHECK_ID}--20261002T153237Z-0a1b2c41.json`,
+    usageRecordText(USAGE_CHECK_ID, undefined, { change: undefined }),
+  ],
   'a name outside the form': [
     `${USAGE_CHECK_ID}--20261002T153233Z-1.json`,
     usageRecordText(USAGE_CHECK_ID),
@@ -3815,3 +3819,19 @@ for (const layout of ['legacy', 'state ref']) {
     });
   }
 }
+
+test('20261002-133728 CR4: a record missing change or schema names the missing field', (t) => {
+  const name = `${USAGE_CHECK_ID}--20261002T153238Z-0a1b2c42.json`;
+  for (const [field, expected] of [
+    ['change', `usage record ${name}: missing "change"`],
+    ['schema', `usage record ${name}: missing "schema"`],
+  ]) {
+    const root = usageCheckRepo(t, 'legacy', [
+      [name, usageRecordText(USAGE_CHECK_ID, undefined, { [field]: undefined })],
+    ]);
+    assert.deepEqual(
+      checkJson(root).errors.map((e) => e.message),
+      [expected],
+    );
+  }
+});

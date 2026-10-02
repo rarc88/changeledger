@@ -911,3 +911,47 @@ test('20261002-133728 CR2: an activated commit never stages worktree records', (
 
   assert.deepEqual(committedPaths(root), ['a.txt']);
 });
+
+test('20261002-133728 CR2: records ignored by git never block the commit; one usage: warning names them', (t) => {
+  const root = usageCommitRepo(t);
+  // The collection becomes ignored after one record of A was tracked.
+  fs.writeFileSync(path.join(root, '.gitignore'), '.changeledger/usage/\n');
+  const tracked = path.join(root, '.changeledger', 'usage', recordName(CHANGE_A, 'aaaa0000'));
+  fs.writeFileSync(tracked, usageRecordText(CHANGE_A, '2026-10-02T12:00:01Z'));
+  stageFile(root, 'a.txt', 'x');
+  const warnings = [];
+
+  const subject = commit(
+    { message: 'feat(x): y', ids: [CHANGE_A] },
+    root,
+    undefined,
+    noop,
+    (line) => warnings.push(line),
+  );
+
+  assert.equal(subject, `feat(x): y [#${CHANGE_A}]`);
+  assert.deepEqual(committedPaths(root), [
+    `.changeledger/usage/${recordName(CHANGE_A, 'aaaa0000')}`,
+    'a.txt',
+  ]);
+  assert.equal(warnings.length, 1, JSON.stringify(warnings));
+  assert.match(warnings[0], /^usage: /);
+  for (const suffix of ['aaaa0001', 'aaaa0002']) {
+    assert.ok(warnings[0].includes(recordName(CHANGE_A, suffix)), warnings[0]);
+  }
+});
+
+test('20261002-133728 CR2: a failure to stage records is a usage: warning, never a failed commit', (t) => {
+  const root = usageCommitRepo(t);
+  stageFile(root, 'a.txt', 'x');
+  const warnings = [];
+  const run = (args, cwd) => {
+    if (args[0] === 'add') throw new Error('simulated add failure');
+    return execFileSync('git', args, { cwd, env: GIT_ENV, encoding: 'utf8' });
+  };
+
+  commit({ message: 'feat(x): y', ids: [CHANGE_A] }, root, run, noop, (l) => warnings.push(l));
+
+  assert.deepEqual(committedPaths(root), ['a.txt']);
+  assert.deepEqual(warnings, ['usage: records not staged: simulated add failure']);
+});

@@ -24,6 +24,7 @@ import {
   mutateState,
   readStateRef,
   resolveOwnedActivation,
+  STATE_ROOT,
 } from './state-store.mjs';
 
 export const CCUSAGE_VERSION = '20.0.26';
@@ -417,14 +418,16 @@ function instantName(at) {
   return `${m[1]}${m[2]}${m[3]}T${m[4]}${m[5]}${m[6]}Z`;
 }
 
+const randomSuffix = () => randomBytes(4).toString('hex');
+
 // Worktree layout: the record goes to `.changeledger/usage/`, reserving its
 // name with an exclusive create; a taken name (another record with the same
 // change, instant and suffix) draws a new suffix instead of overwriting it.
-function writeWorktreeRecord(repoRoot, record, body) {
+function writeWorktreeRecord(repoRoot, record, body, suffix) {
   const dir = usageRecordsDir(repoRoot);
   fs.mkdirSync(dir, { recursive: true });
   for (;;) {
-    const file = path.join(dir, usageRecordName(record.change, record.at));
+    const file = path.join(dir, usageRecordName(record.change, record.at, suffix()));
     try {
       fs.writeFileSync(file, body, { flag: 'wx' });
       return;
@@ -438,13 +441,18 @@ function writeWorktreeRecord(repoRoot, record, body) {
 // taken against the tip as it is NOW — after the transition landed and after
 // ccusage returned, so no CAS window is held across the call. A ref that moved
 // in between is retried once against its new tip; a second move, or any other
-// failure, is thrown for the caller to report.
-function publishStateRecord(repoRoot, record, body, run) {
-  const name = usageRecordName(record.change, record.at);
+// failure, is thrown for the caller to report. A name the tip already holds
+// draws a new suffix, as in the worktree layout; `mutateState` refuses to
+// rewrite a record in any case.
+function publishStateRecord(repoRoot, record, body, run, suffix) {
   const message = `usage: ${record.change} ${record.event}`;
   for (let attempt = 1; ; attempt++) {
     const expectedRevision = readStateRef(repoRoot, run);
     if (expectedRevision === null) throw new Error('state is not initialized');
+    let name;
+    do {
+      name = usageRecordName(record.change, record.at, suffix());
+    } while (stateHolds(repoRoot, expectedRevision, `${USAGE_COLLECTION}/${name}`, run));
     try {
       mutateState(
         repoRoot,
@@ -459,6 +467,18 @@ function publishStateRecord(repoRoot, record, body, run) {
   }
 }
 
+// Whether `revision` holds `relPath` under STATE_ROOT. A failed probe reads as
+// absent: the write that follows is still refused by `mutateState` if the
+// path turns out to be a record.
+function stateHolds(repoRoot, revision, relPath, run) {
+  try {
+    run(['cat-file', '-e', `${revision}:${STATE_ROOT}/${relPath}`], repoRoot);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // Entry point for the lifecycle commands, called only after their ledger
 // write returned. `events` are the transition/creation events that write
 // landed: `{ change, event, from, to, at }`, `at` being the instant written in
@@ -470,12 +490,14 @@ function publishStateRecord(repoRoot, record, body, run) {
 //
 // `usage` seams: `runner` (ccusage), `gitRun` (git config and worktree
 // listing), `stateRun` (the state store's git runner), `ownerHandle` (the
-// identity recorded as `recorded_by`, resolved like `owner`) and `warn`.
+// identity recorded as `recorded_by`, resolved like `owner`), `randomSuffix`
+// (the 8-hex suffix draw) and `warn`.
 export function snapshotUsage({ repoRoot, events, usage = {} }) {
   const warn = usage.warn ?? defaultWarn;
   const gitRun = usage.gitRun ?? defaultGitRun;
   const stateRun = usage.stateRun ?? capturedRun;
   const resolveOwner = usage.ownerHandle ?? ownerHandle;
+  const suffix = usage.randomSuffix ?? randomSuffix;
   try {
     if (!events?.length) return;
     let collector;
@@ -520,8 +542,8 @@ export function snapshotUsage({ repoRoot, events, usage = {} }) {
       };
       const body = `${JSON.stringify(record, null, 2)}\n`;
       try {
-        if (activated) publishStateRecord(repoRoot, record, body, stateRun);
-        else writeWorktreeRecord(repoRoot, record, body);
+        if (activated) publishStateRecord(repoRoot, record, body, stateRun, suffix);
+        else writeWorktreeRecord(repoRoot, record, body, suffix);
       } catch (e) {
         warn(`usage: record not published: ${e.message.split('\n')[0]}`);
       }

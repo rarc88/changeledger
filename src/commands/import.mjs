@@ -89,7 +89,8 @@ function sourceChangesDirAt(repoRoot, revision, configPath, run) {
 // the same document be recognized across a rename, and what decides which
 // snapshot document an imported one is compared against. A usage record is the
 // one exception (20261002-133728): its file name IS its identity — the change
-// id, the instant and a random suffix — and its content is never rewritten.
+// id, the instant and a random suffix — and import never rewrites a published
+// one: the same name with other bytes is a conflict.
 function identify(name, text, origin) {
   const base = name.slice(name.indexOf('/') + 1);
   if (name.startsWith(`${USAGE_COLLECTION}/`)) {

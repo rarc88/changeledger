@@ -901,3 +901,17 @@ test('20261002-133728 CR5: a usage record silently lost by a mutation is rejecte
   );
   assert.equal(git(root, ['rev-parse', STATE_REF]), revision);
 });
+
+test('20261002-133728 CR5: a write that rewrites an existing usage record is rejected, ref unmoved', (t) => {
+  const original = usageRecordText('20261002-133728');
+  const { root, revision } = usageSeed(t, { [`${STATE_ROOT}/usage/${USAGE_NAME}`]: original });
+  assert.throws(
+    () =>
+      mutateState(root, { expectedRevision: revision, message: 'chore: rewrite' }, (stage) =>
+        stage.write(`usage/${USAGE_NAME}`, usageRecordText('20261002-133728', undefined, { x: 1 })),
+      ),
+    /rewrites usage record ".*0a1b2c3d\.json"/,
+  );
+  assert.equal(git(root, ['rev-parse', STATE_REF]), revision);
+  assert.equal(readSnapshot(root).documents[`usage/${USAGE_NAME}`], original);
+});

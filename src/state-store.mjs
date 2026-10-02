@@ -34,8 +34,9 @@ const STATE_COLLECTION_EXTENSIONS = new Map([
   // same path.
   ['usage', '.json'],
 ]);
-// The append-only collection: `mutateState` refuses a candidate that drops a
-// usage record of its parent, even through an explicit `stage.remove`.
+// The append-only collection: `mutateState` refuses a candidate that drops or
+// changes the bytes of a usage record of its parent, even through an explicit
+// `stage.remove`. (`sync`'s fast-forward and merge do not run this check.)
 const USAGE_PREFIX = `${STATE_ROOT}/usage/`;
 const ACTIVATION_AUTHORITY_PATH = 'authority.yml';
 const LEDGER_DIR_NAME = '.changeledger';
@@ -404,13 +405,24 @@ export function mutateState(
     return readSnapshot(repoRoot, { revision: expectedRevision }, run);
   }
 
-  const parentNames = new Set(treeEntries(repoRoot, expectedRevision, run).map((e) => e.path));
-  const candidateNames = new Set(treeEntries(repoRoot, candidateTree, run).map((e) => e.path));
-  for (const name of parentNames) {
-    if (candidateNames.has(name)) continue;
+  const parentOids = new Map(
+    treeEntries(repoRoot, expectedRevision, run).map((e) => [e.path, e.oid]),
+  );
+  const candidateOids = new Map(
+    treeEntries(repoRoot, candidateTree, run).map((e) => [e.path, e.oid]),
+  );
+  for (const [name, oid] of parentOids) {
+    if (candidateOids.has(name)) {
+      if (name.startsWith(USAGE_PREFIX) && candidateOids.get(name) !== oid) {
+        throw new Error(
+          `state mutation rewrites usage record "${name}"; mutateState never rewrites one`,
+        );
+      }
+      continue;
+    }
     if (name.startsWith(USAGE_PREFIX)) {
       throw new Error(
-        `state mutation removes usage record "${name}"; usage records are never removed`,
+        `state mutation removes usage record "${name}"; mutateState never removes one`,
       );
     }
     if (!removals.has(name)) {

@@ -10,6 +10,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { usageCollector } from '../src/config.mjs';
 import { defaultRun } from '../src/git.mjs';
+import { STATE_REF, writeActivation } from '../src/state-store.mjs';
 import {
   CCUSAGE_TIMEOUT_MS,
   ccusageInvocation,
@@ -29,7 +30,7 @@ import {
   withProjectPaths,
 } from './helpers/ccusage.mjs';
 import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
-import { git } from './helpers/state-repo.mjs';
+import { buildTree, commitTree, git, updateRef } from './helpers/state-repo.mjs';
 
 // Activation lives in git config (repo-local here); `collector: null` leaves
 // the key unset. With `t`, the repo is removed when the test ends.
@@ -133,7 +134,7 @@ test('CR3: a snapshot writes one complete record keyed by the event instant', (t
   assert.equal(CCUSAGE_TIMEOUT_MS, 10_000);
 });
 
-test('CR3: records at the same instant never overwrite each other', (t) => {
+test('CR3 (worktree layout): records at the same instant get distinct names', (t) => {
   const root = gitRepo({ t });
   const runner = claudeRunner(encodeProjectPath(root));
   snapshot(root, runner, { events: [statusEvent(), statusEvent()] });
@@ -599,5 +600,48 @@ for (const [signal, target] of [
     // supervisor, whose own 3 s limit still ends the group.
     const survivors = await deadWithin([sleeper, grandchild], target === 'group' ? 1500 : 6000);
     assert.deepEqual(survivors, [], `${signal} left ${survivors.join(', ')} alive`);
+  });
+}
+
+// A suffix collision, forced through the `randomSuffix` seam: the first draw
+// names a record the ledger already holds, so the collector must draw again.
+for (const layout of ['worktree', 'state ref']) {
+  test(`20261002-133728 (${layout}): a drawn name that is taken is re-drawn, never overwritten`, (t) => {
+    const root = gitRepo({ t });
+    const id = '20261001-155612';
+    const taken = `${id}--20261001T165641Z-aaaaaaaa.json`;
+    const original = '{"schema": 1, "change": "20261001-155612", "original": true}\n';
+    if (layout === 'state ref') {
+      fs.mkdirSync(path.join(root, '.changeledger'));
+      const files = {
+        '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
+        '.changeledger-state/config.yml': 'project_id: demo\n',
+        [`.changeledger-state/usage/${taken}`]: original,
+      };
+      updateRef(root, STATE_REF, commitTree(root, buildTree(root, files)));
+      writeActivation(root, { stateRef: STATE_REF });
+    } else {
+      fs.mkdirSync(path.join(root, '.changeledger', 'usage'), { recursive: true });
+      fs.writeFileSync(path.join(root, '.changeledger', 'usage', taken), original);
+    }
+    const draws = ['aaaaaaaa', 'bbbbbbbb'];
+    const warnings = [];
+    snapshotUsage({
+      repoRoot: root,
+      events: [statusEvent()],
+      usage: {
+        runner: claudeRunner(encodeProjectPath(root)),
+        ownerHandle: () => 'Test User',
+        warn: (l) => warnings.push(l),
+        randomSuffix: () => draws.shift(),
+      },
+    });
+    assert.deepEqual(warnings, []);
+    const found = ledgerUsageRecords(root, id);
+    assert.deepEqual(
+      found.map((r) => r.name),
+      [taken, `${id}--20261001T165641Z-bbbbbbbb.json`],
+    );
+    assert.equal(found[0].original, true, 'the existing record is untouched');
   });
 }
