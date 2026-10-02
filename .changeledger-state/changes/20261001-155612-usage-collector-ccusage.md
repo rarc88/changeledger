@@ -2,7 +2,7 @@
 id: "20261001-155612"
 title: Registrar el consumo de tokens y su coste en cada transición con ccusage
 type: feature
-status: in-progress
+status: in-review
 created: 2026-10-01T15:56:12Z
 depends_on: []
 branch: feature/20261001-155612
@@ -299,3 +299,4 @@ sin filtrar por proyecto (mezcla otros repos activos); guardar en el documento
 - **2026-10-02T13:11:07Z** `[note]` Enmienda autorizada por el humano (2026-10-02): en un repo activado no hay ruta soportada para activar una clave nueva de config.yml (sólo config migrate y la lista cerrada del viewer), así que la activación pasa a git config changeledger.usage.collector, local a cada clon. Cambian Request, Investigation, Proposal, CR1, CR2 y los Given de CR3, CR4, CR8, CR9 y CR10; se añaden las tareas 8 y 9. El humano autorizó también que el orquestador ejecute CR10: crear y aprobar en su nombre un change de prueba y descartarlo al terminar.
 - **2026-10-02T13:21:15Z** `[note]` Tareas 8-9 (subagente, top tier, más el cableado de check por el orquestador en src/commands/check.mjs, fuera de los archivos asignados al delegado): la activación lee git config --get changeledger.usage.collector mediante gitConfigGet en src/git.mjs; check repo-wide valida el valor con checkUsageGitConfig; se retiró la clave de config.yml, su validación y el bloque de la plantilla. Las pruebas aíslan el git config global y de sistema en test/helpers/git-env.mjs. Decisiones no especificadas: un valor inválido en la transición omite la foto con usage: snapshot skipped: git config "changeledger.usage.collector" must be "ccusage"; un valor vacío o con otras mayúsculas es inválido; sin git instalado el valor cuenta como ausente, y otro fallo al leerlo omite la foto con aviso; fuera de un repo git con un valor global ccusage avisa not a git repository y no escribe. Residuos: cada transición lanza un proceso git config aunque la captura esté apagada; el ámbito de sistema no está probado. Gate: pnpm verify en verde con 1570/1570 tests.
 - **2026-10-02T13:22:02Z** `[note]` CR10 recorrido por el orquestador con autorización del humano: con git config changeledger.usage.collector ccusage y la CLI de esta rama, el change de prueba 20261002-132127 se creó, aprobó e inició; quedaron tres registros (created, draft → approved, approved → in-progress), pricing online, sin error ni exclusiones, con la sesión actual 30628da2 en cada uno y tokens no decrecientes entre registros consecutivos (opus 5.5 y sonnet 5.5, ambos con precio online). El change de prueba se descartó, su rama se borró y el valor de git config se retiró; el registro de descarte también dejó su cuarta foto.
+- **2026-10-02T13:22:08Z** `[status]` in-progress → in-review
