@@ -2,7 +2,7 @@
 id: "20261002-133728"
 title: Guardar los registros de consumo en el ledger
 type: feature
-status: in-review
+status: in-progress
 created: 2026-10-02T13:37:28Z
 depends_on: ["20261001-155612"]
 branch: feature/20261002-133728
@@ -247,3 +247,4 @@ humano para dividirlo por layout.
 - **2026-10-02T16:43:50Z** `[note]` Corrección del orquestador tras la cuarta ronda: el párrafo separa los layouts; en el worktree un nombre ocupado saca otro sufijo; con la ref de estado el colector vuelve a sortear cuando su comprobación encuentra el nombre ocupado, y si la comprobación no lo ve y los bytes difieren, mutateState rechaza cambiar el registro existente con el aviso usage: record not published.
 - **2026-10-02T16:46:12Z** `[note]` Quinta ronda autorizada por el humano, limitada al párrafo del sufijo de docs/usage-capture.md.
 - **2026-10-02T16:46:13Z** `[status]` in-progress → in-review
+- **2026-10-02T16:48:18Z** `[review]` in-review → in-progress (retry): Quinta ronda: la última frase del párrafo dice que changeledger sync fusiona los registros de dos clones, pero en clones no activados sync no hace nada; debe acotarse a un repositorio activado.
