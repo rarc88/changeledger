@@ -169,6 +169,12 @@ humano para dividirlo por layout.
 - **When** se crea, se aprueba y se inicia desde Claude Code, se ejecuta `changeledger sync` y un segundo clon ejecuta `changeledger activate` y `changeledger sync`
 - **Then** el segundo clon ve en `.changeledger-state/usage/` de su ref de estado los tres registros del change de prueba, sin error, con `recorded_by` del primer clon
 
+### CR10 — Los registros se cargan con el resto del ledger
+- **Given** un repo activado y uno inactivo, cada uno con dos registros de consumo de un change
+- **When** se carga el ledger con `loadRepo` y con la carga asíncrona que usa el viewer
+- **Then** ambas cargas exponen los dos registros, ya parseados y asociados al id de su change, en ambos layouts
+- **And** un registro inválido no impide cargar el resto del ledger y lo reporta `check` según CR4
+
 ## Plan
 
 - [ ] Escribir pruebas fallidas de la colección `usage` en el store: rutas, lectura, integridad e identidad
