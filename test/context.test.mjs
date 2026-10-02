@@ -893,6 +893,65 @@ test('161655 CR7: change context omits change_branch when the format is absent o
   }
 });
 
+// --- 20261002-181346: the policy line publishes the change's own integration branch ---
+
+// `fix` integrates into `git.release_branch`; `feature` declares no role.
+// `releaseBranch: null` leaves the release branch undeclared.
+function releaseTypeRepo({ releaseBranch = 'main' } = {}) {
+  const root = repo();
+  const file = path.join(root, '.changeledger', 'config.yml');
+  const config = parseYaml(fs.readFileSync(file, 'utf8'));
+  config.git = { ...config.git, integration_branch: 'dev' };
+  if (releaseBranch) config.git.release_branch = releaseBranch;
+  config.types.fix = { ...config.types.bug, integrates_into: 'release' };
+  fs.writeFileSync(file, stringifyYaml(config));
+  const fix = writeRawChange(root, { id: '20261002-181401', status: 'in-progress', type: 'fix' });
+  const feature = writeRawChange(root, {
+    id: '20261002-181402',
+    status: 'in-progress',
+    type: 'feature',
+  });
+  return { root, fix, feature };
+}
+
+const policyLineOf = (output) =>
+  output.split('\n').find((line) => line.startsWith('Effective policy:'));
+
+test('181346 CR6: change and delegate contexts publish the integration branch of the type', () => {
+  const { root, fix, feature } = releaseTypeRepo();
+  for (const [id, branch] of [
+    [fix, 'main'],
+    [feature, 'dev'],
+  ]) {
+    const change = policyLineOf(buildContext(id, root));
+    assert.match(change, new RegExp(` — integration_branch=${branch}( |$)`), change);
+    const delegate = policyLineOf(buildAgentContext('implementation', id, root));
+    assert.match(delegate, new RegExp(` — integration_branch=${branch}( |$)`), delegate);
+  }
+});
+
+test('181346 CR6: mode contexts keep publishing the repo integration branch', () => {
+  const { root } = releaseTypeRepo();
+  for (const mode of [undefined, 'implement', 'spec']) {
+    assert.match(policyLineOf(buildContext(mode, root)), / — integration_branch=dev$/);
+  }
+  assert.match(
+    policyLineOf(buildAgentContext('investigation', undefined, root)),
+    / — integration_branch=dev$/,
+  );
+});
+
+test('181346 CR6: a release type without git.release_branch never publishes the integration branch', () => {
+  const { root, fix, feature } = releaseTypeRepo({ releaseBranch: null });
+  const undeclared = (error) =>
+    error.message === 'type "fix" integrates into git.release_branch, which is not declared';
+  assert.throws(() => buildContext(fix, root), undeclared);
+  assert.throws(() => buildAgentContext('implementation', fix, root), undeclared);
+  // The other types and the mode contexts are unaffected by it.
+  assert.match(policyLineOf(buildContext(feature, root)), / — integration_branch=dev /);
+  assert.match(policyLineOf(buildContext('implement', root)), / — integration_branch=dev$/);
+});
+
 test('225213 CR2: change-id context shows type-specific effective policy', () => {
   const root = repo();
   setConfig(root, [[/^language: en$/m, 'language: es']]);
@@ -3032,7 +3091,7 @@ test('162015 CR3/CR4: delegation.md points at the unit instead of redefining it'
 //
 // The phrase-level pins over `templates/contract/` prose are retired: every one of
 // them charged a retarget, a mutant and review scrutiny to each rewrite of a
-// sentence, and that cost is what the decision removes. Nineteen carrier obligations
+// sentence, and that cost is what the decision removes. Twenty carrier obligations
 // keep a guard anyway, because losing one in silence is a different failure class
 // from rewording one (finding 38: normative prose lost with nothing noticing, three
 // times, exploit proven live).
@@ -3583,6 +3642,59 @@ const CONCEPT_GUARDS = [
         close,
         /`--skip`[^.;]{0,40}\b(no|none|not|without)\b[^.;]{0,30}\breview\b|\b(no|none|not|without)\b[^.;]{0,30}\breview\b[^.;]{0,40}`--skip`/i,
         'close no longer exempts --skip from the graduation review',
+      );
+    },
+  },
+  {
+    entry: 20,
+    obligation:
+      'change branches start from and integrate into the integration_branch of the change context, off the integration and release branches',
+    // 20261002-181346 CR8. A sentence ends at a period followed by whitespace, so
+    // a dotted key such as `git.release_branch` does not cut the window. The
+    // commit-lint base is guarded by concept, not by the command: `124837 CR3`
+    // keeps `check --commits` itself in core.
+    verify: (pack) => {
+      const implement = pack('implement');
+      const sentence = (terms) =>
+        new RegExp(terms.map((term) => `(?=(?:[^.]|\\.(?=\\S)){0,300}${term})`).join(''), 'i');
+      const branch = (name) => `\\b${name}(?:\\s+|_)branch`;
+      assert.match(
+        implement,
+        sentence([
+          '\\b(never|not|no)\\b[^.;]{0,30}\\bimplement\\w*',
+          branch('integration'),
+          branch('release'),
+        ]),
+        'implement no longer forbids implementing on the integration and the release branch',
+      );
+      assert.match(
+        implement,
+        sentence([
+          '\\bchange\\s+branch',
+          '\\b(creat|start|cut|branch)\\w*\\b[^.;]{0,40}\\bfrom\\b',
+          '`integration_branch`',
+          '\\b(change\\s+context\\b[^.;]{0,30}\\bpublish\\w*|publish\\w*\\b[^.;]{0,40}\\bchange\\s+context)\\b',
+          '\\bintegrat\\w*\\b[^.;]{0,60}\\binto\\b',
+        ]),
+        'implement no longer starts and integrates change branches on the integration_branch the change context publishes',
+      );
+      assert.match(
+        implement,
+        sentence([
+          branch('release'),
+          '\\b(reserv\\w*|kept|only)\\b[^.;]{0,30}\\breleases\\b',
+          '\\btypes?\\b[^.;]{0,40}\\bintegrat\\w*\\b[^.;]{0,15}\\binto\\b',
+        ]),
+        'implement no longer reserves the release branch for releases and the types that integrate into it',
+      );
+      assert.match(
+        implement,
+        sentence([
+          '\\b(check|lint)\\w*\\b[^.;]{0,30}\\bcommits\\b',
+          '\\bbase\\b',
+          `(${branch('integration')}|\`integration_branch\`|\\b(that|this|same)\\s+branch\\b)`,
+        ]),
+        'implement no longer makes the change integration branch the base its commits are checked against',
       );
     },
   },

@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import {
   assertTransition,
   canTransition,
@@ -589,4 +590,72 @@ test('152555 CR8: a graduation review is recorded before the first --into of a d
   assert.notEqual(graduation, -1, 'the graduation event is not in the Log');
   assert.ok(note < graduation, 'the review outcome is not logged before the graduation');
   assert.match(fs.readFileSync(specFile, 'utf8'), /`login` returns a session\./);
+});
+
+// 20261002-181346 CR10 — first use of a type that integrates into the release
+// branch, through the spawned CLI on a freshly initialised repo. `dev` carries
+// a commit `main` lacks, so the change branch cut from `main` starts only when
+// the guard resolves the type's release branch rather than the integration one.
+test('181346 CR10: a release-type change starts from git.release_branch end to end', () => {
+  const bin = fileURLToPath(new URL('../bin/changeledger.mjs', import.meta.url));
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-release-e2e-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  initGitFixture(root, { args: ['-b', 'main'] });
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
+  const git = (...args) => execFileSync('git', args, { cwd: root, env: sanitizedEnv() });
+  const ok = (...args) => {
+    try {
+      return execFileSync('node', [bin, ...args], { cwd: root, env, encoding: 'utf8' });
+    } catch (e) {
+      assert.fail(`${args.join(' ')} exited ${e.status}: ${e.stdout ?? ''}${e.stderr ?? ''}`);
+    }
+  };
+
+  ok('init');
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  const config = parseYaml(fs.readFileSync(configFile, 'utf8'));
+  config.git = { ...config.git, integration_branch: 'dev', release_branch: 'main' };
+  config.types.fix = { ...config.types.bug, integrates_into: 'release' };
+  config.release.impacts.fix = 'patch';
+  fs.writeFileSync(configFile, stringifyYaml(config));
+  ok('check');
+  git('config', 'commit.gpgsign', 'false');
+  git('add', '.');
+  git('commit', '-q', '-m', 'chore: baseline');
+  git('checkout', '-q', '-b', 'dev');
+  fs.writeFileSync(path.join(root, 'UNRELEASED'), 'work\n');
+  git('add', 'UNRELEASED');
+  git('commit', '-q', '-m', 'feat: unreleased work');
+  git('checkout', '-q', 'main');
+
+  ok('new', 'fix', 'prod-outage', 'Prod outage', '--owner', 'Test User');
+  const dir = path.join(root, '.changeledger', 'changes');
+  const [name] = fs.readdirSync(dir);
+  const file = path.join(dir, name);
+  const id = name.slice(0, 15);
+  fs.writeFileSync(
+    file,
+    fs
+      .readFileSync(file, 'utf8')
+      .replace('## Request\n', '## Request\n\nProduction login fails.\n')
+      .replace('## Investigation\n', '## Investigation\n\n`src/auth.mjs` `login` throws.\n')
+      .replace(
+        '## Specification\n',
+        '## Specification\n\n### CR1 — Login\n- **Given** valid credentials\n- **When** `login` runs\n- **Then** it returns a session\n',
+      )
+      .replace(
+        '## Plan\n',
+        '## Plan\n\n- [ ] Fix login\n  - **Target:** `src/auth.mjs`\n  - **Verify:** `node --test test/auth.test.mjs`\n  - **Criteria:** CR1\n',
+      ),
+  );
+
+  ok('approve', id);
+  git('checkout', '-q', '-b', `fix/${id}`, 'main');
+  ok('status', id, 'in-progress');
+  assert.match(fs.readFileSync(file, 'utf8'), /^status: in-progress$/m);
+  const policy = ok('context', id)
+    .split('\n')
+    .find((line) => line.startsWith('Effective policy:'));
+  assert.match(policy, / — integration_branch=main /, policy);
 });

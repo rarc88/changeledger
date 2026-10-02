@@ -44,10 +44,11 @@ readiness:
 changes_dir: .changeledger/changes
 specs_dir: .changeledger/specs
 
-# Git integration: change branches start from and merge into this branch.
+# Git integration: change branches start from and merge into `integration_branch`; types with `integrates_into: release` use `release_branch` instead.
 # `change_branch_format` may use `{type}` and exactly one `{id}`; use null or remove it to opt out.
 git:
   integration_branch:
+  release_branch:
   change_branch_format: "{type}/{id}"
 
 # Valid lifecycle statuses (order = progress)
