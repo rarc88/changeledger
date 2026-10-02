@@ -254,13 +254,22 @@ test('161655 CR7: integration branch alone keeps lifecycle branch checks disable
 // `main` carries a release commit `dev` lacks, so a branch cut from `dev` does
 // not descend from `main`: the guard below is judged on which base it resolves.
 // `releaseBranch: null` leaves `git.release_branch` undeclared (CR4).
-function releaseTypeRepo({ releaseBranch = 'main' } = {}) {
+// `shape` places the release commit: 'release-ahead' (default) on `main` only,
+// 'dev-ahead' on `dev` only (20261002-204623), 'same' on neither, so both
+// branches share one commit. `integrationBranch: null` leaves
+// `git.integration_branch` undeclared.
+function releaseTypeRepo({
+  releaseBranch = 'main',
+  shape = 'release-ahead',
+  integrationBranch = 'dev',
+} = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-agent-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
   initializeRepo(root);
   const configFile = path.join(root, '.changeledger', 'config.yml');
   const config = parseYaml(fs.readFileSync(configFile, 'utf8'));
-  config.git = { integration_branch: 'dev', change_branch_format: '{type}/{id}' };
+  config.git = { change_branch_format: '{type}/{id}' };
+  if (integrationBranch) config.git.integration_branch = integrationBranch;
   if (releaseBranch) config.git.release_branch = releaseBranch;
   config.types.fix = {
     stages: ['request', 'investigation', 'specification', 'plan', 'log'],
@@ -290,9 +299,13 @@ function releaseTypeRepo({ releaseBranch = 'main' } = {}) {
   git(root, ['add', '.']);
   git(root, ['commit', '-q', '-m', 'chore: baseline']);
   git(root, ['branch', 'dev']);
-  fs.writeFileSync(path.join(root, 'RELEASE'), '1\n');
-  git(root, ['add', 'RELEASE']);
-  git(root, ['commit', '-q', '-m', 'chore: release']);
+  if (shape !== 'same') {
+    if (shape === 'dev-ahead') git(root, ['checkout', '-q', 'dev']);
+    fs.writeFileSync(path.join(root, 'RELEASE'), '1\n');
+    git(root, ['add', 'RELEASE']);
+    git(root, ['commit', '-q', '-m', 'chore: release']);
+    if (shape === 'dev-ahead') git(root, ['checkout', '-q', 'main']);
+  }
   for (const { id } of Object.values(changes)) status(id, 'approved', root);
   return { root, changes };
 }
@@ -339,6 +352,190 @@ test('181346 CR5: a type without integrates_into still starts from the integrati
   startOn(root, { id, type: 'feature' }, 'dev');
 
   assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'in-progress');
+});
+
+// --- 20261002-204623: a release branch must not carry unpublished integration work ---
+
+function startsInProgress(file) {
+  return parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status === 'in-progress';
+}
+
+test('204623 CR1: a release branch cut from the integration branch ahead of the release branch does not start', () => {
+  const { root, changes } = releaseTypeRepo({ shape: 'dev-ahead' });
+  const { file, id } = changes.fix;
+  const before = fs.readFileSync(file, 'utf8');
+
+  assert.throws(
+    () => startOn(root, { id, type: 'fix' }, 'dev'),
+    (error) =>
+      error.message === `branch "fix/${id}" contains commits of "dev" that are not in "main"`,
+  );
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
+test('204623 CR1: a release branch holding a commit of its own on top of dev work does not start', () => {
+  const { root, changes } = releaseTypeRepo({ shape: 'dev-ahead' });
+  const { file, id } = changes.fix;
+  git(root, ['checkout', '-q', '-b', `fix/${id}`, 'dev']);
+  fs.writeFileSync(path.join(root, 'HOTFIX'), '1\n');
+  git(root, ['add', 'HOTFIX']);
+  git(root, ['commit', '-q', '-m', 'fix: own work']);
+
+  assert.throws(
+    () => status(id, 'in-progress', root, { ownerHandle: () => '' }),
+    (error) =>
+      error.message === `branch "fix/${id}" contains commits of "dev" that are not in "main"`,
+  );
+  assert.equal(startsInProgress(file), false);
+});
+
+test('204623 CR2: a release branch cut from the release branch starts although dev is ahead', () => {
+  const { root, changes } = releaseTypeRepo({ shape: 'dev-ahead' });
+  const { file, id } = changes.fix;
+
+  startOn(root, { id, type: 'fix' }, 'main');
+
+  assert.equal(startsInProgress(file), true);
+});
+
+test('204623 CR2: work committed on the release branch after the cut still starts', () => {
+  const { root, changes } = releaseTypeRepo({ shape: 'dev-ahead' });
+  const { file, id } = changes.fix;
+  git(root, ['checkout', '-q', '-b', `fix/${id}`, 'main']);
+  fs.writeFileSync(path.join(root, 'HOTFIX'), '1\n');
+  git(root, ['add', 'HOTFIX']);
+  git(root, ['commit', '-q', '-m', 'fix: own work']);
+
+  status(id, 'in-progress', root, { ownerHandle: () => '' });
+
+  assert.equal(startsInProgress(file), true);
+});
+
+test('204623 CR3: a release branch cut from dev starts when dev and the release branch coincide', () => {
+  const { root, changes } = releaseTypeRepo({ shape: 'same' });
+  const { file, id } = changes.fix;
+
+  startOn(root, { id, type: 'fix' }, 'dev');
+
+  assert.equal(startsInProgress(file), true);
+});
+
+test('204623 CR4: an integration type keeps starting from dev when dev is ahead', () => {
+  const { root, changes } = releaseTypeRepo({ shape: 'dev-ahead' });
+  const { file, id } = changes.feature;
+
+  startOn(root, { id, type: 'feature' }, 'dev');
+
+  assert.equal(startsInProgress(file), true);
+});
+
+test('204623 CR4: an integration type with commits of its own still starts', () => {
+  const { root, changes } = releaseTypeRepo({ shape: 'dev-ahead' });
+  const { file, id } = changes.feature;
+  git(root, ['checkout', '-q', '-b', `feature/${id}`, 'dev']);
+  fs.writeFileSync(path.join(root, 'FEATURE'), '1\n');
+  git(root, ['add', 'FEATURE']);
+  git(root, ['commit', '-q', '-m', 'feat: own work']);
+
+  status(id, 'in-progress', root, { ownerHandle: () => '' });
+
+  assert.equal(startsInProgress(file), true);
+});
+
+// Criss-cross: `dev` merged `feat/y` and then `main`, so `HEAD` (cut from `main`,
+// then merged `feat/y`) and `dev` have two merge bases, X (in `main`) and Y (not
+// in `main`). Commit dates are pinned so plain `git merge-base` picks X.
+test('204623 CR1: a criss-cross with an unpublished merge base does not start', () => {
+  const { root, changes } = releaseTypeRepo({ shape: 'same' });
+  const { file, id } = changes.fix;
+  const at = (date, args) =>
+    execFileSync('git', args, {
+      cwd: root,
+      env: sanitizedEnv({ GIT_AUTHOR_DATE: date, GIT_COMMITTER_DATE: date }),
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+  const commitFile = (name, date) => {
+    fs.writeFileSync(path.join(root, name), '1\n');
+    at(date, ['add', name]);
+    at(date, ['commit', '-q', '-m', `chore: ${name}`]);
+  };
+  at('2026-01-01T00:00:00Z', ['checkout', '-q', '-b', 'feat/y']);
+  commitFile('Y', '2026-01-02T00:00:00Z');
+  at('2026-01-05T00:00:00Z', ['checkout', '-q', 'main']);
+  commitFile('X', '2026-01-05T00:00:00Z');
+  at('2026-01-06T00:00:00Z', ['checkout', '-q', 'dev']);
+  at('2026-01-06T00:00:00Z', ['merge', '-q', '--no-ff', '-m', 'merge y', 'feat/y']);
+  at('2026-01-07T00:00:00Z', ['merge', '-q', '--no-ff', '-m', 'merge main', 'main']);
+  at('2026-01-08T00:00:00Z', ['checkout', '-q', '-b', `fix/${id}`, 'main']);
+  at('2026-01-08T00:00:00Z', ['merge', '-q', '--no-ff', '-m', 'merge y', 'feat/y']);
+  const before = fs.readFileSync(file, 'utf8');
+  const tip = (ref) => git(root, ['rev-parse', ref]).trim();
+  const bases = git(root, ['merge-base', '--all', 'HEAD', 'dev']).trim().split('\n');
+  assert.deepEqual(bases.sort(), [tip('main'), tip('feat/y')].sort());
+
+  assert.throws(
+    () => status(id, 'in-progress', root, { ownerHandle: () => '' }),
+    (error) =>
+      error.message === `branch "fix/${id}" contains commits of "dev" that are not in "main"`,
+  );
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
+test('204623: a missing release branch ref still fails the ancestry check', () => {
+  const { root, changes } = releaseTypeRepo({ shape: 'dev-ahead' });
+  const { id } = changes.fix;
+  git(root, ['checkout', '-q', '-b', `fix/${id}`, 'main']);
+  git(root, ['branch', '-m', 'main', 'gone']);
+
+  assert.throws(
+    () => status(id, 'in-progress', root, { ownerHandle: () => '' }),
+    (error) => error.message === `branch "fix/${id}" must descend from integration branch "main"`,
+  );
+});
+
+test('204623 CR5: without git.integration_branch there is nothing to compare against', () => {
+  for (const base of ['main', 'dev']) {
+    const { root, changes } = releaseTypeRepo({ shape: 'dev-ahead', integrationBranch: null });
+    const { file, id } = changes.fix;
+
+    startOn(root, { id, type: 'fix' }, base);
+
+    assert.equal(startsInProgress(file), true, `from ${base}`);
+  }
+});
+
+test('204623: an integration branch absent locally fails closed and says so', () => {
+  const { root, changes } = releaseTypeRepo({ shape: 'dev-ahead' });
+  const { file, id } = changes.fix;
+  git(root, ['branch', '-D', 'dev']);
+  const before = fs.readFileSync(file, 'utf8');
+
+  assert.throws(
+    () => startOn(root, { id, type: 'fix' }, 'main'),
+    (error) =>
+      error.message ===
+      `branch "fix/${id}" cannot start: integration branch "dev" does not exist locally — create it (e.g. from its remote-tracking copy) before starting`,
+  );
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
+test('204623: an integration branch with unrelated history fails closed and says so', () => {
+  const { root, changes } = releaseTypeRepo({ shape: 'dev-ahead' });
+  const { file, id } = changes.fix;
+  const emptyTree = git(root, ['hash-object', '-t', 'tree', '/dev/null']).trim();
+  const orphan = git(root, ['commit-tree', emptyTree, '-m', 'chore: orphan']).trim();
+  git(root, ['branch', '-f', 'dev', orphan]);
+  git(root, ['checkout', '-q', '-b', `fix/${id}`, 'main']);
+  const before = fs.readFileSync(file, 'utf8');
+
+  assert.throws(
+    () => status(id, 'in-progress', root, { ownerHandle: () => '' }),
+    (error) =>
+      error.message ===
+      `branch "fix/${id}" cannot start: it shares no history with integration branch "dev"`,
+  );
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
 
 function futureSchemaRepo() {

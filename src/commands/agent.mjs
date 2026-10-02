@@ -8,7 +8,12 @@ import { mutateFileAtomic, withFileLock } from '../atomic-write.mjs';
 import { parseChange } from '../change.mjs';
 import { mutateLedgerFile, repoIsActivated, writeLedgerFiles } from '../change-store.mjs';
 import { assertChangeTextValid, assertStagesNotEmpty } from '../check.mjs';
-import { changeIntegrationBranch, findChangeledgerDir, renderChangeBranch } from '../config.mjs';
+import {
+  changeIntegrationBranch,
+  findChangeledgerDir,
+  integrationBranch,
+  renderChangeBranch,
+} from '../config.mjs';
 import { assertSupportedSchema } from '../config-migration.mjs';
 import {
   currentBranch,
@@ -16,6 +21,8 @@ import {
   defaultRun as defaultGitRun,
   ownerHandle as defaultOwnerHandle,
   isAncestor,
+  mergeBases,
+  refExists,
 } from '../git.mjs';
 import { assertTransition, parseLogEvent } from '../lifecycle.mjs';
 import { nowUtc } from '../paths.mjs';
@@ -89,6 +96,32 @@ function assertImplementationBranch(config, change, repoRoot, gitRun) {
   const baseline = changeIntegrationBranch(config, change.type);
   if (baseline && !isAncestor(repoRoot, baseline, 'HEAD', gitRun)) {
     throw new Error(`branch "${expected}" must descend from integration branch "${baseline}"`);
+  }
+
+  // A change that integrates into another branch than `git.integration_branch`
+  // (a release type) must not carry integration work that branch does not have
+  // yet: when `dev` is ahead of `main`, a branch cut from `dev` still descends
+  // from `main` and passes the check above (20261002-204623). The commits
+  // reachable from both `HEAD` and the integration branch are exactly the
+  // ancestors of their merge bases, so requiring every merge base (criss-cross
+  // merges leave several) to be in `baseline` means no integration commit
+  // outside `baseline` is shared with `HEAD`. It does not inspect commits that
+  // are only on `HEAD`. With no merge base it fails closed, like the ancestry
+  // check above, naming which cause applies.
+  const integration = integrationBranch(config);
+  if (integration && integration !== baseline) {
+    const bases = mergeBases(repoRoot, 'HEAD', integration, gitRun);
+    if (bases.length === 0) {
+      const cause = refExists(repoRoot, integration, gitRun)
+        ? `it shares no history with integration branch "${integration}"`
+        : `integration branch "${integration}" does not exist locally — create it (e.g. from its remote-tracking copy) before starting`;
+      throw new Error(`branch "${expected}" cannot start: ${cause}`);
+    }
+    if (!bases.every((base) => isAncestor(repoRoot, base, baseline, gitRun))) {
+      throw new Error(
+        `branch "${expected}" contains commits of "${integration}" that are not in "${baseline}"`,
+      );
+    }
   }
 }
 
