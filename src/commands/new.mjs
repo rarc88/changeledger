@@ -8,6 +8,7 @@ import { assertSupportedSchema } from '../config-migration.mjs';
 import { ownerHandle as defaultOwnerHandle } from '../git.mjs';
 import { loadRepo } from '../repo.mjs';
 import { slugify } from '../slug.mjs';
+import { snapshotUsage } from '../usage-collector.mjs';
 import { stampVersion } from '../writer.mjs';
 import { serializeScalar } from '../yaml.mjs';
 import { readSource } from './edit.mjs';
@@ -23,7 +24,7 @@ const LOCK_MTIME_STALE_MS = 30_000;
 export function newChange(
   { type, slug, title, owner, now },
   cwd = process.cwd(),
-  { ownerHandle = defaultOwnerHandle } = {},
+  { ownerHandle = defaultOwnerHandle, usage } = {},
 ) {
   const changeledgerDir = findChangeledgerDir(cwd);
   if (!changeledgerDir) throw new Error('Not a ChangeLedger repo. Run `changeledger init` first.');
@@ -82,6 +83,7 @@ export function newChange(
     }
 
     const file = path.join(changesDir, `${id}-${normalizedSlug}.md`);
+    let written = false;
     try {
       fs.writeFileSync(
         file,
@@ -91,7 +93,7 @@ export function newChange(
         ),
         { flag: 'wx' },
       );
-      return file;
+      written = true;
     } catch (e) {
       if (e.code !== 'EEXIST') throw e;
       created = bumpSecond(created);
@@ -99,7 +101,17 @@ export function newChange(
     } finally {
       releaseIdLock(lock);
     }
+    if (written) {
+      snapshotUsage({ repoRoot, events: [creationEvent(id, created)], usage });
+      return file;
+    }
   }
+}
+
+// The usage snapshot's view of a creation (20261001-155612): a new change has
+// no Log line yet, so its instant is the `created` field it was born with.
+export function creationEvent(id, created) {
+  return { change: String(id), event: 'created', from: null, to: 'draft', at: created };
 }
 
 function requireType(config, type) {
@@ -148,7 +160,7 @@ export function scaffoldChange(
 // silently losing to it. A CAS conflict propagates instead of retrying under a
 // fresh id: the id is the author's, not this function's, so re-running is the
 // caller's call.
-export function newChangeFrom({ type, slug, title, from }, cwd = process.cwd()) {
+export function newChangeFrom({ type, slug, title, from }, cwd = process.cwd(), { usage } = {}) {
   const text = readSource(from);
   const repo = loadRepo(cwd);
   assertSupportedSchema(repo.config);
@@ -177,6 +189,11 @@ export function newChangeFrom({ type, slug, title, from }, cwd = process.cwd()) 
       message: prepared.message,
     },
   );
+  snapshotUsage({
+    repoRoot: repo.repoRoot,
+    events: [creationEvent(prepared.id, prepared.created)],
+    usage,
+  });
   return repo.state ? prepared.relPath : prepared.file;
 }
 
@@ -233,7 +250,7 @@ export function prepareNewChange(repo, text, { slug, parsed } = {}) {
     );
   }
 
-  return { id, name, relPath, file, text: stamped, message: `new: ${id}` };
+  return { id, created, name, relPath, file, text: stamped, message: `new: ${id}` };
 }
 
 function idTakenInRepo(repo, id) {

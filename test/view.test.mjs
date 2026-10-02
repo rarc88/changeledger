@@ -35,8 +35,10 @@ import { publicDir } from '../src/paths.mjs';
 import { readRegistry, register, registryPath } from '../src/registry.mjs';
 import { loadRepo, loadRepoAsync } from '../src/repo.mjs';
 import { STATE_REF, writeActivation } from '../src/state-store.mjs';
+import { encodeProjectPath } from '../src/usage-collector.mjs';
 import { cleanMissingProjects, readLedgerDocument, serialize } from '../src/viewer/domain.mjs';
 import { setBranch, stampVersion } from '../src/writer.mjs';
+import { claudeRunner } from './helpers/ccusage.mjs';
 import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 import { eventsAdded, PREVIOUS_VERSION, versionEvents } from './helpers/version-stamp.mjs';
@@ -3217,3 +3219,94 @@ test('184354 CR7: two registered projects in one viewer over HTTP — the incomp
     assert.equal(ledgerRead.status, 200);
   }
 });
+
+// --- usage snapshots (20261001-155612) ---
+
+function viewerUsageRecords(root, id) {
+  const raw = execFileSync('git', ['rev-parse', '--git-common-dir'], {
+    cwd: root,
+    env: sanitizedEnv(),
+    encoding: 'utf8',
+  }).trim();
+  const dir = path.join(path.resolve(root, raw), 'changeledger', 'usage', String(id));
+  return fs.existsSync(dir)
+    ? fs.readdirSync(dir).map((name) => JSON.parse(fs.readFileSync(path.join(dir, name), 'utf8')))
+    : [];
+}
+
+test('20261001-155612 CR4: viewer transitions snapshot once each, in both layouts', () => {
+  // Any snapshot that bypassed the injected runner would fall back to this
+  // missing command: offline, and visible as a record carrying an error.
+  const saved = process.env.CHANGELEDGER_USAGE_COMMAND;
+  process.env.CHANGELEDGER_USAGE_COMMAND = JSON.stringify(['changeledger-no-such-ccusage-xyz']);
+  try {
+    viewerTransitionsSnapshot();
+  } finally {
+    if (saved === undefined) delete process.env.CHANGELEDGER_USAGE_COMMAND;
+    else process.env.CHANGELEDGER_USAGE_COMMAND = saved;
+  }
+});
+
+function viewerTransitionsSnapshot() {
+  for (const activated of [false, true]) {
+    isolatedHome();
+    const root = newRepo();
+    disableChangeBranchFormat(root);
+    const { file, id } = draftChange(root);
+    initGitFixture(root);
+    execFileSync('git', ['config', 'changeledger.usage.collector', 'ccusage'], {
+      cwd: root,
+      env: sanitizedEnv(),
+    });
+    if (activated) {
+      const name = path.basename(file);
+      const tree = buildTree(root, {
+        '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
+        '.changeledger-state/config.yml': fs.readFileSync(
+          path.join(root, '.changeledger', 'config.yml'),
+          'utf8',
+        ),
+        [`.changeledger-state/changes/${name}`]: fs.readFileSync(file, 'utf8'),
+      });
+      fs.rmSync(file);
+      updateRef(root, STATE_REF, commitTree(root, tree, { message: 'chore: state' }));
+      writeActivation(root, { stateRef: STATE_REF });
+    }
+    const runner = claudeRunner(encodeProjectPath(root));
+    const usage = { runner, warn: () => {} };
+    const { projects, current } = resolveProjects(root, false);
+    const move = (to, reason) => {
+      const before = viewerUsageRecords(root, id).length;
+      const calls = runner.calls.length;
+      const res = changeStatus(projects, { project: current, id, status: to, reason }, { usage });
+      assert.equal(res.code, 200, JSON.stringify(res.body));
+      assert.equal(viewerUsageRecords(root, id).length, before + 1, `viewer → ${to}`);
+      assert.ok(runner.calls.length > calls, `viewer → ${to} must use the injected runner`);
+    };
+
+    move('approved');
+    task(id, 'done', 1, '', root);
+    status(id, 'in-progress', root, { ownerHandle: () => '', usage });
+    status(id, 'in-review', root, { usage });
+    review(id, 'pass', {}, root, { usage });
+    move('in-progress', 'needs more');
+    status(id, 'in-review', root, { usage });
+    review(id, 'pass', {}, root, { usage });
+    move('done');
+    move('in-progress', 'reopened from the viewer');
+    assert.deepEqual(
+      viewerUsageRecords(root, id)
+        .filter((r) => r.event !== 'review' && !['in-review'].includes(r.to))
+        .map((r) => `${r.event}:${r.from}→${r.to}`)
+        .sort(),
+      [
+        'status:approved→in-progress',
+        'status:done→in-progress',
+        'status:draft→approved',
+        'validation:in-validation→done',
+        'validation:in-validation→in-progress',
+      ],
+    );
+    assert.ok(viewerUsageRecords(root, id).every((r) => r.error === null));
+  }
+}

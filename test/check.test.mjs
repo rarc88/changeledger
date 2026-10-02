@@ -6,12 +6,14 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { parse as parseYaml } from 'yaml';
 import { parseChange } from '../src/change.mjs';
-import { checkRepo } from '../src/check.mjs';
+import { checkRepo, checkUsageGitConfig } from '../src/check.mjs';
 import { check } from '../src/commands/check.mjs';
+import { init as initializeRepo } from '../src/commands/init.mjs';
 import {
   BRANCH_FORMAT_PLACEHOLDERS,
   integrationBranch,
   renderChangeBranch,
+  usageCollector,
 } from '../src/config.mjs';
 import { ensureReference } from '../src/contract.mjs';
 import { LOG_EVENT_TYPES } from '../src/lifecycle.mjs';
@@ -20,6 +22,10 @@ import { RELEASE_IMPACTS } from '../src/release.mjs';
 import { STATE_REF, writeActivation } from '../src/state-store.mjs';
 import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
+
+// Isolate the global registry: the usage CLI case below runs `init`, which
+// registers the repo it creates.
+process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
 
 const config = {
   changes_dir: '.changeledger/changes',
@@ -3667,4 +3673,71 @@ test('162616 CR7: a discarded change is still exempt from its own unclassified-m
     msgs(warnings).filter((m) => /mentions change/.test(m)),
     [],
   );
+});
+
+// --- usage collector activation in git config (20261001-155612) ---
+
+function gitCheckRepo() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-check-usage-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  initializeRepo(root);
+  initGitFixture(root);
+  return root;
+}
+
+const setCollector = (root, value) =>
+  execFileSync('git', ['config', 'changeledger.usage.collector', value], {
+    cwd: root,
+    env: sanitizedEnv(),
+  });
+
+test('20261001-155612 CR2: a git config collector other than ccusage is an error', () => {
+  const root = gitCheckRepo();
+  assert.deepEqual(checkUsageGitConfig(root), []);
+  for (const value of ['other', '', 'CCUSAGE']) {
+    setCollector(root, value);
+    assert.deepEqual(msgs(checkUsageGitConfig(root)), [
+      'git config "changeledger.usage.collector" must be "ccusage"',
+    ]);
+    assert.throws(() => usageCollector(root), {
+      message: 'git config "changeledger.usage.collector" must be "ccusage"',
+    });
+  }
+  setCollector(root, 'ccusage');
+  assert.deepEqual(checkUsageGitConfig(root), []);
+  assert.equal(usageCollector(root), 'ccusage');
+});
+
+test('20261001-155612 CR2: a usage key in config.yml is neither read nor validated', () => {
+  for (const usage of [{ collector: 'other' }, { collector: 'ccusage' }, 'x', [], null]) {
+    assert.deepEqual(checkRepo({ config: { ...config, usage }, changes: [] }).errors, []);
+  }
+  const root = gitCheckRepo();
+  fs.appendFileSync(
+    path.join(root, '.changeledger', 'config.yml'),
+    '\nusage:\n  collector: ccusage\n',
+  );
+  assert.equal(usageCollector(root), undefined);
+  const out = captureOutput();
+  assert.equal(check([], root, out), 0, out.diagnostics.join('\n'));
+
+  const template = fs.readFileSync(path.join(templatesDir, 'config.yml'), 'utf8');
+  assert.equal(parseYaml(template).usage, undefined);
+  assert.doesNotMatch(template, /usage/);
+});
+
+test('20261001-155612 CR2: `changeledger check` fails on an unknown git config collector', () => {
+  const root = gitCheckRepo();
+  setCollector(root, 'other');
+  const bad = captureOutput();
+  assert.equal(check([], root, bad), 1, bad.diagnostics.join('\n'));
+  assert.ok(
+    bad.diagnostics.some((line) =>
+      line.includes('git config "changeledger.usage.collector" must be "ccusage"'),
+    ),
+    bad.diagnostics.join('\n'),
+  );
+  setCollector(root, 'ccusage');
+  const good = captureOutput();
+  assert.equal(check([], root, good), 0, good.diagnostics.join('\n'));
 });

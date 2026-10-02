@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { checkRepo, frozenReason } from '../check.mjs';
+import { checkRepo, checkUsageGitConfig, frozenReason } from '../check.mjs';
 import { findChangeledgerDir, integrationBranch, loadEffectiveConfig } from '../config.mjs';
 import { getSchemaVersion, SUPPORTED_SCHEMA_VERSION } from '../config-migration.mjs';
 import { checkContract } from '../contract.mjs';
@@ -94,6 +94,9 @@ export function check(args = [], cwd = process.cwd(), output = console) {
     for (const message of checkContract(repo.repoRoot, repo.changeledgerDir)) {
       errors.push({ file: 'AGENTS.md', message });
     }
+    // The usage collector is switched on per clone in git config, not in the
+    // ledger, so its value comes from a `git config` process run here too.
+    errors.push(...checkUsageGitConfig(repo.repoRoot));
   }
 
   if (json) {

@@ -7,7 +7,13 @@
 
 import { marked } from 'marked';
 import { parseChange } from './change.mjs';
-import { changeBranchFormat, integrationBranch, renderChangeBranch } from './config.mjs';
+import {
+  changeBranchFormat,
+  integrationBranch,
+  renderChangeBranch,
+  USAGE_COLLECTOR_GIT_KEY,
+  usageCollector,
+} from './config.mjs';
 import { hasFixableDefects } from './fix.mjs';
 import { CANONICAL_STATUSES, canTransition, LOG_EVENT_TYPES, parseLogEvent } from './lifecycle.mjs';
 import { compareVersions, parseVersion, RELEASE_IMPACTS } from './release.mjs';
@@ -36,6 +42,19 @@ export function frozenReason(change) {
   if (fm.status === 'discarded') return 'discarded';
   if (fm.status === 'done' && fm.archived === true) return 'archived';
   return null;
+}
+
+// The usage collector is activated in git config, not in `config.yml`
+// (20261001-155612), so validating it needs IO and stays out of the pure
+// `checkRepo`: the `check` command adds these findings for the repo it loaded.
+// A `usage` key in `config.yml` is neither read nor validated.
+export function checkUsageGitConfig(repoRoot, run) {
+  try {
+    usageCollector(repoRoot, run);
+    return [];
+  } catch (error) {
+    return [{ file: `(git config ${USAGE_COLLECTOR_GIT_KEY})`, message: error.message }];
+  }
 }
 
 export function checkRepo({ config, changes, specs = [], releases = [] }, opts = {}) {

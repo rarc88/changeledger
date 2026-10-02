@@ -9,6 +9,24 @@
 // alias below) so `cwd` is the only thing that decides which repo it hits.
 
 import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+
+// Hermetic git config (20261001-155612): production code reads values such as
+// `changeledger.usage.collector` through git's own scope resolution, so a
+// developer's global or system git config would otherwise reach every fixture
+// and every in-process command a test runs. Importing this module points the
+// global scope at an empty file and turns the system scope off for this test
+// process and the processes it spawns; a test that needs a global value sets
+// GIT_CONFIG_GLOBAL itself, temporarily.
+const EMPTY_GLOBAL_CONFIG = path.join(
+  fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-gitconfig-')),
+  'config',
+);
+fs.writeFileSync(EMPTY_GLOBAL_CONFIG, '');
+process.env.GIT_CONFIG_GLOBAL = EMPTY_GLOBAL_CONFIG;
+process.env.GIT_CONFIG_NOSYSTEM = '1';
 
 export const GIT_LOCATION_ENV_VARS = [
   'GIT_DIR',
