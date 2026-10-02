@@ -248,3 +248,4 @@ humano para dividirlo por layout.
 - **2026-10-02T16:46:12Z** `[note]` Quinta ronda autorizada por el humano, limitada al párrafo del sufijo de docs/usage-capture.md.
 - **2026-10-02T16:46:13Z** `[status]` in-progress → in-review
 - **2026-10-02T16:48:18Z** `[review]` in-review → in-progress (retry): Quinta ronda: la última frase del párrafo dice que changeledger sync fusiona los registros de dos clones, pero en clones no activados sync no hace nada; debe acotarse a un repositorio activado.
+- **2026-10-02T16:48:18Z** `[note]` Corrección del orquestador tras la quinta ronda: la frase de sync queda acotada a un repositorio activado, con la redacción que propuso el revisor.
