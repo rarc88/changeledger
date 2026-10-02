@@ -2,7 +2,7 @@
 id: "20261001-155612"
 title: Registrar el consumo de tokens y su coste en cada transición con ccusage
 type: feature
-status: in-validation
+status: done
 created: 2026-10-01T15:56:12Z
 depends_on: []
 branch: feature/20261001-155612
@@ -319,3 +319,4 @@ sin filtrar por proyecto (mezcla otros repos activos); guardar en el documento
 - **2026-10-02T14:02:30Z** `[note]` Corrección de la cuarta ronda: el supervisor captura también SIGQUIT (Ctrl-\); documentación y tabla de pruebas por señal alineadas con las cuatro señales; las pruebas de grupo y de señales borran sus directorios temporales. Gate del orquestador: pnpm verify en verde con 1582/1582 tests. Mandato de la confirmación (cuarta ronda): sólo el diff sin commitear frente a HEAD (ee978f2), confirmando que SIGQUIT queda cerrado y que no hay regresiones respecto a la ronda anterior.
 - **2026-10-02T14:02:31Z** `[status]` in-progress → in-review
 - **2026-10-02T14:06:42Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-10-02T15:24:42Z** `[validation]` in-validation → done (human accepted via conversation)
