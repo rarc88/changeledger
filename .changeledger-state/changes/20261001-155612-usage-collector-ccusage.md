@@ -272,10 +272,11 @@ sin filtrar por proyecto (mezcla otros repos activos); guardar en el documento
   - **Verify:** `node --test test/config-migration.test.mjs`
   - **Support:**
   - **Resolved:** `2026-10-01T17:21:52Z`
-- [ ] Recorrer el primer uso real con `ccusage` 20.0.26 en este repo
+- [x] Recorrer el primer uso real con `ccusage` 20.0.26 en este repo
   - **Target:** `src/usage-collector.mjs`
   - **Verify:** verify: manual — crear, aprobar e iniciar un change de prueba desde Claude Code y revisar los tres registros
   - **Criteria:** CR10
+  - **Resolved:** `2026-10-02T13:22:01Z`
 - [x] Ejecutar el gate completo
   - **Verify:** `pnpm verify`
   - **Support:**
