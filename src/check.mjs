@@ -861,6 +861,12 @@ function checkConfig(config, err) {
       err(null, `config type "${type}": review_required must be a boolean`);
     if ('tdd' in def && typeof def.tdd !== 'boolean')
       err(null, `config type "${type}": tdd must be a boolean`);
+    if ('seed_stage' in def) {
+      if (typeof def.seed_stage !== 'string')
+        err(null, `config type "${type}": seed_stage must be a string`);
+      else if (!def.stages.includes(def.seed_stage))
+        err(null, `config type "${type}": seed_stage "${def.seed_stage}" is not an active stage`);
+    }
     // An independent reviewer needs something to verify: criteria live in
     // `## Specification` (the only stage `parseChange` reads `### CRn` from).
     // With tdd on, the tasks that cite them live in `## Plan` and coverage binds

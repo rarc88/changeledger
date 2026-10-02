@@ -3714,3 +3714,26 @@ test('113320 CR6: review_required asks only for specification when effective tdd
     ['config type "doc": review_required: true requires active stages: specification'],
   );
 });
+
+// --- 20261002-113435: seed_stage must be one of the type's own active stages ---
+
+test('113435 CR3: a seed_stage outside the type stages is rejected with its literal error', () => {
+  const seedErrors = (seedStage) => {
+    const cfg = perTypeTddConfig();
+    cfg.types.documentation = { ...cfg.types.documentation, seed_stage: seedStage };
+    return msgs(checkRepo({ config: cfg, changes: [] }).errors).filter((m) =>
+      m.includes('seed_stage'),
+    );
+  };
+  // `plan` is canonical but not active for this type.
+  assert.deepEqual(seedErrors('plan'), [
+    'config type "documentation": seed_stage "plan" is not an active stage',
+  ]);
+  assert.deepEqual(seedErrors('investigation'), []);
+  // A non-string can never name a stage; it is reported as a type error.
+  for (const value of [3, null, ['investigation']]) {
+    assert.deepEqual(seedErrors(value), [
+      'config type "documentation": seed_stage must be a string',
+    ]);
+  }
+});

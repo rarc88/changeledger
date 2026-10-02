@@ -39,9 +39,10 @@ an error, so words such as `skip` or `skip-*` can never silently become specs.
 
 For a new spec, follow this ordered recipe — `--new` alone does not finish it:
 
-1. `changeledger graduate <id> <spec-slug> --new` creates a seed from the
-   change's Specification or Proposal but leaves graduation pending; it does not
-   set `reviewed: true`.
+1. `changeledger graduate <id> <spec-slug> --new` creates a seed from the stage
+   the change's type declares as `seed_stage`, else from its Specification or,
+   lacking one, its Proposal, but leaves graduation pending; it does not set
+   `reviewed: true`.
 2. Rewrite the seed as concise durable current truth and remove the explicit
    scaffold marker.
 3. `changeledger graduate <id> <spec-slug> --into` finalizes it; `--into`

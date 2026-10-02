@@ -1766,8 +1766,23 @@ test('113320 CR7: init declares the documentation type and check stays clean', (
     stages: ['request', 'investigation', 'specification', 'log'],
     review_required: true,
     tdd: false,
+    seed_stage: 'investigation',
   });
   assert.equal(config.release.impacts.documentation, 'none');
+  const checked = runIn(root, env, 'check');
+  assert.equal(checked.code, 0, checked.err);
+});
+
+// 20261002-113435 CR4 — the template seeds a `documentation` spec from the
+// Investigation, and the generated config stays valid.
+test('113435 CR4: init sets the documentation seed_stage to investigation and check is clean', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
+  assert.equal(runIn(root, env, 'init').code, 0);
+  const config = parseYaml(fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8'));
+  assert.equal(config.types.documentation.seed_stage, 'investigation');
   const checked = runIn(root, env, 'check');
   assert.equal(checked.code, 0, checked.err);
 });
