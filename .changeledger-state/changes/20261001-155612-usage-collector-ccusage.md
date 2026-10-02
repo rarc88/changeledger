@@ -2,7 +2,7 @@
 id: "20261001-155612"
 title: Registrar el consumo de tokens y su coste en cada transición con ccusage
 type: feature
-status: in-review
+status: in-progress
 created: 2026-10-01T15:56:12Z
 depends_on: []
 branch: feature/20261001-155612
@@ -305,3 +305,4 @@ sin filtrar por proyecto (mezcla otros repos activos); guardar en el documento
 - **2026-10-02T13:36:23Z** `[note]` Corrección del retry (subagente corrector): un proceso Node supervisor lanza cada llamada en su propio grupo de procesos y, al vencer el límite, mata el grupo (taskkill /T /F en Windows); sólo el comando por defecto usa cmd.exe en Windows, como una cadena de tokens fijos validados, y la variable CHANGELEDGER_USAGE_COMMAND nunca pasa por una shell; collectUsage devuelve un resultado de fallo en vez de lanzar; corregido el comentario de src/commands/check.mjs. Decisiones: 5 s de gracia para el supervisor; tras una salida normal el grupo no se mata. Residuos: la ruta de Windows no está probada; un descendiente que cambie de grupo o de sesión escaparía; cada llamada añade un proceso Node; el viewer sigue tomando la foto de forma síncrona. Gate: pnpm verify en verde con 1576/1576 tests.
 - **2026-10-02T13:36:24Z** `[status]` in-progress → in-review
 - **2026-10-02T13:36:24Z** `[note]` Mandato de la confirmación: sólo el diff sin commitear frente a HEAD (ee978f2) y los defectos del review fail anterior (proceso ccusage huérfano tras el límite, ruta de shell en Windows con la variable de entorno y DEP0190, la afirmación de collectUsage y el comentario de check), más cualquier regresión que introduzcan.
+- **2026-10-02T13:40:30Z** `[review]` in-review → in-progress (retry): Regresión de la corrección: detached: true crea una sesión propia, así que un Ctrl-C o el cierre de la terminal durante una llamada sólo matan al supervisor y dejan huérfanos npx y ccusage adoptados por systemd --user (probado con kill -INT al grupo; en HEAD no sobrevivía nada); el supervisor debe capturar SIGINT, SIGTERM y SIGHUP, matar el grupo y salir. Además collectUsage(null) lanza, contra su comentario que promete devolver un resultado ante cualquier entrada inválida.
