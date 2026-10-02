@@ -2,7 +2,7 @@
 id: "20261002-140038"
 title: Analizar el consumo de los changes con changeledger analyze
 type: feature
-status: draft
+status: approved
 created: 2026-10-02T14:00:38Z
 depends_on: ["20261002-133728", "20261001-155216"]
 related_to: ["20261001-155612", "20260711-155721"]
@@ -187,3 +187,4 @@ en el viewer sin módulo común, que duplicaría la lógica.
   - **Support:**
 
 ## Log
+- **2026-10-02T15:24:42Z** `[status]` draft → approved (human via conversation)
