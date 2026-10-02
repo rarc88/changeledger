@@ -4,6 +4,7 @@ import { effectiveTdd } from '../check.mjs';
 import {
   changeIntegrationBranch,
   findChangeledgerDir,
+  integrationBranch,
   loadEffectiveConfig,
   renderChangeBranch,
 } from '../config.mjs';
@@ -102,6 +103,9 @@ function effectiveLanguage(config) {
 // overrides the global value) and its integration branch (`integrates_into:
 // release` publishes `git.release_branch`, and an undeclared one fails rather
 // than publishing the repo's); without it the global values are published.
+// A change integrating into a branch other than a declared
+// `git.integration_branch` also publishes that branch as `back_merge_branch`,
+// where its integrated result must be brought too (20261002-181428).
 // Called with `includeTdd: false` for a change-id capture whose type never
 // activates `specification`: `readiness.md` (the only fragment that defines
 // the obligation) is not composed for it, so publishing `tdd=on` would hand it
@@ -112,7 +116,10 @@ export function transversalPolicy(config, { includeTdd = true, type = undefined 
   const tdd = includeTdd ? ` — tdd=${effectiveTdd(config, type) ? 'on' : 'off'}` : '';
   const base = `Effective policy: language=${effectiveLanguage(config)}${tdd}`;
   const branch = changeIntegrationBranch(config, type);
-  return branch ? `${base} — integration_branch=${branch}` : base;
+  if (!branch) return base;
+  const repoBranch = integrationBranch(config);
+  const backMerge = repoBranch && repoBranch !== branch ? ` — back_merge_branch=${repoBranch}` : '';
+  return `${base} — integration_branch=${branch}${backMerge}`;
 }
 
 // A change's `type` selects which stages the capture composes and which

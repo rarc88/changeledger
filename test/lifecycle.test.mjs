@@ -659,3 +659,65 @@ test('181346 CR10: a release-type change starts from git.release_branch end to e
     .find((line) => line.startsWith('Effective policy:'));
   assert.match(policy, / — integration_branch=main /, policy);
 });
+
+// 20261002-181428 CR6 — first use of the shipped `hotfix` type, through the
+// spawned CLI on a freshly initialised repo whose template is left as generated
+// except for the two branches: the change starts from `main` and its context
+// names `dev` as the branch to bring the integrated result back to.
+test('181428 CR6: a hotfix change publishes its release branch and back_merge_branch end to end', () => {
+  const bin = fileURLToPath(new URL('../bin/changeledger.mjs', import.meta.url));
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-hotfix-e2e-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  initGitFixture(root, { args: ['-b', 'main'] });
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
+  const git = (...args) => execFileSync('git', args, { cwd: root, env: sanitizedEnv() });
+  const ok = (...args) => {
+    try {
+      return execFileSync('node', [bin, ...args], { cwd: root, env, encoding: 'utf8' });
+    } catch (e) {
+      assert.fail(`${args.join(' ')} exited ${e.status}: ${e.stdout ?? ''}${e.stderr ?? ''}`);
+    }
+  };
+
+  ok('init');
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  const config = parseYaml(fs.readFileSync(configFile, 'utf8'));
+  config.git = { ...config.git, integration_branch: 'dev', release_branch: 'main' };
+  fs.writeFileSync(configFile, stringifyYaml(config));
+  ok('check');
+  git('config', 'commit.gpgsign', 'false');
+  git('add', '.');
+  git('commit', '-q', '-m', 'chore: baseline');
+  git('branch', 'dev');
+
+  ok('new', 'hotfix', 'prod-outage', 'Prod outage', '--owner', 'Test User');
+  const dir = path.join(root, '.changeledger', 'changes');
+  const [name] = fs.readdirSync(dir);
+  const file = path.join(dir, name);
+  const id = name.slice(0, 15);
+  fs.writeFileSync(
+    file,
+    fs
+      .readFileSync(file, 'utf8')
+      .replace('## Request\n', '## Request\n\nProduction login fails.\n')
+      .replace('## Investigation\n', '## Investigation\n\n`src/auth.mjs` `login` throws.\n')
+      .replace(
+        '## Specification\n',
+        '## Specification\n\n### CR1 — Login\n- **Given** valid credentials\n- **When** `login` runs\n- **Then** it returns a session\n',
+      )
+      .replace(
+        '## Plan\n',
+        '## Plan\n\n- [ ] Fix login\n  - **Target:** `src/auth.mjs`\n  - **Verify:** `node --test test/auth.test.mjs`\n  - **Criteria:** CR1\n',
+      ),
+  );
+
+  ok('approve', id);
+  git('checkout', '-q', '-b', `hotfix/${id}`, 'main');
+  ok('status', id, 'in-progress');
+  assert.match(fs.readFileSync(file, 'utf8'), /^status: in-progress$/m);
+  const policy = ok('context', id)
+    .split('\n')
+    .find((line) => line.startsWith('Effective policy:'));
+  assert.match(policy, / — integration_branch=main — back_merge_branch=dev /, policy);
+});

@@ -952,6 +952,61 @@ test('181346 CR6: a release type without git.release_branch never publishes the 
   assert.match(policyLineOf(buildContext('implement', root)), / — integration_branch=dev$/);
 });
 
+// --- 20261002-181428: the policy line names the branch to bring the result back to ---
+
+// `hotfix` integrates into `git.release_branch`; `bug` declares no role. The
+// types are declared here, so the capture is judged on the resolver, not on the
+// template's content. `integrationBranch: null` leaves `git.integration_branch`
+// undeclared.
+function hotfixRepo({ integrationBranch = 'dev' } = {}) {
+  const root = repo();
+  const file = path.join(root, '.changeledger', 'config.yml');
+  const config = parseYaml(fs.readFileSync(file, 'utf8'));
+  config.git = { ...config.git, integration_branch: integrationBranch, release_branch: 'main' };
+  config.types.hotfix = { ...config.types.bug, integrates_into: 'release' };
+  fs.writeFileSync(file, stringifyYaml(config));
+  const hotfix = writeRawChange(root, {
+    id: '20261002-181501',
+    status: 'approved',
+    type: 'hotfix',
+  });
+  const bug = writeRawChange(root, { id: '20261002-181502', status: 'approved', type: 'bug' });
+  return { root, hotfix, bug };
+}
+
+test('181428 CR2: a change integrating outside git.integration_branch publishes back_merge_branch', () => {
+  const { root, hotfix, bug } = hotfixRepo();
+  for (const policy of [
+    policyLineOf(buildContext(hotfix, root)),
+    policyLineOf(buildAgentContext('implementation', hotfix, root)),
+  ]) {
+    assert.match(policy, / — integration_branch=main — back_merge_branch=dev( |$)/, policy);
+  }
+  for (const policy of [
+    policyLineOf(buildContext(bug, root)),
+    policyLineOf(buildAgentContext('implementation', bug, root)),
+  ]) {
+    assert.match(policy, / — integration_branch=dev( |$)/, policy);
+    assert.doesNotMatch(policy, /back_merge_branch=/, policy);
+  }
+});
+
+test('181428 CR2: mode contexts and an undeclared git.integration_branch publish no back_merge_branch', () => {
+  const { root } = hotfixRepo();
+  for (const mode of [undefined, 'implement', 'spec']) {
+    assert.doesNotMatch(policyLineOf(buildContext(mode, root)), /back_merge_branch=/);
+  }
+  assert.doesNotMatch(
+    policyLineOf(buildAgentContext('investigation', undefined, root)),
+    /back_merge_branch=/,
+  );
+  // With no declared integration branch there is no branch to name.
+  const undeclared = hotfixRepo({ integrationBranch: null });
+  const policy = policyLineOf(buildContext(undeclared.hotfix, undeclared.root));
+  assert.match(policy, / — integration_branch=main /, policy);
+  assert.doesNotMatch(policy, /back_merge_branch=/, policy);
+});
+
 test('225213 CR2: change-id context shows type-specific effective policy', () => {
   const root = repo();
   setConfig(root, [[/^language: en$/m, 'language: es']]);
@@ -3091,7 +3146,7 @@ test('162015 CR3/CR4: delegation.md points at the unit instead of redefining it'
 //
 // The phrase-level pins over `templates/contract/` prose are retired: every one of
 // them charged a retarget, a mutant and review scrutiny to each rewrite of a
-// sentence, and that cost is what the decision removes. Twenty carrier obligations
+// sentence, and that cost is what the decision removes. Twenty-two carrier obligations
 // keep a guard anyway, because losing one in silence is a different failure class
 // from rewording one (finding 38: normative prose lost with nothing noticing, three
 // times, exploit proven live).
@@ -3695,6 +3750,60 @@ const CONCEPT_GUARDS = [
           `(${branch('integration')}|\`integration_branch\`|\\b(that|this|same)\\s+branch\\b)`,
         ]),
         'implement no longer makes the change integration branch the base its commits are checked against',
+      );
+    },
+  },
+  {
+    entry: 21,
+    obligation:
+      'a defect makes the agent ask the human between a normal fix and a type that integrates into the release branch, never inferring it, before any draft',
+    // 20261002-181428 CR3. Bound to the role (`integrates_into: release`), not to
+    // a type name. A sentence ends at a period followed by whitespace, so a dotted
+    // name such as `config.yml` does not cut the window.
+    verify: (pack) => {
+      const spec = pack('spec');
+      const sentence = (terms) =>
+        new RegExp(terms.map((term) => `(?=(?:[^.]|\\.(?=\\S)){0,300}${term})`).join(''), 'i');
+      assert.match(
+        spec,
+        sentence([
+          '\\bdefects?\\b',
+          '(`integrates_into: release`|\\bintegrat\\w*\\b[^.;]{0,15}\\binto\\b[^.;]{0,20}\\brelease\\b)',
+          '\\bask\\w*\\b[^.;]{0,30}\\bhuman\\b',
+          '\\bexplicit\\w*',
+          '(\\bnormal\\b[^.;]{0,15}\\bfix\\b|`bug`)',
+        ]),
+        'spec no longer has a defect make the agent explicitly ask the human between a normal fix and the release type',
+      );
+      assert.match(
+        spec,
+        /\b(never|not|no)\b[^.;]{0,20}\binfer\w*\b[^.;]{0,30}\b(answer|type|choice|classification)\b/i,
+        'spec no longer forbids inferring the answer between a normal fix and the release type',
+      );
+      assert.match(
+        spec,
+        /\b(no|not|never)\b[^.;]{0,30}\bdrafts?\b[^.;]{0,40}\b(until|before)\b[^.;]{0,40}\b(answer\w*|repl\w*|decid\w*|respon\w*)\b|\bdrafts?\b[^.;]{0,40}\bonly\s+after\b[^.;]{0,40}\b(answer\w*|repl\w*|decid\w*|respon\w*)\b/i,
+        'spec no longer withholds the draft until the human answers',
+      );
+    },
+  },
+  {
+    entry: 22,
+    obligation:
+      'when the change context publishes back_merge_branch, the integrated result is also brought to it and recorded in the Log',
+    // 20261002-181428 CR4. Same sentence bound as entry 20.
+    verify: (pack) => {
+      const sentence = (terms) =>
+        new RegExp(terms.map((term) => `(?=(?:[^.]|\\.(?=\\S)){0,300}${term})`).join(''), 'i');
+      assert.match(
+        pack('implement'),
+        sentence([
+          '`back_merge_branch`',
+          '\\b(change\\s+context\\b[^.;]{0,30}\\bpublish\\w*|publish\\w*\\b[^.;]{0,40}\\bchange\\s+context)\\b',
+          '(\\b(bring|merge|integrate|carry|port)\\b[^.;]{0,50}\\bresult\\b|\\bresult\\b[^.;]{0,50}\\b(brought|merged|integrated|carried|ported)\\b)',
+          '\\b(record|log|note)\\w*\\b[^.;]{0,40}(\\bLog\\b|`changeledger log\\b)',
+        ]),
+        'implement no longer brings the integrated result to the back_merge_branch the change context publishes and records it in the Log',
       );
     },
   },

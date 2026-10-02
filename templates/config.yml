@@ -26,6 +26,7 @@ release:
   impacts:
     feature: minor
     bug: patch
+    hotfix: patch
     audit: none
     refactor: none
     chore: none
@@ -68,6 +69,12 @@ types:
   bug:
     stages: [request, investigation, specification, plan, log]
     review_required: true
+  # A fix to released code: it starts from and integrates into
+  # `git.release_branch`, which must be declared before it goes `in-progress`.
+  hotfix:
+    stages: [request, investigation, specification, plan, log]
+    review_required: true
+    integrates_into: release
   audit:
     stages: [request, investigation, log]
   refactor:

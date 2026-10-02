@@ -26,7 +26,7 @@ headings. Required and optional frontmatter:
 ---
 id: "20260613-134548"
 title: Short, clear title
-type: feature                  # feature | bug | audit | refactor | chore | quick | documentation
+type: feature                  # feature | bug | hotfix | audit | refactor | chore | quick | documentation
 status: draft                  # lifecycle value
 created: 2026-06-13T13:45:48Z # full ISO 8601 UTC
 depends_on: []                 # change ids or external project:id refs
@@ -69,6 +69,11 @@ textual matches; every claim cites path and symbol; the human decides every
 divergence from an existing spec before `in-review`, else the change goes
 `blocked`; corrections to existing specs are drafted inside the change, where
 the reviewer sees them.
+
+When you classify a problem as a defect and `config.yml` declares a type with
+`integrates_into: release`, explicitly ask the human whether it is a normal fix
+(`bug`, into the integration branch) or of that type (into the release branch).
+Never infer the answer, and create no draft until the human answers.
 
 Before writing Investigation, run `changeledger search <terms from the request>`;
 during Investigation, classify every relevant change discovered, regardless of
