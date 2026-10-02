@@ -19,7 +19,8 @@ graduation-review {{change_id}}` and read it through its END sentinel.
 
 Change whose reconciliation is reviewed: {{change_id}}.
 
-Affected specs: {{specs}} (each spec slug the closure creates or corrects).
+Affected specs: {{specs}} (each spec slug the closure creates, corrects or
+extends).
 
 Where the spec diff comes from: {{spec_diff_source}} (in an activated repo, the
 state journal — e.g. `git log -p changeledger/state --
