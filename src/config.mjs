@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { repoIsActivated } from './change-store.mjs';
-import { isValidBranchName } from './git.mjs';
+import { gitConfigGet, isValidBranchName } from './git.mjs';
 import { readStateConfigText } from './state-store.mjs';
 import { parseYaml } from './yaml.mjs';
 
@@ -104,6 +104,32 @@ export function integrationBranch(config) {
 
 function isMapping(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+// Optional usage capture (20261001-155612), activated per clone in git config
+// rather than in `config.yml`: it measures the local machine, and an activated
+// repo's `config.yml` is not editable from the worktree. Unset means off; any
+// value other than `ccusage` (empty included) is an error rather than a
+// silent no-op. Without a git binary there is no git config, so it reads as
+// unset.
+export const USAGE_COLLECTOR_GIT_KEY = 'changeledger.usage.collector';
+export const USAGE_COLLECTORS = ['ccusage'];
+
+export function usageCollector(repoRoot, run) {
+  let value;
+  try {
+    value = gitConfigGet(repoRoot, USAGE_COLLECTOR_GIT_KEY, run);
+  } catch (e) {
+    if (e?.code === 'ENOENT') return undefined;
+    throw new Error(`could not read git config "${USAGE_COLLECTOR_GIT_KEY}": ${e.message}`);
+  }
+  if (value === undefined) return undefined;
+  if (!USAGE_COLLECTORS.includes(value)) {
+    throw new Error(
+      `git config "${USAGE_COLLECTOR_GIT_KEY}" must be ${USAGE_COLLECTORS.map((c) => `"${c}"`).join(' or ')}`,
+    );
+  }
+  return value;
 }
 
 // Opt-in convention for implementation branches. Only immutable change fields

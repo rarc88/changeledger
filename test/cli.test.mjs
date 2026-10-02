@@ -16,11 +16,13 @@ import { idFromTimestamp, newChange, newChangeFrom, scaffoldChange } from '../sr
 import { registerRepo } from '../src/commands/register.mjs';
 import { findChangeledgerDir, loadConfig } from '../src/config.mjs';
 import { checkContract } from '../src/contract.mjs';
+import { VERSION } from '../src/framing.mjs';
 import { contractTemplatesDir, templatesDir } from '../src/paths.mjs';
 import { readSnapshot, STATE_REF, writeActivation } from '../src/state-store.mjs';
 import { contractFragmentNames } from './contract-support.mjs';
 import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
+import { logEvents, PREVIOUS_VERSION, withCreationStamp } from './helpers/version-stamp.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -956,7 +958,11 @@ test('CR4: creation on an activated repo lands the composed document in the stat
   }).trim();
   assert.notEqual(tip, revision, 'the state ref advanced a commit');
   const snapshot = readSnapshot(root, { revision: tip });
-  assert.equal(snapshot.documents[relPath], document);
+  assert.equal(
+    snapshot.documents[relPath],
+    withCreationStamp(document, '2026-08-08T15:00:00Z'),
+    'the composed text plus the creation stamp, nothing else',
+  );
   assert.match(snapshot.documents[relPath], /## Plan/);
   // The working tree never sees the new document.
   assert.equal(fs.existsSync(path.join(root, '.changeledger', relPath)), false);
@@ -965,6 +971,128 @@ test('CR4: creation on an activated repo lands the composed document in the stat
     worktreeBefore,
     'the worktree changes/ directory is untouched',
   );
+});
+
+// 20261001-155216 CR1 — creation writes no event of its own, so it stamps the
+// version explicitly, at the document's `created` instant.
+const logBody = (text) => parseChange(text).stages.find((stage) => stage.key === 'log')?.body;
+
+test('20261001-155216 CR1: new records the running version as the only Log entry, at created', () => {
+  const root = tmp();
+  init(root);
+  const file = newChange(
+    { type: 'feature', slug: 'demo', title: 'Demo', now: '2026-10-01T10:00:00Z' },
+    root,
+    { ownerHandle: () => '' },
+  );
+  const text = fs.readFileSync(file, 'utf8');
+  const { created } = parseChange(text).frontmatter;
+  assert.deepEqual(logEvents(text), [{ at: created, type: 'version', version: VERSION }]);
+  assert.equal(logBody(text).trim(), `- **${created}** \`[version]\` ${VERSION}`);
+});
+
+test('20261001-155216 CR1: a bumped id keeps the stamp on the created instant that was written', () => {
+  const root = tmp();
+  init(root);
+  const now = '2026-10-01T10:00:00Z';
+  const options = { ownerHandle: () => '' };
+  newChange({ type: 'chore', slug: 'one', title: 'one', now }, root, options);
+  const second = fs.readFileSync(
+    newChange({ type: 'chore', slug: 'two', title: 'two', now }, root, options),
+    'utf8',
+  );
+  const { created } = parseChange(second).frontmatter;
+  assert.notEqual(created, now, 'the second change was bumped to a later second');
+  assert.deepEqual(logEvents(second), [{ at: created, type: 'version', version: VERSION }]);
+});
+
+test('20261001-155216 CR1: new --from on an activated repo lands the document stamped at created', () => {
+  const root = tmp();
+  init(root);
+  activate(root);
+  const scaffold = scaffoldChange(
+    { type: 'feature', slug: 'demo', title: 'Demo', now: '2026-10-01T10:00:00Z' },
+    root,
+    { ownerHandle: () => '' },
+  );
+  const document = scaffold.text.replace('## Request\n', '## Request\n\nCuerpo completo.\n');
+  assert.deepEqual(logEvents(document), [], 'the composed document carries no stamp yet');
+
+  const relPath = newChangeFrom(
+    { type: 'feature', slug: 'demo', title: 'Demo', from: sourceFile(root, document) },
+    root,
+  );
+
+  const landed = readSnapshot(root).documents[relPath];
+  const { created } = parseChange(landed).frontmatter;
+  assert.deepEqual(logEvents(landed), [{ at: created, type: 'version', version: VERSION }]);
+  assert.equal(logBody(landed).trim(), `- **${created}** \`[version]\` ${VERSION}`);
+  assert.equal(
+    landed.replace(/\n- \*\*[^\n]*`\[version\]`[^\n]*\n?/, '\n'),
+    document,
+    'nothing but the stamp was added to the composed text',
+  );
+});
+
+test('20261001-155216 CR1: new --from keeps a stamp the document already carries for this version', () => {
+  const root = tmp();
+  init(root);
+  activate(root);
+  const scaffold = scaffoldChange(
+    { type: 'feature', slug: 'demo', title: 'Demo', now: '2026-10-01T10:00:00Z' },
+    root,
+    { ownerHandle: () => '' },
+  );
+  const stamped = (version) =>
+    scaffold.text.replace(
+      '## Log\n',
+      `## Log\n\n- **2026-10-01T10:00:00Z** \`[version]\` ${version}\n`,
+    );
+
+  const same = newChangeFrom(
+    { type: 'feature', slug: 'demo', title: 'Demo', from: sourceFile(root, stamped(VERSION)) },
+    root,
+  );
+  assert.equal(logEvents(readSnapshot(root).documents[same]).length, 1);
+
+  const next = scaffoldChange(
+    { type: 'feature', slug: 'other', title: 'Other', now: '2026-10-01T11:00:00Z' },
+    root,
+    { ownerHandle: () => '' },
+  );
+  const older = next.text.replace(
+    '## Log\n',
+    `## Log\n\n- **2026-10-01T11:00:00Z** \`[version]\` ${PREVIOUS_VERSION}\n`,
+  );
+  const other = newChangeFrom(
+    { type: 'feature', slug: 'other', title: 'Other', from: sourceFile(root, older) },
+    root,
+  );
+  assert.deepEqual(
+    logEvents(readSnapshot(root).documents[other]).map(({ type, previous, version }) => ({
+      type,
+      previous,
+      version,
+    })),
+    [
+      { type: 'version', previous: undefined, version: PREVIOUS_VERSION },
+      { type: 'version', previous: PREVIOUS_VERSION, version: VERSION },
+    ],
+  );
+});
+
+test('20261001-155216 CR1: a chore, which scaffolds no Log stage, gets one that check accepts', () => {
+  const root = tmp();
+  init(root);
+  const file = newChange(
+    { type: 'chore', slug: 'tidy', title: 'Tidy', now: '2026-10-01T10:00:00Z' },
+    root,
+    { ownerHandle: () => '' },
+  );
+  const text = fs.readFileSync(file, 'utf8');
+  const { created } = parseChange(text).frontmatter;
+  assert.deepEqual(logEvents(text), [{ at: created, type: 'version', version: VERSION }]);
+  assert.equal(check([], root, silentOutput()), 0);
 });
 
 // Writes the `--from` source outside the ledger layout, so it is never mistaken

@@ -32,6 +32,7 @@ test('20260824-134716 CR1/CR2: closed lifecycle domains have one executable auth
     'graduation',
     'archive',
     'note',
+    'version',
   ]);
   assert.deepEqual(Object.keys(LOG_EVENT_PAYLOAD_FORMS), LOG_EVENT_TYPES);
   assert.deepEqual(REVIEW_VERDICTS, ['pass', 'fail']);
@@ -64,6 +65,69 @@ test('20260824-134716 CR1 correction: transition payloads contain exactly one tr
       `${type} accepted two transitions`,
     );
   }
+});
+
+test('20261001-155216 CR8: version events accept the SemVer grammar min_cli_version uses', () => {
+  const accepted = [
+    ['0.18.0', { version: '0.18.0' }],
+    ['0.18.0-dev', { version: '0.18.0-dev' }],
+    ['1.0.0-rc.1+build.5', { version: '1.0.0-rc.1+build.5' }],
+    ['0.17.0 → 0.18.0', { previous: '0.17.0', version: '0.18.0' }],
+    ['0.17.0 → 0.18.0-dev+abc.1', { previous: '0.17.0', version: '0.18.0-dev+abc.1' }],
+    ['0.18.1 → 0.18.0', { previous: '0.18.1', version: '0.18.0' }],
+  ];
+  for (const [payload, expected] of accepted) {
+    assert.deepEqual(
+      parseLogEvent(logLine('version', payload)),
+      { at: '2026-08-24T16:00:00Z', type: 'version', ...expected },
+      payload,
+    );
+  }
+  for (const payload of [
+    '',
+    'latest',
+    '0.17',
+    '0.17 → 0.18.0',
+    '0.17.0 → latest',
+    '01.0.0',
+    '0.17.0 → 0.18.0 → 0.19.0',
+    '0.17.0 → ',
+    '0.17.0 -> 0.18.0',
+    '0.18.0 (auto)',
+  ]) {
+    assert.equal(parseLogEvent(logLine('version', payload)), null, `accepted: ${payload}`);
+  }
+});
+
+test('20261001-155216 CR8: version is not a transition event and serializes both forms', () => {
+  assert.equal(LOG_EVENT_DEFINITIONS.version.transition, false);
+  assert.equal(
+    serializeLogEvent({ at: '2026-08-24T16:00:00Z', type: 'version', version: '0.18.0' }),
+    '- **2026-08-24T16:00:00Z** `[version]` 0.18.0',
+  );
+  assert.equal(
+    serializeLogEvent({
+      at: '2026-08-24T16:00:00Z',
+      type: 'version',
+      previous: '0.17.0',
+      version: '0.18.0-dev',
+    }),
+    '- **2026-08-24T16:00:00Z** `[version]` 0.17.0 → 0.18.0-dev',
+  );
+  assert.throws(
+    () => serializeLogEvent({ at: '2026-08-24T16:00:00Z', type: 'version', version: 'latest' }),
+    /invalid version Log event/,
+  );
+  assert.throws(
+    () =>
+      serializeLogEvent({
+        at: '2026-08-24T16:00:00Z',
+        type: 'version',
+        previous: '0.17',
+        version: '0.18.0',
+      }),
+    /invalid version Log event/,
+  );
 });
 
 test('CR1: the happy path is allowed at every step', () => {

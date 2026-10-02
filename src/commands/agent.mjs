@@ -21,6 +21,7 @@ import { assertTransition, parseLogEvent } from '../lifecycle.mjs';
 import { nowUtc } from '../paths.mjs';
 import { resolveReleasesDir } from '../release.mjs';
 import { loadRepo, resolveChange, resolveChangeInRepo } from '../repo.mjs';
+import { snapshotUsage } from '../usage-collector.mjs';
 import {
   appendLogEvent,
   setArchived,
@@ -115,10 +116,11 @@ export function assertStatusDestinationAllowed(config, newStatus, actor) {
 // The whole text transform of `status`, lifted out of its `mutateLedgerFile`
 // call so `apply` can run it against an accumulated candidate instead of a
 // stored document. `warnings` is the caller's array — the branch-drift warning
-// is collected, never thrown.
+// is collected, never thrown. `events`, when given, receives the transition
+// this transform wrote, for the usage snapshot taken after the write lands.
 export function statusMutation(
   newStatus,
-  { config, repoRoot, gitCwd, name, warnings, actor = 'human', channel = 'viewer' },
+  { config, repoRoot, gitCwd, name, warnings, events, actor = 'human', channel = 'viewer' },
   {
     ownerHandle = defaultOwnerHandle,
     checkoutBranch = defaultCheckoutBranch,
@@ -185,8 +187,9 @@ export function statusMutation(
       newStatus === 'approved'
         ? 'human via conversation'
         : undefined;
+    const at = nowUtc();
     text = appendLogEvent(text, {
-      at: nowUtc(),
+      at,
       type: 'status',
       from: fm.status,
       to: newStatus,
@@ -225,8 +228,14 @@ export function statusMutation(
         });
       }
     }
+    events?.push(transitionEvent(fm, 'status', fm.status, newStatus, at));
     return text;
   };
+}
+
+// The usage snapshot's view of one written Log transition (20261001-155612).
+function transitionEvent(fm, event, from, to, at) {
+  return { change: String(fm.id), event, from, to, at };
 }
 
 export function status(
@@ -239,28 +248,31 @@ export function status(
     gitRun = defaultGitRun,
     actor = 'human',
     channel = 'viewer',
+    usage,
   } = {},
 ) {
   const { config, repo, target, repoRoot, gitCwd, name } = locate(cwd, id);
   const warnings = [];
+  const events = [];
   assertStatusDestinationAllowed(config, newStatus, actor);
   mutateLedgerFile(
     repo,
     target,
     statusMutation(
       newStatus,
-      { config, repoRoot, gitCwd, name, warnings, actor, channel },
+      { config, repoRoot, gitCwd, name, warnings, events, actor, channel },
       { ownerHandle, checkoutBranch, gitRun },
     ),
     { message: `status: ${id} → ${newStatus}` },
   );
+  snapshotUsage({ repoRoot, events, usage });
   return { file: target.file, warnings };
 }
 
 // Transmits an explicit human approval received through the host conversation.
 // The lifecycle guard remains owned by status(); this only selects attribution.
-export function approve(id, cwd = process.cwd()) {
-  return status(id, 'approved', cwd, { actor: 'human', channel: 'conversation' });
+export function approve(id, cwd = process.cwd(), { usage } = {}) {
+  return status(id, 'approved', cwd, { actor: 'human', channel: 'conversation', usage });
 }
 
 // Records the verdict of the independent review (run by a delegated subagent
@@ -268,8 +280,9 @@ export function approve(id, cwd = process.cwd()) {
 // `fail` routes it back: `retry` for a defect inside the contract (the
 // implementer fixes), `block` for one that escalates to a human. Requires the
 // change to be in-review.
-export function review(id, verdict, { mode, reason } = {}, cwd = process.cwd()) {
-  const { config, repo, target } = locate(cwd, id);
+export function review(id, verdict, { mode, reason } = {}, cwd = process.cwd(), { usage } = {}) {
+  const { config, repo, target, repoRoot } = locate(cwd, id);
+  const events = [];
   mutateLedgerFile(
     repo,
     target,
@@ -288,11 +301,14 @@ export function review(id, verdict, { mode, reason } = {}, cwd = process.cwd()) 
         reviewRequired: Boolean(config.types?.[fm.type]?.review_required),
       };
 
+      const at = nowUtc();
+      let to;
       if (verdict === 'pass') {
         assertTransition(current, 'in-validation', opts);
+        to = 'in-validation';
         text = setStatus(text, 'in-validation');
         text = appendLogEvent(text, {
-          at: nowUtc(),
+          at,
           type: 'review',
           from: 'in-review',
           to: 'in-validation',
@@ -306,9 +322,10 @@ export function review(id, verdict, { mode, reason } = {}, cwd = process.cwd()) 
         }
         if (mode === 'retry') {
           assertTransition(current, 'in-progress', opts);
+          to = 'in-progress';
           text = setStatus(text, 'in-progress');
           text = appendLogEvent(text, {
-            at: nowUtc(),
+            at,
             type: 'review',
             from: 'in-review',
             to: 'in-progress',
@@ -317,9 +334,10 @@ export function review(id, verdict, { mode, reason } = {}, cwd = process.cwd()) 
           });
         } else if (mode === 'block') {
           assertTransition(current, 'blocked', opts);
+          to = 'blocked';
           text = setStatus(text, 'blocked');
           text = appendLogEvent(text, {
-            at: nowUtc(),
+            at,
             type: 'review',
             from: 'in-review',
             to: 'blocked',
@@ -332,10 +350,12 @@ export function review(id, verdict, { mode, reason } = {}, cwd = process.cwd()) 
         throw new Error(`Unknown review verdict "${verdict}" (use pass|fail)`);
       }
 
+      events.push(transitionEvent(fm, 'review', 'in-review', to, at));
       return text;
     },
     { message: `review: ${id} ${verdict}` },
   );
+  snapshotUsage({ repoRoot, events, usage });
   return target.file;
 }
 
@@ -346,8 +366,10 @@ export function validation(
   verdict,
   { reason, actor = 'human', channel = 'viewer' } = {},
   cwd = process.cwd(),
+  { usage } = {},
 ) {
-  const { config, repo, target, name } = locate(cwd, id);
+  const { config, repo, target, name, repoRoot } = locate(cwd, id);
+  const events = [];
   mutateLedgerFile(
     repo,
     target,
@@ -379,8 +401,9 @@ export function validation(
           : channel === 'conversation' && actor === 'human'
             ? 'human rejected via conversation'
             : `${actor} rejected`;
+      const at = nowUtc();
       text = appendLogEvent(text, {
-        at: nowUtc(),
+        at,
         type: 'validation',
         from: 'in-validation',
         to,
@@ -388,16 +411,18 @@ export function validation(
         reason: verdict === 'fail' ? reason : undefined,
       });
       if (verdict === 'pass') assertChangeTextValid(config, name, text);
+      events.push(transitionEvent(fm, 'validation', 'in-validation', to, at));
       return text;
     },
     { message: `validation: ${id} ${verdict}` },
   );
+  snapshotUsage({ repoRoot, events, usage });
   return target.file;
 }
 
 // Correction path while `done` is still provisional. Graduation,
 // skip, archive and release membership are durable boundaries and fail closed.
-function reopenMutation({ config, actor, reason, released }) {
+function reopenMutation({ config, actor, reason, released, events }) {
   return (text) => {
     const change = { ...parseChange(text), text };
     const fm = change.frontmatter;
@@ -413,20 +438,24 @@ function reopenMutation({ config, actor, reason, released }) {
       reviewRequired: Boolean(config.types?.[fm.type]?.review_required),
     });
     text = setStatus(text, 'in-progress');
-    return appendLogEvent(text, {
-      at: nowUtc(),
+    const at = nowUtc();
+    text = appendLogEvent(text, {
+      at,
       type: 'status',
       from: 'done',
       to: 'in-progress',
       detail: `${actor} reopened`,
       reason,
     });
+    events.push(transitionEvent(fm, 'status', 'done', 'in-progress', at));
+    return text;
   };
 }
 
-export function reopen(id, reason, cwd = process.cwd(), { actor = 'human' } = {}) {
+export function reopen(id, reason, cwd = process.cwd(), { actor = 'human', usage } = {}) {
   if (!String(reason ?? '').trim()) throw new Error('reopen requires a reason');
   const { config, repo, target, repoRoot } = locate(cwd, id);
+  const events = [];
 
   // Active: the released-check/write pair needs no worktree lock — any
   // concurrent write (a release included) advances the state ref, so the
@@ -437,23 +466,27 @@ export function reopen(id, reason, cwd = process.cwd(), { actor = 'human' } = {}
     const released = loadRepo(cwd).releases.some((release) =>
       (release.changes ?? []).some((changeId) => String(changeId) === String(id)),
     );
-    mutateLedgerFile(repo, target, reopenMutation({ config, actor, reason, released }), {
+    mutateLedgerFile(repo, target, reopenMutation({ config, actor, reason, released, events }), {
       message: `reopen: ${id}`,
     });
+    snapshotUsage({ repoRoot, events, usage });
     return target.file;
   }
 
   const releasesDir = resolveReleasesDir(repoRoot);
   fs.mkdirSync(releasesDir, { recursive: true });
-  return withFileLock(path.join(releasesDir, '.history'), () => {
+  const file = withFileLock(path.join(releasesDir, '.history'), () => {
     const released = loadRepo(cwd).releases.some((release) =>
       (release.changes ?? []).some((changeId) => String(changeId) === String(id)),
     );
-    mutateLedgerFile(repo, target, reopenMutation({ config, actor, reason, released }), {
+    mutateLedgerFile(repo, target, reopenMutation({ config, actor, reason, released, events }), {
       message: `reopen: ${id}`,
     });
     return target.file;
   });
+  // Outside the release lock: the snapshot may take seconds and guards nothing.
+  snapshotUsage({ repoRoot, events, usage });
+  return file;
 }
 
 // Text transform of `owner`, lifted out for the same reason as
@@ -496,11 +529,12 @@ export function branch(id, name, cwd = process.cwd()) {
 // Discards a change: a terminal lifecycle move that keeps the file and its
 // reasoning instead of deleting it. The reason is mandatory and recorded in the
 // Log; the transition graph rejects discarding a done or in-review change.
-export function discard(id, reason, cwd = process.cwd()) {
+export function discard(id, reason, cwd = process.cwd(), { usage } = {}) {
   if (!reason) {
     throw new Error('discard requires a reason — changeledger discard <id> "<reason>"');
   }
-  const { config, repo, target } = locate(cwd, id);
+  const { config, repo, target, repoRoot } = locate(cwd, id);
+  const events = [];
   mutateLedgerFile(
     repo,
     target,
@@ -512,16 +546,20 @@ export function discard(id, reason, cwd = process.cwd()) {
         reviewRequired: Boolean(config.types?.[fm.type]?.review_required),
       });
       text = setStatus(text, 'discarded');
-      return appendLogEvent(text, {
-        at: nowUtc(),
+      const at = nowUtc();
+      text = appendLogEvent(text, {
+        at,
         type: 'status',
         from: fm.status,
         to: 'discarded',
         reason,
       });
+      events.push(transitionEvent(fm, 'status', fm.status, 'discarded', at));
+      return text;
     },
     { message: `discard: ${id}` },
   );
+  snapshotUsage({ repoRoot, events, usage });
   return target.file;
 }
 
