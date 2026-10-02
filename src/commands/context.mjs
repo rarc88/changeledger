@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { effectiveTdd } from '../check.mjs';
 import {
   findChangeledgerDir,
   integrationBranch,
@@ -86,28 +87,27 @@ export function emittedLines(text) {
 
 // Resolved defaults so an agent never reads `.changeledger/config.yml` raw to
 // discover the repo's effective policy. Keep these aligned with the shipped
-// template config and the Definition of Ready contract.
+// template config and the Definition of Ready contract; the tdd default lives
+// with its single resolver, `effectiveTdd` in `check.mjs`.
 const DEFAULT_LANGUAGE = 'en';
-const DEFAULT_TDD = true;
 
 function effectiveLanguage(config) {
   return config?.language ?? DEFAULT_LANGUAGE;
 }
 
-function effectiveTdd(config) {
-  const value = config?.tdd ?? DEFAULT_TDD;
-  return value ? 'on' : 'off';
-}
-
 // The transversal policy line every composition anchors on: effective language
 // and tdd with defaults already resolved. The integration branch appears only
 // when declared — absence means the repo keeps branch auto-detection.
+// `type` resolves the tdd of a selected change's type (`types.<type>.tdd`
+// overrides the global value); without it the global value is published.
 // Called with `includeTdd: false` for a change-id capture whose type never
-// serves `readiness.md` (the only fragment that defines the `tdd` obligation)
-// — publishing the line unconditionally would hand such a type an obligation
-// with no definition anywhere in the same capture (CR5).
-export function transversalPolicy(config, { includeTdd = true } = {}) {
-  const tdd = includeTdd ? ` — tdd=${effectiveTdd(config)}` : '';
+// activates `specification`: `readiness.md` (the only fragment that defines
+// the obligation) is not composed for it, so publishing `tdd=on` would hand it
+// an obligation with no definition in the same capture (CR5). A type with
+// `specification` and tdd off publishes `tdd=off`: the absence of the
+// obligation, which needs no definition.
+export function transversalPolicy(config, { includeTdd = true, type = undefined } = {}) {
+  const tdd = includeTdd ? ` — tdd=${effectiveTdd(config, type) ? 'on' : 'off'}` : '';
   const base = `Effective policy: language=${effectiveLanguage(config)}${tdd}`;
   const branch = integrationBranch(config);
   return branch ? `${base} — integration_branch=${branch}` : base;
@@ -136,11 +136,11 @@ function changePolicyBlock(config, change) {
   const { type } = change;
   const typeConfig = assertKnownType(config, type);
   const reviewRequired = typeConfig.review_required === true ? 'yes' : 'no';
-  const servesReadiness = typeConfig.stages.includes('specification');
+  const hasSpecification = typeConfig.stages.includes('specification');
   const changeBranch = renderChangeBranch(config, change);
   const branch = changeBranch ? ` — change_branch=${changeBranch}` : '';
   const lines = [
-    `${transversalPolicy(config, { includeTdd: servesReadiness })}${branch} — review_required(${type})=${reviewRequired}`,
+    `${transversalPolicy(config, { includeTdd: hasSpecification, type })}${branch} — review_required(${type})=${reviewRequired}`,
     `Active stages(${type})=${typeConfig.stages.join(', ')}`,
   ];
   return lines.join('\n');
@@ -151,10 +151,12 @@ function changePolicyBlock(config, change) {
 // and every Plan task to cite one. A type that never activates that stage
 // cannot satisfy it — `check` rejects the stage outright — so composing the
 // fragment would contradict the `Active stages(<type>)=` line of the same
-// capture. Derived from the configured stages, never from a list of type names.
+// capture. A type whose effective tdd is off (`tdd=off` in its policy line) owes
+// none of it either. Derived from the configured stages and the tdd resolver,
+// never from a list of type names.
 function fragmentsForType(fragments, config, type) {
   const { stages } = assertKnownType(config, type);
-  if (stages.includes('specification')) return fragments;
+  if (stages.includes('specification') && effectiveTdd(config, type)) return fragments;
   return fragments.filter((name) => name !== 'readiness');
 }
 

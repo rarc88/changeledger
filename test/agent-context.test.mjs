@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { promisify } from 'node:util';
+import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import { status } from '../src/commands/agent.mjs';
 import { buildAgentContext } from '../src/commands/agent-context.mjs';
 import { buildAgentPrompt } from '../src/commands/agent-prompt.mjs';
@@ -521,4 +522,52 @@ test('141120 CR5: the CLI refuses the review capsule and emits no BEGIN line', a
     /^Error: role review requires change status in-review; got in-progress$/m,
   );
   assert.doesNotMatch(failure.stdout, /CHANGELEDGER AGENT CONTEXT BEGIN/);
+});
+
+// --- 20261002-113320: the delegate receives the selected change's tdd ---
+
+test('113320 CR5: the policy line follows the selected change type, else the global tdd', () => {
+  const root = repo();
+  const file = path.join(root, '.changeledger', 'config.yml');
+  const config = parseYaml(fs.readFileSync(file, 'utf8'));
+  config.tdd = true;
+  config.types.documentation = {
+    stages: ['request', 'investigation', 'specification', 'log'],
+    review_required: true,
+    tdd: false,
+  };
+  fs.writeFileSync(file, stringifyYaml(config));
+  const id = '20261002-113322';
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'changes', `${id}-doc-fixture.md`),
+    `---
+id: "${id}"
+title: Doc fixture
+type: documentation
+status: in-progress
+created: 2026-10-02T11:33:20Z
+depends_on: []
+---
+
+## Request
+
+Document the topic.
+
+## Investigation
+
+Evidence.
+
+## Specification
+
+### CR1 — Claim
+- **Given** the code
+- **When** read
+- **Then** it matches
+
+## Log
+`,
+  );
+  const policyOf = (out) => out.split('\n').find((line) => line.startsWith('Effective policy:'));
+  assert.match(policyOf(buildAgentContext('implementation', id, root)), /tdd=off/);
+  assert.match(policyOf(buildAgentContext('investigation', undefined, root)), /tdd=on/);
 });

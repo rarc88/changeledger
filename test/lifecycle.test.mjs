@@ -1,5 +1,10 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 import {
   assertTransition,
   canTransition,
@@ -12,6 +17,7 @@ import {
   TASK_ACTIONS,
   VALIDATION_VERDICTS,
 } from '../src/lifecycle.mjs';
+import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 
 const LOG_AT = '- **2026-08-24T16:00:00Z**';
 const logLine = (type, payload) => `${LOG_AT} \`[${type}]\` ${payload}`;
@@ -361,4 +367,67 @@ test('124656 CR3: the in-review edges stay legal; readiness is not a graph rule'
   // 'in-progress')` is already pinned by `171002 CR1/CR3` above, and this repo
   // keeps one home per truth.
   assert.equal(canTransition('in-review', 'in-progress'), true);
+});
+
+// 20261002-113320 CR8 — first real use of the `documentation` type, through the
+// spawned CLI on a freshly initialised repo: a change with one criterion and no
+// Plan walks approve → in-progress → in-review → review pass. The review gate of
+// a tdd-off type is still honoured: `review` is what reaches validation.
+test('113320 CR8: a documentation change without a Plan reaches in-validation', () => {
+  const bin = fileURLToPath(new URL('../bin/changeledger.mjs', import.meta.url));
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-doc-e2e-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  initGitFixture(root);
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
+  const cli = (...args) => {
+    try {
+      return {
+        code: 0,
+        out: execFileSync('node', [bin, ...args], { cwd: root, env, encoding: 'utf8' }),
+      };
+    } catch (e) {
+      return { code: e.status ?? 1, out: `${e.stdout ?? ''}${e.stderr ?? ''}` };
+    }
+  };
+  const ok = (...args) => {
+    const result = cli(...args);
+    assert.equal(result.code, 0, `${args.join(' ')}: ${result.out}`);
+    return result.out;
+  };
+
+  ok('init');
+  ok('new', 'documentation', 'auth-truth', 'Auth truth', '--owner', 'Test User');
+  const dir = path.join(root, '.changeledger', 'changes');
+  const [name] = fs.readdirSync(dir);
+  const file = path.join(dir, name);
+  const id = name.slice(0, 15);
+  const text = fs.readFileSync(file, 'utf8');
+  assert.doesNotMatch(text, /## Plan/);
+  fs.writeFileSync(
+    file,
+    text
+      .replace('## Request\n', '## Request\n\nDocument authentication.\n')
+      .replace(
+        '## Investigation\n',
+        '## Investigation\n\n`src/auth.mjs` `login` is the entry point.\n',
+      )
+      .replace(
+        '## Specification\n',
+        '## Specification\n\n### CR1 — Login claim\n- **Given** `src/auth.mjs` `login`\n- **When** it is read\n- **Then** the spec states what it does\n',
+      ),
+  );
+
+  ok('approve', id);
+  execFileSync('git', ['checkout', '-q', '-b', `documentation/${id}`], {
+    cwd: root,
+    env: sanitizedEnv(),
+  });
+  ok('status', id, 'in-progress');
+  const skipped = cli('status', id, 'in-validation');
+  assert.notEqual(skipped.code, 0);
+  assert.match(skipped.out, /must be reviewed before validation — move to in-review first/);
+  ok('status', id, 'in-review');
+  ok('review', id, 'pass');
+  assert.match(fs.readFileSync(file, 'utf8'), /^status: in-validation$/m);
 });
