@@ -37,6 +37,7 @@ import { assertCommitObject, capturedRun, gitTopLevel } from '../git.mjs';
 import { resolveReleasesDir } from '../release.mjs';
 import { parseSpec } from '../spec.mjs';
 import { mutateState, readActivation, readSnapshot, STATE_REF } from '../state-store.mjs';
+import { USAGE_COLLECTION, usageEntry, usageRecordsDir } from '../usage-collector.mjs';
 import { parseYaml } from '../yaml.mjs';
 import { readLedgerAt, toPosix } from './ledger-tree.mjs';
 
@@ -60,6 +61,11 @@ function sourceLayout(repoRoot, config, run) {
       },
       { name: 'specs', extension: '.md', prefix: `${rel(resolveSpecsDir(repoRoot, config))}/` },
       { name: 'releases', extension: '.yml', prefix: `${rel(resolveReleasesDir(repoRoot))}/` },
+      {
+        name: USAGE_COLLECTION,
+        extension: '.json',
+        prefix: `${rel(usageRecordsDir(repoRoot))}/`,
+      },
     ],
   };
 }
@@ -81,9 +87,14 @@ function sourceChangesDirAt(repoRoot, revision, configPath, run) {
 // A document's identity, derived from its CONTENT and never from its filename: a
 // change is its id, a spec its name, a release its version. This is what lets
 // the same document be recognized across a rename, and what decides which
-// snapshot document an imported one is compared against.
+// snapshot document an imported one is compared against. A usage record is the
+// one exception (20261002-133728): its file name IS its identity — the change
+// id, the instant and a random suffix — and its content is never rewritten.
 function identify(name, text, origin) {
   const base = name.slice(name.indexOf('/') + 1);
+  if (name.startsWith(`${USAGE_COLLECTION}/`)) {
+    return { kind: 'usage record', key: base, base, text };
+  }
   try {
     if (name.startsWith('changes/')) {
       const parsed = parseChange(text);
@@ -107,6 +118,7 @@ function validateSource(documents, config) {
   const changes = [];
   const specs = [];
   const releases = [];
+  const usage = [];
   const cannot = 'the source cannot be imported';
 
   for (const [name, text] of documents) {
@@ -114,6 +126,7 @@ function validateSource(documents, config) {
     try {
       if (name.startsWith('changes/')) changes.push({ name: base, text, ...parseChange(text) });
       else if (name.startsWith('specs/')) specs.push({ name: base, ...parseSpec(text) });
+      else if (name.startsWith(`${USAGE_COLLECTION}/`)) usage.push(usageEntry(base, text));
       else releases.push({ name: base, ...parseYaml(text) });
     } catch (e) {
       throw new Error(`${cannot} — ${name}: ${e.message}`);
@@ -121,7 +134,7 @@ function validateSource(documents, config) {
   }
   changes.sort((a, b) => String(a.frontmatter?.id).localeCompare(String(b.frontmatter?.id)));
 
-  const { errors } = checkRepo({ config, changes, specs, releases });
+  const { errors } = checkRepo({ config, changes, specs, releases, usage });
   if (errors.length) {
     const detail = errors.map((e) => `  ${e.file}: ${e.message}`).join('\n');
     throw new Error(

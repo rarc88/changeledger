@@ -38,7 +38,7 @@ import { STATE_REF, writeActivation } from '../src/state-store.mjs';
 import { encodeProjectPath } from '../src/usage-collector.mjs';
 import { cleanMissingProjects, readLedgerDocument, serialize } from '../src/viewer/domain.mjs';
 import { setBranch, stampVersion } from '../src/writer.mjs';
-import { claudeRunner } from './helpers/ccusage.mjs';
+import { claudeRunner, ledgerUsageRecords } from './helpers/ccusage.mjs';
 import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 import { eventsAdded, PREVIOUS_VERSION, versionEvents } from './helpers/version-stamp.mjs';
@@ -3222,16 +3222,9 @@ test('184354 CR7: two registered projects in one viewer over HTTP — the incomp
 
 // --- usage snapshots (20261001-155612) ---
 
+// The records the ledger holds for `id`, in either layout (20261002-133728).
 function viewerUsageRecords(root, id) {
-  const raw = execFileSync('git', ['rev-parse', '--git-common-dir'], {
-    cwd: root,
-    env: sanitizedEnv(),
-    encoding: 'utf8',
-  }).trim();
-  const dir = path.join(path.resolve(root, raw), 'changeledger', 'usage', String(id));
-  return fs.existsSync(dir)
-    ? fs.readdirSync(dir).map((name) => JSON.parse(fs.readFileSync(path.join(dir, name), 'utf8')))
-    : [];
+  return ledgerUsageRecords(root, id);
 }
 
 test('20261001-155612 CR4: viewer transitions snapshot once each, in both layouts', () => {
@@ -3273,7 +3266,7 @@ function viewerTransitionsSnapshot() {
       writeActivation(root, { stateRef: STATE_REF });
     }
     const runner = claudeRunner(encodeProjectPath(root));
-    const usage = { runner, warn: () => {} };
+    const usage = { runner, warn: () => {}, ownerHandle: () => 'Test User' };
     const { projects, current } = resolveProjects(root, false);
     const move = (to, reason) => {
       const before = viewerUsageRecords(root, id).length;

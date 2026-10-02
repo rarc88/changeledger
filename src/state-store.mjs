@@ -29,7 +29,14 @@ const STATE_COLLECTION_EXTENSIONS = new Map([
   ['changes', '.md'],
   ['specs', '.md'],
   ['releases', '.yml'],
+  // Token-usage records (20261002-133728): one flat `<id>--<instant>-<hex>.json`
+  // per snapshot, so the three-part rule holds and two clones never write the
+  // same path.
+  ['usage', '.json'],
 ]);
+// The append-only collection: `mutateState` refuses a candidate that drops a
+// usage record of its parent, even through an explicit `stage.remove`.
+const USAGE_PREFIX = `${STATE_ROOT}/usage/`;
 const ACTIVATION_AUTHORITY_PATH = 'authority.yml';
 const LEDGER_DIR_NAME = '.changeledger';
 
@@ -344,7 +351,8 @@ export function readSnapshot(repoRoot, { revision } = {}, run = capturedRun) {
 // mutation with no net diff creates no commit but still passes through the
 // ref's CAS lock, so a concurrent mover is still detected. Any parent path
 // that disappears from the candidate without a matching explicit `remove` is
-// an integrity violation and aborts before any ref is touched.
+// an integrity violation and aborts before any ref is touched; a usage record
+// that disappears aborts even with one.
 export function mutateState(
   repoRoot,
   { expectedRevision, message } = {},
@@ -399,7 +407,13 @@ export function mutateState(
   const parentNames = new Set(treeEntries(repoRoot, expectedRevision, run).map((e) => e.path));
   const candidateNames = new Set(treeEntries(repoRoot, candidateTree, run).map((e) => e.path));
   for (const name of parentNames) {
-    if (!candidateNames.has(name) && !removals.has(name)) {
+    if (candidateNames.has(name)) continue;
+    if (name.startsWith(USAGE_PREFIX)) {
+      throw new Error(
+        `state mutation removes usage record "${name}"; usage records are never removed`,
+      );
+    }
+    if (!removals.has(name)) {
       throw new Error(`state mutation removes "${name}" without an explicit stage.remove`);
     }
   }

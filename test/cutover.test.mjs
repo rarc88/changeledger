@@ -21,6 +21,7 @@ import {
   writeActivation,
 } from '../src/state-store.mjs';
 import { parseYaml } from '../src/yaml.mjs';
+import { usageRecordText } from './helpers/ccusage.mjs';
 import { sanitizedEnv } from './helpers/git-env.mjs';
 import {
   buildTree,
@@ -1549,4 +1550,61 @@ test('20260812-022248 CR1: a symlinked cwd still cuts over with correct pathspec
     encoding: 'utf8',
   }).trim();
   assert.equal(subject, 'chore(state): cut the ledger over to the state ref');
+});
+
+// --- 20261002-133728 CR6: cutover carries the usage collection ---------------
+
+const USAGE_RECORDS = {
+  '20260808-000001--20260808T010000Z-0a1b2c3d.json': usageRecordText(
+    '20260808-000001',
+    '2026-08-08T01:00:00Z',
+  ),
+  '20260808-000001--20260808T020000Z-ffee0011.json': usageRecordText(
+    '20260808-000001',
+    '2026-08-08T02:00:00Z',
+  ),
+};
+
+function usageLedgerFiles(records = USAGE_RECORDS) {
+  const files = defaultLedgerFiles();
+  for (const [name, text] of Object.entries(records)) files[`.changeledger/usage/${name}`] = text;
+  return files;
+}
+
+test('20261002-133728 CR6: cutover publishes every usage record under its own name, and undo restores them', (t) => {
+  const { root } = seedLedgerRepo({ files: usageLedgerFiles() });
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+
+  const cut = cli(root, 'cutover');
+  assert.equal(cut.code, 0, cut.err || cut.out);
+
+  const { documents } = readSnapshot(root);
+  for (const [name, text] of Object.entries(USAGE_RECORDS)) {
+    assert.equal(documents[`usage/${name}`], text, name);
+  }
+  assert.equal(exists(root, '.changeledger/usage'), false);
+  assert.equal(git(root, ['status', '--porcelain']), '');
+  assert.equal(loadRepo(root).usage.length, 2);
+
+  const undone = cliCaptured(root, 'cutover', '--undo');
+  assert.equal(undone.code, 0, undone.err || undone.out);
+  for (const [name, text] of Object.entries(USAGE_RECORDS)) {
+    assert.equal(fs.readFileSync(path.join(root, '.changeledger', 'usage', name), 'utf8'), text);
+  }
+});
+
+test('20261002-133728 CR4: an invalid usage record aborts the cutover naming it, writing nothing', (t) => {
+  const bad = '20260808-000001--20260808T030000Z-deadbeef.json';
+  const { root } = seedLedgerRepo({
+    files: usageLedgerFiles({ ...USAGE_RECORDS, [bad]: '{"schema": 1,' }),
+  });
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const before = head(root);
+
+  const { code, err } = cli(root, 'cutover');
+
+  assert.notEqual(code, 0);
+  assert.match(err, new RegExp(`usage record ${bad.replace(/\./g, '\\.')}: invalid JSON`));
+  assert.equal(refExists(root, STATE_REF), false);
+  assert.equal(head(root), before);
 });

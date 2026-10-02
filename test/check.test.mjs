@@ -20,6 +20,7 @@ import { LOG_EVENT_TYPES } from '../src/lifecycle.mjs';
 import { templatesDir } from '../src/paths.mjs';
 import { RELEASE_IMPACTS } from '../src/release.mjs';
 import { STATE_REF, writeActivation } from '../src/state-store.mjs';
+import { usageRecordText } from './helpers/ccusage.mjs';
 import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
@@ -3741,3 +3742,76 @@ test('20261001-155612 CR2: `changeledger check` fails on an unknown git config c
   const good = captureOutput();
   assert.equal(check([], root, good), 0, good.diagnostics.join('\n'));
 });
+
+// --- 20261002-133728 CR4: check validates every usage record ----------------
+
+const USAGE_CHECK_ID = '20261002-133728';
+const VALID_RECORD = [
+  `${USAGE_CHECK_ID}--20261002T153233Z-0a1b2c3d.json`,
+  usageRecordText(USAGE_CHECK_ID),
+];
+const INVALID_RECORDS = {
+  'invalid JSON': [`${USAGE_CHECK_ID}--20261002T153234Z-0a1b2c3e.json`, '{"schema": 1,'],
+  'no schema 1': [
+    `${USAGE_CHECK_ID}--20261002T153235Z-0a1b2c3f.json`,
+    usageRecordText(USAGE_CHECK_ID, undefined, { schema: 2 }),
+  ],
+  'a change other than its name': [
+    `${USAGE_CHECK_ID}--20261002T153236Z-0a1b2c40.json`,
+    usageRecordText('20261002-999999'),
+  ],
+  'a name outside the form': [
+    `${USAGE_CHECK_ID}--20261002T153233Z-1.json`,
+    usageRecordText(USAGE_CHECK_ID),
+  ],
+};
+
+// An initialized repo holding `records` (`[name, text]` pairs) in the usage
+// collection of `layout`: the worktree's `.changeledger/usage/`, or the
+// state ref of an activated repo whose config is the worktree's own.
+function usageCheckRepo(t, layout, records) {
+  const root = gitCheckRepo();
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  if (layout === 'legacy') {
+    const dir = path.join(root, '.changeledger', 'usage');
+    fs.mkdirSync(dir, { recursive: true });
+    for (const [name, text] of records) fs.writeFileSync(path.join(dir, name), text);
+    return root;
+  }
+  const files = {
+    '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
+    '.changeledger-state/config.yml': fs.readFileSync(
+      path.join(root, '.changeledger', 'config.yml'),
+      'utf8',
+    ),
+  };
+  for (const [name, text] of records) files[`.changeledger-state/usage/${name}`] = text;
+  updateRef(root, STATE_REF, commitTree(root, buildTree(root, files), { message: 'chore: state' }));
+  writeActivation(root, { stateRef: STATE_REF });
+  return root;
+}
+
+function checkJson(root) {
+  const out = captureOutput();
+  const code = check(['--json'], root, out);
+  return { code, ...JSON.parse(out.calls.join('\n')) };
+}
+
+for (const layout of ['legacy', 'state ref']) {
+  test(`20261002-133728 CR4 (${layout}): a valid usage record produces no diagnostic`, (t) => {
+    const root = usageCheckRepo(t, layout, [VALID_RECORD]);
+    const { code, errors, warnings } = checkJson(root);
+    assert.equal(code, 0, JSON.stringify(errors));
+    assert.deepEqual([...errors, ...warnings], []);
+  });
+
+  for (const [label, [name, text]] of Object.entries(INVALID_RECORDS)) {
+    test(`20261002-133728 CR4 (${layout}): a record with ${label} fails check, named`, (t) => {
+      const root = usageCheckRepo(t, layout, [VALID_RECORD, [name, text]]);
+      const { code, errors } = checkJson(root);
+      assert.notEqual(code, 0);
+      assert.equal(errors.length, 1, JSON.stringify(errors));
+      assert.ok(errors[0].message.startsWith(`usage record ${name}: `), JSON.stringify(errors[0]));
+    });
+  }
+}

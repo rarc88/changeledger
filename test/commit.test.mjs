@@ -6,6 +6,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { commit } from '../src/commands/commit.mjs';
 import { STATE_REF, writeActivation } from '../src/state-store.mjs';
+import { usageRecordText } from './helpers/ccusage.mjs';
 import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
@@ -832,4 +833,81 @@ test('162616 CR9: a normal subdirectory changes_dir config is unaffected', () =>
 
   assert.equal(subject, 'feat(x): y [#20260711-000001]');
   assert.equal(commitCount(root), 1);
+});
+
+// --- 20261002-133728 CR2: usage records travel with their change's commit ---
+
+const CHANGE_A = '20261002-000001';
+const CHANGE_B = '20261002-000002';
+const recordName = (id, suffix) => `${id}--20261002T120000Z-${suffix}.json`;
+
+// A worktree-layout repo with one committed record of A and pending (never
+// staged) records of A and B, as the collector leaves them.
+function usageCommitRepo(t) {
+  const root = gitRepo();
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  writeChange(root, CHANGE_A, 'in-progress');
+  writeChange(root, CHANGE_B, 'in-progress');
+  const dir = path.join(root, '.changeledger', 'usage');
+  fs.mkdirSync(dir, { recursive: true });
+  const write = (id, suffix) =>
+    fs.writeFileSync(path.join(dir, recordName(id, suffix)), usageRecordText(id));
+  write(CHANGE_A, 'aaaa0000');
+  git(root, ['add', '-A']);
+  git(root, ['commit', '-qm', 'chore: seed']);
+  write(CHANGE_A, 'aaaa0001');
+  write(CHANGE_A, 'aaaa0002');
+  write(CHANGE_B, 'bbbb0001');
+  return root;
+}
+
+const committedPaths = (root) =>
+  git(root, ['show', '--name-only', '--format=', 'HEAD']).trim().split('\n').filter(Boolean);
+const untracked = (root) =>
+  git(root, ['ls-files', '--others', '--exclude-standard']).trim().split('\n').filter(Boolean);
+
+test('20261002-133728 CR2: commit stages the pending records of the change it carries, and only those', (t) => {
+  const root = usageCommitRepo(t);
+  stageFile(root, 'a.txt', 'x');
+
+  commit({ message: 'feat(x): y', ids: [CHANGE_A] }, root, undefined, noop);
+
+  assert.deepEqual(committedPaths(root), [
+    `.changeledger/usage/${recordName(CHANGE_A, 'aaaa0001')}`,
+    `.changeledger/usage/${recordName(CHANGE_A, 'aaaa0002')}`,
+    'a.txt',
+  ]);
+  assert.deepEqual(untracked(root), [`.changeledger/usage/${recordName(CHANGE_B, 'bbbb0001')}`]);
+
+  // The other change's commit takes its own record and nothing of A's.
+  stageFile(root, 'b.txt', 'y');
+  commit({ message: 'feat(x): z', ids: [CHANGE_B] }, root, undefined, noop);
+  assert.deepEqual(committedPaths(root), [
+    `.changeledger/usage/${recordName(CHANGE_B, 'bbbb0001')}`,
+    'b.txt',
+  ]);
+  assert.deepEqual(untracked(root), []);
+});
+
+test('20261002-133728 CR2: a commit declared with --no-change stages no record', (t) => {
+  const root = usageCommitRepo(t);
+  stageFile(root, 'a.txt', 'x');
+
+  commit({ message: 'chore(x): y', noChange: 'tooling only' }, root, undefined, noop);
+
+  assert.deepEqual(committedPaths(root), ['a.txt']);
+  assert.equal(untracked(root).length, 3);
+});
+
+test('20261002-133728 CR2: an activated commit never stages worktree records', (t) => {
+  const { root, id } = activatedGitRepo();
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const dir = path.join(root, '.changeledger', 'usage');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, recordName(id, 'cccc0001')), usageRecordText(id));
+  stageFile(root, 'a.txt', 'x');
+
+  commit({ message: 'feat(core): x' }, root, undefined, noop);
+
+  assert.deepEqual(committedPaths(root), ['a.txt']);
 });

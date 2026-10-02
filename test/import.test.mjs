@@ -12,6 +12,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { CAS_CONFLICT_MESSAGE, readSnapshot, STATE_REF } from '../src/state-store.mjs';
+import { usageRecordText } from './helpers/ccusage.mjs';
 import { sanitizedEnv } from './helpers/git-env.mjs';
 import {
   defaultLedgerFiles,
@@ -570,4 +571,60 @@ test('20260810-004608 CR2: a winning import reports the same lines and order as 
     `  ~ ${DEMO_DOC} (change ${DEMO_ID})`,
     `Imported 2 document(s) from ${SOURCE} (${sourceRevision}) — ${STATE_REF} at ${tip}`,
   ]);
+});
+
+// --- 20261002-133728 CR6: import carries the usage collection by file name ---
+
+const CUT_RECORD = `${DEMO_ID}--20260808T010000Z-0a1b2c3d.json`;
+const BRANCH_RECORDS = [
+  `${DEMO_ID}--20260808T020000Z-11112222.json`,
+  `${DEMO_ID}--20260808T020000Z-33334444.json`,
+];
+const recordText = (name) => usageRecordText(DEMO_ID, '2026-08-08T02:00:00Z', { note: name });
+
+test('20261002-133728 CR6: cutover then import twice leaves every record under its name, the second import a no-op', (t) => {
+  const root = activatedRepo({
+    mainFiles: {
+      ...defaultLedgerFiles(),
+      [`.changeledger/usage/${CUT_RECORD}`]: recordText(CUT_RECORD),
+    },
+    sourceFiles: Object.fromEntries(
+      BRANCH_RECORDS.map((name) => [`.changeledger/usage/${name}`, recordText(name)]),
+    ),
+  });
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+
+  const first = cli(root, 'import', '--from', SOURCE);
+  assert.equal(first.code, 0, first.err);
+  for (const name of BRANCH_RECORDS) {
+    assert.match(first.out, new RegExp(`\\+ usage/${name.replace(/\./g, '\\.')} \\(usage record`));
+  }
+  const { documents } = readSnapshot(root);
+  for (const name of [CUT_RECORD, ...BRANCH_RECORDS]) {
+    assert.equal(documents[`usage/${name}`], recordText(name), name);
+  }
+
+  const tip = stateRevision(root);
+  const second = cli(root, 'import', '--from', SOURCE);
+  assert.equal(second.code, 0, second.err);
+  assert.match(second.out, /^Nothing to import/m);
+  assert.equal(stateRevision(root), tip);
+});
+
+test('20261002-133728 CR6: a record whose bytes differ under the same name is a conflict, nothing written', (t) => {
+  const root = activatedRepo({
+    mainFiles: {
+      ...defaultLedgerFiles(),
+      [`.changeledger/usage/${CUT_RECORD}`]: recordText(CUT_RECORD),
+    },
+    sourceFiles: { [`.changeledger/usage/${CUT_RECORD}`]: recordText('rewritten') },
+  });
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const tip = stateRevision(root);
+
+  const result = cli(root, 'import', '--from', SOURCE);
+
+  assert.notEqual(result.code, 0);
+  assert.match(result.err, new RegExp(`usage record ${CUT_RECORD.replace(/\./g, '\\.')}: `));
+  assert.equal(stateRevision(root), tip);
 });

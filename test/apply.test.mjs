@@ -19,7 +19,7 @@ import { VERSION } from '../src/framing.mjs';
 import { STATE_REF, STATE_ROOT, writeActivation } from '../src/state-store.mjs';
 import { encodeProjectPath } from '../src/usage-collector.mjs';
 import { appendLogEvent, setStatus } from '../src/writer.mjs';
-import { claudeRunner } from './helpers/ccusage.mjs';
+import { claudeRunner, ledgerUsageRecords, usageNamePattern } from './helpers/ccusage.mjs';
 import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 import {
@@ -640,15 +640,8 @@ for (const [layout, build] of [
 
 const enableUsage = (root) => git(root, ['config', 'changeledger.usage.collector', 'ccusage']);
 
-function usageRecords(root, id) {
-  const common = path.resolve(root, git(root, ['rev-parse', '--git-common-dir']));
-  const dir = path.join(common, 'changeledger', 'usage', String(id));
-  if (!fs.existsSync(dir)) return [];
-  return fs
-    .readdirSync(dir)
-    .sort()
-    .map((name) => ({ name, ...JSON.parse(fs.readFileSync(path.join(dir, name), 'utf8')) }));
-}
+// The records the ledger holds for `id`, in either layout (20261002-133728).
+const usageRecords = (root, id) => ledgerUsageRecords(root, id);
 
 function approvedUsageRepo(activated) {
   if (activated) {
@@ -670,7 +663,7 @@ for (const activated of [false, true]) {
     const draft = draftFor(root, { slug: 'gamma', title: 'Gamma', now: '2026-08-11T10:00:00Z' });
     const runner = claudeRunner(encodeProjectPath(root));
     const warnings = [];
-    const usage = { runner, warn: (l) => warnings.push(l) };
+    const usage = { runner, warn: (l) => warnings.push(l), ownerHandle: () => 'Test User' };
     const entries = [
       { op: 'status', id, to: 'in-progress' },
       { op: 'log', id, message: 'arranque' },
@@ -690,10 +683,12 @@ for (const activated of [false, true]) {
       usageRecords(root, id).map((r) => [r.event, r.from, r.to, r.at, r.sessions.length]),
       [['status', 'approved', 'in-progress', at, 1]],
     );
+    const created = usageRecords(root, '20260811-100000');
     assert.deepEqual(
-      usageRecords(root, '20260811-100000').map((r) => [r.name, r.event, r.from, r.to]),
-      [['20260811T100000Z-1.json', 'created', null, 'draft']],
+      created.map((r) => [r.event, r.from, r.to]),
+      [['created', null, 'draft']],
     );
+    assert.match(created[0].name, usageNamePattern('20260811-100000', '2026-08-11T10:00:00Z'));
     assert.deepEqual(warnings, []);
   });
 

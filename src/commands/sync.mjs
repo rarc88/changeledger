@@ -107,6 +107,7 @@ const COLLECTION_CLASSES = new Map([
   ['changes', 'change'],
   ['specs', 'spec'],
   ['releases', 'release'],
+  ['usage', 'usage record'],
 ]);
 
 // The class of a state path, for a human reading the report: the collection it

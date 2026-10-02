@@ -7,6 +7,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { STATE_REF } from '../../src/state-store.mjs';
+import { git } from './state-repo.mjs';
 
 const FIXTURES = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -71,4 +73,82 @@ export function claudeRunner(encodedRoot, extra = {}) {
     }),
     ...extra,
   });
+}
+
+// A complete usage record as the collector publishes it (20261002-133728):
+// the `schema: 1` record plus `recorded_by`. `extra` overrides any field.
+export function usageRecordText(change, at = '2026-10-02T15:32:33Z', extra = {}) {
+  const record = {
+    schema: 1,
+    change,
+    at,
+    event: 'status',
+    from: 'approved',
+    to: 'in-progress',
+    recorded_by: 'Test User',
+    collector: { name: 'ccusage', version: '20.0.26', pricing: 'online' },
+    sessions: [],
+    excluded: [],
+    error: null,
+    ...extra,
+  };
+  return `${JSON.stringify(record, null, 2)}\n`;
+}
+
+// Every usage record of `id` the LEDGER holds, in either layout, as
+// `{ name, ...record }` sorted by name: the state ref's `usage/` collection when
+// the repo is activated, the worktree's `.changeledger/usage/` otherwise.
+// `id === undefined` returns every record.
+export function ledgerUsageRecords(root, id) {
+  const ownsRecord = (name) => id === undefined || name.startsWith(`${id}--`);
+  if (isActivated(root)) {
+    const listing = git(root, [
+      'ls-tree',
+      '-r',
+      '--name-only',
+      STATE_REF,
+      '--',
+      '.changeledger-state/usage/',
+    ]);
+    return listing
+      .split('\n')
+      .filter(Boolean)
+      .map((full) => path.posix.basename(full))
+      .filter(ownsRecord)
+      .sort()
+      .map((name) => ({
+        name,
+        ...JSON.parse(git(root, ['show', `${STATE_REF}:.changeledger-state/usage/${name}`])),
+      }));
+  }
+  const dir = path.join(root, '.changeledger', 'usage');
+  if (!fs.existsSync(dir)) return [];
+  return fs
+    .readdirSync(dir)
+    .filter(ownsRecord)
+    .sort()
+    .map((name) => ({ name, ...JSON.parse(fs.readFileSync(path.join(dir, name), 'utf8')) }));
+}
+
+function isActivated(root) {
+  try {
+    git(root, ['rev-parse', '--verify', '--quiet', 'refs/changeledger/activation']);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// The directory the 20261001-155612 collector wrote to, which no longer
+// receives records (20261002-133728).
+export function gitCommonUsageDir(root) {
+  return path.join(
+    path.resolve(root, git(root, ['rev-parse', '--git-common-dir'])),
+    'changeledger',
+  );
+}
+
+// `<id>--<instant from the ISO at>-<8 hex>.json`.
+export function usageNamePattern(id, at) {
+  return new RegExp(`^${id}--${at.replace(/[-:]/g, '')}-[0-9a-f]{8}\\.json$`);
 }

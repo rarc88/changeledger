@@ -32,8 +32,10 @@ import { skipGraduation } from '../src/commands/graduate.mjs';
 import { init as initializeRepo } from '../src/commands/init.mjs';
 import { newChange, newChangeFrom, scaffoldChange } from '../src/commands/new.mjs';
 import { VERSION } from '../src/framing.mjs';
+import { capturedRun } from '../src/git.mjs';
 import {
   LedgerConflictError,
+  mutateState,
   STATE_REF,
   STATE_ROOT,
   writeActivation,
@@ -47,7 +49,13 @@ import {
   setTask,
   stampVersion,
 } from '../src/writer.mjs';
-import { claudeRunner } from './helpers/ccusage.mjs';
+import {
+  claudeRunner,
+  gitCommonUsageDir,
+  ledgerUsageRecords,
+  usageNamePattern,
+  usageRecordText,
+} from './helpers/ccusage.mjs';
 import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 import {
@@ -2346,55 +2354,45 @@ test('20261001-155216 CR5: a lower installed version, still allowed by min_cli_v
   );
 });
 
-// --- usage snapshots (20261001-155612) ---
+// --- usage snapshots (20261001-155612, 20261002-133728) ---
 //
 // Lifecycle wiring of the usage collector. The in-process cases inject the
-// runner; the group and CLI cases point CHANGELEDGER_USAGE_COMMAND at the
-// local fake, so a producer wired by mistake would still be observed (and
-// never reach the network).
+// runner and the identity resolver; the group and CLI cases point
+// CHANGELEDGER_USAGE_COMMAND at the local fake, so a producer wired by mistake
+// would still be observed (and never reach the network). Since
+// 20261002-133728 the records live in the ledger: the state ref's `usage/`
+// collection when activated, `.changeledger/usage/` otherwise.
 
 const CONFIG_YML_USAGE = '\nusage:\n  collector: ccusage\n';
 const FAKE_CCUSAGE = path.resolve('test/fixtures/ccusage/fake-ccusage.mjs');
+const FAKE_COMMAND = JSON.stringify([process.execPath, FAKE_CCUSAGE]);
 const usageBin = path.resolve('bin/changeledger.mjs');
+// Collector options for in-process calls: `recorded_by` resolved without gh.
+const usageOptions = (extra = {}) => ({
+  warn: () => {},
+  ownerHandle: () => 'Test User',
+  ...extra,
+});
 
-function gitCommonDir(cwd) {
-  const raw = git(cwd, ['rev-parse', '--git-common-dir']).trim();
-  return path.resolve(cwd, raw);
-}
-
-function usageRecords(cwd, id) {
-  const dir = path.join(gitCommonDir(cwd), 'changeledger', 'usage', String(id));
-  if (!fs.existsSync(dir)) return [];
-  // `<instant>-<n>.json`, ordered by instant and then numerically by n.
-  const key = (name) => {
-    const [, instant, n] = name.match(/^(.+)-(\d+)\.json$/);
-    return [instant, Number(n)];
-  };
-  return fs
-    .readdirSync(dir)
-    .sort((a, b) => {
-      const [ia, na] = key(a);
-      const [ib, nb] = key(b);
-      return ia === ib ? na - nb : ia < ib ? -1 : 1;
-    })
-    .map((name) => ({ name, ...JSON.parse(fs.readFileSync(path.join(dir, name), 'utf8')) }));
-}
+const usageRecords = (cwd, id) => ledgerUsageRecords(cwd, id);
 
 function seedCommit(root) {
   git(root, ['add', '-A']);
   git(root, ['commit', '-qm', 'chore: seed', '--allow-empty']);
 }
 
-// Inactive repos of this suite are git repositories: the record lives in the
-// git common dir, so a ledger outside git has nowhere to keep one.
-// Activation is repo-local git config here (`collector: null` leaves it
-// unset); the global and system scopes are isolated by helpers/git-env.mjs.
-function usageRepo({ activated = false, collector = 'ccusage', configExtra = '' } = {}) {
+// Inactive repos of this suite are git repositories, like any repo whose
+// collector is switched on in git config. Activation is repo-local git config
+// here (`collector: null` leaves it unset); the global and system scopes are
+// isolated by helpers/git-env.mjs. With `t`, the repo is removed at the end.
+function usageRepo({ activated = false, collector = 'ccusage', configExtra = '', t } = {}) {
   const enable = (root) => {
     if (collector !== null) git(root, ['config', 'changeledger.usage.collector', collector]);
   };
+  const cleanup = (root) => t?.after(() => fs.rmSync(root, { recursive: true, force: true }));
   if (activated) {
     const result = activatedRepoWithChange({ configExtra });
+    cleanup(result.root);
     enable(result.root);
     seedCommit(result.root);
     return {
@@ -2403,10 +2401,27 @@ function usageRepo({ activated = false, collector = 'ccusage', configExtra = '' 
     };
   }
   const result = repoWithChange({ configExtra });
+  cleanup(result.root);
   initGitFixture(result.root);
   enable(result.root);
   seedCommit(result.root);
   return { ...result, read: () => fs.readFileSync(result.file, 'utf8') };
+}
+
+// No record anywhere: neither in the ledger (any state ref commit, or the
+// worktree collection) nor in the git directory the first collector used.
+function assertNoUsage(root) {
+  assert.equal(fs.existsSync(gitCommonUsageDir(root)), false);
+  assert.equal(fs.existsSync(path.join(root, '.changeledger', 'usage')), false);
+  let commits = [];
+  try {
+    commits = git(root, ['rev-list', STATE_REF]).trim().split('\n').filter(Boolean);
+  } catch {
+    // no state ref: an inactive repo
+  }
+  for (const commit of commits) {
+    assert.doesNotMatch(git(root, ['ls-tree', '-r', '--name-only', commit]), /usage/);
+  }
 }
 
 function logLines(text) {
@@ -2415,12 +2430,14 @@ function logLines(text) {
     .body.split('\n');
 }
 
+const instantOf = (text, transition) =>
+  logLines(text)
+    .find((l) => l.includes(`\`[status]\` ${transition}`))
+    .match(/\*\*(\S+)\*\*/)[1];
+
 function withFakeCcusage(env, fn) {
   const saved = {};
-  const vars = {
-    CHANGELEDGER_USAGE_COMMAND: JSON.stringify([process.execPath, FAKE_CCUSAGE]),
-    ...env,
-  };
+  const vars = { CHANGELEDGER_USAGE_COMMAND: FAKE_COMMAND, ...env };
   for (const [k, v] of Object.entries(vars)) {
     saved[k] = process.env[k];
     process.env[k] = v;
@@ -2444,68 +2461,74 @@ function runUsageBin(args, cwd, env = {}) {
   return { code: result.status, out: result.stdout, err: result.stderr };
 }
 
-test('20261001-155612 CR1: without the git config value a transition runs no collector', () => {
-  const { root, id } = usageRepo({ collector: null });
+const commitSubject = (root, commit) => git(root, ['log', '-1', '--format=%s', commit]).trim();
+
+test('20261001-155612 CR1: without the git config value a transition runs no collector', (t) => {
+  const { root, id } = usageRepo({ collector: null, t });
   task(id, 'done', 1, '', root);
   approve(id, root);
   const runner = claudeRunner('-unused');
   const result = status(id, 'in-progress', root, { ownerHandle: () => '', usage: { runner } });
   assert.equal(runner.calls.length, 0);
   assert.deepEqual(result.warnings, []);
-  assert.equal(fs.existsSync(path.join(gitCommonDir(root), 'changeledger', 'usage')), false);
+  assertNoUsage(root);
 
   // Same through the CLI, with a fake ccusage that would log any call.
   const logFile = path.join(root, '..', `${path.basename(root)}-ccusage.log`);
-  const other = usageRepo({ collector: null });
+  t.after(() => fs.rmSync(logFile, { force: true }));
+  const other = usageRepo({ collector: null, t });
   task(other.id, 'done', 1, '', other.root);
   approve(other.id, other.root);
   const out = runUsageBin(['status', other.id, 'in-progress'], other.root, {
-    CHANGELEDGER_USAGE_COMMAND: JSON.stringify([process.execPath, FAKE_CCUSAGE]),
+    CHANGELEDGER_USAGE_COMMAND: FAKE_COMMAND,
     FAKE_CCUSAGE_LOG: logFile,
   });
   assert.equal(out.code, 0, out.err);
   assert.equal(out.out, `#${other.id} → in-progress\n`);
   assert.equal(out.err, '');
   assert.equal(fs.existsSync(logFile), false);
-  assert.equal(fs.existsSync(path.join(gitCommonDir(other.root), 'changeledger', 'usage')), false);
+  assertNoUsage(other.root);
 });
 
-test('20261001-155612 CR2: a usage key in config.yml does not activate capture', () => {
+test('20261001-155612 CR2: a usage key in config.yml does not activate capture', (t) => {
   for (const activated of [false, true]) {
-    const { root, id } = usageRepo({ activated, collector: null, configExtra: CONFIG_YML_USAGE });
+    const { root, id } = usageRepo({
+      activated,
+      collector: null,
+      configExtra: CONFIG_YML_USAGE,
+      t,
+    });
     task(id, 'done', 1, '', root);
     const runner = claudeRunner(encodeProjectPath(root));
     const warnings = [];
-    approve(id, root, { usage: { runner, warn: (l) => warnings.push(l) } });
+    approve(id, root, { usage: usageOptions({ runner, warn: (l) => warnings.push(l) }) });
     assert.equal(runner.calls.length, 0);
     assert.deepEqual(warnings, []);
-    assert.equal(fs.existsSync(path.join(gitCommonDir(root), 'changeledger', 'usage')), false);
+    assertNoUsage(root);
   }
 });
 
 for (const activated of [false, true]) {
   const layout = activated ? 'activated' : 'inactive';
 
-  test(`20261001-155612 CR3 (${layout}): status leaves one complete record at the [status] instant`, () => {
-    const { root, id, read } = usageRepo({ activated });
+  test(`20261001-155612 CR3 (${layout}): status leaves one complete record at the [status] instant`, (t) => {
+    const { root, id, read } = usageRepo({ activated, t });
     task(id, 'done', 1, '', root);
-    approve(id, root, { usage: { runner: claudeRunner('-unused'), warn: () => {} } });
-    // Given an `approved` change: approving it left its own record, which is
-    // not the one under test.
-    fs.rmSync(path.join(gitCommonDir(root), 'changeledger', 'usage'), { recursive: true });
+    // Given an `approved` change: approving it leaves its own record, which is
+    // not the one under test (filtered out below by its `to`).
+    approve(id, root, { usage: usageOptions({ runner: claudeRunner('-unused') }) });
     const warnings = [];
     const runner = claudeRunner(encodeProjectPath(root));
     status(id, 'in-progress', root, {
       ownerHandle: () => '',
-      usage: { runner, warn: (l) => warnings.push(l) },
+      usage: usageOptions({ runner, warn: (l) => warnings.push(l) }),
     });
 
-    const line = logLines(read()).find((l) => l.includes('`[status]` approved → in-progress'));
-    const at = line.match(/\*\*(\S+)\*\*/)[1];
+    const at = instantOf(read(), 'approved → in-progress');
     const found = usageRecords(root, id).filter((r) => r.to === 'in-progress');
     assert.equal(found.length, 1);
     const [record] = found;
-    assert.equal(record.name, `${at.replace(/[-:]/g, '')}-1.json`);
+    assert.match(record.name, usageNamePattern(id, at));
     assert.equal(record.at, at);
     assert.equal(record.schema, 1);
     assert.equal(record.change, id);
@@ -2523,8 +2546,8 @@ for (const activated of [false, true]) {
     assert.deepEqual(warnings, []);
   });
 
-  test(`20261001-155612 (${layout}): the snapshot runs only after the transition is written`, () => {
-    const { root, id, read } = usageRepo({ activated });
+  test(`20261001-155612 (${layout}): the snapshot runs only after the transition is written`, (t) => {
+    const { root, id, read } = usageRepo({ activated, t });
     task(id, 'done', 1, '', root);
     const seen = [];
     const inner = claudeRunner(encodeProjectPath(root));
@@ -2532,20 +2555,24 @@ for (const activated of [false, true]) {
       seen.push(read().includes('`[status]` draft → approved'));
       return inner(args, options);
     };
-    approve(id, root, { usage: { runner, warn: () => {} } });
+    approve(id, root, { usage: usageOptions({ runner }) });
     assert.ok(seen.length > 0);
     assert.ok(seen.every(Boolean), 'ccusage ran before the ledger held the transition');
   });
 
-  test(`20261001-155612 CR4 (${layout}): every transition and creation snapshots; the rest do not`, () => {
-    const { root, id } = usageRepo({ activated });
+  test(`20261001-155612 CR4 (${layout}): every transition and creation snapshots; the rest do not`, (t) => {
+    const { root, id } = usageRepo({ activated, t });
     withFakeCcusage({ FAKE_CCUSAGE_ROOT: encodeProjectPath(root) }, () => {
-      const quiet = { usage: { warn: () => {} } };
-      const count = () => usageRecords(root, id).length;
+      const quiet = { usage: usageOptions() };
+      // The sequence of records, each step contributing the one record it left
+      // (names carry a random suffix, so the order is observed step by step).
+      const sequence = [];
       const expectOne = (label, fn) => {
-        const before = count();
+        const before = new Set(usageRecords(root, id).map((r) => r.name));
         fn();
-        assert.equal(count(), before + 1, `${label} must leave exactly one record`);
+        const added = usageRecords(root, id).filter((r) => !before.has(r.name));
+        assert.equal(added.length, 1, `${label} must leave exactly one record`);
+        sequence.push(`${added[0].event}:${added[0].from}→${added[0].to}`);
       };
       const expectNone = (label, fn, subject = id) => {
         const before = usageRecords(root, subject).length;
@@ -2584,6 +2611,7 @@ for (const activated of [false, true]) {
         { ownerHandle: () => '' },
       );
       const draftFile = path.join(root, '..', `${path.basename(root)}-second.md`);
+      t.after(() => fs.rmSync(draftFile, { force: true }));
       fs.writeFileSync(draftFile, draft.text);
       newChangeFrom(
         { type: 'quick', slug: 'second', title: 'Second', from: draftFile },
@@ -2604,54 +2632,55 @@ for (const activated of [false, true]) {
       discard(draft.id, 'not needed', root, quiet);
       assert.equal(usageRecords(root, draft.id).length, before + 1);
 
-      assert.deepEqual(
-        usageRecords(root, id).map((r) => `${r.event}:${r.from}→${r.to}`),
-        [
-          'status:draft→approved',
-          'status:approved→in-progress',
-          'status:in-progress→in-review',
-          'review:in-review→in-progress',
-          'status:in-progress→in-review',
-          'review:in-review→in-validation',
-          'validation:in-validation→in-progress',
-          'status:in-progress→in-review',
-          'review:in-review→in-validation',
-          'validation:in-validation→done',
-          'status:done→in-progress',
-          'status:in-progress→in-review',
-          'review:in-review→in-validation',
-          'validation:in-validation→done',
-        ],
-      );
+      assert.deepEqual(sequence, [
+        'status:draft→approved',
+        'status:approved→in-progress',
+        'status:in-progress→in-review',
+        'review:in-review→in-progress',
+        'status:in-progress→in-review',
+        'review:in-review→in-validation',
+        'validation:in-validation→in-progress',
+        'status:in-progress→in-review',
+        'review:in-review→in-validation',
+        'validation:in-validation→done',
+        'status:done→in-progress',
+        'status:in-progress→in-review',
+        'review:in-review→in-validation',
+        'validation:in-validation→done',
+      ]);
     });
   });
 
-  test(`20261001-155612 CR4 (${layout}): \`new\` without --from snapshots its creation`, () => {
+  test(`20261001-155612 CR4 (${layout}): \`new\` without --from snapshots its creation`, (t) => {
     if (activated) return; // an activated repo refuses a bare scaffold by design
-    const { root } = usageRepo({ activated });
+    const { root } = usageRepo({ activated, t });
     const warnings = [];
     const file = newChange(
       { type: 'quick', slug: 'fresh', title: 'Fresh', now: '2026-06-15T09:30:00Z' },
       root,
       {
         ownerHandle: () => '',
-        usage: { runner: claudeRunner(encodeProjectPath(root)), warn: (l) => warnings.push(l) },
+        usage: usageOptions({
+          runner: claudeRunner(encodeProjectPath(root)),
+          warn: (l) => warnings.push(l),
+        }),
       },
     );
     const createdId = parseChange(fs.readFileSync(file, 'utf8')).frontmatter.id;
     const found = usageRecords(root, createdId);
     assert.deepEqual(
-      found.map((r) => [r.name, r.event, r.from, r.to, r.at]),
-      [['20260615T093000Z-1.json', 'created', null, 'draft', '2026-06-15T09:30:00Z']],
+      found.map((r) => [r.event, r.from, r.to, r.at]),
+      [['created', null, 'draft', '2026-06-15T09:30:00Z']],
     );
+    assert.match(found[0].name, usageNamePattern(createdId, '2026-06-15T09:30:00Z'));
     assert.deepEqual(warnings, []);
   });
 
-  test(`20261001-155612 (${layout}): a conflicted write takes no snapshot`, () => {
+  test(`20261001-155612 (${layout}): a conflicted write takes no snapshot`, (t) => {
     if (!activated) return; // the CAS conflict only exists on the state ref
-    const { root, id } = usageRepo({ activated });
+    const { root, id } = usageRepo({ activated, t });
     task(id, 'done', 1, '', root);
-    approve(id, root, { usage: { runner: claudeRunner('-x'), warn: () => {} } });
+    approve(id, root, { usage: usageOptions({ runner: claudeRunner('-x') }) });
     const before = usageRecords(root, id).length;
     const runner = claudeRunner(encodeProjectPath(root));
     const racer = () => {
@@ -2659,7 +2688,8 @@ for (const activated of [false, true]) {
       return '';
     };
     assert.throws(
-      () => status(id, 'in-progress', root, { ownerHandle: racer, usage: { runner } }),
+      () =>
+        status(id, 'in-progress', root, { ownerHandle: racer, usage: usageOptions({ runner }) }),
       (err) => err instanceof LedgerConflictError,
     );
     assert.equal(runner.calls.length, 0);
@@ -2675,15 +2705,13 @@ const CLI_FAILURES = {
 };
 
 for (const [name, env] of Object.entries(CLI_FAILURES)) {
-  test(`20261001-155612 CR8: ${name} never blocks \`changeledger status\``, () => {
-    const { root, id, read } = usageRepo();
+  test(`20261001-155612 CR8: ${name} never blocks \`changeledger status\``, (t) => {
+    const { root, id, read } = usageRepo({ t });
     task(id, 'done', 1, '', root);
-    const prep = runUsageBin(['approve', id], root, {
-      CHANGELEDGER_USAGE_COMMAND: JSON.stringify([process.execPath, FAKE_CCUSAGE]),
-    });
+    const prep = runUsageBin(['approve', id], root, { CHANGELEDGER_USAGE_COMMAND: FAKE_COMMAND });
     assert.equal(prep.code, 0, prep.err);
     const out = runUsageBin(['status', id, 'in-progress'], root, {
-      CHANGELEDGER_USAGE_COMMAND: JSON.stringify([process.execPath, FAKE_CCUSAGE]),
+      CHANGELEDGER_USAGE_COMMAND: FAKE_COMMAND,
       ...env,
     });
     assert.equal(out.code, 0, out.err);
@@ -2696,31 +2724,206 @@ for (const [name, env] of Object.entries(CLI_FAILURES)) {
   });
 }
 
-test('20261001-155612 CR9: records of root and worktree share the git common dir, outside the ledger', () => {
+// 20261001-155612 CR9 kept its records in the git common dir; 20261002-133728
+// moved them into the ledger. A linked worktree now writes where its ledger
+// lives: the shared state ref when activated, its own worktree otherwise.
+test('20261002-133728: a linked worktree records into the ledger it works on', (t) => {
   for (const activated of [false, true]) {
-    const { root, id } = usageRepo({ activated });
+    const { root, id } = usageRepo({ activated, t });
     const worktree = `${root}-wt`;
+    t.after(() => fs.rmSync(worktree, { recursive: true, force: true }));
     git(root, ['worktree', 'add', '-q', worktree]);
-    const runner = claudeRunner(encodeProjectPath(root));
-    const usage = { runner, warn: () => {} };
+    const usage = usageOptions({ runner: claudeRunner(encodeProjectPath(root)) });
     task(id, 'done', 1, '', root);
     if (!activated) task(id, 'done', 1, '', worktree);
     approve(id, root, { usage });
     if (activated) status(id, 'in-progress', worktree, { ownerHandle: () => '', usage });
     else approve(id, worktree, { usage });
 
-    const common = git(root, ['rev-parse', '--git-common-dir']).trim();
-    const expectedDir = path.join(path.resolve(root, common), 'changeledger', 'usage', id);
-    assert.equal(path.join(gitCommonDir(worktree), 'changeledger', 'usage', id), expectedDir);
-    assert.equal(fs.readdirSync(expectedDir).length, 2);
-    assert.doesNotMatch(git(root, ['status', '--porcelain', '--ignored']), /usage/);
-    assert.doesNotMatch(git(worktree, ['status', '--porcelain', '--ignored']), /usage/);
+    assert.equal(fs.existsSync(gitCommonUsageDir(root)), false);
     if (activated) {
-      for (const commit of git(root, ['rev-list', STATE_REF]).trim().split('\n')) {
-        assert.doesNotMatch(git(root, ['ls-tree', '-r', '--name-only', commit]), /usage/);
-      }
+      assert.equal(usageRecords(root, id).length, 2);
+      assert.equal(usageRecords(worktree, id).length, 2);
+    } else {
+      assert.equal(usageRecords(root, id).length, 1);
+      assert.equal(usageRecords(worktree, id).length, 1);
     }
     const checked = runUsageBin(['check'], root);
     assert.equal(checked.code, 0, checked.err + checked.out);
+  }
+});
+
+// --- 20261002-133728: records are published into the ledger ---------------
+
+test('20261002-133728 CR1: with the state ref, the snapshot is its own commit that only adds its record', (t) => {
+  const { root, id, read } = usageRepo({ activated: true, t });
+  task(id, 'done', 1, '', root);
+  approve(id, root, { usage: usageOptions({ runner: claudeRunner('-x') }) });
+  const before = stateRefTip(root);
+
+  const out = runUsageBin(['status', id, 'in-progress'], root, {
+    CHANGELEDGER_USAGE_COMMAND: FAKE_COMMAND,
+    FAKE_CCUSAGE_ROOT: encodeProjectPath(root),
+  });
+  assert.equal(out.code, 0, out.err);
+  assert.equal(out.err, '');
+
+  const commits = git(root, ['rev-list', '--reverse', '--first-parent', `${before}..${STATE_REF}`])
+    .trim()
+    .split('\n');
+  assert.equal(commits.length, 2, 'the transition commit, then the usage commit');
+  const [transition, published] = commits;
+  assert.equal(commitSubject(root, transition), `status: ${id} → in-progress`);
+  assert.equal(commitSubject(root, published), `usage: ${id} status`);
+  assert.equal(git(root, ['rev-parse', `${published}^`]).trim(), transition);
+
+  const delta = git(root, ['diff-tree', '-r', '--name-status', transition, published])
+    .trim()
+    .split('\n');
+  assert.equal(delta.length, 1, `the usage commit only adds its record:\n${delta.join('\n')}`);
+  const [, added] = delta[0].match(/^A\t\.changeledger-state\/usage\/(.+)$/) ?? [];
+  const at = instantOf(read(), 'approved → in-progress');
+  assert.match(added, usageNamePattern(id, at));
+
+  const record = JSON.parse(git(root, ['show', `${published}:.changeledger-state/usage/${added}`]));
+  const { owner: resolvedOwner } = parseChange(read()).frontmatter;
+  assert.equal(resolvedOwner, 'Test User', 'the CLI resolved the owner on in-progress');
+  assert.equal(record.recorded_by, resolvedOwner);
+  assert.equal(record.schema, 1);
+  assert.equal(record.change, id);
+  assert.equal(record.at, at);
+  assert.equal(record.event, 'status');
+  assert.equal(record.from, 'approved');
+  assert.equal(record.to, 'in-progress');
+  assert.deepEqual(record.collector, { name: 'ccusage', version: '20.0.26', pricing: 'online' });
+  assert.equal(record.sessions.length, 1);
+  assert.equal(record.error, null);
+  assert.equal(fs.existsSync(gitCommonUsageDir(root)), false);
+  assert.equal(fs.existsSync(path.join(root, '.changeledger', 'usage')), false);
+});
+
+test('20261002-133728 CR2: in the worktree layout the record lands in .changeledger/usage', (t) => {
+  const { root, id, read } = usageRepo({ t });
+  task(id, 'done', 1, '', root);
+  approve(id, root, { usage: usageOptions({ runner: claudeRunner('-x') }) });
+
+  const out = runUsageBin(['status', id, 'in-progress'], root, {
+    CHANGELEDGER_USAGE_COMMAND: FAKE_COMMAND,
+    FAKE_CCUSAGE_ROOT: encodeProjectPath(root),
+  });
+  assert.equal(out.code, 0, out.err);
+  const at = instantOf(read(), 'approved → in-progress');
+  const [record] = usageRecords(root, id).filter((r) => r.to === 'in-progress');
+  assert.match(record.name, usageNamePattern(id, at));
+  assert.equal(record.recorded_by, parseChange(read()).frontmatter.owner);
+  assert.equal(fs.existsSync(gitCommonUsageDir(root)), false);
+
+  // ...and travels with the commit of its change.
+  const committed = runUsageBin(['commit', '-m', 'feat(x): y', '--id', id], root);
+  assert.equal(committed.code, 0, committed.err);
+  const paths = git(root, ['show', '--name-only', '--format=', 'HEAD']);
+  assert.ok(
+    paths.split('\n').includes(`.changeledger/usage/${record.name}`),
+    `the commit must carry the record:\n${paths}`,
+  );
+});
+
+// Another writer moves the state ref right before the collector's CAS
+// `update-ref`, `races` times at most: the injected `stateRun` is the
+// collector's own git seam for the state store, so the transition itself
+// is untouched by it.
+function racingStateRun(races) {
+  const attempts = { count: 0 };
+  const run = (args, cwd, options) => {
+    if (args[0] === 'update-ref' && args[1] === STATE_REF) {
+      attempts.count += 1;
+      if (attempts.count <= races) {
+        const tip = capturedRun(['rev-parse', STATE_REF], cwd).trim();
+        mutateState(
+          cwd,
+          { expectedRevision: tip, message: `usage: other writer ${attempts.count}` },
+          (stage) =>
+            stage.write(
+              `usage/20260101-000000--20260101T000000Z-0000000${attempts.count}.json`,
+              usageRecordText('20260101-000000', '2026-01-01T00:00:00Z'),
+            ),
+        );
+      }
+    }
+    return capturedRun(args, cwd, options);
+  };
+  return { run, attempts };
+}
+
+test('20261002-133728 CR7: a ref that keeps moving never blocks the transition', (t) => {
+  const { root, id, read } = usageRepo({ activated: true, t });
+  task(id, 'done', 1, '', root);
+  approve(id, root, { usage: usageOptions({ runner: claudeRunner('-x') }) });
+  const { run, attempts } = racingStateRun(Number.POSITIVE_INFINITY);
+  const warnings = [];
+
+  status(id, 'in-progress', root, {
+    ownerHandle: () => '',
+    usage: usageOptions({
+      runner: claudeRunner(encodeProjectPath(root)),
+      warn: (l) => warnings.push(l),
+      stateRun: run,
+    }),
+  });
+
+  assert.equal(attempts.count, 2, 'one attempt and exactly one retry');
+  assert.ok(logLines(read()).some((l) => l.includes('`[status]` approved → in-progress')));
+  const lines = warnings.filter((l) => l.startsWith('usage: record not published: '));
+  assert.equal(lines.length, 1, warnings.join('\n'));
+  assert.deepEqual(
+    usageRecords(root, id).filter((r) => r.to === 'in-progress'),
+    [],
+  );
+  assert.equal(fs.existsSync(gitCommonUsageDir(root)), false);
+  assert.equal(fs.existsSync(path.join(root, '.changeledger', 'usage')), false);
+});
+
+test('20261002-133728 CR7: one move of the ref is absorbed by the single retry', (t) => {
+  const { root, id } = usageRepo({ activated: true, t });
+  task(id, 'done', 1, '', root);
+  approve(id, root, { usage: usageOptions({ runner: claudeRunner('-x') }) });
+  const { run, attempts } = racingStateRun(1);
+  const warnings = [];
+
+  status(id, 'in-progress', root, {
+    ownerHandle: () => '',
+    usage: usageOptions({
+      runner: claudeRunner(encodeProjectPath(root)),
+      warn: (l) => warnings.push(l),
+      stateRun: run,
+    }),
+  });
+
+  assert.equal(attempts.count, 2);
+  assert.deepEqual(warnings, []);
+  assert.equal(usageRecords(root, id).filter((r) => r.to === 'in-progress').length, 1);
+  assert.equal(commitSubject(root, STATE_REF), `usage: ${id} status`);
+});
+
+test('20261002-133728 CR8: without the collector a transition adds no commit, folder or output', (t) => {
+  for (const activated of [false, true]) {
+    const { root, id } = usageRepo({ activated, collector: null, t });
+    task(id, 'done', 1, '', root);
+    approve(id, root);
+    const before = activated ? stateRefTip(root) : null;
+    const out = runUsageBin(['status', id, 'in-progress'], root, {
+      CHANGELEDGER_USAGE_COMMAND: FAKE_COMMAND,
+    });
+    assert.equal(out.code, 0, out.err);
+    assert.equal(out.out, `#${id} → in-progress\n`);
+    assert.equal(out.err, '');
+    if (activated) {
+      assert.equal(
+        git(root, ['rev-list', '--count', `${before}..${STATE_REF}`]).trim(),
+        '1',
+        'only the transition commit',
+      );
+    }
+    assertNoUsage(root);
   }
 });

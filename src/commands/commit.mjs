@@ -185,6 +185,25 @@ export function commit(
     );
   }
 
+  // Usage records (20261002-133728) travel with their change like its Log: in
+  // the worktree layout the collector leaves them unstaged under
+  // `.changeledger/usage/`, so a commit that carries a change id stages that
+  // change's records — identified by the id in their file name — and never
+  // another change's. Staged only once the guard above has passed, so an
+  // aborted commit leaves the index as it found it. An activated repo keeps
+  // them in the state ref and stages nothing here.
+  if (!repo.state && noChange === undefined) {
+    const carried = new Set(resolvedIds.map(String));
+    const records = (repo.usage ?? []).filter((entry) => carried.has(entry.change));
+    if (records.length) {
+      const paths = records.map((entry) =>
+        path.relative(repo.repoRoot, entry.file).split(path.sep).join('/'),
+      );
+      run(['add', '--', ...paths], repo.repoRoot);
+      log(`Staged usage records: ${paths.join(', ')}`);
+    }
+  }
+
   let subject;
   let args;
   if (noChange !== undefined) {

@@ -8,6 +8,7 @@ import { commit } from '../src/commands/commit.mjs';
 import { findChangeledgerDir, resolveRepoPath } from '../src/config.mjs';
 import { loadRepo, loadRepoAsync, loadRepoWithConfig } from '../src/repo.mjs';
 import { STATE_REF, writeActivation } from '../src/state-store.mjs';
+import { usageRecordText } from './helpers/ccusage.mjs';
 import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 import {
   buildTree,
@@ -506,4 +507,109 @@ test('20260808-151641 CR8: an activated repo below the git top-level still serve
     repo.changes.find((c) => c.frontmatter.id === 'only-worktree'),
     undefined,
   );
+});
+
+// --- 20261002-133728 CR10: usage records load with the rest of the ledger ----
+
+const USAGE_ID = '20261002-133728';
+const USAGE_RECORDS = {
+  [`${USAGE_ID}--20261002T152442Z-0a1b2c3d.json`]: usageRecordText(
+    USAGE_ID,
+    '2026-10-02T15:24:42Z',
+    {
+      from: 'draft',
+      to: 'approved',
+    },
+  ),
+  [`${USAGE_ID}--20261002T153233Z-ffee0011.json`]: usageRecordText(USAGE_ID),
+};
+
+// Both layouts holding `records` (name -> text) in their own usage collection.
+function usageLedger(t, layout, records = USAGE_RECORDS) {
+  if (layout === 'legacy') {
+    const root = fixture();
+    t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    const dir = path.join(root, '.changeledger', 'usage');
+    fs.mkdirSync(dir, { recursive: true });
+    for (const [name, text] of Object.entries(records))
+      fs.writeFileSync(path.join(dir, name), text);
+    return root;
+  }
+  const root = initStateRepo();
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  fs.mkdirSync(path.join(root, '.changeledger'), { recursive: true });
+  fs.writeFileSync(path.join(root, '.changeledger', 'config.yml'), 'language: en\n');
+  const files = {
+    '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
+    '.changeledger-state/config.yml': 'project_id: demo\nlanguage: en\n',
+    '.changeledger-state/changes/only-ref.md': changeDoc('only-ref', 'Only ref'),
+  };
+  for (const [name, text] of Object.entries(records)) {
+    files[`.changeledger-state/usage/${name}`] = text;
+  }
+  updateRef(root, STATE_REF, commitTree(root, buildTree(root, files), { message: 'chore: state' }));
+  writeActivation(root, { stateRef: STATE_REF });
+  return root;
+}
+
+function usageView(repo) {
+  return repo.usage.map((entry) => ({
+    name: entry.name,
+    change: entry.change,
+    to: entry.record?.to,
+    error: entry.error,
+  }));
+}
+
+for (const layout of ['legacy', 'state ref']) {
+  test(`20261002-133728 CR10 (${layout}): loadRepo and the viewer's async load expose parsed records by change`, async (t) => {
+    const root = usageLedger(t, layout);
+    const expected = [
+      {
+        name: `${USAGE_ID}--20261002T152442Z-0a1b2c3d.json`,
+        change: USAGE_ID,
+        to: 'approved',
+        error: null,
+      },
+      {
+        name: `${USAGE_ID}--20261002T153233Z-ffee0011.json`,
+        change: USAGE_ID,
+        to: 'in-progress',
+        error: null,
+      },
+    ];
+    const syncRepo = loadRepo(root);
+    assert.deepEqual(usageView(syncRepo), expected);
+    assert.equal(syncRepo.usage[1].record.recorded_by, 'Test User');
+    assert.deepEqual(usageView(await loadRepoAsync(root)), expected);
+  });
+
+  test(`20261002-133728 CR10 (${layout}): an invalid record never stops the rest of the ledger from loading`, async (t) => {
+    const broken = `${USAGE_ID}--20261002T160000Z-deadbeef.json`;
+    const root = usageLedger(t, layout, { ...USAGE_RECORDS, [broken]: '{"schema": 1,' });
+    for (const repo of [loadRepo(root), await loadRepoAsync(root)]) {
+      assert.equal(repo.changes.length, 1);
+      assert.equal(repo.usage.length, 3);
+      const entry = repo.usage.find((e) => e.name === broken);
+      assert.equal(entry.record, null);
+      assert.match(entry.error, /^invalid JSON: /);
+    }
+  });
+
+  test(`20261002-133728 CR10 (${layout}): a ledger without records loads an empty usage list`, async (t) => {
+    const root = usageLedger(t, layout, {});
+    assert.deepEqual(loadRepo(root).usage, []);
+    assert.deepEqual((await loadRepoAsync(root)).usage, []);
+  });
+}
+
+test('20261002-133728 CR10 (legacy): a record that cannot be read stays an entry, the ledger loads', async (t) => {
+  const root = usageLedger(t, 'legacy');
+  const unreadable = `${USAGE_ID}--20261002T160000Z-deadbeef.json`;
+  fs.mkdirSync(path.join(root, '.changeledger', 'usage', unreadable));
+  for (const repo of [loadRepo(root), await loadRepoAsync(root)]) {
+    assert.equal(repo.changes.length, 1);
+    const entry = repo.usage.find((e) => e.name === unreadable);
+    assert.deepEqual([entry.record, entry.error], [null, 'cannot be read']);
+  }
 });

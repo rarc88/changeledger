@@ -10,10 +10,11 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { sync as syncCommand } from '../src/commands/sync.mjs';
 import { capturedRun } from '../src/git.mjs';
 import { ACTIVATION_REF, mutateState, readSnapshot, STATE_REF } from '../src/state-store.mjs';
+import { encodeProjectPath } from '../src/usage-collector.mjs';
 import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 import {
   buildTree,
@@ -488,4 +489,85 @@ test('20260811-151426 CR3: a reconciliation whose merged tree is invalid leaves 
   assert.equal(cli(a, 'check').code, checkBefore, 'the ledger must still validate as it did');
   assert.notEqual(cli(a, 'sync').code, 0, 'the failure is idempotent — no half-written state');
   assert.equal(refOid(a, STATE_REF), localTip);
+});
+
+// --- 20261002-133728 CR3: two clones' records merge without a conflict ------
+
+const FAKE_CCUSAGE = fileURLToPath(new URL('fixtures/ccusage/fake-ccusage.mjs', import.meta.url));
+const COLLECTOR = fileURLToPath(new URL('../src/usage-collector.mjs', import.meta.url));
+
+// One clone's snapshot, taken in its own process as on its own machine: a
+// process-wide counter could not tell two clones apart in a single test
+// process. The local fake answers for ccusage; `who` is `recorded_by`.
+function snapshotInOwnProcess(root, event, who) {
+  const script = `
+    const { snapshotUsage } = await import(${JSON.stringify(pathToFileURL(COLLECTOR).href)});
+    const warnings = [];
+    snapshotUsage({
+      repoRoot: ${JSON.stringify(root)},
+      events: [${JSON.stringify(event)}],
+      usage: { ownerHandle: () => ${JSON.stringify(who)}, warn: (l) => warnings.push(l) },
+    });
+    process.stdout.write(JSON.stringify(warnings));
+  `;
+  const result = spawnSync(process.execPath, ['--input-type=module', '-e', script], {
+    cwd: root,
+    env: sanitizedEnv({
+      CHANGELEDGER_USAGE_COMMAND: JSON.stringify([process.execPath, FAKE_CCUSAGE]),
+      FAKE_CCUSAGE_ROOT: encodeProjectPath(root),
+    }),
+    encoding: 'utf8',
+  });
+  assert.equal(result.status, 0, result.stderr);
+  return JSON.parse(result.stdout);
+}
+
+test('20261002-133728 CR3: two clones recording the same change in the same second sync without conflict', (t) => {
+  const { remote, a, b } = syncFixture();
+  for (const dir of [remote, a, path.dirname(b)]) {
+    t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  }
+  const event = {
+    change: '20260808-000001',
+    event: 'status',
+    from: 'approved',
+    to: 'in-progress',
+    at: '2026-10-02T15:32:33Z',
+  };
+  for (const [root, who] of [
+    [a, 'alice'],
+    [b, 'bob'],
+  ]) {
+    git(root, ['config', 'changeledger.usage.collector', 'ccusage']);
+    assert.deepEqual(snapshotInOwnProcess(root, event, who), []);
+  }
+
+  assert.equal(cli(b, 'sync').code, 0, 'the other clone publishes first');
+  const merged = cli(a, 'sync');
+  assert.equal(merged.code, 0, `${merged.out}${merged.err}`);
+
+  const records = Object.entries(readSnapshot(a).documents)
+    .filter(([name]) => name.startsWith('usage/20260808-000001--20261002T153233Z-'))
+    .map(([, text]) => JSON.parse(text).recorded_by)
+    .sort();
+  assert.deepEqual(records, ['alice', 'bob']);
+
+  assert.equal(cli(b, 'sync').code, 0);
+  assert.equal(refOid(b, STATE_REF), refOid(a, STATE_REF));
+});
+
+test('20261002-133728: a colliding usage path is reported as a usage record', (t) => {
+  const { remote, a, b } = syncFixture();
+  for (const dir of [remote, a, path.dirname(b)]) {
+    t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  }
+  const name = 'usage/20260808-000001--20261002T153233Z-0a1b2c3d.json';
+  writeDocument(a, name, '{"schema": 1, "side": "a"}\n');
+  writeDocument(b, name, '{"schema": 1, "side": "b"}\n');
+  assert.equal(cli(b, 'sync').code, 0);
+
+  const { code, err } = cli(a, 'sync');
+
+  assert.notEqual(code, 0);
+  assert.match(err, /- usage record usage\/20260808-000001--20261002T153233Z-0a1b2c3d\.json: /);
 });
