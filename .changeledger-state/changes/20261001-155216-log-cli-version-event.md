@@ -232,3 +232,4 @@ flowchart LR
 - **2026-10-01T16:56:32Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-10-02T15:24:41Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-10-02T15:25:11Z** `[graduation]` spec: `data-model.md`
+- **2026-10-02T15:25:11Z** `[graduation]` spec: `architecture.md`
