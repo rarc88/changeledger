@@ -2,9 +2,10 @@
 id: "20261002-133728"
 title: Guardar los registros de consumo en el ledger
 type: feature
-status: approved
+status: in-progress
 created: 2026-10-02T13:37:28Z
 depends_on: ["20261001-155612"]
+branch: feature/20261002-133728
 related_to: ["20260808-142200", "20260808-151640", "20260809-113240", "20260809-113241", "20261002-132127"]
 owner: rarc88
 release_impact: minor
@@ -215,3 +216,5 @@ humano para dividirlo por layout.
 
 ## Log
 - **2026-10-02T15:24:42Z** `[status]` draft → approved (human via conversation)
+- **2026-10-02T15:32:33Z** `[status]` approved → in-progress
+- **2026-10-02T15:32:33Z** `[branch]` set: feature/20261002-133728 (auto)
