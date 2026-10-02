@@ -74,11 +74,22 @@ Antes de mutar una tarea, el parser valida el bloque completo y falla sin
 escribir ante metadatos ausentes, duplicados, desconocidos o huérfanos. Completar
 una tarea ya resuelta es idempotente y conserva el timestamp original. El Log
 usa eventos tipados con timestamp y uno de los tipos `status`, `review`,
-`validation`, `owner`, `branch`, `graduation`, `archive` o `note`. Un único
+`validation`, `owner`, `branch`, `graduation`, `archive`, `note` o `version`. Un único
 parser y serializador alimenta lifecycle, métricas, graduación y archivado; el
 payload es opaco salvo por el esquema del tipo declarado. `changeledger log`
 siempre crea un evento `note`, por lo que su texto no puede simular una
 transición operativa.
+El tipo no transicional `version` registra la versión de ChangeLedger que
+modifica el change, con la forma `<semver>` para el primer sello y
+`<semver> → <semver>` cuando cambia; acepta prerelease y metadata de build con la
+misma gramática que `min_cli_version`. La creación del change (`new` y el
+`target: "new"` de `apply`) sella la versión con el instante `created`, y
+`appendLogEvent` sella antes de cualquier otro evento cuando el Log no tiene
+sello o su último sello difiere textualmente de la versión instalada, de modo
+que una versión inferior permitida por el mínimo también queda registrada. Cada
+evento pertenece a la última versión sellada antes que él. `edit`, los
+documentos de `apply` sobre changes existentes, `fix` y `task` no escriben
+eventos y no sellan; los changes anteriores al sello no se rellenan.
 La migración desde la gramática anterior es explícita mediante
 `changeledger fix --structured-sections`, admite `--dry-run`, escribe de forma
 atómica por archivo y deja intacto cualquier documento que requiera una decisión
