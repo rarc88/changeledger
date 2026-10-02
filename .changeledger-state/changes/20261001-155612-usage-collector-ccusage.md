@@ -25,14 +25,15 @@ El coste se congela en el momento de la captura, porque el precio de un modelo
 cambia con el tiempo; se usan los precios de la API aunque el humano trabaje con
 suscripción. Los harness cuyas sesiones no indican el proyecto quedan fuera, con
 aviso. La captura es opcional, nunca bloquea una transición y funciona igual con
-la ref de estado y en el layout legacy. Los registros se guardan localmente en
-el directorio común de git, fuera del ledger.
+la ref de estado y en el layout legacy. Cada clon la activa con la configuración
+de git, no con `config.yml`, porque mide la máquina local. Los registros se
+guardan localmente en el directorio común de git, fuera del ledger.
 
 Quedan fuera de este change: el analizador y cualquier vista de los datos, la
 sincronización de los registros entre máquinas o su paso a la ref de estado
 (ampliaría `global-state-scope` y sería un change propio), el desglose por rol
 de orquestador o subagente más allá del modelo, otros colectores distintos de
-`ccusage`, la edición de la clave desde el viewer y la versión de ChangeLedger
+`ccusage`, la activación desde el viewer o desde `config.yml` y la versión de ChangeLedger
 de cada registro, que se obtiene cruzando su instante con las líneas `[version]`
 del change `20261001-155216`.
 
@@ -90,9 +91,15 @@ guardar en `<git-common-dir>/changeledger/usage/`: existe en ambos layouts, es
 común a todos los worktrees de un repo, git nunca lo versiona y ningún comando
 del ledger (`check`, `cutover`, `import`, `sync`, `commit`) lo lee.
 
-Configuración: una clave opcional ausente por defecto no exige subir el schema
-(precedente `git.integration_branch`); `checkConfig` valida sólo claves conocidas
-mediante accesores en `src/config.mjs` que lanzan `config "<k>" must be …`.
+Activación: en un repo activado la configuración efectiva es la de la ref de
+estado, y hoy sólo cambia con `config migrate` o con la lista cerrada de claves
+que edita el viewer; editar `.changeledger/config.yml` en el worktree no tiene
+efecto. Una clave en `config.yml` no podría activarse aquí sin ampliar esas
+rutas. El humano eligió (2026-10-02) la configuración de git:
+`git config --get changeledger.usage.collector` resuelve los ámbitos local,
+global y de sistema, no se versiona, y los worktrees comparten la configuración
+local del repo. Encaja con que los registros vivan en el directorio común de git
+y con que `ccusage` lea los logs de la máquina.
 
 Interfaces externas: la salida JSON de `ccusage` se considera estable sólo para
 la versión fijada 20.0.26 y se verifica con fixtures capturadas de su salida
@@ -102,7 +109,8 @@ LiteLLM dependen de la red y no son estables, por lo que tienen respaldo offline
 
 ## Proposal
 
-Una clave opcional `usage.collector: ccusage` activa la captura. Con ella, tras
+El valor `ccusage` en `git config changeledger.usage.collector` activa la captura
+en ese clon. Con él, tras
 escribir con éxito cada evento de transición (`[status]`, `[review]`,
 `[validation]`) y tras crear un change, ChangeLedger toma una foto del consumo
 acumulado de las sesiones de este repo y la guarda en un archivo JSON propio.
@@ -178,24 +186,25 @@ sin filtrar por proyecto (mezcla otros repos activos); guardar en el documento
 ## Specification
 
 ### CR1 — Sin la clave no cambia nada
-- **Given** un repo cuya configuración efectiva no tiene la clave `usage` y un change `approved`
+- **Given** un repo donde `git config --get changeledger.usage.collector` no devuelve valor y un change `approved`
 - **When** se ejecuta `changeledger status <id> in-progress`
 - **Then** no se lanza ningún proceso `npx` ni `ccusage`, no existe `<git-common-dir>/changeledger/usage/` y la salida es la de hoy
 
 ### CR2 — Un colector desconocido es un error de configuración
-- **Given** un repo con `usage: { collector: other }`
+- **Given** un repo con `git config changeledger.usage.collector other`
 - **When** se ejecuta `changeledger check`
-- **Then** termina con código distinto de cero y muestra `config "usage.collector" must be "ccusage"`
-- **And** con `usage: { collector: ccusage }` ese error no aparece
+- **Then** termina con código distinto de cero y muestra `git config "changeledger.usage.collector" must be "ccusage"`
+- **And** con el valor `ccusage` ese error no aparece
+- **And** una clave `usage` en `config.yml`, sin el valor en git config, no activa la captura ni es validada
 
 ### CR3 — Una transición deja una foto completa
-- **Given** `usage.collector: ccusage`, un `ccusage` simulado cuya salida de `claude session --json` es la fixture capturada con una sesión cuyo `projectPath` codifica la raíz del repo y dos modelos, y un change `approved`
+- **Given** `changeledger.usage.collector=ccusage` en git config, un `ccusage` simulado cuya salida de `claude session --json` es la fixture capturada con una sesión cuyo `projectPath` codifica la raíz del repo y dos modelos, y un change `approved`
 - **When** se ejecuta `changeledger status <id> in-progress`
 - **Then** existe exactamente un archivo `<git-common-dir>/changeledger/usage/<id>/<instante>-1.json` cuyo `at` es el instante de la línea `[status]` `approved → in-progress`, con `schema: 1`, `event: "status"`, `from: "approved"`, `to: "in-progress"`, `collector` `{ "name": "ccusage", "version": "20.0.26", "pricing": "online" }`, `excluded: []`, `error: null`
 - **And** su única sesión tiene `source: "claude"` y, por modelo, los tokens y el coste de `modelBreakdowns` con los nombres del registro, y el comando termina con código cero
 
 ### CR4 — Toda transición y la creación fotografían; el resto de comandos no
-- **Given** `usage.collector: ccusage`, el `ccusage` simulado de CR3, un repo inactivo y uno activado
+- **Given** `changeledger.usage.collector=ccusage` en git config, el `ccusage` simulado de CR3, un repo inactivo y uno activado
 - **When** se ejecutan `changeledger new`, `approve`, `status`, `review`, `validation`, `reopen` y `discard`, una transición desde el viewer y un evento `status` de `changeledger apply`, y después `log`, `task`, `owner`, `branch`, `archive`, `graduate`, `edit` y `fix`
 - **Then** cada uno del primer grupo deja exactamente un registro por evento de transición escrito, con `event: "created"` y `from: null` para `new`
 - **And** ningún comando del segundo grupo deja un registro
@@ -219,19 +228,19 @@ sin filtrar por proyecto (mezcla otros repos activos); guardar en el documento
 - **And** stderr muestra `usage: online pricing unavailable; used ccusage offline prices`
 
 ### CR8 — Un fallo del colector nunca bloquea la transición
-- **Given** `usage.collector: ccusage` y, en cuatro casos, un `npx` ausente, un `ccusage` que supera los 10 s, uno que sale con código distinto de cero en ambos intentos y uno que escribe JSON inválido
+- **Given** `changeledger.usage.collector=ccusage` en git config y, en cuatro casos, un `npx` ausente, un `ccusage` que supera los 10 s, uno que sale con código distinto de cero en ambos intentos y uno que escribe JSON inválido
 - **When** se ejecuta `changeledger status <id> in-progress` en cada caso
 - **Then** el comando termina con código cero y el Log contiene la transición
 - **And** queda un registro con `sessions: []` y `error` no nulo, y stderr muestra una línea que empieza por `usage: snapshot failed: `
 
 ### CR9 — Los registros viven fuera del ledger en ambos layouts
-- **Given** `usage.collector: ccusage`, un repo inactivo y uno activado con un worktree adicional
+- **Given** `changeledger.usage.collector=ccusage` en git config, un repo inactivo y uno activado con un worktree adicional
 - **When** se ejecuta una transición desde la raíz y otra desde el worktree
 - **Then** ambos registros están bajo el mismo `<git-common-dir>/changeledger/usage/` que devuelve `git rev-parse --git-common-dir`
 - **And** `git status --porcelain` no los muestra, ningún commit de la ref de estado contiene una ruta `usage` y `changeledger check` termina con código cero
 
 ### CR10 — El primer uso real en este repo
-- **Given** este repo con `usage.collector: ccusage`, el `ccusage` 20.0.26 real y un change de prueba
+- **Given** este repo con `git config changeledger.usage.collector ccusage`, el `ccusage` 20.0.26 real y un change de prueba
 - **When** el humano lo crea, lo aprueba y lo lleva a `in-progress` desde una sesión de Claude Code abierta en el repo
 - **Then** `<git-common-dir>/changeledger/usage/<id>/` contiene tres registros sin `error`, con la sesión actual en cada uno
 - **And** los tokens de esa sesión no decrecen entre registros consecutivos, de modo que cada diferencia es el consumo del tramo
@@ -264,13 +273,20 @@ sin filtrar por proyecto (mezcla otros repos activos); guardar en el documento
   - **Support:**
   - **Resolved:** `2026-10-01T17:21:52Z`
 - [ ] Recorrer el primer uso real con `ccusage` 20.0.26 en este repo
-  - **Target:** `.changeledger/config.yml`
+  - **Target:** `src/usage-collector.mjs`
   - **Verify:** verify: manual — crear, aprobar e iniciar un change de prueba desde Claude Code y revisar los tres registros
   - **Criteria:** CR10
 - [x] Ejecutar el gate completo
   - **Verify:** `pnpm verify`
   - **Support:**
   - **Resolved:** `2026-10-01T17:21:52Z`
+- [ ] Mover la activación a `git config changeledger.usage.collector`, retirar la clave de `config.yml` y su plantilla, y actualizar pruebas y documentación
+  - **Target:** `src/config.mjs, src/check.mjs, src/usage-collector.mjs, templates/config.yml, docs/usage-capture.md, test/`
+  - **Verify:** `node --test test/check.test.mjs test/usage-collector.test.mjs test/agent.test.mjs test/apply.test.mjs test/view.test.mjs`
+  - **Criteria:** CR1, CR2, CR3, CR4, CR8, CR9
+- [ ] Repetir el gate completo tras el cambio de activación
+  - **Verify:** `pnpm verify`
+  - **Support:**
 
 ## Log
 - **2026-10-01T16:09:47Z** `[status]` draft → approved (human via conversation)
