@@ -42,30 +42,165 @@ export function usageDir(gitCommonDir) {
   return path.join(gitCommonDir, 'changeledger', 'usage');
 }
 
-// Runs one `ccusage` call with a hard time limit and returns the spawnSync
-// result (`{ status, stdout, stderr, error }`). On Windows `npx` is a `.cmd`
-// shim, which Node only launches through a shell; the arguments are fixed
-// tokens plus source names already checked against SOURCE_NAME.
-export function defaultCcusageRunner(args, { timeoutMs = CCUSAGE_TIMEOUT_MS, command } = {}) {
-  const [file, ...prefix] = command ?? commandFromEnv() ?? CCUSAGE_COMMAND;
-  return spawnSync(file, [...prefix, ...args], {
-    encoding: 'utf8',
-    timeout: timeoutMs,
-    maxBuffer: OUTPUT_LIMIT,
-    stdio: ['ignore', 'pipe', 'pipe'],
-    shell: process.platform === 'win32' && command === undefined && file === 'npx',
-    windowsHide: true,
-  });
+// How one call is launched: `{ file, args, shell }`. An explicit `command` or
+// the CHANGELEDGER_USAGE_COMMAND override runs as an argument vector and never
+// through a shell. The built-in `npx` command needs a shell only on Windows,
+// where `npx` is a `.cmd` shim; there it is passed as one command string, built
+// from tokens that must match SAFE_TOKEN (the fixed prefix, ccusage's fixed
+// flags and source names already checked against SOURCE_NAME), so nothing
+// reaches `cmd.exe` that could be read as shell syntax.
+const SAFE_TOKEN = /^[A-Za-z0-9@._-]+$/;
+
+export function ccusageInvocation(
+  args,
+  { command, env = process.env, platform = process.platform } = {},
+) {
+  const override = command ?? commandFromEnv(env);
+  if (override) {
+    const [file, ...prefix] = override;
+    return { file, args: [...prefix, ...args], shell: false };
+  }
+  const [file, ...prefix] = CCUSAGE_COMMAND;
+  const all = [...prefix, ...args];
+  if (platform !== 'win32') return { file, args: all, shell: false };
+  const unsafe = all.find((token) => !SAFE_TOKEN.test(token));
+  if (unsafe !== undefined) {
+    throw new Error(`unsafe ccusage argument for the Windows shell: ${unsafe}`);
+  }
+  return { file: [file, ...all].join(' '), args: [], shell: true };
 }
 
-function commandFromEnv() {
-  const raw = process.env[COMMAND_ENV];
+function commandFromEnv(env) {
+  const raw = env[COMMAND_ENV];
   if (!raw) return undefined;
   const parsed = JSON.parse(raw);
   if (!Array.isArray(parsed) || !parsed.length || !parsed.every((p) => typeof p === 'string')) {
     throw new Error(`${COMMAND_ENV} must be a JSON array of strings`);
   }
   return parsed;
+}
+
+// Supervisor run in a separate Node process so the call stays synchronous while
+// the time limit applies to the call's process group: `spawnSync`'s own
+// timeout signals only its direct child (`npx`), and the reviewer observed the
+// real ccusage below it still alive 21 s later. The command starts in its own
+// process group (POSIX; on Windows `taskkill /T /F` ends the tree), and that
+// group is SIGKILLed when the limit expires, when the supervisor receives
+// SIGINT, SIGTERM, SIGHUP or SIGQUIT (a Ctrl-C, Ctrl-\ or closed terminal reaches the CLI's
+// group, which the supervisor shares but the command no longer does), or when
+// relaying output fails because the CLI is gone. A descendant that starts its
+// own process group or session escapes the kill. The outcome travels on fd 3
+// as JSON; stdout and stderr are relayed untouched.
+const SUPERVISOR = `
+const { spawn, spawnSync } = require('node:child_process');
+const fs = require('node:fs');
+const os = require('node:os');
+const spec = JSON.parse(process.argv[1]);
+const posix = spec.platform !== 'win32';
+let child;
+const killGroup = () => {
+  if (!child?.pid) return;
+  try {
+    if (posix) process.kill(-child.pid, 'SIGKILL');
+    else spawnSync('taskkill', ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true });
+  } catch {}
+};
+const abandon = (code) => {
+  killGroup();
+  process.exit(code);
+};
+for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP', 'SIGQUIT']) {
+  process.on(signal, () => abandon(128 + os.constants.signals[signal]));
+}
+process.stdout.on('error', () => abandon(1));
+process.stderr.on('error', () => abandon(1));
+let reported = false;
+const report = (outcome) => {
+  if (reported) return;
+  reported = true;
+  try {
+    fs.writeSync(3, JSON.stringify(outcome));
+  } catch {
+    abandon(1);
+  }
+};
+try {
+  child = spawn(spec.file, spec.args, {
+    shell: spec.shell,
+    detached: posix,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+  });
+} catch (e) {
+  report({ error: { code: e.code, message: e.message } });
+  process.exit(0);
+}
+child.stdout.pipe(process.stdout);
+child.stderr.pipe(process.stderr);
+let timedOut = false;
+const timer = setTimeout(() => {
+  timedOut = true;
+  killGroup();
+}, spec.timeoutMs);
+child.on('error', (e) => {
+  clearTimeout(timer);
+  report({ error: { code: e.code, message: e.message } });
+});
+child.on('close', (status, signal) => {
+  clearTimeout(timer);
+  report(timedOut ? { timedOut: true } : { status, signal });
+});
+`;
+// Grace for the supervisor itself beyond the call's own limit.
+const SUPERVISOR_GRACE_MS = 5_000;
+
+// Runs one `ccusage` call with a hard time limit over its whole process tree
+// and returns a spawnSync-shaped result (`{ status, signal, stdout, stderr,
+// error }`); a timeout is reported as an error with code ETIMEDOUT.
+export function defaultCcusageRunner(
+  args,
+  { timeoutMs = CCUSAGE_TIMEOUT_MS, command, platform = process.platform } = {},
+) {
+  const empty = { status: null, signal: null, stdout: '', stderr: '' };
+  let invocation;
+  try {
+    invocation = ccusageInvocation(args, { command, platform });
+  } catch (error) {
+    return { ...empty, error };
+  }
+  const spec = JSON.stringify({ ...invocation, timeoutMs, platform });
+  const outer = spawnSync(process.execPath, ['-e', SUPERVISOR, spec], {
+    encoding: 'utf8',
+    timeout: timeoutMs + SUPERVISOR_GRACE_MS,
+    killSignal: 'SIGKILL',
+    maxBuffer: OUTPUT_LIMIT,
+    stdio: ['ignore', 'pipe', 'pipe', 'pipe'],
+    windowsHide: true,
+  });
+  const stdout = outer.stdout ?? '';
+  const stderr = outer.stderr ?? '';
+  if (outer.error) return { ...empty, stdout, stderr, error: outer.error };
+  let outcome;
+  try {
+    outcome = JSON.parse(outer.output?.[3] || 'null');
+  } catch {
+    outcome = null;
+  }
+  if (!outcome) {
+    const error = new Error(`ccusage supervisor exited with ${outer.status ?? outer.signal}`);
+    return { ...empty, stdout, stderr, error };
+  }
+  if (outcome.timedOut) {
+    const error = Object.assign(new Error(`timed out after ${timeoutMs} ms`), {
+      code: 'ETIMEDOUT',
+    });
+    return { ...empty, stdout, stderr, error };
+  }
+  if (outcome.error) {
+    const error = Object.assign(new Error(outcome.error.message), { code: outcome.error.code });
+    return { ...empty, stdout, stderr, error };
+  }
+  return { status: outcome.status, signal: outcome.signal, stdout, stderr };
 }
 
 // One bounded call parsed as JSON; any failure throws with a message naming
@@ -142,14 +277,17 @@ function mapSession(source, session, unpriced) {
 // The snapshot proper: which sources have sessions, each source's sessions
 // with online prices (offline on failure), filtered to this repo's encoded
 // paths by equality — encodings are prefix-ambiguous, so a sibling repo named
-// `<repo>-foo` must not match. Never throws.
-export function collectUsage({
-  projectPaths,
-  runner = defaultCcusageRunner,
-  timeoutMs = CCUSAGE_TIMEOUT_MS,
-}) {
-  const targets = new Set(projectPaths.map(encodeProjectPath));
+// `<repo>-foo` must not match. Failures, bad input included, come back as a
+// result with `error` set rather than as an exception.
+export function collectUsage(options) {
   try {
+    const {
+      projectPaths,
+      runner = defaultCcusageRunner,
+      timeoutMs = CCUSAGE_TIMEOUT_MS,
+    } = options ?? {};
+    if (!Array.isArray(projectPaths)) throw new Error('collectUsage needs a projectPaths list');
+    const targets = new Set(projectPaths.map(encodeProjectPath));
     const sources = listSources(
       callJson(runner, ['session', '--json', '--offline', '--no-cost'], timeoutMs),
     );

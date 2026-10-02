@@ -3,7 +3,7 @@
 // captured fixtures — no test reaches the network or the real `ccusage`.
 
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -12,6 +12,7 @@ import { usageCollector } from '../src/config.mjs';
 import { defaultRun } from '../src/git.mjs';
 import {
   CCUSAGE_TIMEOUT_MS,
+  ccusageInvocation,
   collectUsage,
   defaultCcusageRunner,
   encodeProjectPath,
@@ -410,3 +411,161 @@ test('a missing git binary reads as unset; another git failure skips with a warn
     'usage: snapshot skipped: could not read git config "changeledger.usage.collector": bad config line 1',
   ]);
 });
+
+function isAlive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (e) {
+    return e.code === 'EPERM';
+  }
+}
+
+test("CR8: a timeout kills the call's process group, grandchildren included", async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-usage-tree-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const pidFile = path.join(dir, 'grandchild.pid');
+  const sleeper = path.resolve('test/fixtures/ccusage/spawn-sleeper.mjs');
+  const result = defaultCcusageRunner(['session'], {
+    timeoutMs: 1000,
+    command: [process.execPath, sleeper, pidFile],
+  });
+  assert.equal(result.error?.code, 'ETIMEDOUT');
+  const { grandchild } = JSON.parse(fs.readFileSync(pidFile, 'utf8'));
+  let alive = isAlive(grandchild);
+  for (let i = 0; alive && i < 20; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    alive = isAlive(grandchild);
+  }
+  if (alive) process.kill(grandchild, 'SIGKILL');
+  assert.equal(alive, false, `grandchild ${grandchild} outlived the timeout`);
+});
+
+test('the runner relays stdout, a non-zero exit and a missing binary', () => {
+  const ok = defaultCcusageRunner(['a b'], {
+    command: [
+      process.execPath,
+      '-e',
+      'process.stdout.write(JSON.stringify(process.argv.slice(1)))',
+    ],
+  });
+  assert.equal(ok.status, 0);
+  assert.deepEqual(JSON.parse(ok.stdout), ['a b']);
+  const failed = defaultCcusageRunner([], {
+    command: [process.execPath, '-e', 'process.stderr.write("boom"); process.exit(3)'],
+  });
+  assert.equal(failed.status, 3);
+  assert.equal(failed.stderr, 'boom');
+  const missing = defaultCcusageRunner([], { command: ['changeledger-no-such-binary-xyz'] });
+  assert.equal(missing.error?.code, 'ENOENT');
+});
+
+test('only the built-in npx command goes through a shell, and only on Windows', () => {
+  const args = ['claude', 'session', '--json', '--offline'];
+  assert.deepEqual(ccusageInvocation(args, { platform: 'win32', env: {} }), {
+    file: 'npx --yes ccusage@20.0.26 claude session --json --offline',
+    args: [],
+    shell: true,
+  });
+  assert.deepEqual(ccusageInvocation(args, { platform: 'linux', env: {} }), {
+    file: 'npx',
+    args: ['--yes', 'ccusage@20.0.26', ...args],
+    shell: false,
+  });
+  const override = { CHANGELEDGER_USAGE_COMMAND: JSON.stringify(['npx', '--yes', 'x & calc']) };
+  assert.deepEqual(ccusageInvocation(args, { platform: 'win32', env: override }), {
+    file: 'npx',
+    args: ['--yes', 'x & calc', ...args],
+    shell: false,
+  });
+  assert.deepEqual(ccusageInvocation(args, { platform: 'win32', env: {}, command: ['npx'] }), {
+    file: 'npx',
+    args,
+    shell: false,
+  });
+  assert.throws(
+    () => ccusageInvocation(['claude & calc'], { platform: 'win32', env: {} }),
+    /unsafe ccusage argument/,
+  );
+});
+
+test('an env override on (emulated) Windows reaches no shell and prints no DEP0190', () => {
+  const script = `
+    Object.defineProperty(process, 'platform', { value: 'win32' });
+    const { defaultCcusageRunner } = await import(${JSON.stringify(path.resolve('src/usage-collector.mjs'))});
+    const r = defaultCcusageRunner(['session'], { timeoutMs: 5000 });
+    process.stdout.write(JSON.stringify({ code: r.error?.code ?? null, status: r.status, out: r.stdout }));
+  `;
+  const child = spawnSync(process.execPath, ['--input-type=module', '-e', script], {
+    env: {
+      ...sanitizedEnv(),
+      CHANGELEDGER_USAGE_COMMAND: JSON.stringify([
+        process.execPath,
+        '-e',
+        'process.stdout.write("ran")',
+      ]),
+    },
+    encoding: 'utf8',
+  });
+  assert.equal(child.status, 0, child.stderr);
+  assert.deepEqual(JSON.parse(child.stdout), { code: null, status: 0, out: 'ran' });
+  assert.doesNotMatch(child.stderr, /DEP0190/);
+  assert.equal(child.stderr, '');
+});
+
+test('collectUsage returns a failure result instead of throwing on bad input', () => {
+  for (const input of [undefined, null, {}, { projectPaths: null }]) {
+    const result = collectUsage(input);
+    assert.deepEqual(result.sessions, []);
+    assert.equal(typeof result.error, 'string');
+    assert.match(result.warnings[0], /^usage: snapshot failed: /);
+  }
+});
+
+async function waitForFile(file, ms) {
+  for (let waited = 0; !fs.existsSync(file) && waited < ms; waited += 50) {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  return fs.existsSync(file);
+}
+
+async function deadWithin(pids, ms) {
+  for (let waited = 0; pids.some(isAlive) && waited < ms; waited += 100) {
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  const survivors = pids.filter(isAlive);
+  for (const pid of survivors) process.kill(pid, 'SIGKILL');
+  return survivors;
+}
+
+// The CLI blocked in a call is played by signal-runner.mjs in its own process
+// group (as a terminal's foreground job would be), so the signal reaches it
+// and the runner's supervisor but not this test process.
+for (const [signal, target] of [
+  ['SIGINT', 'group'],
+  ['SIGHUP', 'group'],
+  ['SIGTERM', 'group'],
+  ['SIGQUIT', 'group'],
+  ['SIGKILL', 'cli'],
+]) {
+  test(`${signal} to the ${target === 'group' ? "CLI's process group" : 'CLI alone'} leaves no descendant of the call alive`, async (t) => {
+    if (process.platform === 'win32') return; // POSIX process groups only
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-usage-signal-'));
+    t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+    const pidFile = path.join(dir, 'pids.json');
+    const cli = spawn(
+      process.execPath,
+      [path.resolve('test/fixtures/ccusage/signal-runner.mjs'), pidFile, '3000'],
+      { detached: true, stdio: 'ignore' },
+    );
+    assert.ok(await waitForFile(pidFile, 5000), 'the sleeper never started');
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    const { sleeper, grandchild } = JSON.parse(fs.readFileSync(pidFile, 'utf8'));
+    if (target === 'group') process.kill(-cli.pid, signal);
+    else process.kill(cli.pid, signal);
+    // Group signals must end the call at once; a CLI killed alone leaves the
+    // supervisor, whose own 3 s limit still ends the group.
+    const survivors = await deadWithin([sleeper, grandchild], target === 'group' ? 1500 : 6000);
+    assert.deepEqual(survivors, [], `${signal} left ${survivors.join(', ')} alive`);
+  });
+}

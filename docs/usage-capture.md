@@ -48,7 +48,21 @@ collects once and writes one record per event.
 
 ## How a snapshot is composed
 
-Each call runs `npx --yes ccusage@20.0.26 …` with a 10 s limit:
+Each call runs `npx --yes ccusage@20.0.26 …` with a 10 s limit. The limit
+covers the call's process group: the command runs in its own process group, and
+the group is killed with SIGKILL (on Windows, `taskkill /T /F`) when the limit
+expires, when SIGINT, SIGTERM, SIGHUP or SIGQUIT reach the CLI's process group (Ctrl-C, Ctrl-\,
+a closed terminal), or when the CLI process is killed alone and the call's
+next output can no longer be relayed (a call that writes nothing is then ended
+by the limit). That also ends descendants that stayed in the
+group, such as the process `npx` starts; a descendant that moves to a new
+process group or session escapes it. Tested on Linux with a local stand-in that
+starts a long-sleeping child and keeps writing output; the Windows path is
+untested. Only on Windows, and only for the built-in `npx` command, the
+call goes through `cmd.exe`, as one command line built from fixed tokens and
+validated source names.
+
+The snapshot is composed in four steps:
 
 1. `session --json --offline --no-cost` lists which sources (`agent`) have
    sessions on this machine.

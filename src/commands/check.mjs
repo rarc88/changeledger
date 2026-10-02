@@ -95,7 +95,7 @@ export function check(args = [], cwd = process.cwd(), output = console) {
       errors.push({ file: 'AGENTS.md', message });
     }
     // The usage collector is switched on per clone in git config, not in the
-    // ledger, so it is read from disk here too.
+    // ledger, so its value comes from a `git config` process run here too.
     errors.push(...checkUsageGitConfig(repo.repoRoot));
   }
 
