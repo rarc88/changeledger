@@ -2,7 +2,7 @@
 id: "20261002-155917"
 title: Prueba de registros en el ledger (CR9 de 20261002-133728)
 type: quick
-status: in-progress
+status: discarded
 created: 2026-10-02T15:59:17Z
 depends_on: []
 branch: quick/20261002-155917
@@ -19,3 +19,4 @@ Change de prueba para recorrer CR9 de `20261002-133728`: crear, aprobar e inicia
 - **2026-10-02T15:59:20Z** `[status]` draft → approved (human via conversation)
 - **2026-10-02T15:59:23Z** `[status]` approved → in-progress
 - **2026-10-02T15:59:23Z** `[branch]` set: quick/20261002-155917 (auto)
+- **2026-10-02T16:00:09Z** `[status]` in-progress → discarded: Change de prueba de CR9 de 20261002-133728: recorrido completado, el segundo clon vio los tres registros.
