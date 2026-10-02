@@ -100,7 +100,7 @@ export function newChange(
       releaseIdLock(lock);
     }
     if (written) {
-      snapshotUsage({ config, repoRoot, events: [creationEvent(id, created)], usage });
+      snapshotUsage({ repoRoot, events: [creationEvent(id, created)], usage });
       return file;
     }
   }
@@ -182,7 +182,6 @@ export function newChangeFrom({ type, slug, title, from }, cwd = process.cwd(), 
     message: prepared.message,
   });
   snapshotUsage({
-    config: repo.config,
     repoRoot: repo.repoRoot,
     events: [creationEvent(prepared.id, prepared.created)],
     usage,

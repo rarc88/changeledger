@@ -1,15 +1,15 @@
-// Token and cost snapshots (20261001-155612). With `usage.collector: ccusage`,
-// each lifecycle event that lands is followed by one snapshot of the
-// cumulative usage of this repository's agent sessions, read by the pinned
-// third-party `ccusage` from the harness logs. ChangeLedger keeps no price
-// table and no per-harness parser: it only filters, renames and freezes what
-// `ccusage` reports at that instant. The snapshot never blocks the event it
-// follows — the event is already written — so every failure here becomes a
-// gap record plus a `usage: ` warning, never an exception.
+// Token and cost snapshots (20261001-155612). With git config
+// `changeledger.usage.collector=ccusage`, each creation and transition event
+// that lands is followed by one snapshot of the cumulative usage of this
+// repository's agent sessions, read by the pinned third-party `ccusage` from
+// the harness logs. ChangeLedger keeps no price table and no per-harness
+// parser: it only filters, renames and freezes what `ccusage` reports at that
+// instant. The event is already written when the snapshot runs, so
+// `snapshotUsage` catches its own failures and turns them into a gap record
+// and/or a `usage: ` warning instead of throwing.
 //
-// Records live in `<git-common-dir>/changeledger/usage/<id>/`, outside the
-// ledger: shared by every worktree of the repo, never versioned by git, and
-// read by no ledger command.
+// Records live in `<git-common-dir>/changeledger/usage/<id>/`, inside the git
+// directory and outside the ledger tree.
 
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -255,14 +255,16 @@ export function writeUsageRecord(gitCommonDir, record) {
 // write returned. `events` are the transition/creation events that write
 // landed: `{ change, event, from, to, at }`, `at` being the instant written in
 // the Log (or the `created` field). One collection serves every event of the
-// same write. Without the `usage` key it returns before any subprocess.
-export function snapshotUsage({ config, repoRoot, events, usage = {} }) {
+// same write. Without the git config value it reads that value and nothing
+// else: no ccusage process, no record directory.
+export function snapshotUsage({ repoRoot, events, usage = {} }) {
   const warn = usage.warn ?? defaultWarn;
+  const gitRun = usage.gitRun ?? defaultGitRun;
   try {
     if (!events?.length) return;
     let collector;
     try {
-      collector = usageCollector(config);
+      collector = usageCollector(repoRoot, gitRun);
     } catch (e) {
       warn(`usage: snapshot skipped: ${e.message}`);
       return;
@@ -271,7 +273,7 @@ export function snapshotUsage({ config, repoRoot, events, usage = {} }) {
 
     let context;
     try {
-      context = gitContext(repoRoot, usage.gitRun ?? defaultGitRun);
+      context = gitContext(repoRoot, gitRun);
     } catch {
       warn('usage: snapshot failed: not a git repository, no usage record written');
       return;

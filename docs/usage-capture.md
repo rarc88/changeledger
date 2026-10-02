@@ -1,4 +1,4 @@
-# Usage capture (`usage.collector`)
+# Usage capture (`changeledger.usage.collector`)
 
 Optional, local record of the tokens and cost spent on each change, taken from
 the harness logs by the third-party [`ccusage`](https://github.com/ryoppippi/ccusage)
@@ -7,17 +7,29 @@ it filters, renames and freezes what `ccusage` reports at the moment of capture.
 
 ## Enabling it
 
-```yaml
-usage:
-  collector: ccusage
+Capture measures the local machine, so each clone turns it on in git config,
+not in `.changeledger/config.yml`:
+
+```sh
+git config changeledger.usage.collector ccusage          # this clone
+git config --global changeledger.usage.collector ccusage # this user, where no local value overrides it
 ```
 
-Without the `usage` key nothing changes: no subprocess runs and no directory is
-created. Any other `collector` value is a configuration error reported by
-`changeledger check` (`config "usage.collector" must be "ccusage"`); at
-transition time the same invalid value only skips the snapshot with a
-`usage: snapshot skipped: …` warning. In an activated repository the key is read
-from the state ref's config, like every other key.
+The value is read with `git config --get changeledger.usage.collector`, so git
+resolves it from its usual scopes (local, global, system), and a repository's
+worktrees share its local value. It works the same in an activated repository,
+whose `config.yml` lives in the state ref.
+
+- Unset: a transition reads that one value and nothing else runs; no record
+  directory is created.
+- `ccusage`: capture is on.
+- Any other value, including an empty one or another letter case: `changeledger
+  check` reports `git config "changeledger.usage.collector" must be "ccusage"`,
+  and a transition skips the snapshot with a
+  `usage: snapshot skipped: git config "changeledger.usage.collector" must be "ccusage"`
+  warning.
+
+A `usage` key in `config.yml` is not read and not validated.
 
 ## When a snapshot is taken
 
@@ -68,8 +80,10 @@ side by side. The directory sits inside the git directory: `git status` does not
 list it, the state ref does not carry it, and `changeledger check` ignores it.
 `<n>` starts at
 1 and grows when a record with the same instant already exists. A ledger
-outside a git repository has no common dir: the snapshot is skipped with a
-`usage: snapshot failed: not a git repository, …` warning.
+outside a git repository has no common dir: without a value (git can still
+resolve a global one there) nothing happens; with `ccusage` the snapshot is
+skipped with a `usage: snapshot failed: not a git repository, no usage record
+written` warning.
 
 Record shape (`schema: 1`):
 

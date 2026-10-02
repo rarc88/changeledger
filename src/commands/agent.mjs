@@ -265,7 +265,7 @@ export function status(
     ),
     { message: `status: ${id} → ${newStatus}` },
   );
-  snapshotUsage({ config, repoRoot, events, usage });
+  snapshotUsage({ repoRoot, events, usage });
   return { file: target.file, warnings };
 }
 
@@ -355,7 +355,7 @@ export function review(id, verdict, { mode, reason } = {}, cwd = process.cwd(), 
     },
     { message: `review: ${id} ${verdict}` },
   );
-  snapshotUsage({ config, repoRoot, events, usage });
+  snapshotUsage({ repoRoot, events, usage });
   return target.file;
 }
 
@@ -416,7 +416,7 @@ export function validation(
     },
     { message: `validation: ${id} ${verdict}` },
   );
-  snapshotUsage({ config, repoRoot, events, usage });
+  snapshotUsage({ repoRoot, events, usage });
   return target.file;
 }
 
@@ -469,7 +469,7 @@ export function reopen(id, reason, cwd = process.cwd(), { actor = 'human', usage
     mutateLedgerFile(repo, target, reopenMutation({ config, actor, reason, released, events }), {
       message: `reopen: ${id}`,
     });
-    snapshotUsage({ config, repoRoot, events, usage });
+    snapshotUsage({ repoRoot, events, usage });
     return target.file;
   }
 
@@ -485,7 +485,7 @@ export function reopen(id, reason, cwd = process.cwd(), { actor = 'human', usage
     return target.file;
   });
   // Outside the release lock: the snapshot may take seconds and guards nothing.
-  snapshotUsage({ config, repoRoot, events, usage });
+  snapshotUsage({ repoRoot, events, usage });
   return file;
 }
 
@@ -559,7 +559,7 @@ export function discard(id, reason, cwd = process.cwd(), { usage } = {}) {
     },
     { message: `discard: ${id}` },
   );
-  snapshotUsage({ config, repoRoot, events, usage });
+  snapshotUsage({ repoRoot, events, usage });
   return target.file;
 }
 

@@ -6,7 +6,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { parse as parseYaml } from 'yaml';
 import { parseChange } from '../src/change.mjs';
-import { checkRepo } from '../src/check.mjs';
+import { checkRepo, checkUsageGitConfig } from '../src/check.mjs';
 import { check } from '../src/commands/check.mjs';
 import { init as initializeRepo } from '../src/commands/init.mjs';
 import {
@@ -3617,51 +3617,69 @@ test('162616 CR7: a discarded change is still exempt from its own unclassified-m
   );
 });
 
-// --- usage.collector (20261001-155612) ---
+// --- usage collector activation in git config (20261001-155612) ---
 
-test('20261001-155612 CR2: an unknown usage collector is a config error; ccusage is not', () => {
-  const unknown = checkRepo({ config: { ...config, usage: { collector: 'other' } }, changes: [] });
-  assert.deepEqual(msgs(unknown.errors), ['config "usage.collector" must be "ccusage"']);
-  assert.throws(() => usageCollector({ usage: { collector: 'other' } }), {
-    message: 'config "usage.collector" must be "ccusage"',
-  });
-
-  const known = checkRepo({ config: { ...config, usage: { collector: 'ccusage' } }, changes: [] });
-  assert.deepEqual(known.errors, []);
-  assert.equal(usageCollector({ usage: { collector: 'ccusage' } }), 'ccusage');
-
-  for (const usage of ['ccusage', [], 7]) {
-    const { errors } = checkRepo({ config: { ...config, usage }, changes: [] });
-    assert.deepEqual(msgs(errors), ['config "usage" must be a mapping']);
-  }
-});
-
-test('20261001-155612 CR1: the usage key is optional and absent by default', () => {
-  for (const candidate of [{ ...config }, { ...config, usage: null }, { ...config, usage: {} }]) {
-    assert.deepEqual(checkRepo({ config: candidate, changes: [] }).errors, []);
-    assert.equal(usageCollector(candidate), undefined);
-  }
-  const template = parseYaml(fs.readFileSync(path.join(templatesDir, 'config.yml'), 'utf8'));
-  assert.equal(usageCollector(template), undefined);
-});
-
-test('20261001-155612 CR2: `changeledger check` fails on an unknown collector', () => {
+function gitCheckRepo() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-check-usage-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
   initializeRepo(root);
-  const file = path.join(root, '.changeledger', 'config.yml');
-  const base = fs.readFileSync(file, 'utf8');
+  initGitFixture(root);
+  return root;
+}
 
-  fs.writeFileSync(file, `${base}\nusage:\n  collector: other\n`);
+const setCollector = (root, value) =>
+  execFileSync('git', ['config', 'changeledger.usage.collector', value], {
+    cwd: root,
+    env: sanitizedEnv(),
+  });
+
+test('20261001-155612 CR2: a git config collector other than ccusage is an error', () => {
+  const root = gitCheckRepo();
+  assert.deepEqual(checkUsageGitConfig(root), []);
+  for (const value of ['other', '', 'CCUSAGE']) {
+    setCollector(root, value);
+    assert.deepEqual(msgs(checkUsageGitConfig(root)), [
+      'git config "changeledger.usage.collector" must be "ccusage"',
+    ]);
+    assert.throws(() => usageCollector(root), {
+      message: 'git config "changeledger.usage.collector" must be "ccusage"',
+    });
+  }
+  setCollector(root, 'ccusage');
+  assert.deepEqual(checkUsageGitConfig(root), []);
+  assert.equal(usageCollector(root), 'ccusage');
+});
+
+test('20261001-155612 CR2: a usage key in config.yml is neither read nor validated', () => {
+  for (const usage of [{ collector: 'other' }, { collector: 'ccusage' }, 'x', [], null]) {
+    assert.deepEqual(checkRepo({ config: { ...config, usage }, changes: [] }).errors, []);
+  }
+  const root = gitCheckRepo();
+  fs.appendFileSync(
+    path.join(root, '.changeledger', 'config.yml'),
+    '\nusage:\n  collector: ccusage\n',
+  );
+  assert.equal(usageCollector(root), undefined);
+  const out = captureOutput();
+  assert.equal(check([], root, out), 0, out.diagnostics.join('\n'));
+
+  const template = fs.readFileSync(path.join(templatesDir, 'config.yml'), 'utf8');
+  assert.equal(parseYaml(template).usage, undefined);
+  assert.doesNotMatch(template, /usage/);
+});
+
+test('20261001-155612 CR2: `changeledger check` fails on an unknown git config collector', () => {
+  const root = gitCheckRepo();
+  setCollector(root, 'other');
   const bad = captureOutput();
-  assert.equal(check([], root, bad), 1);
+  assert.equal(check([], root, bad), 1, bad.diagnostics.join('\n'));
   assert.ok(
-    bad.diagnostics.some((line) => line.includes('config "usage.collector" must be "ccusage"')),
+    bad.diagnostics.some((line) =>
+      line.includes('git config "changeledger.usage.collector" must be "ccusage"'),
+    ),
     bad.diagnostics.join('\n'),
   );
-
-  fs.writeFileSync(file, `${base}\nusage:\n  collector: ccusage\n`);
+  setCollector(root, 'ccusage');
   const good = captureOutput();
   assert.equal(check([], root, good), 0, good.diagnostics.join('\n'));
-  assert.ok(!good.diagnostics.some((line) => line.includes('usage.collector')));
 });

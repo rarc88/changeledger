@@ -44,6 +44,18 @@ export function defaultRun(args, cwd) {
   });
 }
 
+// One value from git config as git itself resolves it (local, then global,
+// then system scope; worktrees share the repo's local config). `undefined`
+// when the key is unset (git exits 1); any other failure is thrown.
+export function gitConfigGet(cwd, key, run = defaultRun) {
+  try {
+    return String(run(['config', '--get', key], cwd)).replace(/\r?\n$/, '');
+  } catch (e) {
+    if (e?.status === 1) return undefined;
+    throw e;
+  }
+}
+
 // Run variant for mutating git commands (e.g. `commit`), where git's stderr is
 // the only clue to a failure (failed hook, nothing staged, missing identity,
 // lock). Pipes stderr and, on failure, throws an Error whose message includes

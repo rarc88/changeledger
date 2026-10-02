@@ -28,16 +28,16 @@ const SPEC_NAME = 'demo-spec.md';
 const specText = (body = 'Contrato de ejemplo: café, 東京.') =>
   `---\ntitle: Demo spec\nupdated: 2026-08-08T00:00:00Z\ntags: [demo]\ngraduated_from: []\n---\n\n# Demo spec\n\n${body}\n`;
 
-function baseRepo({ configExtra = '' } = {}) {
+function baseRepo() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-apply-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
   initializeRepo(root);
   const configFile = path.join(root, '.changeledger', 'config.yml');
   fs.writeFileSync(
     configFile,
-    `${fs
+    fs
       .readFileSync(configFile, 'utf8')
-      .replace(/^ {2}change_branch_format:.*$/m, '  change_branch_format: null')}${configExtra}`,
+      .replace(/^ {2}change_branch_format:.*$/m, '  change_branch_format: null'),
   );
   const file = newChange(
     { type: 'quick', slug: 'x', title: 'X', now: '2026-06-13T12:00:00Z' },
@@ -54,8 +54,8 @@ function baseRepo({ configExtra = '' } = {}) {
   return { root, file, name: path.basename(file), text, id: parseChange(text).frontmatter.id };
 }
 
-function inactiveRepo({ configExtra = '' } = {}) {
-  const base = baseRepo({ configExtra });
+function inactiveRepo() {
+  const base = baseRepo();
   initGitFixture(base.root);
   git(base.root, ['add', '-A']);
   git(base.root, ['commit', '-qm', 'chore: seed']);
@@ -65,8 +65,8 @@ function inactiveRepo({ configExtra = '' } = {}) {
 // The worktree copies are removed before activation, so any read or write that
 // fell back to disk fails outright instead of silently succeeding on a stale
 // document.
-function activatedRepo({ status = 'draft', spec = specText(), configExtra = '' } = {}) {
-  const { root, file, name, text: draft, id } = baseRepo({ configExtra });
+function activatedRepo({ status = 'draft', spec = specText() } = {}) {
+  const { root, file, name, text: draft, id } = baseRepo();
   const text = draft.replace('status: draft', `status: ${status}`);
   const configText = fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8');
   fs.rmSync(file);
@@ -501,7 +501,7 @@ test('CR2: a manifest that is not a JSON array of entries is refused by shape', 
 
 // --- usage snapshots (20261001-155612) ---
 
-const USAGE_CONFIG = '\nusage:\n  collector: ccusage\n';
+const enableUsage = (root) => git(root, ['config', 'changeledger.usage.collector', 'ccusage']);
 
 function usageRecords(root, id) {
   const common = path.resolve(root, git(root, ['rev-parse', '--git-common-dir']));
@@ -515,10 +515,12 @@ function usageRecords(root, id) {
 
 function approvedUsageRepo(activated) {
   if (activated) {
-    const repo = activatedRepo({ status: 'approved', configExtra: USAGE_CONFIG });
+    const repo = activatedRepo({ status: 'approved' });
+    enableUsage(repo.root);
     return { ...repo, read: () => stateDoc(repo.root, `changes/${repo.name}`) };
   }
-  const repo = inactiveRepo({ configExtra: USAGE_CONFIG });
+  const repo = inactiveRepo();
+  enableUsage(repo.root);
   fs.writeFileSync(repo.file, repo.text.replace('status: draft', 'status: approved'));
   return { ...repo, read: () => fs.readFileSync(repo.file, 'utf8') };
 }

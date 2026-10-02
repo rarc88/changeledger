@@ -3,10 +3,13 @@
 // captured fixtures — no test reaches the network or the real `ccusage`.
 
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
+import { usageCollector } from '../src/config.mjs';
+import { defaultRun } from '../src/git.mjs';
 import {
   CCUSAGE_TIMEOUT_MS,
   collectUsage,
@@ -22,16 +25,17 @@ import {
   PLACEHOLDER,
   withProjectPaths,
 } from './helpers/ccusage.mjs';
-import { initGitFixture } from './helpers/git-env.mjs';
+import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 import { git } from './helpers/state-repo.mjs';
 
-const CONFIG = { usage: { collector: 'ccusage' } };
-
-function gitRepo() {
+// Activation lives in git config (repo-local here); `collector: null` leaves
+// the key unset.
+function gitRepo({ collector = 'ccusage' } = {}) {
   const root = fs.realpathSync.native(
     fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-usage-')),
   );
   initGitFixture(root);
+  if (collector !== null) git(root, ['config', 'changeledger.usage.collector', collector]);
   fs.writeFileSync(path.join(root, 'README.md'), 'x\n');
   git(root, ['add', '-A']);
   git(root, ['commit', '-qm', 'seed']);
@@ -59,10 +63,9 @@ const statusEvent = (at = '2026-10-01T16:56:41Z') => ({
   at,
 });
 
-function snapshot(root, runner, { events = [statusEvent()], config = CONFIG } = {}) {
+function snapshot(root, runner, { events = [statusEvent()] } = {}) {
   const warnings = [];
   snapshotUsage({
-    config,
     repoRoot: root,
     events,
     usage: { runner, warn: (l) => warnings.push(l) },
@@ -290,43 +293,120 @@ test('CR8: the real runner bounds a call with its timeout and reports a missing 
   assert.match(timedOut.error, /timed out/);
 });
 
-test('CR1: without the usage key no process runs and nothing is written', () => {
-  const root = gitRepo();
+test('CR1: without the git config value only git config is read and nothing is written', () => {
+  const root = gitRepo({ collector: null });
   const runner = claudeRunner(encodeProjectPath(root));
   const gitCalls = [];
   const warnings = [];
   snapshotUsage({
-    config: {},
     repoRoot: root,
     events: [statusEvent()],
     usage: {
       runner,
-      gitRun: (args) => gitCalls.push(args),
+      gitRun: (args, cwd) => {
+        gitCalls.push(args);
+        return defaultRun(args, cwd);
+      },
       warn: (l) => warnings.push(l),
     },
   });
   assert.equal(runner.calls.length, 0);
-  assert.equal(gitCalls.length, 0);
+  assert.deepEqual(gitCalls, [['config', '--get', 'changeledger.usage.collector']]);
   assert.deepEqual(warnings, []);
   assert.equal(fs.existsSync(usageDir(commonDir(root))), false);
 });
 
-test('a directory outside git writes no record and warns without throwing', () => {
+// A file standing in for a developer's own global git config.
+function globalConfigWith(collector) {
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-gitcfg-')), 'config');
+  fs.writeFileSync(file, `[changeledger "usage"]\n\tcollector = ${collector}\n`);
+  return file;
+}
+
+function withGlobalConfig(file, fn) {
+  const saved = process.env.GIT_CONFIG_GLOBAL;
+  process.env.GIT_CONFIG_GLOBAL = file;
+  try {
+    return fn();
+  } finally {
+    process.env.GIT_CONFIG_GLOBAL = saved;
+  }
+}
+
+test('outside git: no value is silent; a global value warns and writes nothing', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-usage-nogit-'));
   const runner = claudeRunner(encodeProjectPath(root));
-  const warnings = snapshot(root, runner);
-  assert.equal(runner.calls.length, 0);
-  assert.equal(warnings.length, 1);
-  assert.match(warnings[0], /^usage: snapshot failed: /);
-});
+  assert.deepEqual(snapshot(root, runner), []);
 
-test('an invalid usage key at transition time skips the snapshot with a warning', () => {
-  const root = gitRepo();
-  const runner = claudeRunner(encodeProjectPath(root));
-  const warnings = snapshot(root, runner, { config: { usage: { collector: 'other' } } });
+  const warnings = withGlobalConfig(globalConfigWith('ccusage'), () => snapshot(root, runner));
   assert.equal(runner.calls.length, 0);
   assert.deepEqual(warnings, [
-    'usage: snapshot skipped: config "usage.collector" must be "ccusage"',
+    'usage: snapshot failed: not a git repository, no usage record written',
   ]);
-  assert.equal(fs.existsSync(usageDir(commonDir(root))), false);
+});
+
+test('the global scope activates capture in a repo without a local value', () => {
+  const root = gitRepo({ collector: null });
+  const runner = claudeRunner(encodeProjectPath(root));
+  withGlobalConfig(globalConfigWith('ccusage'), () => snapshot(root, runner));
+  assert.equal(records(root, '20261001-155612').length, 1);
+});
+
+for (const value of ['other', '', 'CCUSAGE']) {
+  test(`an invalid git config value (${JSON.stringify(value)}) skips the snapshot with a warning`, () => {
+    const root = gitRepo({ collector: value });
+    const runner = claudeRunner(encodeProjectPath(root));
+    const warnings = snapshot(root, runner);
+    assert.equal(runner.calls.length, 0);
+    assert.deepEqual(warnings, [
+      'usage: snapshot skipped: git config "changeledger.usage.collector" must be "ccusage"',
+    ]);
+    assert.equal(fs.existsSync(usageDir(commonDir(root))), false);
+  });
+}
+
+// Hermeticity: every suite imports test/helpers/git-env.mjs, which points git's
+// global scope at an empty file and turns the system scope off, so a
+// developer's own `changeledger.usage.collector` never reaches a fixture.
+test("the test helpers isolate a developer's global git config", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-usage-iso-'));
+  const developerGlobal = globalConfigWith('ccusage');
+  const probe = (withHelper) =>
+    execFileSync(
+      process.execPath,
+      [
+        '--input-type=module',
+        '-e',
+        `${withHelper ? `await import(${JSON.stringify(path.resolve('test/helpers/git-env.mjs'))});` : ''}
+         const { usageCollector } = await import(${JSON.stringify(path.resolve('src/config.mjs'))});
+         console.log(String(usageCollector(${JSON.stringify(dir)})));`,
+      ],
+      { env: { ...sanitizedEnv(), GIT_CONFIG_GLOBAL: developerGlobal }, encoding: 'utf8' },
+    ).trim();
+  assert.equal(probe(false), 'ccusage', 'the stand-in global config must be effective');
+  assert.equal(probe(true), 'undefined');
+  assert.equal(usageCollector(dir), undefined);
+});
+
+test('a missing git binary reads as unset; another git failure skips with a warning', () => {
+  const missing = () => {
+    throw Object.assign(new Error('spawnSync git ENOENT'), { code: 'ENOENT' });
+  };
+  assert.equal(usageCollector('/x', missing), undefined);
+
+  const broken = () => {
+    throw Object.assign(new Error('bad config line 1'), { status: 128 });
+  };
+  const root = gitRepo();
+  const runner = claudeRunner(encodeProjectPath(root));
+  const warnings = [];
+  snapshotUsage({
+    repoRoot: root,
+    events: [statusEvent()],
+    usage: { runner, gitRun: broken, warn: (l) => warnings.push(l) },
+  });
+  assert.equal(runner.calls.length, 0);
+  assert.deepEqual(warnings, [
+    'usage: snapshot skipped: could not read git config "changeledger.usage.collector": bad config line 1',
+  ]);
 });

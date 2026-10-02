@@ -3194,12 +3194,12 @@ function viewerTransitionsSnapshot() {
     isolatedHome();
     const root = newRepo();
     disableChangeBranchFormat(root);
-    fs.appendFileSync(
-      path.join(root, '.changeledger', 'config.yml'),
-      '\nusage:\n  collector: ccusage\n',
-    );
     const { file, id } = draftChange(root);
     initGitFixture(root);
+    execFileSync('git', ['config', 'changeledger.usage.collector', 'ccusage'], {
+      cwd: root,
+      env: sanitizedEnv(),
+    });
     if (activated) {
       const name = path.basename(file);
       const tree = buildTree(root, {

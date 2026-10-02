@@ -119,7 +119,7 @@ export function apply({ from, dryRun = false } = {}, cwd = process.cwd(), { usag
     writes.map((w) => ({ relPath: w.relPath, file: w.file, text: w.text })),
     { message },
   );
-  snapshotUsage({ config: repo.config, repoRoot: repo.repoRoot, events, usage });
+  snapshotUsage({ repoRoot: repo.repoRoot, events, usage });
   return { changed, warnings, errors, message, dryRun, statusWarnings };
 }
 

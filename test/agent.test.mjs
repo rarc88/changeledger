@@ -1935,7 +1935,7 @@ test('CR2: a concurrent write between load and write surfaces LedgerConflictErro
 // local fake, so a producer wired by mistake would still be observed (and
 // never reach the network).
 
-const USAGE_CONFIG = '\nusage:\n  collector: ccusage\n';
+const CONFIG_YML_USAGE = '\nusage:\n  collector: ccusage\n';
 const FAKE_CCUSAGE = path.resolve('test/fixtures/ccusage/fake-ccusage.mjs');
 const usageBin = path.resolve('bin/changeledger.mjs');
 
@@ -1969,9 +1969,15 @@ function seedCommit(root) {
 
 // Inactive repos of this suite are git repositories: the record lives in the
 // git common dir, so a ledger outside git has nowhere to keep one.
-function usageRepo({ activated = false, configExtra = USAGE_CONFIG } = {}) {
+// Activation is repo-local git config here (`collector: null` leaves it
+// unset); the global and system scopes are isolated by helpers/git-env.mjs.
+function usageRepo({ activated = false, collector = 'ccusage', configExtra = '' } = {}) {
+  const enable = (root) => {
+    if (collector !== null) git(root, ['config', 'changeledger.usage.collector', collector]);
+  };
   if (activated) {
     const result = activatedRepoWithChange({ configExtra });
+    enable(result.root);
     seedCommit(result.root);
     return {
       ...result,
@@ -1980,6 +1986,7 @@ function usageRepo({ activated = false, configExtra = USAGE_CONFIG } = {}) {
   }
   const result = repoWithChange({ configExtra });
   initGitFixture(result.root);
+  enable(result.root);
   seedCommit(result.root);
   return { ...result, read: () => fs.readFileSync(result.file, 'utf8') };
 }
@@ -2019,8 +2026,8 @@ function runUsageBin(args, cwd, env = {}) {
   return { code: result.status, out: result.stdout, err: result.stderr };
 }
 
-test('20261001-155612 CR1: without the usage key a transition runs no collector', () => {
-  const { root, id } = usageRepo({ configExtra: '' });
+test('20261001-155612 CR1: without the git config value a transition runs no collector', () => {
+  const { root, id } = usageRepo({ collector: null });
   task(id, 'done', 1, '', root);
   approve(id, root);
   const runner = claudeRunner('-unused');
@@ -2031,7 +2038,7 @@ test('20261001-155612 CR1: without the usage key a transition runs no collector'
 
   // Same through the CLI, with a fake ccusage that would log any call.
   const logFile = path.join(root, '..', `${path.basename(root)}-ccusage.log`);
-  const other = usageRepo({ configExtra: '' });
+  const other = usageRepo({ collector: null });
   task(other.id, 'done', 1, '', other.root);
   approve(other.id, other.root);
   const out = runUsageBin(['status', other.id, 'in-progress'], other.root, {
@@ -2043,6 +2050,19 @@ test('20261001-155612 CR1: without the usage key a transition runs no collector'
   assert.equal(out.err, '');
   assert.equal(fs.existsSync(logFile), false);
   assert.equal(fs.existsSync(path.join(gitCommonDir(other.root), 'changeledger', 'usage')), false);
+});
+
+test('20261001-155612 CR2: a usage key in config.yml does not activate capture', () => {
+  for (const activated of [false, true]) {
+    const { root, id } = usageRepo({ activated, collector: null, configExtra: CONFIG_YML_USAGE });
+    task(id, 'done', 1, '', root);
+    const runner = claudeRunner(encodeProjectPath(root));
+    const warnings = [];
+    approve(id, root, { usage: { runner, warn: (l) => warnings.push(l) } });
+    assert.equal(runner.calls.length, 0);
+    assert.deepEqual(warnings, []);
+    assert.equal(fs.existsSync(path.join(gitCommonDir(root), 'changeledger', 'usage')), false);
+  }
 });
 
 for (const activated of [false, true]) {
