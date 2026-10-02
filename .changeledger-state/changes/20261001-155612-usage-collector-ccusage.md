@@ -2,7 +2,7 @@
 id: "20261001-155612"
 title: Registrar el consumo de tokens y su coste en cada transición con ccusage
 type: feature
-status: in-progress
+status: in-review
 created: 2026-10-01T15:56:12Z
 depends_on: []
 branch: feature/20261001-155612
@@ -308,3 +308,4 @@ sin filtrar por proyecto (mezcla otros repos activos); guardar en el documento
 - **2026-10-02T13:40:30Z** `[review]` in-review → in-progress (retry): Regresión de la corrección: detached: true crea una sesión propia, así que un Ctrl-C o el cierre de la terminal durante una llamada sólo matan al supervisor y dejan huérfanos npx y ccusage adoptados por systemd --user (probado con kill -INT al grupo; en HEAD no sobrevivía nada); el supervisor debe capturar SIGINT, SIGTERM y SIGHUP, matar el grupo y salir. Además collectUsage(null) lanza, contra su comentario que promete devolver un resultado ante cualquier entrada inválida.
 - **2026-10-02T13:40:55Z** `[note]` Tercera ronda autorizada por el humano: corregir la regresión de señales (Ctrl-C o cierre de terminal dejan huérfanos npx y ccusage) y que collectUsage(null) no lance.
 - **2026-10-02T13:45:56Z** `[note]` Corrección de la tercera ronda: el supervisor captura SIGINT, SIGTERM y SIGHUP, mata el grupo de procesos de la llamada (taskkill /T /F en Windows) y sale con 128+n; un error al escribir stdout, stderr o el resultado también mata el grupo; collectUsage destructura dentro del try y devuelve un resultado de fallo ante una entrada nula; los nombres y comentarios hablan de grupo de procesos, no de árbol. Residuos: señales sin probar en Windows; si el propio supervisor recibe SIGKILL el grupo queda vivo; un descendiente con sesión propia escapa. Gate: pnpm verify en verde con 1581/1581 tests.
+- **2026-10-02T13:45:56Z** `[status]` in-progress → in-review
