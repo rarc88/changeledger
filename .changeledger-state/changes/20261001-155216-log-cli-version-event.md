@@ -2,7 +2,7 @@
 id: "20261001-155216"
 title: Registrar en el Log la versión de ChangeLedger que modifica cada change
 type: feature
-status: in-validation
+status: done
 created: 2026-10-01T15:52:16Z
 depends_on: []
 branch: feature/20261001-155216
@@ -229,3 +229,4 @@ flowchart LR
 - **2026-10-01T16:52:54Z** `[status]` in-progress → in-review
 - **2026-10-01T16:52:54Z** `[note]` Mandato de la confirmación: sólo el diff sin commitear frente a HEAD (b97b083), los cinco defectos del review fail anterior y la enmienda de CR10 autorizada por el humano, más cualquier regresión que introduzcan.
 - **2026-10-01T16:56:32Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-10-02T15:24:41Z** `[validation]` in-validation → done (human accepted via conversation)
