@@ -3538,7 +3538,7 @@ const CONCEPT_GUARDS = [
   {
     entry: 19,
     obligation:
-      'a review_required closure that creates or corrects specs is checked by graduation-review before the first --into',
+      'a review_required closure that creates, corrects or extends specs is checked by graduation-review before the first --into',
     // 20261002-152555 CR5, judged on what `context <id>` composes for a `done`
     // change, cut before the selected change so its body cannot satisfy it.
     verify: () => {
@@ -3548,15 +3548,17 @@ const CONCEPT_GUARDS = [
           '# Selected change',
         )[0],
       );
-      // review_required, creating or correcting specs, delegating the role and the
-      // first `--into` in one sentence, in any order.
+      // review_required, creating, correcting and extending specs, delegating the
+      // role and the first `--into` in one sentence, in any order.
       const window = '[^.]{0,250}';
       assert.match(
         close,
         new RegExp(
           [
             '\\breview_required\\b',
-            '\\b(creat|correct)\\w*\\b[^.;]{0,30}\\bspecs?\\b',
+            '\\bcreat\\w*\\b[^.;]{0,40}\\bspecs?\\b',
+            '\\bcorrect\\w*\\b[^.;]{0,30}\\bspecs?\\b',
+            '\\bextend\\w*\\b[^.;]{0,20}\\bspecs?\\b',
             '\\bdelegat\\w*',
             '`graduation-review`',
             '\\bbefore\\b[^.;]{0,30}\\b(first|any)\\b[^.;]{0,10}`--into`',
