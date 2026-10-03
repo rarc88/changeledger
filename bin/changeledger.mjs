@@ -693,11 +693,16 @@ program
       '`in-validation`, after review already passed; it never issues a verdict or',
       'moves the change.',
       '',
+      '`graduation-review` is a read-only check of the spec reconciliation drafted',
+      'for a change already `done`, before the first `--into`; it never moves the',
+      'change.',
+      '',
       'Examples:',
       '  changeledger agent-prompt investigation',
       '  changeledger agent-prompt implementation',
       '  changeledger agent-prompt review',
       '  changeledger agent-prompt post-review',
+      '  changeledger agent-prompt graduation-review',
     ].join('\n'),
   )
   .action(action((role) => agentPrompt(role)));
@@ -708,7 +713,7 @@ program
   .addArgument(closedArgument('<role>', AGENT_ROLES.join(' | '), AGENT_ROLES))
   .argument(
     '[change-id]',
-    'optional for investigation; required for implementation, review and post-review',
+    'optional for investigation; required for implementation, review, post-review and graduation-review',
   )
   .addHelpText(
     'after',
@@ -722,12 +727,16 @@ program
       'inspection after review already passed, and never issues a verdict or',
       'moves the change.',
       '',
+      '`graduation-review` requires a change in `done`; it is a read-only check of',
+      'the spec reconciliation before the first `--into`, and never moves the change.',
+      '',
       'Examples:',
       '  changeledger agent-context investigation',
       '  changeledger agent-context investigation <id>',
       '  changeledger agent-context implementation <id>',
       '  changeledger agent-context review <id>',
       '  changeledger agent-context post-review <id>',
+      '  changeledger agent-context graduation-review <id>',
     ].join('\n'),
   )
   .action(action((role, changeId) => agentContext(role, changeId)));

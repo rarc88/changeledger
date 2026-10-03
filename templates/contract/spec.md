@@ -26,7 +26,7 @@ headings. Required and optional frontmatter:
 ---
 id: "20260613-134548"
 title: Short, clear title
-type: feature                  # feature | bug | audit | refactor | chore | quick
+type: feature                  # feature | bug | hotfix | audit | refactor | chore | quick | documentation
 status: draft                  # lifecycle value
 created: 2026-06-13T13:45:48Z # full ISO 8601 UTC
 depends_on: []                 # change ids or external project:id refs
@@ -60,6 +60,21 @@ Proposal includes the chosen solution, discarded alternatives and scenarios.
 or persistent truth (`specs/`): only Request and Log, ~10-15 lines. It retains
 the human `draft → approved` gate and `[#id]` marker, skipping only `in-review`.
 If scope outgrows this, discard and recreate it under the correct type.
+
+`documentation` delivers persistent truth about one topic, contrasted with what
+the code actually does, and changes no application code. The shipped type turns
+`tdd` off and has no Plan, so write its execution rules as its own CRs while
+drafting: the perimeter is fixed in the draft from who calls what, never from
+textual matches; every claim cites path and symbol; the human decides every
+divergence from an existing spec before `in-review`, else the change goes
+`blocked`; corrections to existing specs are drafted inside the change, where
+the reviewer sees them.
+
+When you classify a problem as a defect and the `Effective policy:` line
+publishes `release_types=`, explicitly ask the human whether it is a normal fix
+(`bug`, into the integration branch) or one of those types (into the release
+branch). Never infer the answer, and create no draft until the human answers.
+Without `release_types=`, neither ask nor propose a release type.
 
 Before writing Investigation, run `changeledger search <terms from the request>`;
 during Investigation, classify every relevant change discovered, regardless of

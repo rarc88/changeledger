@@ -2324,13 +2324,14 @@ test('161655 CR6: changing or clearing git.change_branch_format preserves git si
   const { projects, current } = resolveProjects(root, false);
   const configFile = path.join(root, '.changeledger', 'config.yml');
   const original = fs.readFileSync(configFile, 'utf8');
-  fs.writeFileSync(
-    configFile,
-    original.replace(
-      '  integration_branch:\n  change_branch_format: "{type}/{id}"',
-      '  # release baseline\n  integration_branch: dev\n  change_branch_format: work/{id}\n  custom: keep',
-    ),
+  // The template may declare `release_branch:` between the two keys (20261002-181346).
+  const seeded = original.replace(
+    /^ {2}integration_branch:\n( {2}release_branch:\n)? {2}change_branch_format: "\{type\}\/\{id\}"$/m,
+    (_, release = '') =>
+      `  # release baseline\n  integration_branch: dev\n${release}  change_branch_format: work/{id}\n  custom: keep`,
   );
+  assert.match(seeded, /# release baseline/, 'the fixture comment was not inserted');
+  fs.writeFileSync(configFile, seeded);
 
   let { body } = readProjectConfigStructured(projects, current);
   let result = patchProjectConfig(projects, {

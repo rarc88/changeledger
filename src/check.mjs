@@ -10,6 +10,8 @@ import { parseChange } from './change.mjs';
 import {
   changeBranchFormat,
   integrationBranch,
+  integrationRoleError,
+  releaseBranch,
   renderChangeBranch,
   USAGE_COLLECTOR_GIT_KEY,
   usageCollector,
@@ -23,9 +25,22 @@ const REQUIRED = ['id', 'title', 'type', 'status', 'created', 'depends_on'];
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
 const ID_FORM = /^\d{8}-\d{6}$/;
 const SEMANTIC_STAGES = new Set(['request', 'investigation', 'proposal', 'specification', 'plan']);
-// Stages a `review_required` type must activate, in canonical order. Exported so
-// the schema migration repairs exactly the coupling `checkConfig` enforces.
+// Stages a `review_required` type must activate, in canonical order, when its
+// effective tdd is on; with tdd off `checkConfig` requires only `specification`.
+// Exported for the schema migration's stage repair.
 export const REVIEWABLE_STAGES = ['specification', 'plan'];
+
+// Effective tdd of a change type: `types.<type>.tdd` when it is a boolean, else
+// the global `tdd`, else on. Single authority — coverage, the review-stage rule,
+// context policy lines and fragment selection all ask here, never re-derive. An
+// undefined `type` resolves the global value.
+export const DEFAULT_TDD = true;
+
+export function effectiveTdd(config, type) {
+  const own = isMapping(config?.types) ? config.types[type]?.tdd : undefined;
+  if (typeof own === 'boolean') return own;
+  return typeof config?.tdd === 'boolean' ? config.tdd : DEFAULT_TDD;
+}
 
 // Frozen history: `archived` is one-way (there is no `unarchive`) and
 // `discarded` is a tombstone the contract forbids reopening, so a diagnostic
@@ -650,7 +665,7 @@ function checkLifecycleSequence(c, fm, err) {
   }
 }
 
-// Definition-of-Ready coverage: when `tdd` is on (default), a change whose type
+// Definition-of-Ready coverage: when the type's effective tdd is on, a change whose type
 // activates `## Specification` is checked in draft, approved and in-progress.
 // Draft reports everything as warnings, because a draft is still being written.
 // From `approved` onward every diagnostic here is an error — readiness defects
@@ -663,7 +678,7 @@ function checkLifecycleSequence(c, fm, err) {
 // before flipping it. Only the Given/When/Then structure is machine-checkable;
 // semantic test-grade quality remains the documenting agent's judgment.
 function checkCoverage(c, fm, active, config, { warn, err, asStatus }) {
-  if (config?.tdd === false) return;
+  if (!effectiveTdd(config, fm.type)) return;
   const judged = asStatus ?? fm.status;
   if (!['draft', 'approved', 'in-progress'].includes(judged)) return;
   const report = judged === 'draft' ? warn : err;
@@ -840,10 +855,14 @@ function checkConfig(config, err) {
   if ('stages' in c && !Array.isArray(c.stages)) err(null, 'config "stages" must be a list');
   if ('types' in c && !isMapping(c.types)) err(null, 'config "types" must be a mapping');
   if ('git' in c) {
-    try {
-      integrationBranch(c);
-    } catch (error) {
-      err(null, error.message);
+    // A non-mapping `git` is one defect, reported once rather than per branch key.
+    const resolvers = isMapping(c.git) ? [integrationBranch, releaseBranch] : [integrationBranch];
+    for (const resolve of resolvers) {
+      try {
+        resolve(c);
+      } catch (error) {
+        err(null, error.message);
+      }
     }
   }
   if ('readiness' in c) checkReadinessConfig(c.readiness, err);
@@ -865,12 +884,24 @@ function checkConfig(config, err) {
     }
     if (def && 'review_required' in def && typeof def.review_required !== 'boolean')
       err(null, `config type "${type}": review_required must be a boolean`);
+    if ('tdd' in def && typeof def.tdd !== 'boolean')
+      err(null, `config type "${type}": tdd must be a boolean`);
+    const roleError = integrationRoleError(type, def);
+    if (roleError) err(null, roleError);
+    if ('seed_stage' in def) {
+      if (typeof def.seed_stage !== 'string')
+        err(null, `config type "${type}": seed_stage must be a string`);
+      else if (!def.stages.includes(def.seed_stage))
+        err(null, `config type "${type}": seed_stage "${def.seed_stage}" is not an active stage`);
+    }
     // An independent reviewer needs something to verify: criteria live in
-    // `## Specification` (the only stage `parseChange` reads `### CRn` from) and
-    // the tasks that cite them live in `## Plan`. A type that demands review
-    // without both stages hands the reviewer an empty contract.
+    // `## Specification` (the only stage `parseChange` reads `### CRn` from).
+    // With tdd on, the tasks that cite them live in `## Plan` and coverage binds
+    // them, so both are required; with tdd off no coverage applies and the
+    // criteria alone are the reviewer's contract.
     if (def.review_required === true) {
-      const missing = REVIEWABLE_STAGES.filter((s) => !def.stages.includes(s));
+      const required = effectiveTdd(c, type) ? REVIEWABLE_STAGES : ['specification'];
+      const missing = required.filter((s) => !def.stages.includes(s));
       if (missing.length) {
         err(
           null,

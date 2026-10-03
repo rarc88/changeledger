@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { parse as parseYaml } from 'yaml';
 import { status, task, validation } from '../src/commands/agent.mjs';
 import { buildMigration } from '../src/config-migration.mjs';
 import { LOG_EVENT_DEFINITIONS } from '../src/lifecycle.mjs';
@@ -222,13 +223,15 @@ test('111457 CR5/CR6: fix help exposes the scoped graduation-links migration', (
 
 test('20260824-134716 CR2: static CLI domains are complete in help and invalid-value errors', () => {
   for (const [command, values] of [
-    ['agent-prompt', 'investigation | implementation | review | post-review'],
-    ['agent-context', 'investigation | implementation | review | post-review'],
+    ['agent-prompt', 'investigation | implementation | review | post-review | graduation-review'],
+    ['agent-context', 'investigation | implementation | review | post-review | graduation-review'],
     ['validation', 'pass|fail'],
     ['review', 'pass|fail'],
     ['task', 'done|block'],
   ]) {
-    assert.match(run(command, '--help').out, new RegExp(values.replace(/[|]/g, '\\|')));
+    // Commander wraps a long argument description, so the help is read flattened.
+    const help = run(command, '--help').out.replace(/\s+/g, ' ');
+    assert.match(help, new RegExp(values.replace(/[|]/g, '\\|')));
   }
   const invalid = run('task', 'an-id', 'guess', '1');
   assert.notEqual(invalid.code, 0);
@@ -252,7 +255,10 @@ test('20260824-134716 CR2: repo-configured domains appear in help and invalid er
       .replace('types:\n', 'types:\n  custom:\n    stages: [request, log]\n'),
   );
   const help = runIn(root, env, 'check', '--help').out;
-  assert.match(help, /effective types: custom, feature, bug, audit, refactor, chore, quick/);
+  assert.match(
+    help,
+    /effective types: custom, feature, bug, hotfix, audit, refactor, chore, quick/,
+  );
   assert.match(
     help,
     /effective statuses: draft, approved, in-progress, in-review, in-validation, blocked, done, discarded/,
@@ -265,7 +271,7 @@ test('20260824-134716 CR2: repo-configured domains appear in help and invalid er
   assert.notEqual(invalid.code, 0);
   assert.match(
     invalid.err,
-    /Allowed choices are custom, feature, bug, audit, refactor, chore, quick/,
+    /Allowed choices are custom, feature, bug, hotfix, audit, refactor, chore, quick/,
   );
 });
 
@@ -1750,4 +1756,79 @@ test('CR2: two concurrent CLI writes — exactly one succeeds, the loser gets th
   const noteACount = (listed.match(/note A/g) ?? []).length;
   const noteBCount = (listed.match(/note B/g) ?? []).length;
   assert.equal(noteACount + noteBCount, 1);
+});
+
+// 20261002-113320 CR7 — `init` ships the `documentation` type: review without a
+// Plan (its effective tdd is off) and no release impact, valid as generated.
+test('113320 CR7: init declares the documentation type and check stays clean', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
+  assert.equal(runIn(root, env, 'init').code, 0);
+  const config = parseYaml(fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8'));
+  assert.deepEqual(config.types.documentation, {
+    stages: ['request', 'investigation', 'specification', 'log'],
+    review_required: true,
+    tdd: false,
+    seed_stage: 'investigation',
+  });
+  assert.equal(config.release.impacts.documentation, 'none');
+  const checked = runIn(root, env, 'check');
+  assert.equal(checked.code, 0, checked.err);
+});
+
+// 20261002-113435 CR4 — the template seeds a `documentation` spec from the
+// Investigation, and the generated config stays valid.
+test('113435 CR4: init sets the documentation seed_stage to investigation and check is clean', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
+  assert.equal(runIn(root, env, 'init').code, 0);
+  const config = parseYaml(fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8'));
+  assert.equal(config.types.documentation.seed_stage, 'investigation');
+  const checked = runIn(root, env, 'check');
+  assert.equal(checked.code, 0, checked.err);
+});
+
+// 20261002-181346 CR7 — `init` declares an empty `git.release_branch` next to
+// `git.integration_branch`, and the generated config stays valid.
+test('181346 CR7: init declares an empty git.release_branch beside integration_branch', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
+  assert.equal(runIn(root, env, 'init').code, 0);
+  const config = parseYaml(fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8'));
+  assert.ok(Object.hasOwn(config.git, 'release_branch'), 'git.release_branch is not declared');
+  assert.equal(config.git.release_branch, null);
+  const keys = Object.keys(config.git);
+  assert.equal(keys.indexOf('release_branch'), keys.indexOf('integration_branch') + 1);
+  const checked = runIn(root, env, 'check');
+  assert.equal(checked.code, 0, checked.err);
+});
+
+// 20261002-181428 CR1 — `init` ships the `hotfix` type after `bug`: the stages
+// and review of `bug`, integrated into the release branch, with a patch release
+// impact. The generated config, whose `git.release_branch` is still empty, stays
+// valid.
+test('181428 CR1: init declares the hotfix type after bug and check stays clean', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
+  assert.equal(runIn(root, env, 'init').code, 0);
+  const config = parseYaml(fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8'));
+  assert.deepEqual(config.types.hotfix, {
+    stages: ['request', 'investigation', 'specification', 'plan', 'log'],
+    review_required: true,
+    integrates_into: 'release',
+  });
+  const types = Object.keys(config.types);
+  assert.equal(types.indexOf('hotfix'), types.indexOf('bug') + 1);
+  assert.equal(config.release.impacts.hotfix, 'patch');
+  assert.equal(config.git.release_branch, null);
+  const checked = runIn(root, env, 'check');
+  assert.equal(checked.code, 0, checked.err);
 });
