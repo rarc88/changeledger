@@ -121,3 +121,4 @@ documentación.
 - **2026-10-07T15:03:05Z** `[status]` draft → approved (human via conversation)
 - **2026-10-07T16:27:18Z** `[status]` approved → in-progress
 - **2026-10-07T16:27:18Z** `[branch]` set: feature/20261007-135159 (auto)
+- **2026-10-07T16:35:01Z** `[note]` El orquestador corrige el Plan y añade CR6: la tarea 1 apuntaba a test/contract.test.mjs pero las guardas de concepto sobre fragmentos viven en test/context.test.mjs, y la Proposal ya decía que el orquestador pasa al revisor la lista de frases cuantificadas sin que ningún criterio lo cubriera; CR6 lo lleva a review.md.
