@@ -981,6 +981,60 @@ test('111219 CR4: no live project replaces a restored view with the visible empt
   assert.match(root.querySelector('#board').textContent, /No projects registered/);
 });
 
+test('20261007-135148 CR1: every project view shows the empty state when no repo is loaded', async () => {
+  const fixture = viewerShell();
+  document.body.append(fixture);
+  const previous = {
+    repo: appState.repo,
+    project: appState.currentProject,
+    view: appState.currentView,
+  };
+  appState.repo = null;
+  appState.currentProject = null;
+  try {
+    for (const view of ['board', 'table', 'graph', 'ledger', 'metrics']) {
+      activateView(view, { historyMode: null });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      const container = fixture.querySelector(`#${view}`);
+      assert.ok(!container.classList.contains('hidden'), `${view} container is visible`);
+      assert.equal(
+        container.textContent.trim(),
+        'No projects registered. Run changeledger init in a repo.',
+        `${view} shows the empty state`,
+      );
+    }
+  } finally {
+    fixture.remove();
+    appState.repo = previous.repo;
+    appState.currentProject = previous.project;
+    appState.currentView = previous.view;
+  }
+});
+
+test('20261007-135148 CR2: the projects view still shows its own empty state with no repo', async () => {
+  const fixture = viewerShell();
+  document.body.append(fixture);
+  const previous = {
+    repo: appState.repo,
+    project: appState.currentProject,
+    view: appState.currentView,
+  };
+  appState.repo = null;
+  appState.currentProject = null;
+  try {
+    activateView('projects', { historyMode: null });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const container = fixture.querySelector('#projects');
+    assert.match(container.querySelector('.empty').textContent, /^No projects registered\.$/);
+    assert.equal(container.textContent.includes('changeledger init'), false);
+  } finally {
+    fixture.remove();
+    appState.repo = previous.repo;
+    appState.currentProject = previous.project;
+    appState.currentView = previous.view;
+  }
+});
+
 test('175732 CR1: a payload in id/type/status does not create active HTML in a card', () => {
   const host = parse(card({ ...baseChange(), id: XSS, type: XSS, status: XSS }));
   assert.equal(host.querySelector('img'), null, 'no injected <img>');
