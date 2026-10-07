@@ -2,7 +2,7 @@
 id: "20261007-135142"
 title: Decir sin consumo atribuido en lugar de sin registros cuando hay registros
 type: bug
-status: in-progress
+status: in-review
 created: 2026-10-07T13:51:42Z
 depends_on: []
 branch: bug/20261007-135142
@@ -96,3 +96,4 @@ Interfaces externas: ninguna.
 - **2026-10-07T16:17:26Z** `[status]` approved → in-progress
 - **2026-10-07T16:17:26Z** `[branch]` set: bug/20261007-135142 (auto)
 - **2026-10-07T16:21:53Z** `[note]` Implementación delegada (subagente, tier medio), tareas 1 a 4: el aviso pasa a unmeasured: <n> change(s) have no attributed usage; usageSectionAnalyses devuelve recorded (verdadero si hay un change medido o si algún id filtrado tiene records > 0 según analyzeUsage con id) y usageSectionHtml elige No usage data for the current filters. o No usage records for the current filters.; docs/usage-capture.md nombra el aviso. Red con literales en 7 tests de módulo y CLI y en CR2 del viewer; mutantes: texto antiguo del aviso, mensaje fijo en records, mensaje fijo en data y recorded calculado sobre todo el repo; todos fallan. pnpm verify en verde con 1759/1759. Decisiones no especificadas: recorded sin nuevo campo en el JSON de analyze; recorded ausente equivale a sin registros; la documentación no describe los mensajes del viewer. Residuos: la spec usage.md nombra el texto antiguo (se actualiza en la graduación); una línea larga previa en docs/usage-capture.md.
+- **2026-10-07T16:21:53Z** `[status]` in-progress → in-review
