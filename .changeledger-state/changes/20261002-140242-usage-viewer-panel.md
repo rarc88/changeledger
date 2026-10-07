@@ -2,9 +2,10 @@
 id: "20261002-140242"
 title: Mostrar el análisis de consumo en el viewer
 type: feature
-status: approved
+status: in-progress
 created: 2026-10-02T14:02:42Z
 depends_on: ["20261002-140038"]
+branch: feature/20261002-140242
 related_to: ["20261002-133728", "20260711-155721"]
 owner: rarc88
 release_impact: minor
@@ -123,3 +124,6 @@ obliga a una petición por cada cambio de filtro y rompe el patrón de
 
 ## Log
 - **2026-10-02T15:24:43Z** `[status]` draft → approved (human via conversation)
+- **2026-10-07T13:20:32Z** `[version]` 0.18.0-dev
+- **2026-10-07T13:20:32Z** `[status]` approved → in-progress
+- **2026-10-07T13:20:32Z** `[branch]` set: feature/20261002-140242 (auto)
