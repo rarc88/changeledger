@@ -104,6 +104,14 @@ export function serialize(repo) {
       name: path.basename(String(error.name ?? error.file ?? 'unknown')),
       message: redactAbsolutePaths(error.message),
     })),
+    // Usage records (20261002-140242) for the browser's `usage-analysis.mjs`,
+    // without the worktree layout's absolute `file`.
+    usage: (repo.usage ?? []).map(({ name, change, record, error }) => ({
+      name,
+      change,
+      record,
+      error,
+    })),
     specs: (repo.specs ?? []).map((s) => ({
       name: s.name,
       title: s.frontmatter.title,
