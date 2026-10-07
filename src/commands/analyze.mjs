@@ -1,0 +1,91 @@
+// `changeledger analyze` — token and cost figures per change, segment, model,
+// version, type or recorder, computed from the ledger's usage records by the
+// pure `src/usage-analysis.mjs` (20261002-140038). Read-only.
+
+import { loadRepo } from '../repo.mjs';
+import { analyzeUsage } from '../usage-analysis.mjs';
+
+export function analyze(id, { by } = {}, cwd = process.cwd()) {
+  const { changes, usage } = loadRepo(cwd);
+  const result = analyzeUsage({ changes, usage }, { id, by });
+  if (id !== undefined && !result.changes.length) {
+    throw new Error(
+      `No change with id "${id}" (use the exact id; run \`changeledger check\` if a filename's id looks wrong)`,
+    );
+  }
+  return result;
+}
+
+const money = (cost) => (cost === null ? 'n/a' : `$${cost.toFixed(2)}`);
+
+// Left-aligned columns separated by two spaces; the last column is not padded.
+function table(header, rows) {
+  const widths = header.map((h, i) => Math.max(h.length, ...rows.map((r) => String(r[i]).length)));
+  const line = (cells) =>
+    cells
+      .map((cell, i) => (i === cells.length - 1 ? String(cell) : String(cell).padEnd(widths[i])))
+      .join('  ');
+  return [line(header), ...rows.map(line)];
+}
+
+function changesView(result) {
+  if (!result.changes.length) return ['no usage records'];
+  return table(
+    ['ID', 'TOKENS', 'COST', 'REWORK', 'TITLE'],
+    result.changes.map((c) => [
+      c.id,
+      c.total_tokens,
+      money(c.cost_usd),
+      `${c.rework_pct}%`,
+      c.title ?? '',
+    ]),
+  );
+}
+
+function changeView(change) {
+  const lines = [
+    `#${change.id} ${change.title ?? ''}`.trimEnd(),
+    `total: ${change.total_tokens} tokens, ${money(change.cost_usd)}, ${change.unpriced_tokens} unpriced tokens, rework ${change.rework_pct}%`,
+  ];
+  if (!change.segments.length) return [...lines, 'no usage records'];
+  return [
+    ...lines,
+    '',
+    ...table(
+      ['SEGMENT', 'CLOSED AT', 'VERSION', 'RECORDER', 'TOKENS', 'COST', 'MODELS'],
+      change.segments.map((s) => [
+        s.segment,
+        s.at,
+        s.version,
+        s.recorded_by,
+        s.total_tokens,
+        money(s.cost_usd),
+        s.models.map((m) => m.model).join(', '),
+      ]),
+    ),
+  ];
+}
+
+function groupsView(by, groups) {
+  if (!groups.length) return ['no usage records'];
+  return table(
+    [by.toUpperCase(), 'TOKENS', 'COST', 'UNPRICED', 'SEGMENTS'],
+    groups.map((g) => [g.key, g.total_tokens, money(g.cost_usd), g.unpriced_tokens, g.segments]),
+  );
+}
+
+export function runAnalyze(id, options = {}, cwd = process.cwd()) {
+  const result = analyze(id, { by: options.by }, cwd);
+  if (options.json) {
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+  const lines =
+    options.by !== undefined
+      ? groupsView(options.by, result.groups)
+      : id !== undefined
+        ? changeView(result.changes[0])
+        : changesView(result);
+  if (result.hints.length) lines.push('', ...result.hints);
+  console.log(lines.join('\n'));
+}
