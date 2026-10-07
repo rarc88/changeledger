@@ -2,7 +2,7 @@
 id: "20261002-140038"
 title: Analizar el consumo de los changes con changeledger analyze
 type: feature
-status: in-review
+status: in-progress
 created: 2026-10-02T14:00:38Z
 depends_on: ["20261002-133728", "20261001-155216"]
 branch: feature/20261002-140038
@@ -327,3 +327,4 @@ en el viewer sin módulo común, que duplicaría la lógica.
 - **2026-10-07T12:33:56Z** `[note]` Corrección de la ronda 2 (subagente corrector, sin commitear): D1 rework = tramo in-progress cerrado en o después del primer [review] in-review → in-progress|blocked o [validation] in-validation → in-progress del change (el lifecycle no tiene in-validation → blocked), y el ledger real pasa a dar rework 17%; D2 medido = al menos un tramo atribuido, de modo que un change sólo con la base o sólo con errores no tiene fila, cuenta en unmeasured y con id da cifras null; las vistas vacías dicen no usage data cuando hay registros y no usage records sólo cuando no hay ninguno; los avisos baseline, anomaly y failed cubren todos los changes sin id; D3 el comentario dice que check no reporta un at ausente; D4 everything() incluye anomaly, CR12, <0.1, precio que aparece y desaparece, un change sólo base y uno sólo con errores, y el comentario dice que no cubre el caso sin gap de CR14; D4b el doc separa el consumo del registrador del tramo del de otros registradores. Red→green con literales y mutantes MD1a, MD1b, MD2a, MD2b, MD2c. Gate: pnpm verify en verde con 1742/1742. Residuos: el texto del aviso unmeasured, fijado por la Proposal, sigue diciendo have no usage records para changes que tienen registros sin tramo atribuido; registros con at no string se descartan sin aviso y check no los reporta.
 - **2026-10-07T12:33:56Z** `[status]` in-progress → in-review
 - **2026-10-07T12:34:01Z** `[note]` Mandato de la ronda 3 (autorizada por el humano, revisor nuevo): confirmación del diff sin commitear frente a HEAD 5602ddd, limitada a que D1, D2, D3, D4 y D4b queden cerrados, a las dos decisiones del humano (rework tras blocked y change sólo con base no medido) y a cualquier regresión que introduzca; la prosa anterior que no cambió y el texto del aviso unmeasured fijado por la Proposal quedan como seguimientos, no como motivo de fallo.
+- **2026-10-07T12:39:02Z** `[review]` in-review → in-progress (retry): Ronda 3: D1, D2, D3, D4b y las dos decisiones del humano cerrados, sin regresiones; D4 sigue abierto: el comentario reescrito de test/usage-analysis.test.mjs (~890) dice cubrir CR1-CR7 y CR12-CR15 salvo el caso sin gap de CR14, pero la mezcla everything() no tiene líneas [version] (CR7, --by version da sólo unknown) ni un review in-review → blocked → in-progress (la cláusula de CR3 que añade la corrección).
