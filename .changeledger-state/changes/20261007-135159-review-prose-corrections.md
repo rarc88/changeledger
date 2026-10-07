@@ -2,7 +2,7 @@
 id: "20261007-135159"
 title: Cerrar en una ronda las correcciones de prosa
 type: feature
-status: in-review
+status: in-progress
 created: 2026-10-07T13:51:59Z
 depends_on: []
 branch: feature/20261007-135159
@@ -131,3 +131,4 @@ documentación.
 - **2026-10-07T17:07:38Z** `[note]` Decisión del humano (2026-10-07): pasar a revisión con CR5 pendiente; si la revisión encuentra prosa a corregir, esa corrección recorre CR5; si pasa limpia, el change llega a validación con CR5 sin recorrer y decide el humano.
 - **2026-10-07T17:07:39Z** `[status]` in-progress → in-review
 - **2026-10-07T17:07:57Z** `[note]` Mandato del review: la superficie que el change gobierna — dev..HEAD (0911195, a0cde28) contra CR1-CR4 y CR6 y el Plan, con las decisiones no especificadas y residuos del Log como puntos de escrutinio; CR5 está pendiente por decisión del humano. Lista de frases cuantificadas informada por el implementador: en implement.md, never replaces it with another universal claim y lists each universally quantified sentence (normativas); en los comentarios de test de context.test.mjs, the audience named test comments and Log notes only, Each is its own half, so dropping one names the one that went, dropping either one fails its own y the bullet's own guard lives in this table.
+- **2026-10-07T17:14:54Z** `[review]` in-review → in-progress (retry): La nota del orquestador de 2026-10-07T16:35:01Z afirma que el orquestador pasaba la lista al revisor sin que ningún criterio lo cubriera, pero CR5 ya exigía que el prompt de confirmación la incluyera; y afirma que las guardas de concepto sobre fragmentos viven en test/context.test.mjs, cuando test/agent-prompt.test.mjs y test/agent-context.test.mjs también guardan fragmentos de templates/contract/. El entregable (implement.md, review.md, guardas y presupuestos) pasa.
