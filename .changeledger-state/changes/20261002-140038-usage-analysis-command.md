@@ -286,10 +286,11 @@ en el viewer sin módulo común, que duplicaría la lógica.
   - **Verify:** `node --test test/view.test.mjs test/lifecycle.test.mjs`
   - **Criteria:** CR10, CR16
   - **Resolved:** `2026-10-07T12:12:08Z`
-- [ ] Nombrar `analyze` en el contrato y la documentación
+- [x] Nombrar `analyze` en el contrato y la documentación
   - **Target:** `templates/contract/core.md, docs/usage-capture.md, README.md`
   - **Verify:** `pnpm test`
   - **Criteria:** CR17
+  - **Resolved:** `2026-10-07T12:15:11Z`
 - [ ] Recorrer de nuevo el primer uso real con los avisos nuevos
   - **Target:** `src/commands/analyze.mjs`
   - **Verify:** verify: manual — `changeledger analyze --json` y `changeledger analyze 20261002-140038` sobre registros reales
