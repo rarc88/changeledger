@@ -2,7 +2,7 @@
 id: "20261002-140038"
 title: Analizar el consumo de los changes con changeledger analyze
 type: feature
-status: in-review
+status: in-progress
 created: 2026-10-02T14:00:38Z
 depends_on: ["20261002-133728", "20261001-155216"]
 branch: feature/20261002-140038
@@ -319,3 +319,4 @@ en el viewer sin módulo común, que duplicaría la lógica.
 - **2026-10-07T12:15:12Z** `[note]` CR11 recorrido de nuevo por el orquestador sobre registros reales: analyze 20261002-140038 lista approved 43568878 tokens $13.99, in-progress 9479096 $3.65, in-review 3330901 $1.31 y blocked 1411826 $0.63, todos 0.18.0-dev, con el aviso gap: 14 transition(s) between 2026-10-02T16:00:09Z and 2026-10-07T11:08:15Z have no usage record; their consumption is in 20261002-140038 approved (el subagente recontó los 14 aparte: la creación de 20261002-161641 y 13 transiciones de 20261002-133728).
 - **2026-10-07T12:16:20Z** `[status]` in-progress → in-review
 - **2026-10-07T12:16:24Z** `[note]` Mandato del segundo review (ronda 2 del change): la superficie que el change gobierna — dev..HEAD (a46f5eb, 011033a, 93c9d4f, 5602ddd) contra CR1-CR17 y el Plan, con el foco en que F1-F6 queden resueltos según las decisiones del humano y en las decisiones no especificadas y residuos del Log como puntos de escrutinio. Fuera del mandato: la fuga de /tmp de la suite y el error del viewer global sin proyectos.
+- **2026-10-07T12:25:16Z** `[review]` in-review → in-progress (retry): Ronda 2: F1-F6 resueltos y CR1-CR17 pasan, pero D1 docs/usage-capture.md y el comentario de usage-analysis.mjs definen rework como el tramo cerrado tras cualquier review o validation fallida, y el ledger real lo desmiente (fail --block → blocked → in-progress sale como in-progress); D2 analyze <id> imprime no usage records para un change cuyo único registro es la base, y la vista sin id lo imprime cuando todos los registros fallaron; D3 el comentario dice que check reporta un registro mal formado, pero check no valida at y uno sin at se descarta en silencio; D4 el test de determinismo dice cubrir todos los escenarios y omite anomaly, CR12, <0.1, precio que aparece o desaparece y el change sólo con errores; D4b el doc afirma que el consumo de las transiciones de gap está dentro del tramo, falso si las hizo otro registrador.
