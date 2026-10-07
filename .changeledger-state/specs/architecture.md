@@ -64,6 +64,12 @@ El binario expone su versión instalada mediante `changeledger --version`, `-v` 
 `-V`; el valor se lee del `package.json` distribuido para que una instalación
 empaquetada nunca dependa de un literal duplicado.
 
+La validación y la precedencia SemVer de versiones de la CLI viven en
+`src/cli-version.mjs`, sin imports: `version-guard.mjs` las reexporta y
+`lifecycle.mjs` las importa para el payload de `[version]`, de modo que el
+grafo que el viewer descarga desde `lifecycle.mjs` no arrastra la carga de
+config ni IO.
+
 Desde el schema 6, `min_cli_version` declara la versión mínima de la CLI que
 puede trabajar sobre el repo: una versión SemVer concreta, prereleases incluidos,
 que `init` y la migración 5 → 6 fijan en la versión del paquete que las ejecuta;
