@@ -172,7 +172,27 @@ test('CR9: a ledger without usage records is not an error', (t) => {
   const { code, out, err } = analyze();
   assert.equal(code, 0, err);
   assert.match(out, /^no usage records$/m);
-  assert.match(out, /^unmeasured: 3 change\(s\) have no usage records$/m);
+  assert.match(out, /^unmeasured: 3 change\(s\) have no attributed usage$/m);
+});
+
+test('20261007-135142 CR1: unmeasured changes are reported as without attributed usage, not without records', (t) => {
+  const analyze = ledger(t, {
+    changes: { [A]: { title: 'Alpha' }, [B]: { title: 'Beta' }, [C]: { title: 'Gamma' } },
+    records: [
+      usageRecord({ change: A, at: at(1), event: 'created', to: 'draft', sessions: [s1(100)] }),
+      usageRecord({ change: C, at: at(2), event: 'created', to: 'draft', error: 'boom' }),
+      usageRecord({ change: C, at: at(3), from: 'draft', to: 'approved', error: 'boom' }),
+    ],
+  });
+  const { code, out, err } = analyze('--json');
+  assert.equal(code, 0, err);
+  const { hints } = JSON.parse(out);
+  assert.ok(hints.includes('unmeasured: 3 change(s) have no attributed usage'), hints.join('\n'));
+  assert.equal(
+    hints.some((h) => h.includes('have no usage records')),
+    false,
+    hints.join('\n'),
+  );
 });
 
 test('CR3: rework that rounds to 0% shows as <0.1% in the table, the change view and the hint', (t) => {
@@ -233,7 +253,7 @@ test('CR13/CR14 through the CLI: a change with only failed records has no row; f
   assert.match(out, new RegExp(`^${A}\\s+300\\s`, 'm'));
   assert.doesNotMatch(out, new RegExp(`^${C}`, 'm'));
   assert.match(out, new RegExp(`^failed: 1 record\\(s\\) of ${C} have no data$`, 'm'));
-  assert.match(out, /^unmeasured: 2 change\(s\) have no usage records$/m);
+  assert.match(out, /^unmeasured: 2 change\(s\) have no attributed usage$/m);
   assert.match(
     out,
     new RegExp(
@@ -294,7 +314,7 @@ test('CR13 through the CLI: records that attribute no segment print no usage dat
     assert.equal(code, 0, err);
     assert.equal(out.split('\n')[0], 'no usage data', out);
     assert.doesNotMatch(out, /^no usage records$/m);
-    assert.match(out, /^unmeasured: 2 change\(s\) have no usage records$/m);
+    assert.match(out, /^unmeasured: 2 change\(s\) have no attributed usage$/m);
   }
   const baselineOnly = analyze(A);
   assert.equal(baselineOnly.code, 0, baselineOnly.err);

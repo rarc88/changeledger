@@ -3633,6 +3633,61 @@ test('140242 CR6: with no records among the filtered changes the section says so
   }
 });
 
+// The viewer's metrics view over the given type filter, with the shared usage
+// module loaded from the repo instead of the browser path.
+async function metricsViewFor(repo, types) {
+  const { isVisible, metricsViewTemplate } = await import('../src/viewer/public/app.js');
+  const metricsModule = await import('../src/metrics.mjs');
+  const visible = repo.changes.filter((c) => isVisible(c, typeFilters(types)));
+  return renderHost(
+    await metricsViewTemplate(repo, visible, {
+      loadMetrics: async () => metricsModule,
+      loadUsage: async () => ({ analyzeUsage }),
+      now: '2026-10-02T00:00:00Z',
+    }),
+  );
+}
+
+// The usage ledger reduced to the feature's first record, which is its
+// recorder's baseline: the feature has a record and no attributed segment, the
+// bug and the quiet chore have no record.
+function writeBaselineOnlyLedger(root) {
+  writeUsageLedger(root, { quiet: true });
+  const [baseline] = usageRecords();
+  const keep = usageRecordFileName(baseline);
+  const dir = path.join(root, '.changeledger', 'usage');
+  for (const name of fs.readdirSync(dir)) if (name !== keep) fs.rmSync(path.join(dir, name));
+}
+
+test('20261007-135142 CR2: filtered changes with records but no attributed segment say no usage data', async () => {
+  isolatedHome();
+  const root = newRepo();
+  writeBaselineOnlyLedger(root);
+  const repo = await repoPayload(root);
+  const host = await metricsViewFor(repo, ['feature']);
+  const section = host.querySelector('[data-usage]');
+  assert.equal(section.querySelector('h3').textContent.trim(), 'Usage');
+  assert.deepEqual(texts(section, '.empty'), ['No usage data for the current filters.']);
+  assert.equal(section.querySelectorAll('[data-usage-total], .bar-row').length, 0);
+});
+
+test('20261007-135142 CR3: filtered changes without any record keep saying no usage records', async () => {
+  isolatedHome();
+  const root = newRepo();
+  writeBaselineOnlyLedger(root);
+  const repo = await repoPayload(root);
+  // The ledger holds a record, but none of the filtered changes (the bug and
+  // the chore) does.
+  for (const types of [['bug'], ['chore'], ['bug', 'chore']]) {
+    const host = await metricsViewFor(repo, types);
+    assert.deepEqual(
+      texts(host.querySelector('[data-usage]'), '.empty'),
+      ['No usage records for the current filters.'],
+      types.join(),
+    );
+  }
+});
+
 test('140242: a change whose only record is its recorder baseline has records but no usage data', async () => {
   const { changeUsageHtml } = await import('../src/viewer/public/view-renderers.js');
   const [baseline] = usageRecords();

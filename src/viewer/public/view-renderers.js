@@ -293,7 +293,8 @@ export const USAGE_UNAVAILABLE = Object.freeze({ unavailable: true });
 const usageUnavailable = html`<p class="empty">Usage analysis is unavailable.</p>`;
 
 // The Usage section of the metrics view: `usage` holds one analysis per
-// grouping (`segment`, `model`, `version`) of the same set of changes.
+// grouping (`segment`, `model`, `version`) of the same set of changes and
+// `recorded`, whether any of them has a usage record.
 export function usageSectionHtml(usage) {
   if (usage.unavailable) {
     return html`<section class="usage-section" data-usage>
@@ -305,7 +306,9 @@ export function usageSectionHtml(usage) {
   if (!changes.length) {
     return html`<section class="usage-section" data-usage>
       <h3 class="metrics-h">Usage</h3>
-      <p class="empty">No usage records for the current filters.</p>
+      <p class="empty">
+        ${usage.recorded ? 'No usage data for the current filters.' : 'No usage records for the current filters.'}
+      </p>
       ${usageHints(hints)}
     </section>`;
   }

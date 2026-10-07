@@ -461,7 +461,7 @@ export function analyzeUsage({ changes = [], usage = [] } = {}, { id, ids, by } 
   }
   if (id === undefined) {
     const unmeasured = [...known].filter((key) => isListed(key) && !measured.has(key)).length;
-    if (unmeasured > 0) hints.push(`unmeasured: ${unmeasured} change(s) have no usage records`);
+    if (unmeasured > 0) hints.push(`unmeasured: ${unmeasured} change(s) have no attributed usage`);
   }
   for (const change of [...failedCounts.keys()].sort(compare)) {
     if (!inScope(change)) continue;
