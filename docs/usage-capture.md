@@ -82,8 +82,8 @@ The snapshot is composed in four steps:
 4. A model listed in `totals.unpricedModels` (or flagged `missingPricing`) is
    recorded with `cost_usd: null` instead of the `0` ccusage reports for it.
 
-Totals are cumulative per session; the consumption of a stretch is the
-difference between two consecutive records, left to a future analyzer.
+Totals are cumulative per session; `changeledger analyze` turns them into the
+consumption of each stretch (see [Analyzing records](#analyzing-records)).
 
 ## Where records live
 
@@ -180,6 +180,55 @@ Record shape (`schema: 1`):
   "error": null
 }
 ```
+
+## Analyzing records
+
+`changeledger analyze [id] [--by segment|model|version|type|recorder] [--json]`
+reads the records from the ledger and prints token and cost figures. Without
+arguments it lists one row per measured change, one with at least one
+attributed segment; with `<id>`, that change's segments; with `--by`, the
+segments of every listed change grouped by that key. `--json` prints
+`{ "schema": 1, "changes": [...], "groups": [...], "hints": [...] }`.
+
+A change whose records all have `error`, or whose only record with data is its
+recorder's baseline, is not measured: it has no row and counts in the
+`unmeasured` hint. With `<id>`, its figures are `null` in JSON and the text view
+prints `no usage data` (`no usage records` if it has no well-formed record)
+instead of a total. An empty listing or grouping prints `no usage records` when
+the ledger holds no usage record, readable or not, and `no usage data`
+otherwise.
+
+- Records are taken per `recorded_by` in `at` order. Records of one change
+  sharing an `at` are ordered by their transition chain where it links them
+  (`created` first, then a transition before the one that leaves the state it
+  entered), not by file name.
+- Each record with data is subtracted, session by session and model by model,
+  against the last values that recorder saw of that session, in an earlier
+  record of any change. A session or model the recorder never saw counts from
+  zero; a session whose tokens decrease counts 0 in that stretch.
+- The difference goes to the record's change and to the segment its transition
+  closes: `pre-draft` for `created`, otherwise the `from` state. An
+  `in-progress` segment closed at or after the first failed verdict in its
+  change's Log is named `rework` instead; a failed verdict is
+  `[review] in-review → in-progress`, `[review] in-review → blocked` or
+  `[validation] in-validation → in-progress`.
+- A recorder's first record with data is its baseline and is not attributed. A
+  record with `error` is neither a baseline nor closes a segment: its stretch
+  falls into that recorder's next record with data.
+- Cost adds a model's `cost_usd` difference only when both values are priced
+  and it does not decrease; the tokens of any other difference are summed in
+  `unpriced_tokens`.
+- The version of a segment is the last `[version]` in its change's Log at or
+  before the closing record, or `unknown`.
+
+Hints state facts without thresholds: `rework`, `unpriced`, `anomaly`,
+`baseline`, `unmeasured`, `failed` (records with `error`) and `gap`. A `gap`
+hint counts the Log transitions of any change (`[status]`, `[review]`,
+`[validation]` and the creation in `created`) strictly between a segment's base
+(the recorder's previous record with data) and its closing record that have no
+record with the same change and `at`. What the segment's recorder consumed
+while those transitions happened is inside that segment; what another recorder
+consumed for them is not.
 
 ## Failures
 

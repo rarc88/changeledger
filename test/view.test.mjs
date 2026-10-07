@@ -37,6 +37,7 @@ import { loadRepo, loadRepoAsync } from '../src/repo.mjs';
 import { STATE_REF, writeActivation } from '../src/state-store.mjs';
 import { encodeProjectPath } from '../src/usage-collector.mjs';
 import { cleanMissingProjects, readLedgerDocument, serialize } from '../src/viewer/domain.mjs';
+import { SHARED_MODULES } from '../src/viewer/server/router.mjs';
 import { setBranch, stampVersion } from '../src/writer.mjs';
 import { claudeRunner, ledgerUsageRecords } from './helpers/ccusage.mjs';
 import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
@@ -1654,6 +1655,29 @@ test("155721 CR2: the shared module's own relative import is reachable at the sa
   const res = await memoryRequest(root, { path: '/shared/lifecycle.mjs' });
   assert.equal(res.status, 200);
   assert.match(res.body, /export function parseLogEvent/);
+});
+
+test('140038 CR16: every relative import reachable from a shared module is served and none imports node:*', async () => {
+  isolatedHome();
+  const root = newRepo();
+  const specifier = /(?:\bfrom\s*|\bimport\s*\(?\s*)['"]([^'"]+)['"]/g;
+  const queue = [...SHARED_MODULES];
+  const seen = new Set();
+  let imports = 0;
+  while (queue.length > 0) {
+    const name = queue.shift();
+    if (seen.has(name)) continue;
+    seen.add(name);
+    const res = await memoryRequest(root, { path: `/shared/${name}` });
+    assert.equal(res.status, 200, `/shared/${name} must be served`);
+    for (const [, target] of res.body.matchAll(specifier)) {
+      assert.ok(!target.startsWith('node:'), `${name} imports ${target}`);
+      assert.match(target, /^\.\/[^/]+\.mjs$/, `${name} imports ${target}`);
+      imports++;
+      queue.push(target.slice(2));
+    }
+  }
+  assert.ok(imports > 0, 'the walk found relative imports to follow');
 });
 
 test('155721 CR2: only the allowlisted shared modules are served, no arbitrary src/ file', async () => {

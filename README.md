@@ -78,6 +78,7 @@ changeledger register                     # refresh registration and the context
 changeledger view                         # view every registered project
 changeledger view .                       # view only the current project
 changeledger check [id]                   # validate the repository or one change
+changeledger analyze [id] [--by K]        # token use and cost from the usage records (--json)
 ```
 
 ### Work with changes

@@ -59,13 +59,14 @@ const MIME = {
 
 // The pure metrics module is shared verbatim between the CLI and the browser:
 // the client dynamic-imports it so filtered metrics reuse the exact same
-// computation as the server payload (no reimplementation). `lifecycle.mjs` is
-// its only relative import, so both must be reachable under the same route
-// prefix for the browser's module resolution to find it. Neither file is
-// under `publicDir`; this is a narrow, explicit allowlist rather than opening
-// up the rest of `src/` the way `publicDir` static assets are.
+// computation as the server payload (no reimplementation). Its relative imports
+// (`lifecycle.mjs`, which imports `cli-version.mjs`) must be reachable under
+// the same route prefix for the browser's module resolution to find them, so
+// each relative import of a shared module is itself listed here. None of these
+// files is under `publicDir`; this is a narrow, explicit allowlist rather than
+// opening up the rest of `src/` the way `publicDir` static assets are.
 const SHARED_MODULES_DIR = path.join(packageRoot, 'src');
-const SHARED_MODULES = new Set(['metrics.mjs', 'lifecycle.mjs']);
+export const SHARED_MODULES = new Set(['metrics.mjs', 'lifecycle.mjs', 'cli-version.mjs']);
 
 // Defensive headers for a local-only UI: never sniff types, never cache, and
 // forbid embedding in a frame (clickjacking).

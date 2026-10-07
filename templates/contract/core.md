@@ -216,6 +216,7 @@ Prefer structured CLI queries before scanning files:
 - `changeledger list --pending graduation`: find unresolved graduation decisions; add `--owner NAME` or `--unowned` to scope the query, then graduate every id individually.
 - `changeledger list --pending archive`: preview graduated or skipped changes; use the same optional owner filter on `archive --graduated` for an equivalent action.
 - `changeledger search <terms...>`: find related changes (incl. archived) and specs by content before investigating from scratch.
+- `changeledger analyze [id]`: query recorded consumption and cost per change, segment, model or version instead of reading the usage records.
 
 Run `changeledger help` or `changeledger <command> --help` for exact CLI syntax.
 Structure is always English. Each context delivers the effective policy that

@@ -21,6 +21,7 @@ import {
 } from '../src/commands/agent.mjs';
 import { AGENT_ROLES, agentContext } from '../src/commands/agent-context.mjs';
 import { agentPrompt } from '../src/commands/agent-prompt.mjs';
+import { runAnalyze } from '../src/commands/analyze.mjs';
 import { apply } from '../src/commands/apply.mjs';
 import { check } from '../src/commands/check.mjs';
 import { commit } from '../src/commands/commit.mjs';
@@ -52,6 +53,7 @@ import {
 import { nowUtc } from '../src/paths.mjs';
 import { RELEASE_IMPACTS } from '../src/release.mjs';
 import { CAS_CONFLICT_MESSAGE, LedgerConflictError } from '../src/state-store.mjs';
+import { USAGE_GROUP_KEYS } from '../src/usage-analysis.mjs';
 import { repoCliVersionError } from '../src/version-guard.mjs';
 
 const { version } = createRequire(import.meta.url)('../package.json');
@@ -160,7 +162,7 @@ prompt identifies your role and tells you to run \`agent-context\` instead.
 
   changeledger init | register | new | edit | apply | view | check | fix | context | agent-context
   changeledger commit | status | approve | validation | discard | review | owner
-  changeledger archive | log | task | list | show | search | graduate | config | release
+  changeledger archive | log | task | list | show | search | analyze | graduate | config | release
   changeledger cutover | activate | import | sync
 
 Run \`changeledger <command> --help\` for that command's syntax, values and examples.`;
@@ -1098,6 +1100,27 @@ program
     ].join('\n'),
   )
   .action(action((queryParts, options) => runSearch(queryParts, options)));
+
+program
+  .command('analyze')
+  .description('token and cost figures from the ledger usage records (read-only)')
+  .argument('[id]', 'one change: its segments with tokens, cost, models and version')
+  .addOption(
+    closedOption('--by <key>', 'aggregate every measured change by this key', USAGE_GROUP_KEYS),
+  )
+  .option('--json', 'print JSON: { schema, changes, groups, hints }')
+  .addHelpText(
+    'after',
+    [
+      '',
+      'Examples:',
+      '  changeledger analyze',
+      '  changeledger analyze 20261002-140038',
+      '  changeledger analyze --by model',
+      '  changeledger analyze --json',
+    ].join('\n'),
+  )
+  .action(action((id, options) => runAnalyze(id, options)));
 
 program
   .command('graduate')
