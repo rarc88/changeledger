@@ -2,9 +2,10 @@
 id: "20261007-135154"
 title: La suite de tests no deja directorios en el temporal del sistema
 type: bug
-status: approved
+status: in-progress
 created: 2026-10-07T13:51:54Z
 depends_on: []
+branch: bug/20261007-135154
 related_to: []
 owner: rarc88
 ---
@@ -78,3 +79,5 @@ Interfaces externas: ninguna.
 ## Log
 - **2026-10-07T13:51:54Z** `[version]` 0.18.0-dev
 - **2026-10-07T15:03:01Z** `[status]` draft → approved (human via conversation)
+- **2026-10-07T15:03:29Z** `[status]` approved → in-progress
+- **2026-10-07T15:03:29Z** `[branch]` set: bug/20261007-135154 (auto)
