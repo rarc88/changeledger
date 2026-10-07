@@ -17,6 +17,11 @@ import {
 import { hasFixableDefects } from './fix.mjs';
 import { CANONICAL_STATUSES, canTransition, LOG_EVENT_TYPES, parseLogEvent } from './lifecycle.mjs';
 import { compareVersions, parseVersion, RELEASE_IMPACTS } from './release.mjs';
+import {
+  parseUsageRecordName,
+  USAGE_RECORD_NAME_FORM,
+  USAGE_RECORD_SCHEMA,
+} from './usage-collector.mjs';
 import { minCliVersionDeclarationError } from './version-guard.mjs';
 
 const REQUIRED = ['id', 'title', 'type', 'status', 'created', 'depends_on'];
@@ -57,7 +62,7 @@ export function checkUsageGitConfig(repoRoot, run) {
   }
 }
 
-export function checkRepo({ config, changes, specs = [], releases = [] }, opts = {}) {
+export function checkRepo({ config, changes, specs = [], releases = [], usage = [] }, opts = {}) {
   const errors = [];
   const warnings = [];
   const err = (c, message) => errors.push({ file: c?.name ?? '(repo)', message });
@@ -227,8 +232,40 @@ export function checkRepo({ config, changes, specs = [], releases = [] }, opts =
 
   checkSpecs(changes, specs, ids, err, warn);
   checkReleases(releases, new Map(changes.map((c) => [String(c.frontmatter?.id), c])), err);
+  checkUsageRecords(usage, errors);
 
   return { errors, warnings, ...counts };
+}
+
+// Usage records (20261002-133728), as the loaders expose them: `{ name,
+// change, record, error }`. Repo-wide only, like the other collections'
+// aggregate checks. One finding per record, the first defect found, every
+// message prefixed `usage record <name>: ` so it names the file in either
+// layout.
+function checkUsageRecords(usage, errors) {
+  for (const entry of usage) {
+    const issue = usageRecordIssue(entry);
+    if (issue) {
+      errors.push({ file: `usage/${entry.name}`, message: `usage record ${entry.name}: ${issue}` });
+    }
+  }
+}
+
+function usageRecordIssue({ name, record, error }) {
+  const parsed = parseUsageRecordName(name);
+  if (!parsed) return `name must follow ${USAGE_RECORD_NAME_FORM}`;
+  if (error) return error;
+  if (!isMapping(record)) return 'must be a JSON object';
+  for (const field of ['schema', 'change']) {
+    if (record[field] === undefined || record[field] === null) return `missing "${field}"`;
+  }
+  if (record.schema !== USAGE_RECORD_SCHEMA) {
+    return `schema must be ${USAGE_RECORD_SCHEMA}, got ${JSON.stringify(record.schema)}`;
+  }
+  if (String(record.change) !== parsed.change) {
+    return `change "${record.change}" does not match the id "${parsed.change}" in its name`;
+  }
+  return null;
 }
 
 function relatedBacklinks(changes) {

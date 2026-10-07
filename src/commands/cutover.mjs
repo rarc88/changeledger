@@ -44,6 +44,7 @@ import {
   STATE_ROOT,
   writeActivation,
 } from '../state-store.mjs';
+import { USAGE_COLLECTION, usageEntry, usageRecordsDir } from '../usage-collector.mjs';
 import { parseYaml } from '../yaml.mjs';
 import { readLedgerAt, toPosix } from './ledger-tree.mjs';
 
@@ -100,6 +101,11 @@ function ledgerLayout(repoRoot, changeledgerDir, config, run) {
         extension: '.yml',
         prefix: `${rel(resolveReleasesDir(realRoot))}/`,
       },
+      {
+        name: USAGE_COLLECTION,
+        extension: '.json',
+        prefix: `${rel(usageRecordsDir(realRoot))}/`,
+      },
     ],
   };
 }
@@ -113,12 +119,14 @@ function validateLedger(source) {
   const changes = [];
   const specs = [];
   const releases = [];
+  const usage = [];
 
   for (const [name, text] of source.documents) {
     const base = name.slice(name.indexOf('/') + 1);
     try {
       if (name.startsWith('changes/')) changes.push({ name: base, text, ...parseChange(text) });
       else if (name.startsWith('specs/')) specs.push({ name: base, ...parseSpec(text) });
+      else if (name.startsWith(`${USAGE_COLLECTION}/`)) usage.push(usageEntry(base, text));
       else releases.push({ name: base, ...parseYaml(text) });
     } catch (e) {
       throw new Error(`the ledger cannot be cut over — ${name}: ${e.message}`);
@@ -126,7 +134,7 @@ function validateLedger(source) {
   }
   changes.sort((a, b) => String(a.frontmatter?.id).localeCompare(String(b.frontmatter?.id)));
 
-  const { errors } = checkRepo({ config, changes, specs, releases });
+  const { errors } = checkRepo({ config, changes, specs, releases, usage });
   if (errors.length) {
     const detail = errors.map((e) => `  ${e.file}: ${e.message}`).join('\n');
     throw new Error(

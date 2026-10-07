@@ -1,9 +1,11 @@
 # Usage capture (`changeledger.usage.collector`)
 
-Optional, local record of the tokens and cost spent on each change, taken from
-the harness logs by the third-party [`ccusage`](https://github.com/ryoppippi/ccusage)
+Optional record of the tokens and cost spent on each change, taken from the
+harness logs by the third-party [`ccusage`](https://github.com/ryoppippi/ccusage)
 (pinned to 20.0.26). ChangeLedger keeps no price table and no per-harness parser;
 it filters, renames and freezes what `ccusage` reports at the moment of capture.
+Each clone decides whether it measures; what it measures is stored in the ledger
+and shared like the rest of it.
 
 ## Enabling it
 
@@ -20,8 +22,8 @@ resolves it from its usual scopes (local, global, system), and a repository's
 worktrees share its local value. It works the same in an activated repository,
 whose `config.yml` lives in the state ref.
 
-- Unset: a transition reads that one value and nothing else runs; no record
-  directory is created.
+- Unset: a transition reads that one value and nothing else runs; no record is
+  written and the state ref gains no commit.
 - `ccusage`: capture is on.
 - Any other value, including an empty one or another letter case: `changeledger
   check` reports `git config "changeledger.usage.collector" must be "ccusage"`,
@@ -85,19 +87,63 @@ difference between two consecutive records, left to a future analyzer.
 
 ## Where records live
 
+Records are the ledger's `usage` collection, one flat file per record:
+
 ```
-<git rev-parse --git-common-dir>/changeledger/usage/<id>/<YYYYMMDDTHHMMSSZ>-<n>.json
+.changeledger-state/usage/<id>--<YYYYMMDDTHHMMSSZ>-<8 hex>.json   # activated: in the state ref
+.changeledger/usage/<id>--<YYYYMMDDTHHMMSSZ>-<8 hex>.json         # worktree layout
 ```
 
-The repository's worktrees resolve the same common dir, so their records land
-side by side. The directory sits inside the git directory: `git status` does not
-list it, the state ref does not carry it, and `changeledger check` ignores it.
-`<n>` starts at
-1 and grows when a record with the same instant already exists. A ledger
-outside a git repository has no common dir: without a value (git can still
-resolve a global one there) nothing happens; with `ccusage` the snapshot is
-skipped with a `usage: snapshot failed: not a git repository, no usage record
-written` warning.
+`<id>` is the change, `<YYYYMMDDTHHMMSSZ>` the event's instant and `<8 hex>` a
+random suffix. In the worktree layout a name that is already taken draws a new
+suffix. In the state ref the collector draws a new suffix when its existence
+check finds the name taken; if that check misses it and the new record's bytes
+differ, `mutateState` refuses to change the existing record, so the new record
+is not published and a `usage: record not published` warning is shown. Two
+clones that record the same change in the same second write different paths
+unless their random suffixes coincide (one chance in 2³² per pair), so in an
+activated repository `changeledger sync` merges their records like any other
+disjoint documents.
+
+- Activated repository: each record is published as its own commit on the state
+  ref, `usage: <id> <event>`, that only adds that file. It is taken after the
+  transition's commit and after `ccusage` returned, against the tip as it is
+  then. If another writer moved the ref in between, the commit is retried once
+  against the new tip.
+- Worktree layout: the record is written to `.changeledger/usage/` and left
+  unstaged. `changeledger commit` stages the records whose file name carries
+  one of the change ids of that commit, never another change's, so they travel
+  with the change's commit like its Log. A `--no-change` commit stages none, and
+  a commit in an activated repository stages none either. Staging records does
+  not block the commit: untracked records that git ignores are left unstaged and
+  named in one `usage: records ignored by git were not staged: …` warning, and
+  any other staging failure becomes a `usage: records not staged: …` warning.
+  Loading the ledger, records included, can still fail the command, as it
+  always could.
+
+The repository's linked worktrees record into the ledger they work on: the
+shared state ref when activated, their own worktree otherwise. ChangeLedger has
+no command that edits or deletes a record; `cutover` and `import --from <ref>` carry
+them under the same name (`import` identifies a record by its file name, so the
+same name with different bytes is a conflict), and a state-ref mutation that
+would drop or rewrite one is refused, even through an explicit removal. `sync`'s
+reconciliation and fast-forward do not run that check: they keep whatever
+the two journals hold. Records from the first version of the collector, kept in
+`<git-common-dir>/changeledger/usage/`, are neither read nor migrated.
+
+A ledger outside a git repository has no worktree list to match sessions
+against: without a value (git can still resolve a global one there) nothing
+happens; with `ccusage` the snapshot is skipped with a
+`usage: snapshot failed: not a git repository, no usage record written` warning.
+
+`changeledger check` validates every record of the collection, and each finding
+starts with `usage record <name>: `: a name outside the form above, invalid
+JSON, a value that is not an object, a `schema` other than `1`, or a `change`
+that differs from the id in the name. Both loaders (the CLI's and the viewer's)
+expose the records with the rest of the ledger, as `usage` entries
+`{ name, change, record, error }`; a record that is not valid JSON (or, in the
+worktree layout, cannot be read) stays an entry with `record: null` and does
+not stop the rest of the ledger from loading.
 
 Record shape (`schema: 1`):
 
@@ -109,6 +155,7 @@ Record shape (`schema: 1`):
   "event": "created | status | review | validation",
   "from": "<status or null>",
   "to": "<status>",
+  "recorded_by": "<the identity resolved for owner, or null>",
   "collector": { "name": "ccusage", "version": "20.0.26", "pricing": "online | offline | null" },
   "sessions": [
     {
@@ -140,6 +187,16 @@ A missing `npx`, a call over 10 s, a non-zero exit on both attempts or invalid
 JSON leaves a record with `sessions: []`, `pricing: null` and a non-null
 `error`, plus a `usage: snapshot failed: …` warning on stderr. The transition is
 already written by then; the command keeps its output and exit code.
+
+A record that cannot be stored — the state ref moved again after the retry, or
+any other failure to publish or write it — is dropped with a
+`usage: record not published: <reason>` warning on stderr. Nothing is written
+anywhere for it, and the transition and the command's exit code stay as they
+were.
+
+`recorded_by` is resolved the way `owner` is (GitHub login through `gh`, else
+`git config user.name`), once per snapshot; an empty result is stored as
+`null`.
 
 ## Known limits
 

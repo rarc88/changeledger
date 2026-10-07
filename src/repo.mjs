@@ -6,6 +6,7 @@ import { capturedRun } from './git.mjs';
 import { loadReleases, loadReleasesAsync } from './release.mjs';
 import { parseSpec } from './spec.mjs';
 import { readSnapshot, resolveOwnedActivation, STATE_ROOT } from './state-store.mjs';
+import { USAGE_COLLECTION, usageEntry, usageRecordsDir } from './usage-collector.mjs';
 import { parseYaml } from './yaml.mjs';
 
 // Single authority for resolving a change id to its file. Matches by EXACT
@@ -104,7 +105,7 @@ function readBootstrap(repoRoot, changeledgerDir, run) {
   return { snapshot, config: snapshot.config };
 }
 
-// Builds `{ config, changes, changeErrors, specs, releases, state }` from the
+// Builds `{ config, changes, changeErrors, specs, releases, usage, state }` from the
 // state ref's snapshot instead of the worktree — the activated half of the
 // read-routing spec. Fail-closed by construction: the `readSnapshot` that
 // produced `snapshot` (and the `readStateRef`/`assertCommitObject` it calls)
@@ -160,14 +161,68 @@ function loadActiveContent(snapshot, { isolateChangeErrors }) {
     }
   }
 
+  // Usage records (20261002-133728) are isolated in BOTH loaders: a record
+  // that does not parse is reported by `check`, never a reason to refuse the
+  // ledger.
+  const usage = [];
+  const usagePrefix = `${USAGE_COLLECTION}/`;
+  for (const name of names) {
+    if (!name.startsWith(usagePrefix)) continue;
+    usage.push(usageEntry(name.slice(usagePrefix.length), snapshot.documents[name]));
+  }
+
   return {
     config: snapshot.config,
     changes,
     changeErrors,
     specs,
     releases,
+    usage,
     state: { revision: snapshot.revision },
   };
+}
+
+// The worktree layout's usage records, sorted by name, each read and parsed
+// on its own so an unreadable or malformed one stays a reported entry.
+function loadUsageRecords(repoRoot) {
+  const dir = usageRecordsDir(repoRoot);
+  if (!fs.existsSync(dir)) return [];
+  const usage = [];
+  for (const name of fs.readdirSync(dir).sort()) {
+    if (!name.endsWith('.json')) continue;
+    const file = path.join(dir, name);
+    let text = null;
+    try {
+      text = fs.readFileSync(file, 'utf8');
+    } catch {
+      // reported as `cannot be read` by the entry itself
+    }
+    usage.push(usageEntry(name, text, file));
+  }
+  return usage;
+}
+
+async function loadUsageRecordsAsync(repoRoot) {
+  const dir = usageRecordsDir(repoRoot);
+  let names = [];
+  try {
+    names = (await fs.promises.readdir(dir)).sort();
+  } catch (e) {
+    if (e.code !== 'ENOENT') throw e;
+  }
+  const usage = [];
+  for (const name of names) {
+    if (!name.endsWith('.json')) continue;
+    const file = path.join(dir, name);
+    let text = null;
+    try {
+      text = await fs.promises.readFile(file, 'utf8');
+    } catch {
+      // reported as `cannot be read` by the entry itself
+    }
+    usage.push(usageEntry(name, text, file));
+  }
+  return usage;
 }
 
 // Loads a ChangeLedger repo: locates .changeledger/, reads config and every change file.
@@ -264,6 +319,7 @@ export function loadRepoWithConfig(repoRoot, changeledgerDir, config, options = 
   }
 
   const releases = loadReleases(repoRoot);
+  const usage = loadUsageRecords(repoRoot);
 
   return {
     changeledgerDir,
@@ -273,6 +329,7 @@ export function loadRepoWithConfig(repoRoot, changeledgerDir, config, options = 
     ...(options.isolateChangeErrors === true ? { changeErrors } : {}),
     specs,
     releases,
+    usage,
     state: null,
   };
 }
@@ -347,6 +404,17 @@ export async function loadRepoAsync(start = process.cwd(), options = {}) {
   }
 
   const releases = await loadReleasesAsync(repoRoot);
+  const usage = await loadUsageRecordsAsync(repoRoot);
 
-  return { changeledgerDir, repoRoot, config, changes, changeErrors, specs, releases, state: null };
+  return {
+    changeledgerDir,
+    repoRoot,
+    config,
+    changes,
+    changeErrors,
+    specs,
+    releases,
+    usage,
+    state: null,
+  };
 }

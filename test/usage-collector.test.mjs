@@ -10,6 +10,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { usageCollector } from '../src/config.mjs';
 import { defaultRun } from '../src/git.mjs';
+import { STATE_REF, writeActivation } from '../src/state-store.mjs';
 import {
   CCUSAGE_TIMEOUT_MS,
   ccusageInvocation,
@@ -17,24 +18,27 @@ import {
   defaultCcusageRunner,
   encodeProjectPath,
   snapshotUsage,
-  usageDir,
 } from '../src/usage-collector.mjs';
 import {
   claudeRunner,
   fakeRunner,
   fixture,
+  gitCommonUsageDir,
+  ledgerUsageRecords,
   PLACEHOLDER,
+  usageNamePattern,
   withProjectPaths,
 } from './helpers/ccusage.mjs';
 import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
-import { git } from './helpers/state-repo.mjs';
+import { buildTree, commitTree, git, updateRef } from './helpers/state-repo.mjs';
 
 // Activation lives in git config (repo-local here); `collector: null` leaves
-// the key unset.
-function gitRepo({ collector = 'ccusage' } = {}) {
+// the key unset. With `t`, the repo is removed when the test ends.
+function gitRepo({ collector = 'ccusage', t } = {}) {
   const root = fs.realpathSync.native(
     fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-usage-')),
   );
+  t?.after(() => fs.rmSync(root, { recursive: true, force: true }));
   initGitFixture(root);
   if (collector !== null) git(root, ['config', 'changeledger.usage.collector', collector]);
   fs.writeFileSync(path.join(root, 'README.md'), 'x\n');
@@ -43,17 +47,16 @@ function gitRepo({ collector = 'ccusage' } = {}) {
   return root;
 }
 
-function commonDir(root) {
-  return path.resolve(root, git(root, ['rev-parse', '--git-common-dir']));
+// The records the ledger holds for `id` (this suite's repos are inactive, so
+// the worktree's `.changeledger/usage/`), as `{ name, record }`.
+function records(root, id) {
+  return ledgerUsageRecords(root, id).map(({ name, ...record }) => ({ name, record }));
 }
 
-function records(root, id) {
-  const dir = path.join(commonDir(root), 'changeledger', 'usage', id);
-  if (!fs.existsSync(dir)) return [];
-  return fs
-    .readdirSync(dir)
-    .sort()
-    .map((name) => ({ name, record: JSON.parse(fs.readFileSync(path.join(dir, name), 'utf8')) }));
+// Nothing reached the ledger nor the git directory the first collector used.
+function assertNoRecordAnywhere(root) {
+  assert.equal(fs.existsSync(path.join(root, '.changeledger', 'usage')), false);
+  assert.equal(fs.existsSync(gitCommonUsageDir(root)), false);
 }
 
 const statusEvent = (at = '2026-10-01T16:56:41Z') => ({
@@ -69,7 +72,7 @@ function snapshot(root, runner, { events = [statusEvent()] } = {}) {
   snapshotUsage({
     repoRoot: root,
     events,
-    usage: { runner, warn: (l) => warnings.push(l) },
+    usage: { runner, warn: (l) => warnings.push(l), ownerHandle: () => 'Test User' },
   });
   return warnings;
 }
@@ -82,16 +85,16 @@ test('encodeProjectPath replaces every non-alphanumeric character with "-"', () 
   assert.equal(encodeProjectPath('C:\\Users\\a b'), 'C--Users-a-b');
 });
 
-test('CR3: a snapshot writes one complete record keyed by the event instant', () => {
-  const root = gitRepo();
+test('CR3: a snapshot writes one complete record keyed by the event instant', (t) => {
+  const root = gitRepo({ t });
   const runner = claudeRunner(encodeProjectPath(root));
   const warnings = snapshot(root, runner);
 
   const found = records(root, '20261001-155612');
-  assert.deepEqual(
-    found.map((r) => r.name),
-    ['20261001T165641Z-1.json'],
-  );
+  assert.equal(found.length, 1);
+  assert.match(found[0].name, usageNamePattern('20261001-155612', '2026-10-01T16:56:41Z'));
+  // 20261002-133728: the record lives in the ledger, not in the git directory.
+  assert.equal(fs.existsSync(gitCommonUsageDir(root)), false);
   const { record } = found[0];
   const online = fixture('claude-session-online.json').sessions[0];
   assert.deepEqual(record, {
@@ -101,6 +104,7 @@ test('CR3: a snapshot writes one complete record keyed by the event instant', ()
     event: 'status',
     from: 'approved',
     to: 'in-progress',
+    recorded_by: 'Test User',
     collector: { name: 'ccusage', version: '20.0.26', pricing: 'online' },
     sessions: [
       {
@@ -130,14 +134,43 @@ test('CR3: a snapshot writes one complete record keyed by the event instant', ()
   assert.equal(CCUSAGE_TIMEOUT_MS, 10_000);
 });
 
-test('CR3: a second record at the same instant takes the next free number', () => {
-  const root = gitRepo();
+test('CR3 (worktree layout): records at the same instant get distinct names', (t) => {
+  const root = gitRepo({ t });
   const runner = claudeRunner(encodeProjectPath(root));
   snapshot(root, runner, { events: [statusEvent(), statusEvent()] });
   snapshot(root, runner);
+  const names = records(root, '20261001-155612').map((r) => r.name);
+  assert.equal(names.length, 3);
+  for (const name of names) {
+    assert.match(name, usageNamePattern('20261001-155612', '2026-10-01T16:56:41Z'));
+  }
+});
+
+test('20261002-133728 CR1: recorded_by is the identity resolved for owner, null when none resolves', (t) => {
+  const root = gitRepo({ t });
+  const runner = claudeRunner(encodeProjectPath(root));
+  const resolvedFrom = [];
+  snapshotUsage({
+    repoRoot: root,
+    events: [statusEvent()],
+    usage: {
+      runner,
+      warn: () => {},
+      ownerHandle: (cwd) => {
+        resolvedFrom.push(cwd);
+        return 'octocat';
+      },
+    },
+  });
+  snapshotUsage({
+    repoRoot: root,
+    events: [statusEvent('2026-10-01T16:56:42Z')],
+    usage: { runner, warn: () => {}, ownerHandle: () => '' },
+  });
+  assert.deepEqual(resolvedFrom, [root]);
   assert.deepEqual(
-    records(root, '20261001-155612').map((r) => r.name),
-    ['20261001T165641Z-1.json', '20261001T165641Z-2.json', '20261001T165641Z-3.json'],
+    records(root, '20261001-155612').map((r) => r.record.recorded_by),
+    ['octocat', null],
   );
 });
 
@@ -314,7 +347,7 @@ test('CR1: without the git config value only git config is read and nothing is w
   assert.equal(runner.calls.length, 0);
   assert.deepEqual(gitCalls, [['config', '--get', 'changeledger.usage.collector']]);
   assert.deepEqual(warnings, []);
-  assert.equal(fs.existsSync(usageDir(commonDir(root))), false);
+  assertNoRecordAnywhere(root);
 });
 
 // A file standing in for a developer's own global git config.
@@ -362,7 +395,7 @@ for (const value of ['other', '', 'CCUSAGE']) {
     assert.deepEqual(warnings, [
       'usage: snapshot skipped: git config "changeledger.usage.collector" must be "ccusage"',
     ]);
-    assert.equal(fs.existsSync(usageDir(commonDir(root))), false);
+    assertNoRecordAnywhere(root);
   });
 }
 
@@ -567,5 +600,48 @@ for (const [signal, target] of [
     // supervisor, whose own 3 s limit still ends the group.
     const survivors = await deadWithin([sleeper, grandchild], target === 'group' ? 1500 : 6000);
     assert.deepEqual(survivors, [], `${signal} left ${survivors.join(', ')} alive`);
+  });
+}
+
+// A suffix collision, forced through the `randomSuffix` seam: the first draw
+// names a record the ledger already holds, so the collector must draw again.
+for (const layout of ['worktree', 'state ref']) {
+  test(`20261002-133728 (${layout}): a drawn name that is taken is re-drawn, never overwritten`, (t) => {
+    const root = gitRepo({ t });
+    const id = '20261001-155612';
+    const taken = `${id}--20261001T165641Z-aaaaaaaa.json`;
+    const original = '{"schema": 1, "change": "20261001-155612", "original": true}\n';
+    if (layout === 'state ref') {
+      fs.mkdirSync(path.join(root, '.changeledger'));
+      const files = {
+        '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
+        '.changeledger-state/config.yml': 'project_id: demo\n',
+        [`.changeledger-state/usage/${taken}`]: original,
+      };
+      updateRef(root, STATE_REF, commitTree(root, buildTree(root, files)));
+      writeActivation(root, { stateRef: STATE_REF });
+    } else {
+      fs.mkdirSync(path.join(root, '.changeledger', 'usage'), { recursive: true });
+      fs.writeFileSync(path.join(root, '.changeledger', 'usage', taken), original);
+    }
+    const draws = ['aaaaaaaa', 'bbbbbbbb'];
+    const warnings = [];
+    snapshotUsage({
+      repoRoot: root,
+      events: [statusEvent()],
+      usage: {
+        runner: claudeRunner(encodeProjectPath(root)),
+        ownerHandle: () => 'Test User',
+        warn: (l) => warnings.push(l),
+        randomSuffix: () => draws.shift(),
+      },
+    });
+    assert.deepEqual(warnings, []);
+    const found = ledgerUsageRecords(root, id);
+    assert.deepEqual(
+      found.map((r) => r.name),
+      [taken, `${id}--20261001T165641Z-bbbbbbbb.json`],
+    );
+    assert.equal(found[0].original, true, 'the existing record is untouched');
   });
 }

@@ -22,6 +22,7 @@ import {
   STATE_SCHEMA_VERSION,
   writeActivation,
 } from '../src/state-store.mjs';
+import { usageRecordText } from './helpers/ccusage.mjs';
 import { sanitizedEnv } from './helpers/git-env.mjs';
 import {
   buildTreeEntries,
@@ -816,4 +817,101 @@ test('20260811-163205: a mutation whose result is unreadable leaves the ref wher
     /format_version/,
   );
   assert.equal(git(root, ['rev-parse', STATE_REF]), before, 'the ref must not move');
+});
+
+// --- 20261002-133728: the `usage` collection ---------------------------------
+
+const USAGE_NAME = '20261002-133728--20261002T153233Z-0a1b2c3d.json';
+
+function usageSeed(t, files = {}) {
+  const seeded = seedStateRepo({
+    files: { ...defaultStateFiles(), ...files },
+  });
+  t.after(() => fs.rmSync(seeded.root, { recursive: true, force: true }));
+  return seeded;
+}
+
+test('20261002-133728 CR1: a flat usage record is a valid state path, written and read back', (t) => {
+  const { root, revision } = usageSeed(t);
+  const text = usageRecordText('20261002-133728');
+  const snapshot = mutateState(
+    root,
+    { expectedRevision: revision, message: 'usage: 20261002-133728 status' },
+    (stage) => stage.write(`usage/${USAGE_NAME}`, text),
+  );
+  assert.equal(snapshot.documents[`usage/${USAGE_NAME}`], text);
+  assert.equal(readSnapshot(root).documents[`usage/${USAGE_NAME}`], text);
+});
+
+test('20261002-133728 CR1: the usage collection keeps the three-part rule and its .json extension', (t) => {
+  const { root, revision } = usageSeed(t);
+  for (const bad of [`usage/x/${USAGE_NAME}`, 'usage/record.md', 'usage/.json']) {
+    assert.throws(
+      () =>
+        mutateState(root, { expectedRevision: revision, message: 'x' }, (stage) =>
+          stage.write(bad, '{}\n'),
+        ),
+      /invalid state path/,
+      bad,
+    );
+  }
+  assert.equal(git(root, ['rev-parse', STATE_REF]), revision);
+});
+
+test('20261002-133728 CR5: an explicit stage.remove of a usage record is rejected, ref unmoved', (t) => {
+  const { root, revision } = usageSeed(t, {
+    [`${STATE_ROOT}/usage/${USAGE_NAME}`]: usageRecordText('20261002-133728'),
+  });
+  assert.throws(
+    () =>
+      mutateState(root, { expectedRevision: revision, message: 'chore: drop' }, (stage) =>
+        stage.remove(`usage/${USAGE_NAME}`),
+      ),
+    /removes usage record ".*0a1b2c3d\.json"/,
+  );
+  assert.equal(git(root, ['rev-parse', STATE_REF]), revision);
+  assert.ok(`usage/${USAGE_NAME}` in readSnapshot(root).documents);
+});
+
+test('20261002-133728 CR5: a usage record silently lost by a mutation is rejected, ref unmoved', (t) => {
+  const { root, revision } = usageSeed(t, {
+    [`${STATE_ROOT}/usage/${USAGE_NAME}`]: usageRecordText('20261002-133728'),
+  });
+  let lsTreeCalls = 0;
+  const faultyRun = (args, cwd, options) => {
+    const out = capturedRun(args, cwd, options);
+    if (args[0] === 'ls-tree' && ++lsTreeCalls === 2) {
+      return out
+        .split('\0')
+        .filter((record) => record !== '' && !record.includes(USAGE_NAME))
+        .map((record) => `${record}\0`)
+        .join('');
+    }
+    return out;
+  };
+  assert.throws(
+    () =>
+      mutateState(
+        root,
+        { expectedRevision: revision, message: 'feat: unrelated' },
+        (stage) => stage.write('changes/other.md', 'otro\n'),
+        faultyRun,
+      ),
+    /removes usage record ".*0a1b2c3d\.json"/,
+  );
+  assert.equal(git(root, ['rev-parse', STATE_REF]), revision);
+});
+
+test('20261002-133728 CR5: a write that rewrites an existing usage record is rejected, ref unmoved', (t) => {
+  const original = usageRecordText('20261002-133728');
+  const { root, revision } = usageSeed(t, { [`${STATE_ROOT}/usage/${USAGE_NAME}`]: original });
+  assert.throws(
+    () =>
+      mutateState(root, { expectedRevision: revision, message: 'chore: rewrite' }, (stage) =>
+        stage.write(`usage/${USAGE_NAME}`, usageRecordText('20261002-133728', undefined, { x: 1 })),
+      ),
+    /rewrites usage record ".*0a1b2c3d\.json"/,
+  );
+  assert.equal(git(root, ['rev-parse', STATE_REF]), revision);
+  assert.equal(readSnapshot(root).documents[`usage/${USAGE_NAME}`], original);
 });

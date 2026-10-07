@@ -8,14 +8,24 @@
 // `snapshotUsage` catches its own failures and turns them into a gap record
 // and/or a `usage: ` warning instead of throwing.
 //
-// Records live in `<git-common-dir>/changeledger/usage/<id>/`, inside the git
-// directory and outside the ledger tree.
+// Records live in the ledger (20261002-133728), as the `usage` collection:
+// published to the state ref as one commit per record when the repo is
+// activated, written to `.changeledger/usage/` in the worktree otherwise, where
+// `changeledger commit` stages them with their change.
 
 import { spawnSync } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { usageCollector } from './config.mjs';
-import { defaultRun as defaultGitRun } from './git.mjs';
+import { capturedRun, defaultRun as defaultGitRun, ownerHandle } from './git.mjs';
+import {
+  LedgerConflictError,
+  mutateState,
+  readStateRef,
+  resolveOwnedActivation,
+  STATE_ROOT,
+} from './state-store.mjs';
 
 export const CCUSAGE_VERSION = '20.0.26';
 export const CCUSAGE_TIMEOUT_MS = 10_000;
@@ -38,8 +48,46 @@ export function encodeProjectPath(p) {
   return String(p).replace(/[^A-Za-z0-9]/g, '-');
 }
 
-export function usageDir(gitCommonDir) {
-  return path.join(gitCommonDir, 'changeledger', 'usage');
+// --- the `usage` ledger collection (20261002-133728) -----------------------
+//
+// Each snapshot is one flat file in the ledger, named
+// `<id>--<YYYYMMDDTHHMMSSZ>-<8 hex>.json`: under `.changeledger-state/usage/`
+// in the state ref, under `.changeledger/usage/` in the worktree layout. The
+// random suffix is what keeps two clones that snapshot the same change in the
+// same second on different paths, so `sync` merges them without a conflict.
+
+export const USAGE_COLLECTION = 'usage';
+const USAGE_RECORD_NAME = /^(\d{8}-\d{6})--(\d{8}T\d{6}Z)-([0-9a-f]{8})\.json$/;
+export const USAGE_RECORD_NAME_FORM = '<id>--<YYYYMMDDTHHMMSSZ>-<8 hex>.json';
+
+// The worktree-layout directory of the collection, fixed like releases.
+export function usageRecordsDir(repoRoot) {
+  return path.join(repoRoot, '.changeledger', USAGE_COLLECTION);
+}
+
+// `{ change, instant, suffix }` from a record's file name, or `null` when the
+// name does not follow USAGE_RECORD_NAME_FORM.
+export function parseUsageRecordName(name) {
+  const m = USAGE_RECORD_NAME.exec(String(name));
+  return m ? { change: m[1], instant: m[2], suffix: m[3] } : null;
+}
+
+export function usageRecordName(change, at, suffix = randomBytes(4).toString('hex')) {
+  return `${change}--${instantName(at)}-${suffix}.json`;
+}
+
+// One loaded record as both loaders expose it: associated to the change id its
+// name carries (`null` for a name outside the form) and parsed, or carrying the
+// parse failure in `error`. Never throws, so one bad record cannot stop the
+// rest of the ledger from loading; `check` reports it.
+export function usageEntry(name, text, file = null) {
+  const change = parseUsageRecordName(name)?.change ?? null;
+  if (text === null) return { file, name, change, record: null, error: 'cannot be read' };
+  try {
+    return { file, name, change, record: JSON.parse(text), error: null };
+  } catch (e) {
+    return { file, name, change, record: null, error: `invalid JSON: ${e.message}` };
+  }
 }
 
 // How one call is launched: `{ file, args, shell }`. An explicit `command` or
@@ -345,12 +393,12 @@ export function collectUsage(options) {
   }
 }
 
-// The git common dir (absolute) and the paths whose sessions count: every
-// worktree git lists, plus the ChangeLedger repo root itself.
+// The paths whose sessions count: every worktree git lists, plus the
+// ChangeLedger repo root itself. The common-dir probe is what tells a git
+// repository apart from a directory outside one.
 function gitContext(repoRoot, gitRun) {
   const raw = String(gitRun(['rev-parse', '--git-common-dir'], repoRoot) ?? '').trim();
   if (!raw) throw new Error('git rev-parse --git-common-dir printed nothing');
-  const commonDir = path.resolve(repoRoot, raw);
   const projectPaths = [repoRoot];
   try {
     const listing = String(gitRun(['worktree', 'list', '--porcelain'], repoRoot) ?? '');
@@ -360,7 +408,7 @@ function gitContext(repoRoot, gitRun) {
   } catch {
     // A failed listing still leaves the repo root to match against.
   }
-  return { commonDir, projectPaths };
+  return { projectPaths };
 }
 
 // `YYYYMMDDTHHMMSSZ` from the event's ISO instant.
@@ -370,22 +418,64 @@ function instantName(at) {
   return `${m[1]}${m[2]}${m[3]}T${m[4]}${m[5]}${m[6]}Z`;
 }
 
-// Writes the record under the first free `<instant>-<n>.json`, reserving the
-// name with an exclusive create so concurrent snapshots never overwrite each
-// other.
-export function writeUsageRecord(gitCommonDir, record) {
-  const dir = path.join(usageDir(gitCommonDir), String(record.change));
+const randomSuffix = () => randomBytes(4).toString('hex');
+
+// Worktree layout: the record goes to `.changeledger/usage/`, reserving its
+// name with an exclusive create; a taken name (another record with the same
+// change, instant and suffix) draws a new suffix instead of overwriting it.
+function writeWorktreeRecord(repoRoot, record, body, suffix) {
+  const dir = usageRecordsDir(repoRoot);
   fs.mkdirSync(dir, { recursive: true });
-  const stem = instantName(record.at);
-  const body = `${JSON.stringify(record, null, 2)}\n`;
-  for (let n = 1; ; n++) {
-    const file = path.join(dir, `${stem}-${n}.json`);
+  for (;;) {
+    const file = path.join(dir, usageRecordName(record.change, record.at, suffix()));
     try {
       fs.writeFileSync(file, body, { flag: 'wx' });
-      return file;
+      return;
     } catch (e) {
       if (e.code !== 'EEXIST') throw e;
     }
+  }
+}
+
+// State-ref layout: one compare-and-swap commit that only adds the record,
+// taken against the tip as it is NOW — after the transition landed and after
+// ccusage returned, so no CAS window is held across the call. A ref that moved
+// in between is retried once against its new tip; a second move, or any other
+// failure, is thrown for the caller to report. A name the tip already holds
+// draws a new suffix, as in the worktree layout; `mutateState` refuses to
+// rewrite a record in any case.
+function publishStateRecord(repoRoot, record, body, run, suffix) {
+  const message = `usage: ${record.change} ${record.event}`;
+  for (let attempt = 1; ; attempt++) {
+    const expectedRevision = readStateRef(repoRoot, run);
+    if (expectedRevision === null) throw new Error('state is not initialized');
+    let name;
+    do {
+      name = usageRecordName(record.change, record.at, suffix());
+    } while (stateHolds(repoRoot, expectedRevision, `${USAGE_COLLECTION}/${name}`, run));
+    try {
+      mutateState(
+        repoRoot,
+        { expectedRevision, message },
+        (stage) => stage.write(`${USAGE_COLLECTION}/${name}`, body),
+        run,
+      );
+      return;
+    } catch (e) {
+      if (!(e instanceof LedgerConflictError) || attempt === 2) throw e;
+    }
+  }
+}
+
+// Whether `revision` holds `relPath` under STATE_ROOT. A failed probe reads as
+// absent: the write that follows is still refused by `mutateState` if the
+// path turns out to be a record.
+function stateHolds(repoRoot, revision, relPath, run) {
+  try {
+    run(['cat-file', '-e', `${revision}:${STATE_ROOT}/${relPath}`], repoRoot);
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -394,10 +484,20 @@ export function writeUsageRecord(gitCommonDir, record) {
 // landed: `{ change, event, from, to, at }`, `at` being the instant written in
 // the Log (or the `created` field). One collection serves every event of the
 // same write. Without the git config value it reads that value and nothing
-// else: no ccusage process, no record directory.
+// else: no ccusage process, no record. A record that cannot be published is
+// reported as `usage: record not published: <reason>` and nothing is written:
+// the transition it follows already landed and is never undone.
+//
+// `usage` seams: `runner` (ccusage), `gitRun` (git config and worktree
+// listing), `stateRun` (the state store's git runner), `ownerHandle` (the
+// identity recorded as `recorded_by`, resolved like `owner`), `randomSuffix`
+// (the 8-hex suffix draw) and `warn`.
 export function snapshotUsage({ repoRoot, events, usage = {} }) {
   const warn = usage.warn ?? defaultWarn;
   const gitRun = usage.gitRun ?? defaultGitRun;
+  const stateRun = usage.stateRun ?? capturedRun;
+  const resolveOwner = usage.ownerHandle ?? ownerHandle;
+  const suffix = usage.randomSuffix ?? randomSuffix;
   try {
     if (!events?.length) return;
     let collector;
@@ -418,19 +518,35 @@ export function snapshotUsage({ repoRoot, events, usage = {} }) {
     }
 
     const result = collectUsage({ projectPaths: context.projectPaths, runner: usage.runner });
+    const recordedBy = resolveOwner(repoRoot) || null;
+    let activated;
+    try {
+      activated = resolveOwnedActivation(repoRoot, stateRun) !== null;
+    } catch (e) {
+      warn(`usage: record not published: ${e.message}`);
+      return;
+    }
     for (const event of events) {
-      writeUsageRecord(context.commonDir, {
+      const record = {
         schema: USAGE_RECORD_SCHEMA,
         change: String(event.change),
         at: event.at,
         event: event.event,
         from: event.from ?? null,
         to: event.to,
+        recorded_by: recordedBy,
         collector: { name: collector, version: CCUSAGE_VERSION, pricing: result.pricing },
         sessions: result.sessions,
         excluded: result.excluded,
         error: result.error,
-      });
+      };
+      const body = `${JSON.stringify(record, null, 2)}\n`;
+      try {
+        if (activated) publishStateRecord(repoRoot, record, body, stateRun, suffix);
+        else writeWorktreeRecord(repoRoot, record, body, suffix);
+      } catch (e) {
+        warn(`usage: record not published: ${e.message.split('\n')[0]}`);
+      }
     }
     for (const line of result.warnings) warn(line);
   } catch (e) {
