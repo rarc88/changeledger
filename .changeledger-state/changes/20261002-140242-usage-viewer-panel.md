@@ -122,9 +122,10 @@ obliga a una petición por cada cambio de filtro y rompe el patrón de
   - **Verify:** verify: manual — vista metrics y detalle de un change frente a `changeledger analyze`
   - **Criteria:** CR7
   - **Resolved:** `2026-10-07T13:39:59Z`
-- [ ] Ejecutar el gate completo
+- [x] Ejecutar el gate completo
   - **Verify:** `pnpm verify`
   - **Support:**
+  - **Resolved:** `2026-10-07T13:39:59Z`
 
 ## Log
 - **2026-10-02T15:24:43Z** `[status]` draft → approved (human via conversation)
