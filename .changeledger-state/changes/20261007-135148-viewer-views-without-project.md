@@ -74,9 +74,10 @@ Interfaces externas: ninguna.
   - **Verify:** verify: manual — `changeledger view` con un registro vacío y cada vista en el navegador
   - **Criteria:** CR3
   - **Resolved:** `2026-10-07T16:13:16Z`
-- [ ] Ejecutar el gate completo
+- [x] Ejecutar el gate completo
   - **Verify:** `pnpm verify`
   - **Support:**
+  - **Resolved:** `2026-10-07T16:13:17Z`
 
 ## Log
 - **2026-10-07T13:51:48Z** `[version]` 0.18.0-dev
