@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-10-07T13:51:59Z
 depends_on: []
+reviewed: true
 branch: feature/20261007-135159
 related_to: ["20260730-165310", "20261002-133728", "20261002-140038"]
 owner: rarc88
@@ -139,3 +140,4 @@ documentación.
 - **2026-10-07T17:16:38Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-10-07T17:16:50Z** `[note]` CR5 recorrido en el propio ciclo de revisión, por decisión del humano: la ronda 1 encontró prosa a corregir en una nota del orquestador; la corrección acotó las dos frases sin sustituirlas, listó sus frases cuantificadas con el borde ejecutado y el prompt de confirmación las llevó como puntos de escrutinio; la ronda 2 las verificó una a una y pasó. changeledger analyze 20261007-135159: rework 1209615 tokens y $0.30 (8.1% del change), cerrado a las 17:15:33Z, con una sola ronda de confirmación. Matices del revisor para la validación: la corrección la hizo el orquestador sin delegarla, mientras el When de CR5 dice que se delega; y el corrector no listó el «sólo» de su frase, cubierto por el mismo borde.
 - **2026-10-07T17:18:20Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-10-07T17:18:41Z** `[graduation]` spec: `contract-discovery.md`
