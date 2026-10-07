@@ -221,12 +221,12 @@ function applyLoadedRepo(text) {
   syncViewerShell();
 }
 
+const noProjectsMessage = () =>
+  html`<p class="empty" style="padding:20px">No projects registered. Run <code>changeledger init</code> in a repo.</p>`;
+
 export function showNoProjects(root = document) {
   setView('board');
-  litRender(
-    html`<p class="empty" style="padding:20px">No projects registered. Run <code>changeledger init</code> in a repo.</p>`,
-    root.querySelector('#board'),
-  );
+  litRender(noProjectsMessage(), root.querySelector('#board'));
   syncViewerShell(root, false);
   renderChangeErrors([], root);
 }
@@ -413,6 +413,10 @@ function visibleChanges() {
 }
 
 function render() {
+  if (!state.repo && state.currentView !== 'projects') {
+    litRender(noProjectsMessage(), $(`#${state.currentView}`));
+    return;
+  }
   if (state.currentView === 'graph') renderGraph();
   else if (state.currentView === 'table') renderTable();
   else if (state.currentView === 'ledger') renderLedger();
