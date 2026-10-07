@@ -2,7 +2,7 @@
 id: "20261007-135148"
 title: Cambiar de vista en el viewer sin proyecto cargado no rompe
 type: bug
-status: draft
+status: approved
 created: 2026-10-07T13:51:48Z
 depends_on: []
 related_to: ["20260711-155721", "20260627-111218"]
@@ -76,3 +76,4 @@ Interfaces externas: ninguna.
 
 ## Log
 - **2026-10-07T13:51:48Z** `[version]` 0.18.0-dev
+- **2026-10-07T15:02:57Z** `[status]` draft → approved (human via conversation)
