@@ -102,10 +102,11 @@ obliga a una petición por cada cambio de filtro y rompe el patrón de
 
 ## Plan
 
-- [ ] Probar y servir los registros en `/api/repo` y el módulo en `SHARED_MODULES`
+- [x] Probar y servir los registros en `/api/repo` y el módulo en `SHARED_MODULES`
   - **Target:** `src/viewer/domain.mjs, src/viewer/server/router.mjs, test/view.test.mjs, test/viewer-routing.test.mjs`
   - **Verify:** `node --test test/view.test.mjs test/viewer-routing.test.mjs`
   - **Criteria:** CR1, CR2
+  - **Resolved:** `2026-10-07T13:39:57Z`
 - [ ] Probar y pintar la sección Usage con filtros y su estado vacío
   - **Target:** `src/viewer/public/app.js, src/viewer/public/view-renderers.js, test/view.test.mjs`
   - **Verify:** `node --test test/view.test.mjs`
