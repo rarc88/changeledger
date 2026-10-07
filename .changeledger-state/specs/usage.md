@@ -90,6 +90,41 @@ cada uno — JSON, `schema: 1`, `change` igual al id de su nombre y forma del
 nombre — con errores que empiezan por `usage record <nombre>: `. Un registro
 inválido no impide cargar el resto del ledger, pero `check` lo rechaza.
 
+## Análisis
+
+`changeledger analyze [id] [--by segment|model|version|type|recorder] [--json]`
+convierte los registros en cifras por change, sin que el agente lea los archivos
+de registro. El cálculo vive en `src/usage-analysis.mjs`, puro y sin IO, para
+que el panel del viewer lo reutilice.
+
+- Por cada `recorded_by`, los registros se ordenan por `at`; los de un mismo
+  change con el mismo `at` siguen la cadena de sus transiciones, nunca el
+  nombre de archivo, y entre changes distintos va primero el id menor.
+- Cada registro con datos se resta, sesión a sesión y modelo a modelo, contra
+  los últimos valores que ese registrador vio de cada sesión, en cualquier
+  registro anterior de cualquier change; una sesión que nunca vio cuenta
+  entera y una sesión que decrece cuenta 0 en ese tramo.
+- La diferencia va al change del registro y al tramo que cierra su transición:
+  `pre-draft` para `created`, si no el estado `from`, y `rework` para un tramo
+  `in-progress` cerrado en o después del primer `[review]` hacia `in-progress`
+  o `blocked`, o `[validation]` hacia `in-progress`, del mismo change.
+- El primer registro con datos de cada registrador es su base y no se atribuye.
+  Un registro con `error` no es base ni cierra tramo: su hueco cae en el
+  siguiente registro con datos del registrador.
+- El coste suma una diferencia de `cost_usd` sólo cuando ambos extremos tienen
+  precio y no baja; los tokens de cualquier otra diferencia van a
+  `unpriced_tokens`, nunca como coste 0.
+- La versión de un tramo es la del último `[version]` del Log de su change en o
+  antes del registro que lo cierra, o `unknown`.
+
+Un change sin ningún tramo atribuido no está medido: no tiene fila, suma en
+`unmeasured` y, con `<id>`, sus cifras son `null`. Los avisos son hechos sin
+umbrales: `rework`, `unpriced`, `anomaly`, `baseline`, `unmeasured`, `failed`
+(registros con `error`) y `gap` (transiciones del Log de cualquier change entre
+la base y el registro que cierra un tramo sin ningún registro en su `change` y
+`at`; lo que consumió el registrador del tramo mientras ocurrían cae en ese
+tramo). El contexto core nombra `analyze` como la consulta del consumo.
+
 ## Fallos
 
 La captura nunca bloquea ni cambia el código de salida de una transición ya
