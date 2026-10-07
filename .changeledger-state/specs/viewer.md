@@ -138,7 +138,10 @@ mantienen explícitos, sin redirección silenciosa.
 La pestaña **Metrics** respeta los filtros globales (type, status, owner,
 búsqueda) y comparte una única implementación de cálculo: el cliente importa
 `src/metrics.mjs` servido por una ruta de solo lectura con la contención de
-assets existente, sin reimplementar `computeMetrics`. Los KPI incluyen closed,
+assets existente, sin reimplementar `computeMetrics`. Esa ruta sirve también
+los imports relativos del módulo (`lifecycle.mjs` y `cli-version.mjs`), y un
+test recorre el grafo de cada módulo compartido para exigir que cada import
+relativo se sirva y que ninguno importe `node:*`. Los KPI incluyen closed,
 cycle p50/p85, WIP, tiempo bloqueado, espera media de validación y retries de
 review. Bajo la fila de KPI cards el contenido se organiza en una cuadrícula
 2×2 de paneles tipo card a ancho completo — throughput como SVG propio con
