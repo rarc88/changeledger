@@ -85,9 +85,10 @@ Interfaces externas: ninguna.
   - **Verify:** `pnpm test`
   - **Support:**
   - **Resolved:** `2026-10-07T16:21:52Z`
-- [ ] Ejecutar el gate completo
+- [x] Ejecutar el gate completo
   - **Verify:** `pnpm verify`
   - **Support:**
+  - **Resolved:** `2026-10-07T16:21:52Z`
 
 ## Log
 - **2026-10-07T13:51:42Z** `[version]` 0.18.0-dev
