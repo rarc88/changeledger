@@ -107,10 +107,11 @@ obliga a una petición por cada cambio de filtro y rompe el patrón de
   - **Verify:** `node --test test/view.test.mjs test/viewer-routing.test.mjs`
   - **Criteria:** CR1, CR2
   - **Resolved:** `2026-10-07T13:39:57Z`
-- [ ] Probar y pintar la sección Usage con filtros y su estado vacío
+- [x] Probar y pintar la sección Usage con filtros y su estado vacío
   - **Target:** `src/viewer/public/app.js, src/viewer/public/view-renderers.js, test/view.test.mjs`
   - **Verify:** `node --test test/view.test.mjs`
   - **Criteria:** CR3, CR4, CR6
+  - **Resolved:** `2026-10-07T13:39:58Z`
 - [ ] Probar y pintar los tramos en el detalle de un change
   - **Target:** `src/viewer/public/app.js, src/viewer/public/view-renderers.js, test/view.test.mjs`
   - **Verify:** `node --test test/view.test.mjs`
