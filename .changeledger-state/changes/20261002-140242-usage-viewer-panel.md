@@ -112,10 +112,11 @@ obliga a una petición por cada cambio de filtro y rompe el patrón de
   - **Verify:** `node --test test/view.test.mjs`
   - **Criteria:** CR3, CR4, CR6
   - **Resolved:** `2026-10-07T13:39:58Z`
-- [ ] Probar y pintar los tramos en el detalle de un change
+- [x] Probar y pintar los tramos en el detalle de un change
   - **Target:** `src/viewer/public/app.js, src/viewer/public/view-renderers.js, test/view.test.mjs`
   - **Verify:** `node --test test/view.test.mjs`
   - **Criteria:** CR5
+  - **Resolved:** `2026-10-07T13:39:58Z`
 - [ ] Recorrer el primer uso real en el navegador
   - **Target:** `src/viewer/public/app.js`
   - **Verify:** verify: manual — vista metrics y detalle de un change frente a `changeledger analyze`
