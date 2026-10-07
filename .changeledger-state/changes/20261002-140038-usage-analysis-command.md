@@ -186,9 +186,10 @@ en el viewer sin módulo común, que duplicaría la lógica.
   - **Target:** `src/commands/analyze.mjs`
   - **Verify:** verify: manual — `changeledger analyze --json` y `changeledger analyze <id>` sobre registros reales
   - **Criteria:** CR11
-- [ ] Ejecutar el gate completo
+- [x] Ejecutar el gate completo
   - **Verify:** `pnpm verify`
   - **Support:**
+  - **Resolved:** `2026-10-07T11:23:17Z`
 
 ## Log
 - **2026-10-02T15:24:42Z** `[status]` draft → approved (human via conversation)
