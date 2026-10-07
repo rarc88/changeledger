@@ -84,6 +84,11 @@ documentación.
 - **When** se ejecutan los tests de presupuesto
 - **Then** `implement` sigue dentro de sus límites sin retirar prosa normativa
 
+### CR6 — El prompt de revisión lleva la lista de frases cuantificadas
+- **Given** `changeledger context review`
+- **When** se lee lo que el prompt de revisión añade a la cápsula del revisor
+- **Then** incluye la lista de frases con cuantificador universal que el implementador o corrector informó, como puntos de escrutinio
+
 ### CR5 — El primer uso real
 - **Given** el siguiente change de este repo con un hallazgo de revisión sobre prosa
 - **When** el orquestador delega la corrección y la confirmación
@@ -92,13 +97,17 @@ documentación.
 ## Plan
 
 - [ ] Escribir guardas de concepto, tolerantes a la redacción, para las tres obligaciones
-  - **Target:** `test/contract.test.mjs`
-  - **Verify:** `node --test test/contract.test.mjs`
+  - **Target:** `test/context.test.mjs`
+  - **Verify:** `pnpm test`
   - **Criteria:** CR1, CR2, CR3
 - [ ] Redactar las obligaciones en el fragmento de implementación
   - **Target:** `templates/contract/implement.md`
   - **Verify:** `pnpm test`
   - **Criteria:** CR1, CR2, CR3, CR4
+- [ ] Probar y redactar en el fragmento de revisión que el prompt lleva la lista de frases cuantificadas
+  - **Target:** `templates/contract/review.md, test/context.test.mjs`
+  - **Verify:** `pnpm test`
+  - **Criteria:** CR6
 - [ ] Recorrer el primer uso real en el siguiente hallazgo sobre prosa
   - **Target:** `templates/contract/implement.md`
   - **Verify:** verify: manual — informe del corrector, prompt de confirmación y `changeledger analyze <id>`
