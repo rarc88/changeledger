@@ -2,7 +2,7 @@
 id: "20261007-135148"
 title: Cambiar de vista en el viewer sin proyecto cargado no rompe
 type: bug
-status: in-validation
+status: done
 created: 2026-10-07T13:51:48Z
 depends_on: []
 branch: bug/20261007-135148
@@ -90,3 +90,4 @@ Interfaces externas: ninguna.
 - **2026-10-07T16:13:22Z** `[note]` Mandato del review: la superficie que el change gobierna — dev..HEAD contra CR1-CR3 y el Plan, con las decisiones no especificadas y los residuos del Log como puntos de escrutinio.
 - **2026-10-07T16:17:14Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-10-07T16:17:18Z** `[note]` Observaciones del review para seguimiento: con un proyecto seleccionado cuya carga falló, cambiar a Table, Graph o Metrics muestra No projects registered, y volver a Board o cualquier re-render sobrescribe el error de carga visible hasta el siguiente sondeo (antes la vista lanzaba y el error quedaba a la vista); y, ya antes de este change, sin proyectos el sondeo de 5 s llama a showNoProjects y devuelve la vista a Board.
+- **2026-10-07T16:22:52Z** `[validation]` in-validation → done (human accepted via conversation)
