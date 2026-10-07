@@ -115,9 +115,10 @@ documentación.
   - **Target:** `templates/contract/implement.md`
   - **Verify:** verify: manual — informe del corrector, prompt de confirmación y `changeledger analyze <id>`
   - **Criteria:** CR5
-- [ ] Ejecutar el gate completo
+- [x] Ejecutar el gate completo
   - **Verify:** `pnpm verify`
   - **Support:**
+  - **Resolved:** `2026-10-07T16:37:33Z`
 
 ## Log
 - **2026-10-07T13:51:59Z** `[version]` 0.18.0-dev
