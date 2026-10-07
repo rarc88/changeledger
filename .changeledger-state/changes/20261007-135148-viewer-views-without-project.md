@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-10-07T13:51:48Z
 depends_on: []
+archived: true
 reviewed: true
 branch: bug/20261007-135148
 related_to: ["20260711-155721", "20260627-111218"]
@@ -93,3 +94,4 @@ Interfaces externas: ninguna.
 - **2026-10-07T16:17:18Z** `[note]` Observaciones del review para seguimiento: con un proyecto seleccionado cuya carga falló, cambiar a Table, Graph o Metrics muestra No projects registered, y volver a Board o cualquier re-render sobrescribe el error de carga visible hasta el siguiente sondeo (antes la vista lanzaba y el error quedaba a la vista); y, ya antes de este change, sin proyectos el sondeo de 5 s llama a showNoProjects y devuelve la vista a Board.
 - **2026-10-07T16:22:52Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-10-07T16:23:16Z** `[graduation]` spec: `viewer.md`
+- **2026-10-07T16:23:17Z** `[archive]` archived
