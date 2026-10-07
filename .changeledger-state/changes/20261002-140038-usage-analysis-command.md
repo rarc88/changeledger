@@ -182,10 +182,11 @@ en el viewer sin módulo común, que duplicaría la lógica.
   - **Verify:** `node --test test/analyze.test.mjs test/cli-bin.test.mjs`
   - **Criteria:** CR8, CR9
   - **Resolved:** `2026-10-07T11:23:17Z`
-- [ ] Recorrer el primer uso real sobre registros de este repo
+- [x] Recorrer el primer uso real sobre registros de este repo
   - **Target:** `src/commands/analyze.mjs`
   - **Verify:** verify: manual — `changeledger analyze --json` y `changeledger analyze <id>` sobre registros reales
   - **Criteria:** CR11
+  - **Resolved:** `2026-10-07T11:23:32Z`
 - [x] Ejecutar el gate completo
   - **Verify:** `pnpm verify`
   - **Support:**
