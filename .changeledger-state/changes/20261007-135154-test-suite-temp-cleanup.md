@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-10-07T13:51:54Z
 depends_on: []
+archived: true
 reviewed: true
 branch: bug/20261007-135154
 related_to: []
@@ -97,3 +98,4 @@ Interfaces externas: ninguna.
 - **2026-10-07T16:09:52Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-10-07T16:22:48Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-10-07T16:23:15Z** `[graduation]` spec: `lifecycle.md`
+- **2026-10-07T16:23:16Z** `[archive]` archived
