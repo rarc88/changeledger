@@ -2,7 +2,7 @@
 id: "20261007-135154"
 title: La suite de tests no deja directorios en el temporal del sistema
 type: bug
-status: draft
+status: approved
 created: 2026-10-07T13:51:54Z
 depends_on: []
 related_to: []
@@ -77,3 +77,4 @@ Interfaces externas: ninguna.
 
 ## Log
 - **2026-10-07T13:51:54Z** `[version]` 0.18.0-dev
+- **2026-10-07T15:03:01Z** `[status]` draft → approved (human via conversation)
