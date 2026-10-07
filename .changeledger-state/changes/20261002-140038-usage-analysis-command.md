@@ -167,10 +167,11 @@ en el viewer sin módulo común, que duplicaría la lógica.
 
 ## Plan
 
-- [ ] Escribir pruebas fallidas del módulo: atribución, pre-draft, rework, registradores, coste, anomalías, versión y determinismo
+- [x] Escribir pruebas fallidas del módulo: atribución, pre-draft, rework, registradores, coste, anomalías, versión y determinismo
   - **Target:** `test/usage-analysis.test.mjs`
   - **Verify:** `node --test test/usage-analysis.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4, CR5, CR6, CR7, CR10
+  - **Resolved:** `2026-10-07T11:23:16Z`
 - [ ] Implementar el módulo puro de análisis
   - **Target:** `src/usage-analysis.mjs`
   - **Verify:** `node --test test/usage-analysis.test.mjs`
