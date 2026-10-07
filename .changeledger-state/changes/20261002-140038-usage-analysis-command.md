@@ -172,10 +172,11 @@ en el viewer sin módulo común, que duplicaría la lógica.
   - **Verify:** `node --test test/usage-analysis.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4, CR5, CR6, CR7, CR10
   - **Resolved:** `2026-10-07T11:23:16Z`
-- [ ] Implementar el módulo puro de análisis
+- [x] Implementar el módulo puro de análisis
   - **Target:** `src/usage-analysis.mjs`
   - **Verify:** `node --test test/usage-analysis.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4, CR5, CR6, CR7, CR10
+  - **Resolved:** `2026-10-07T11:23:16Z`
 - [ ] Probar e implementar el comando `analyze` con texto, JSON y agrupaciones
   - **Target:** `src/commands/analyze.mjs, bin/changeledger.mjs, test/analyze.test.mjs`
   - **Verify:** `node --test test/analyze.test.mjs test/cli-bin.test.mjs`
