@@ -2,7 +2,7 @@
 id: "20261007-135148"
 title: Cambiar de vista en el viewer sin proyecto cargado no rompe
 type: bug
-status: in-progress
+status: in-review
 created: 2026-10-07T13:51:48Z
 depends_on: []
 branch: bug/20261007-135148
@@ -86,3 +86,4 @@ Interfaces externas: ninguna.
 - **2026-10-07T16:10:07Z** `[branch]` set: bug/20261007-135148 (auto)
 - **2026-10-07T16:13:17Z** `[note]` Implementación delegada (subagente, tier medio), tareas 1, 2 y 4: un guard único al principio de render() pinta, si state.repo es nulo y la vista no es projects, el mensaje de showNoProjects (extraído a noProjectsMessage) en el contenedor de la vista. Red: TypeError: Cannot read properties of null (reading 'changes') desde activateView. Mutantes: sin guard, guard sólo para board/table/graph (falla en paintLedger) y guard sin la excepción de projects; los tres fallan. pnpm verify en verde con 1758/1758. Decisiones no especificadas: el guard mira sólo state.repo; el mensaje se pinta en #<vista>; la marca es la misma que showNoProjects. Residuos: si un proyecto está seleccionado pero su carga falló, cambiar de vista muestra No projects registered en lugar del error de carga (antes lanzaba); renderOpenedDetail, los filtros de estado y specBody leen state.repo sin guard pero no se alcanzan desde render().
 - **2026-10-07T16:13:17Z** `[note]` CR3 recorrido por el orquestador: con el registro del viewer vaciado temporalmente (copia guardada y restaurada después), changeledger view en el navegador del preview; Board, Table, Graph, Ledger y Metrics muestran No projects registered. Run changeledger init in a repo. y Projects muestra No projects registered.; la consola no registra ningún TypeError (sólo los ERR_CONNECTION_REFUSED del servidor anterior parado y un 404 de recurso).
+- **2026-10-07T16:13:18Z** `[status]` in-progress → in-review
