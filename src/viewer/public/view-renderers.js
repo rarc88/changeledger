@@ -195,7 +195,7 @@ function barRows(items, label, value, fmt = (v) => v) {
       html`<div class="bar-row">
         <span class="bar-date">${label(it)}</span>
         <span class="bar" style=${`width:${(value(it) / max) * 100}%`}></span>
-        <span class="mono">${fmt(value(it))}</span>
+        <span class="mono">${fmt(value(it), it)}</span>
       </div>`,
   );
 }
@@ -265,7 +265,132 @@ function metricsTable(rows, columnLabel, labelOf) {
     : html`<p class="empty">No closed changes yet.</p>`;
 }
 
-export function metricsHtml(metrics = {}, totalChanges = 0) {
+// Usage figures (20261002-140242) come from `usage-analysis.mjs`; the viewer
+// formats them as `changeledger analyze` prints them and adds up the listed
+// changes for the section's totals.
+const money = (cost) => (cost === null ? 'n/a' : `$${cost.toFixed(2)}`);
+
+const usageFigures = (tokens, g) =>
+  `${tokens} tokens · ${money(g.cost_usd)}${g.unpriced_tokens ? ` · ${g.unpriced_tokens} unpriced` : ''}`;
+
+const usageHints = (hints) =>
+  hints.length
+    ? html`<ul class="usage-hints">
+        ${hints.map((h) => html`<li>${h}</li>`)}
+      </ul>`
+    : nothing;
+
+const USAGE_GROUP_TITLES = [
+  ['segment', 'Tokens by segment'],
+  ['model', 'Tokens by model'],
+  ['version', 'Tokens by version'],
+];
+
+// What the viewer passes instead of an analysis when the usage module fails
+// to load or the analysis throws.
+export const USAGE_UNAVAILABLE = Object.freeze({ unavailable: true });
+
+const usageUnavailable = html`<p class="empty">Usage analysis is unavailable.</p>`;
+
+// The Usage section of the metrics view: `usage` holds one analysis per
+// grouping (`segment`, `model`, `version`) of the same set of changes.
+export function usageSectionHtml(usage) {
+  if (usage.unavailable) {
+    return html`<section class="usage-section" data-usage>
+      <h3 class="metrics-h">Usage</h3>
+      ${usageUnavailable}
+    </section>`;
+  }
+  const { changes, hints } = usage.segment;
+  if (!changes.length) {
+    return html`<section class="usage-section" data-usage>
+      <h3 class="metrics-h">Usage</h3>
+      <p class="empty">No usage records for the current filters.</p>
+      ${usageHints(hints)}
+    </section>`;
+  }
+  const sum = (field) => changes.reduce((n, c) => n + c[field], 0);
+  const priced = changes.filter((c) => c.cost_usd !== null);
+  const totals = [
+    ['tokens', 'Tokens', sum('total_tokens')],
+    ['cost', 'Cost', money(priced.length ? priced.reduce((n, c) => n + c.cost_usd, 0) : null)],
+    ['unpriced', 'Unpriced tokens', sum('unpriced_tokens')],
+  ].map(
+    ([key, label, val]) =>
+      html`<div class="metric-card" data-usage-total=${key}>
+        <div class="metric-val">${val}</div>
+        <div class="metric-label">${label}</div>
+      </div>`,
+  );
+  return html`<section class="usage-section" data-usage>
+    <h3 class="metrics-h">Usage</h3>
+    <div class="metrics-cards">${totals}</div>
+    <div class="metrics-grid">
+      ${USAGE_GROUP_TITLES.map(
+        ([by, title]) => html`<section class="metrics-panel" data-usage-group=${by}>
+          <h3 class="metrics-h">${title}</h3>
+          <div>${barRows(
+            usage[by].groups,
+            (g) => g.key,
+            (g) => g.total_tokens,
+            usageFigures,
+          )}</div>
+        </section>`,
+      )}
+    </div>
+    ${usageHints(hints)}
+  </section>`;
+}
+
+// A change detail's Usage block from `analyzeUsage(input, { id })`: its
+// segments as `changeledger analyze <id>` lists them.
+export function changeUsageHtml(analysis) {
+  if (analysis.unavailable) {
+    return html`<div class="stage" data-usage-detail>
+      <h2>Usage</h2>
+      <div class="stage-content">${usageUnavailable}</div>
+    </div>`;
+  }
+  const change = analysis.changes[0];
+  let body;
+  if (!change?.records) {
+    body = html`<p class="empty">No usage records for this change.</p>`;
+  } else if (change.total_tokens === null) {
+    body = html`<p class="empty">No usage data for this change.</p>`;
+  } else {
+    body = html`<p class="usage-total">
+        Total: ${change.total_tokens} tokens, ${money(change.cost_usd)},
+        ${change.unpriced_tokens} unpriced tokens
+      </p>
+      <table class="grid">
+        <thead>
+          <tr>
+            <th>Segment</th><th>Closed at</th><th>Version</th><th>Recorder</th>
+            <th>Tokens</th><th>Cost</th><th>Models</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${change.segments.map(
+            (s) => html`<tr>
+              <td>${s.segment}</td>
+              <td class="mono">${s.at}</td>
+              <td>${s.version}</td>
+              <td>${s.recorded_by}</td>
+              <td class="mono">${s.total_tokens}</td>
+              <td class="mono">${money(s.cost_usd)}</td>
+              <td>${s.models.map((m) => m.model).join(', ')}</td>
+            </tr>`,
+          )}
+        </tbody>
+      </table>`;
+  }
+  return html`<div class="stage" data-usage-detail>
+    <h2>Usage</h2>
+    <div class="stage-content">${body}${usageHints(analysis.hints)}</div>
+  </div>`;
+}
+
+export function metricsHtml(metrics = {}, totalChanges = 0, usage) {
   if (!totalChanges) {
     return html`<p class="empty">No changes match the current filters.</p>`;
   }
@@ -345,5 +470,6 @@ export function metricsHtml(metrics = {}, totalChanges = 0) {
         <h3 class="metrics-h">By owner</h3>
         ${ownerRows}
       </section>
-    </div>`;
+    </div>
+    ${usage ? usageSectionHtml(usage) : nothing}`;
 }

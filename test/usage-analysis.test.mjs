@@ -9,6 +9,7 @@ import {
   usageRecord,
   usageSession,
 } from './helpers/usage-analysis.mjs';
+import { BUG, FEATURE, QUIET, usageInput } from './helpers/usage-viewer-fixture.mjs';
 
 const A = '20261001-000001';
 const B = '20261001-000002';
@@ -1087,4 +1088,78 @@ test('CR10: nothing the module imports, directly or transitively, is an IO modul
     }
   }
   assert.deepEqual(found, []);
+});
+
+// 20261002-140242: `ids` restricts the whole-project analysis to a set of
+// changes, the way the viewer narrows it to the changes its filters show.
+test('140242: with ids, a listed measured change has the figures and hints its id gives', () => {
+  const input = usageInput({ quiet: true });
+  for (const by of [undefined, ...USAGE_GROUP_KEYS]) {
+    assert.deepEqual(analyzeUsage(input, { ids: [BUG], by }), analyzeUsage(input, { id: BUG, by }));
+  }
+  const [bug] = analyzeUsage(input, { ids: [BUG] }).changes;
+  assert.equal(bug.total_tokens, 890);
+});
+
+test('140242: ids keeps the attribution of the whole project, not of the listed records alone', () => {
+  const input = usageInput();
+  const alone = {
+    changes: input.changes.filter((c) => c.frontmatter.id === BUG),
+    usage: input.usage.filter((entry) => entry.change === BUG),
+  };
+  const restricted = analyzeUsage(input, { ids: [BUG] });
+  const prefiltered = analyzeUsage(alone, { ids: [BUG] });
+  assert.deepEqual(
+    restricted.changes.map((c) => c.total_tokens),
+    [890],
+  );
+  assert.deepEqual(
+    prefiltered.changes.map((c) => c.total_tokens),
+    [740],
+  );
+  assert.ok(
+    restricted.hints.some((h) => h.startsWith('gap: 1 transition(s)')),
+    restricted.hints,
+  );
+});
+
+test('140242: ids listing every known change gives the analysis without options', () => {
+  const input = usageInput({ quiet: true });
+  for (const by of [undefined, ...USAGE_GROUP_KEYS]) {
+    assert.deepEqual(
+      analyzeUsage(input, { ids: [QUIET, BUG, FEATURE], by }),
+      analyzeUsage(input, { by }),
+    );
+  }
+});
+
+test('140242: ids drops unlisted and unmeasured changes and counts only listed ones as unmeasured', () => {
+  const input = usageInput({ quiet: true });
+  const quiet = analyzeUsage(input, { ids: [QUIET], by: 'segment' });
+  assert.deepEqual(quiet.changes, []);
+  assert.deepEqual(quiet.groups, []);
+  assert.deepEqual(quiet.hints, ['unmeasured: 1 change(s) have no usage records']);
+  const feature = analyzeUsage(input, { ids: new Set([FEATURE]), by: 'model' });
+  assert.deepEqual(
+    feature.changes.map((c) => c.id),
+    [FEATURE],
+  );
+  assert.deepEqual(
+    feature.groups.map((g) => [g.key, g.total_tokens]),
+    [['opus', 50]],
+  );
+  assert.deepEqual(feature.hints, [`baseline: first record of ana at ${at(1)} is not attributed`]);
+  assert.deepEqual(analyzeUsage(input, { ids: [] }), {
+    schema: 1,
+    changes: [],
+    groups: [],
+    hints: [],
+  });
+});
+
+test('140242: id and ids together are refused', () => {
+  assert.throws(
+    () => analyzeUsage(usageInput(), { id: BUG, ids: [BUG] }),
+    /id and ids cannot be combined/,
+  );
 });

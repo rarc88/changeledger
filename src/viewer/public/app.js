@@ -59,7 +59,14 @@ import {
   tableRow,
   validationPanel,
 } from './view-parts.js';
-import { graphSvg, ledgerViewHtml, metricsHtml, sortSpecsByUpdated } from './view-renderers.js';
+import {
+  changeUsageHtml,
+  graphSvg,
+  ledgerViewHtml,
+  metricsHtml,
+  sortSpecsByUpdated,
+  USAGE_UNAVAILABLE,
+} from './view-renderers.js';
 import { createLedgerNavigation, readLedgerRoute } from './viewer-routing.js';
 
 export { cssIdent, esc, makeMermaidExpandable, safeHtml } from './security.js';
@@ -795,6 +802,7 @@ function openDetail(id) {
     ${c.status === 'in-validation' ? validationPanel() : nothing}
     ${reopenPanel(c.status)}
     ${stages}
+    <div id="usage-section"></div>
     <div id="git-section"></div>`,
   );
 
@@ -859,7 +867,34 @@ function openDetail(id) {
       };
     });
   renderExpandableMermaid($('#detail'));
+  loadChangeUsage(detailTarget);
   loadGitRefs(detailTarget);
+}
+
+// One change's Usage block; an error line when the usage module fails to
+// load or the analysis throws.
+export async function changeUsageTemplate(repo, id, loadUsage = loadUsageModule) {
+  try {
+    const { analyzeUsage } = await loadUsage();
+    return changeUsageHtml(changeUsageAnalysis(analyzeUsage, repo, id));
+  } catch {
+    return changeUsageHtml(USAGE_UNAVAILABLE);
+  }
+}
+
+// Renders the opened change's usage segments once the shared module loads.
+async function loadChangeUsage(target) {
+  const repo = state.repo;
+  if (!repo) return;
+  const template = await changeUsageTemplate(repo, target.changeId);
+  if (
+    openedChangeTarget !== target ||
+    !sameProjectTarget(target, captureProjectTarget(state.currentProject))
+  ) {
+    return;
+  }
+  const sec = $('#usage-section');
+  if (sec) litRender(template, sec);
 }
 
 // Fetch and render the git refs (commits/branches) that reference this change.
@@ -1246,22 +1281,84 @@ function loadMetricsModule() {
   return sharedMetricsModule;
 }
 
-// `computeMetrics` speaks the CLI's native change shape (`{ frontmatter,
-// stages }`); `state.repo.changes` is already flattened for board/table
-// rendering. Adapt back rather than reshaping the shared module's contract,
-// which the server also relies on unchanged.
+// The shared usage-analysis module (20261002-140242), loaded the same way.
+let sharedUsageModule;
+function loadUsageModule() {
+  sharedUsageModule ??= import('/shared/usage-analysis.mjs');
+  return sharedUsageModule;
+}
+
+// `computeMetrics` and `analyzeUsage` speak the CLI's native change shape
+// (`{ frontmatter, stages }`); `state.repo.changes` is already flattened for
+// board/table rendering. Adapt back rather than reshaping the shared modules'
+// contracts, which the CLI also relies on unchanged.
 function toMetricsChange(c) {
   return {
-    frontmatter: { id: c.id, type: c.type, status: c.status, owner: c.owner, created: c.created },
+    frontmatter: {
+      id: c.id,
+      title: c.title,
+      type: c.type,
+      status: c.status,
+      owner: c.owner,
+      created: c.created,
+    },
     stages: c.stages,
   };
 }
 
+const usageInput = (repo) => ({
+  changes: (repo?.changes ?? []).map(toMetricsChange),
+  usage: repo?.usage ?? [],
+});
+
+// The Usage section's analyses, one per grouping. The whole project is
+// analysed and the result restricted to `changes` (the visible ones), so each
+// record is attributed as `changeledger analyze` attributes it.
+export function usageSectionAnalyses(analyzeUsage, repo, changes) {
+  const input = usageInput(repo);
+  const ids = changes.map((c) => String(c.id));
+  return Object.fromEntries(
+    ['segment', 'model', 'version'].map((by) => [by, analyzeUsage(input, { ids, by })]),
+  );
+}
+
+// One change's analysis, as `changeledger analyze <id>` computes it.
+export function changeUsageAnalysis(analyzeUsage, repo, id) {
+  return analyzeUsage(usageInput(repo), { id: String(id) });
+}
+
+// The metrics view for `changes`. A usage module that fails to load, or an
+// analysis that throws, turns the Usage section into an error line and leaves
+// the other metrics as they are.
+export async function metricsViewTemplate(
+  repo,
+  changes,
+  {
+    loadMetrics = loadMetricsModule,
+    loadUsage = loadUsageModule,
+    now = new Date().toISOString(),
+  } = {},
+) {
+  const usageModule = changes.length ? loadUsage() : null;
+  usageModule?.catch(() => {});
+  const { computeMetrics } = await loadMetrics();
+  const metrics = computeMetrics(changes.map(toMetricsChange), { now });
+  let usage;
+  if (usageModule) {
+    try {
+      const { analyzeUsage } = await usageModule;
+      usage = usageSectionAnalyses(analyzeUsage, repo, changes);
+    } catch {
+      usage = USAGE_UNAVAILABLE;
+    }
+  }
+  return metricsHtml(metrics, changes.length, usage);
+}
+
 async function renderMetrics() {
+  const repo = state.repo;
   const changes = visibleChanges();
-  const { computeMetrics } = await loadMetricsModule();
-  const metrics = computeMetrics(changes.map(toMetricsChange), { now: new Date().toISOString() });
-  litRender(metricsHtml(metrics, changes.length), $('#metrics'));
+  litRender(await metricsViewTemplate(repo, changes), $('#metrics'));
 }
 
 export function syncViewerShell(root = document, renderContent = true) {

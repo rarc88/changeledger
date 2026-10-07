@@ -326,11 +326,17 @@ function buildGroups(by, changes) {
 // `{ schema, changes, groups, hints }` over `changes` (loaded change
 // documents) and `usage` (loaded usage entries). With `id`, `changes` holds
 // that change alone (empty when the ledger knows nothing of it) and hints are
-// limited to it; `by` fills `groups`.
-export function analyzeUsage({ changes = [], usage = [] } = {}, { id, by } = {}) {
+// limited to it. With `ids` (change ids), the analysis without `id` keeps the
+// measured changes among them, and its hints about records and its unmeasured
+// count only those ids; attribution still runs over every record. `by` fills
+// `groups` from the changes kept.
+export function analyzeUsage({ changes = [], usage = [] } = {}, { id, ids, by } = {}) {
   if (by !== undefined && !USAGE_GROUP_KEYS.includes(by)) {
     throw new Error(`unknown group "${by}"; allowed: ${USAGE_GROUP_KEYS.join(', ')}`);
   }
+  if (id !== undefined && ids !== undefined) throw new Error('id and ids cannot be combined');
+  const listed = ids === undefined ? null : new Set([...ids].map(String));
+  const isListed = (change) => listed === null || listed.has(String(change));
   const docs = new Map();
   for (const change of [...changes].sort((a, b) =>
     compare(String(a?.frontmatter?.id), String(b?.frontmatter?.id)),
@@ -369,10 +375,14 @@ export function analyzeUsage({ changes = [], usage = [] } = {}, { id, by } = {})
 
   const known = new Set([...docs.keys(), ...recordCounts.keys()]);
   const selected =
-    id === undefined ? [...measured].sort(compare) : known.has(String(id)) ? [String(id)] : [];
-  // Hints about records cover every change without `id`, that change alone
-  // with it.
-  const inScope = (change) => id === undefined || String(change) === String(id);
+    id === undefined
+      ? [...measured].filter(isListed).sort(compare)
+      : known.has(String(id))
+        ? [String(id)]
+        : [];
+  // Hints about records cover the listed changes without `id`, that change
+  // alone with it.
+  const inScope = (change) => (id === undefined ? isListed(change) : String(change) === String(id));
 
   const results = selected.map((changeId) => {
     const doc = docs.get(changeId);
@@ -450,7 +460,7 @@ export function analyzeUsage({ changes = [], usage = [] } = {}, { id, by } = {})
     hints.push(`baseline: first record of ${b.recorder} at ${b.record.at} is not attributed`);
   }
   if (id === undefined) {
-    const unmeasured = [...known].filter((key) => !measured.has(key)).length;
+    const unmeasured = [...known].filter((key) => isListed(key) && !measured.has(key)).length;
     if (unmeasured > 0) hints.push(`unmeasured: ${unmeasured} change(s) have no usage records`);
   }
   for (const change of [...failedCounts.keys()].sort(compare)) {
