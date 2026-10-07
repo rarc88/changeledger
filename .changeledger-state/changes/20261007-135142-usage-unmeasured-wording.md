@@ -103,3 +103,4 @@ Interfaces externas: ninguna.
 - **2026-10-07T16:27:08Z** `[note]` Corrección del residuo del Log: la línea larga de docs/usage-capture.md (101 columnas, la que nombra no usage data y no usage records) la crea este diff, no es previa. Observaciones del review para seguimiento: con un change filtrado cuyo único archivo de registro es ilegible, la sección dice No usage records (como el detalle y analyze <id>) mientras el listado de la CLI diría no usage data; cuando ningún change filtrado está medido, recorded lanza un análisis por id (577 ms con 400 changes y 2000 registros frente a 18 ms); el test de CR2 del viewer cubre registros sólo de base y no sólo con error.
 - **2026-10-07T17:18:16Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-10-07T17:18:39Z** `[graduation]` spec: `usage.md`
+- **2026-10-07T17:18:40Z** `[graduation]` spec: `viewer.md`
