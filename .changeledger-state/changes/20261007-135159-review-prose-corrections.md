@@ -2,7 +2,7 @@
 id: "20261007-135159"
 title: Cerrar en una ronda las correcciones de prosa
 type: feature
-status: in-progress
+status: in-review
 created: 2026-10-07T13:51:59Z
 depends_on: []
 branch: feature/20261007-135159
@@ -129,3 +129,4 @@ documentación.
 - **2026-10-07T16:35:10Z** `[note]` Tareas 1 y 2 (subagente, top tier): la viñeta de prosa entregable de implement.md nombra documentación, comentarios de código y de test y notas del Log, añade que corregir un hallazgo sobre prosa acota la frase a lo ejecutado o la borra sin sustituirla por otra afirmación universal, y que el informe lista cada frase cuantificada añadida o reescrita con el comando que ejecutó su borde. Guardas tolerantes en DELEGATION_OBLIGATIONS de test/context.test.mjs; rojo 3/3 contra el fragmento previo, ocho mutantes y tres reformulaciones. implement pasa de 2742 a 2796 tokens y sigue en 227 líneas (límite 3000/300). Residuo: la lista de cuantificadores de la viñeta no incluye never.
 - **2026-10-07T16:37:33Z** `[note]` Tarea 3 (CR6, mismo subagente): la viñeta de review.md sobre la lista del implementador pasa a las listas informadas por el implementador o corrector — decisiones no especificadas y frases con cuantificador universal añadidas o reescritas — como puntos de escrutinio. Guarda tolerante en DELEGATION_OBLIGATIONS; rojo contra el fragmento previo, dos mutantes y una reformulación. review pasa de 1140 a 1156 tokens y sigue en 98 líneas (límite 2500/250). pnpm verify en verde con 1771/1771.
 - **2026-10-07T17:07:38Z** `[note]` Decisión del humano (2026-10-07): pasar a revisión con CR5 pendiente; si la revisión encuentra prosa a corregir, esa corrección recorre CR5; si pasa limpia, el change llega a validación con CR5 sin recorrer y decide el humano.
+- **2026-10-07T17:07:39Z** `[status]` in-progress → in-review
