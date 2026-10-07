@@ -291,10 +291,11 @@ en el viewer sin módulo común, que duplicaría la lógica.
   - **Verify:** `pnpm test`
   - **Criteria:** CR17
   - **Resolved:** `2026-10-07T12:15:11Z`
-- [ ] Recorrer de nuevo el primer uso real con los avisos nuevos
+- [x] Recorrer de nuevo el primer uso real con los avisos nuevos
   - **Target:** `src/commands/analyze.mjs`
   - **Verify:** verify: manual — `changeledger analyze --json` y `changeledger analyze 20261002-140038` sobre registros reales
   - **Criteria:** CR11
+  - **Resolved:** `2026-10-07T12:15:11Z`
 - [ ] Ejecutar el gate completo tras la ampliación
   - **Verify:** `pnpm verify`
   - **Support:**
