@@ -2,9 +2,10 @@
 id: "20261002-140038"
 title: Analizar el consumo de los changes con changeledger analyze
 type: feature
-status: approved
+status: in-progress
 created: 2026-10-02T14:00:38Z
 depends_on: ["20261002-133728", "20261001-155216"]
+branch: feature/20261002-140038
 related_to: ["20261001-155612", "20260711-155721"]
 owner: rarc88
 release_impact: minor
@@ -188,3 +189,6 @@ en el viewer sin módulo común, que duplicaría la lógica.
 
 ## Log
 - **2026-10-02T15:24:42Z** `[status]` draft → approved (human via conversation)
+- **2026-10-07T11:08:15Z** `[version]` 0.18.0-dev
+- **2026-10-07T11:08:15Z** `[status]` approved → in-progress
+- **2026-10-07T11:08:15Z** `[branch]` set: feature/20261002-140038 (auto)
