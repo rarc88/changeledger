@@ -2,7 +2,7 @@
 id: "20261002-140038"
 title: Analizar el consumo de los changes con changeledger analyze
 type: feature
-status: in-validation
+status: done
 created: 2026-10-02T14:00:38Z
 depends_on: ["20261002-133728", "20261001-155216"]
 branch: feature/20261002-140038
@@ -331,3 +331,4 @@ en el viewer sin módulo común, que duplicaría la lógica.
 - **2026-10-07T13:15:56Z** `[note]` Corrección del orquestador tras la ronda 3, autorizada por el humano: el comentario de everything() en test/usage-analysis.test.mjs deja de enumerar criterios y dice que mezcla los escenarios de los avisos que el test afirma y la sesión que vuelve de CR12, y que no mezcla líneas [version] (CR7), el rework por blocked o tras una validation (CR3) ni el caso sin gap de CR14. Cuarta ronda autorizada por el humano: confirma el mismo revisor de la ronda 3, limitado a ese comentario.
 - **2026-10-07T13:15:57Z** `[status]` in-progress → in-review
 - **2026-10-07T13:16:42Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-10-07T13:19:35Z** `[validation]` in-validation → done (human accepted via conversation)
