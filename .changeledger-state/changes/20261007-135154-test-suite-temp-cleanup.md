@@ -2,7 +2,7 @@
 id: "20261007-135154"
 title: La suite de tests no deja directorios en el temporal del sistema
 type: bug
-status: in-review
+status: in-progress
 created: 2026-10-07T13:51:54Z
 depends_on: []
 branch: bug/20261007-135154
@@ -87,3 +87,4 @@ Interfaces externas: ninguna.
 - **2026-10-07T15:19:20Z** `[note]` Implementación delegada (subagente, tier medio), tareas 1 a 3. scripts/run-tests.mjs crea una raíz changeledger-test-* por ejecución, lanza node --test con TMPDIR, TEMP y TMP apuntando a ella, reenvía SIGINT y SIGTERM, sale con el código del hijo (130/143 en señal) y borra la raíz al terminar; package.json test pasa por el envoltorio. Antes: un pnpm test dejó 1336 entradas en /tmp. Después: pnpm test, pnpm verify (1764/1764) y hooks/pre-commit ejecutado a mano por el orquestador (este clon no tiene core.hooksPath configurado) dejan 0 entradas nuevas. Red→green de 5 tests sobre fixtures inertes (pass, fail, hang); mutantes: sin limpieza tras fallo o tras señal, sin reenvío de señal, sin propagación del código, sin redirección de TMPDIR y sin mapeo 130/143; todos fallan. Decisiones no especificadas: fixtures como .mjs inertes salvo con RUN_TESTS_FIXTURE porque node --test carga los módulos bajo test/; rmSync con maxRetries 5 y salida distinta de cero si no se puede borrar la raíz; scripts/ no se publica (files no lo incluye). Residuos: SIGKILL del envoltorio deja la raíz; Windows (TEMP/TMP) no se ejecutó; test:coverage no pasa por el envoltorio y sigue dejando entradas; un test que escriba en /tmp fijo no queda cubierto; los restos de ejecuciones anteriores siguen en /tmp.
 - **2026-10-07T15:19:21Z** `[status]` in-progress → in-review
 - **2026-10-07T15:19:25Z** `[note]` Mandato del review: la superficie que el change gobierna — dev..HEAD contra CR1-CR4 y el Plan, con las decisiones no especificadas y los residuos del Log como puntos de escrutinio.
+- **2026-10-07T15:36:14Z** `[review]` in-review → in-progress (retry): D1: con SIGHUP al grupo (cerrar la terminal o caer el ssh) el envoltorio muere con la acción por defecto y deja /tmp/changeledger-test-* con contenido, en contra de lo que pide la Request (también cuando se interrumpe) y de la cabecera de scripts/run-tests.mjs, que sólo exceptúa SIGKILL; el Log no lo recoge. D2: el comentario del test de reenvío de argumentos dice que el código 0 prueba que el archivo filtrado se ejecutó con el filtro, pero un mutante que reenvía sólo el primer argumento pasa los 5 tests.
