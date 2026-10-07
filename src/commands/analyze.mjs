@@ -5,7 +5,9 @@
 import { loadRepo } from '../repo.mjs';
 import { analyzeUsage } from '../usage-analysis.mjs';
 
-export function analyze(id, { by } = {}, cwd = process.cwd()) {
+// The analysis plus how many usage record files the ledger holds, readable
+// or not, so an empty listing can tell "no records" from "no data".
+function load(id, by, cwd) {
   const { changes, usage } = loadRepo(cwd);
   const result = analyzeUsage({ changes, usage }, { id, by });
   if (id !== undefined && !result.changes.length) {
@@ -13,8 +15,16 @@ export function analyze(id, { by } = {}, cwd = process.cwd()) {
       `No change with id "${id}" (use the exact id; run \`changeledger check\` if a filename's id looks wrong)`,
     );
   }
-  return result;
+  return { result, recordFiles: usage.length };
 }
+
+export function analyze(id, { by } = {}, cwd = process.cwd()) {
+  return load(id, by, cwd).result;
+}
+
+// What a view without figures says, given how many records it could have
+// drawn on: `no usage records` for none, `no usage data` otherwise.
+const nothingMessage = (recordFiles) => (recordFiles > 0 ? 'no usage data' : 'no usage records');
 
 const money = (cost) => (cost === null ? 'n/a' : `$${cost.toFixed(2)}`);
 
@@ -37,8 +47,8 @@ function table(header, rows) {
   return [line(header), ...rows.map(line)];
 }
 
-function changesView(result) {
-  if (!result.changes.length) return ['no usage records'];
+function changesView(result, recordFiles) {
+  if (!result.changes.length) return [nothingMessage(recordFiles)];
   return table(
     ['ID', 'TOKENS', 'COST', 'REWORK', 'TITLE'],
     result.changes.map((c) => [
@@ -53,15 +63,12 @@ function changesView(result) {
 
 function changeView(change) {
   const heading = `#${change.id} ${change.title ?? ''}`.trimEnd();
-  // Not measured: its records (if any) all failed, so no total is printed.
-  if (change.total_tokens === null) {
-    return [heading, change.records > 0 ? 'no usage data' : 'no usage records'];
-  }
+  // Unmeasured: no segment is attributed to it, so no total is printed.
+  if (change.total_tokens === null) return [heading, nothingMessage(change.records)];
   const lines = [
     heading,
     `total: ${change.total_tokens} tokens, ${money(change.cost_usd)}, ${change.unpriced_tokens} unpriced tokens, rework ${reworkShare(change)}`,
   ];
-  if (!change.segments.length) return [...lines, 'no usage records'];
   return [
     ...lines,
     '',
@@ -80,8 +87,8 @@ function changeView(change) {
   ];
 }
 
-function groupsView(by, groups) {
-  if (!groups.length) return ['no usage records'];
+function groupsView(by, groups, recordFiles) {
+  if (!groups.length) return [nothingMessage(recordFiles)];
   return table(
     [by.toUpperCase(), 'TOKENS', 'COST', 'UNPRICED', 'SEGMENTS'],
     groups.map((g) => [g.key, g.total_tokens, money(g.cost_usd), g.unpriced_tokens, g.segments]),
@@ -89,17 +96,17 @@ function groupsView(by, groups) {
 }
 
 export function runAnalyze(id, options = {}, cwd = process.cwd()) {
-  const result = analyze(id, { by: options.by }, cwd);
+  const { result, recordFiles } = load(id, options.by, cwd);
   if (options.json) {
     console.log(JSON.stringify(result, null, 2));
     return;
   }
   const lines =
     options.by !== undefined
-      ? groupsView(options.by, result.groups)
+      ? groupsView(options.by, result.groups, recordFiles)
       : id !== undefined
         ? changeView(result.changes[0])
-        : changesView(result);
+        : changesView(result, recordFiles);
   if (result.hints.length) lines.push('', ...result.hints);
   console.log(lines.join('\n'));
 }

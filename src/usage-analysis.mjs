@@ -57,8 +57,10 @@ function chainOrder(group) {
   return ordered;
 }
 
-// Valid `schema: 1` records only: an unreadable or malformed one is
-// `check`'s to report and carries nothing to attribute.
+// The records the analysis can place: readable, `schema: 1`, naming a
+// `change` and with a string `at`. The rest are skipped here; `check` reports
+// an unreadable record, a wrong `schema` or a missing `change`, but not a
+// missing `at`.
 function validRecords(usage) {
   const records = [];
   for (const entry of usage ?? []) {
@@ -209,10 +211,20 @@ function versionAt(events, at) {
   return version;
 }
 
-// The first failed review or validation, after which `in-progress` is rework.
+// A failed verdict in the Log: `[review] in-review → in-progress` (fail
+// --retry), `[review] in-review → blocked` (fail --block) or
+// `[validation] in-validation → in-progress` (fail). The lifecycle has no
+// `in-validation → blocked` edge.
+const FAILED_VERDICT_TARGETS = Object.freeze({
+  review: ['in-progress', 'blocked'],
+  validation: ['in-progress'],
+});
+
+// The instant of the change's first failed verdict, or null. `segmentName`
+// calls every `in-progress` segment closed at or after it `rework`.
 function reworkSince(events) {
   const failures = events
-    .filter((e) => (e.type === 'review' || e.type === 'validation') && e.to === 'in-progress')
+    .filter((e) => FAILED_VERDICT_TARGETS[e.type]?.includes(e.to))
     .map((e) => e.at)
     .sort(compare);
   return failures[0] ?? null;
@@ -330,9 +342,6 @@ export function analyzeUsage({ changes = [], usage = [] } = {}, { id, by } = {})
   const records = validRecords(usage);
   const recorders = new Map();
   const recordCounts = new Map();
-  // Changes with at least one record carrying data are measured; records
-  // with `error` carry none.
-  const measured = new Set();
   const failedCounts = new Map();
   for (const entry of records) {
     const recorder = String(entry.record.recorded_by ?? UNKNOWN);
@@ -341,7 +350,6 @@ export function analyzeUsage({ changes = [], usage = [] } = {}, { id, by } = {})
     const change = String(entry.record.change);
     recordCounts.set(change, (recordCounts.get(change) ?? 0) + 1);
     if (entry.record.error) failedCounts.set(change, (failedCounts.get(change) ?? 0) + 1);
-    else measured.add(change);
   }
   const unrecorded = unrecordedTransitions(docs, records);
 
@@ -354,11 +362,17 @@ export function analyzeUsage({ changes = [], usage = [] } = {}, { id, by } = {})
     anomalies.push(...result.anomalies);
     contributions.push(...result.contributions);
   }
+  // A change is measured when at least one segment is attributed to it: not
+  // when all its records failed, nor when its only record with data is its
+  // recorder's baseline.
+  const measured = new Set(contributions.map((c) => String(c.record.change)));
 
   const known = new Set([...docs.keys(), ...recordCounts.keys()]);
   const selected =
     id === undefined ? [...measured].sort(compare) : known.has(String(id)) ? [String(id)] : [];
-  const inScope = new Set(selected);
+  // Hints about records cover every change without `id`, that change alone
+  // with it.
+  const inScope = (change) => id === undefined || String(change) === String(id);
 
   const results = selected.map((changeId) => {
     const doc = docs.get(changeId);
@@ -386,8 +400,8 @@ export function analyzeUsage({ changes = [], usage = [] } = {}, { id, by } = {})
       records: recordCounts.get(changeId) ?? 0,
       ...own,
       rework_pct: percent(figures(rework).total_tokens, own.total_tokens),
-      // A change without a record carrying data (reachable only through
-      // `id`) is not measured: its figures are unknown, not 0.
+      // An unmeasured change (reachable only through `id`) has unknown
+      // figures, not 0.
       ...(measured.has(changeId) ? {} : UNMEASURED_FIGURES),
       segments,
     };
@@ -424,14 +438,14 @@ export function analyzeUsage({ changes = [], usage = [] } = {}, { id, by } = {})
     hints.push(`unpriced: ${model} has ${unpriced.get(model)} tokens without a comparable price`);
   }
   for (const a of anomalies
-    .filter((a) => inScope.has(String(a.record.change)))
+    .filter((a) => inScope(a.record.change))
     .sort((x, y) => compare(x.record.at, y.record.at) || compare(x.session, y.session))) {
     hints.push(
       `anomaly: session ${a.session} decreased between ${a.from} and ${a.record.at}; counted as 0`,
     );
   }
   for (const b of baselines
-    .filter((b) => inScope.has(String(b.record.change)))
+    .filter((b) => inScope(b.record.change))
     .sort((x, y) => compare(x.record.at, y.record.at) || compare(x.recorder, y.recorder))) {
     hints.push(`baseline: first record of ${b.recorder} at ${b.record.at} is not attributed`);
   }
@@ -440,7 +454,7 @@ export function analyzeUsage({ changes = [], usage = [] } = {}, { id, by } = {})
     if (unmeasured > 0) hints.push(`unmeasured: ${unmeasured} change(s) have no usage records`);
   }
   for (const change of [...failedCounts.keys()].sort(compare)) {
-    if (id !== undefined && change !== String(id)) continue;
+    if (!inScope(change)) continue;
     hints.push(`failed: ${failedCounts.get(change)} record(s) of ${change} have no data`);
   }
   for (const change of results) {

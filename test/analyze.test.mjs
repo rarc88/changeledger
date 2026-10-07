@@ -280,3 +280,31 @@ test('CR13 through the CLI: analyze <id> without usage data prints no zero total
     );
   }
 });
+
+test('CR13 through the CLI: records that attribute no segment print no usage data, never no usage records', (t) => {
+  const analyze = ledger(t, {
+    changes: { [A]: { title: 'Alpha' }, [C]: { title: 'Gamma' } },
+    records: [
+      usageRecord({ change: A, at: at(1), event: 'created', to: 'draft', sessions: [s1(100)] }),
+      usageRecord({ change: C, at: at(2), event: 'created', to: 'draft', error: 'boom' }),
+    ],
+  });
+  for (const args of [[], ['--by', 'model']]) {
+    const { code, out, err } = analyze(...args);
+    assert.equal(code, 0, err);
+    assert.equal(out.split('\n')[0], 'no usage data', out);
+    assert.doesNotMatch(out, /^no usage records$/m);
+    assert.match(out, /^unmeasured: 2 change\(s\) have no usage records$/m);
+  }
+  const baselineOnly = analyze(A);
+  assert.equal(baselineOnly.code, 0, baselineOnly.err);
+  assert.deepEqual(baselineOnly.out.split('\n'), [
+    `#${A} Alpha`,
+    'no usage data',
+    '',
+    `baseline: first record of ana at ${at(1)} is not attributed`,
+    '',
+  ]);
+  const [change] = JSON.parse(analyze(A, '--json').out).changes;
+  assert.deepEqual([change.records, change.total_tokens, change.cost_usd], [1, null, null]);
+});

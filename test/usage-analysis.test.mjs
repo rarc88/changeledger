@@ -152,6 +152,87 @@ for (const verdictType of ['review', 'validation']) {
   });
 }
 
+// A failed review that blocks: in-review → blocked, then blocked → in-progress.
+// Draft 100, approved 100, in-progress 400, in-review 100, blocked 50, then
+// 250 of rework: 1000 tokens, 25% of them rework.
+test('CR3: in-progress work after a review that failed through blocked is rework', () => {
+  const change = changeDoc(C, {
+    log: [
+      logLine(at(5), 'review', 'in-review → blocked: needs a decision'),
+      logLine(at(6), 'status', 'blocked → in-progress'),
+    ],
+  });
+  const usage = [
+    usageRecord({ change: C, at: at(1), event: 'created', to: 'draft', sessions: [s1(0)] }),
+    usageRecord({ change: C, at: at(2), from: 'draft', to: 'approved', sessions: [s1(100)] }),
+    usageRecord({ change: C, at: at(3), from: 'approved', to: 'in-progress', sessions: [s1(200)] }),
+    usageRecord({
+      change: C,
+      at: at(4),
+      from: 'in-progress',
+      to: 'in-review',
+      sessions: [s1(600)],
+    }),
+    usageRecord({
+      change: C,
+      at: at(5),
+      event: 'review',
+      from: 'in-review',
+      to: 'blocked',
+      sessions: [s1(700)],
+    }),
+    usageRecord({ change: C, at: at(6), from: 'blocked', to: 'in-progress', sessions: [s1(750)] }),
+    usageRecord({
+      change: C,
+      at: at(7),
+      from: 'in-progress',
+      to: 'in-review',
+      sessions: [s1(1000)],
+    }),
+  ].map(usageEntryOf);
+  const result = analyzeUsage({ changes: [change], usage });
+  assert.deepEqual(segmentTotals(only(result)), [
+    ['draft', 100],
+    ['approved', 100],
+    ['in-progress', 400],
+    ['in-review', 100],
+    ['blocked', 50],
+    ['rework', 250],
+  ]);
+  assert.ok(
+    result.hints.includes(
+      `rework: ${C} spent 25% of its tokens after a failed review or validation`,
+    ),
+    result.hints.join('\n'),
+  );
+});
+
+test('CR3: a review that passes, or a status change out of in-review, starts no rework', () => {
+  const change = changeDoc(C, {
+    log: [
+      logLine(at(3), 'review', 'in-review → in-validation'),
+      logLine(at(4), 'status', 'in-validation → in-progress'),
+    ],
+  });
+  const usage = [
+    usageRecord({ change: C, at: at(1), event: 'created', to: 'draft', sessions: [s1(0)] }),
+    usageRecord({ change: C, at: at(2), from: 'draft', to: 'in-progress', sessions: [s1(100)] }),
+    usageRecord({
+      change: C,
+      at: at(5),
+      from: 'in-progress',
+      to: 'in-review',
+      sessions: [s1(300)],
+    }),
+  ].map(usageEntryOf);
+  const result = analyzeUsage({ changes: [change], usage });
+  assert.deepEqual(segmentTotals(only(result)), [
+    ['draft', 100],
+    ['in-progress', 200],
+  ]);
+  assert.ok(!result.hints.some((h) => h.startsWith('rework:')), result.hints.join('\n'));
+});
+
 test('CR3: rework that rounds to 0% is still reported, as <0.1%', () => {
   const change = changeDoc(C, {
     log: [logLine(at(3), 'review', 'in-review → in-progress (retry)')],
@@ -463,20 +544,19 @@ function failedScenario() {
   return { changes, usage, O };
 }
 
-test('CR13: records with error are reported as failed, and a change with only those is unmeasured', () => {
+test('CR13: records with error are reported as failed; only-error and baseline-only changes are unmeasured', () => {
   const { O, ...input } = failedScenario();
   const result = analyzeUsage(input);
+  // C has only failed records and O only its recorder's baseline: no segment
+  // is attributed to either.
   assert.deepEqual(
     result.changes.map((c) => [c.id, segmentTotals(c)]),
-    [
-      [A, [['draft', 300]]],
-      [O, []],
-    ],
+    [[A, [['draft', 300]]]],
   );
   for (const hint of [
     `failed: 1 record(s) of ${A} have no data`,
     `failed: 2 record(s) of ${C} have no data`,
-    'unmeasured: 1 change(s) have no usage records',
+    'unmeasured: 2 change(s) have no usage records',
     `baseline: first record of ana at ${at(1)} is not attributed`,
   ]) {
     assert.ok(result.hints.includes(hint), result.hints.join('\n'));
@@ -509,7 +589,7 @@ test('CR12: a session missing from one record is subtracted against its last see
   ]);
 });
 
-test('CR13: with an id, a change without a record carrying data has null totals, never 0', () => {
+test('CR13: with an id, a change without an attributed segment has null totals, never 0', () => {
   const { O, ...input } = failedScenario();
   const nulls = {
     input_tokens: null,
@@ -531,8 +611,9 @@ test('CR13: with an id, a change without a record carrying data has null totals,
   );
   assert.deepEqual(pick(unrecorded), nulls);
   assert.equal(unrecorded.records, 0);
-  // A measured change keeps numbers, even a baseline-only one with 0 tokens.
-  assert.equal(only(analyzeUsage(input, { id: O })).total_tokens, 0);
+  const baselineOnly = only(analyzeUsage(input, { id: O }));
+  assert.deepEqual(pick(baselineOnly), nulls);
+  assert.equal(baselineOnly.records, 1);
   assert.equal(only(analyzeUsage(input, { id: A })).total_tokens, 300);
 });
 
@@ -690,8 +771,127 @@ test('an unknown group key is refused', () => {
   assert.deepEqual(USAGE_GROUP_KEYS, ['segment', 'model', 'version', 'type', 'recorder']);
 });
 
-// Every scenario above at once, plus two records of one recorder sharing an
-// instant (one collection serving a batch of events).
+const E = '20261001-000005';
+const F = '20261001-000006';
+const G = '20261001-000007';
+const H = '20261001-000008';
+const J = '20261001-000010';
+
+// CR6 and CR12 for recorder kim: s9 decreases, s2 is missing and comes back.
+function anomalyPieces() {
+  const sessions = (s9, s1tokens, s2) => [
+    usageSession('s9', { opus: { tokens: s9 } }),
+    usageSession('s1', { opus: { tokens: s1tokens } }),
+    ...(s2 === undefined ? [] : [usageSession('s2', { opus: { tokens: s2 } })]),
+  ];
+  return [
+    usageRecord({
+      change: E,
+      at: at(50),
+      by: 'kim',
+      event: 'created',
+      to: 'draft',
+      sessions: sessions(500, 100, 50),
+    }),
+    usageRecord({
+      change: E,
+      at: at(51),
+      by: 'kim',
+      from: 'draft',
+      to: 'approved',
+      sessions: sessions(450, 200),
+    }),
+    usageRecord({
+      change: E,
+      at: at(52),
+      by: 'kim',
+      from: 'approved',
+      to: 'in-progress',
+      sessions: sessions(470, 200, 80),
+    }),
+  ].map(usageEntryOf);
+}
+
+// CR3 (<0.1%) and CR5 (a price that appears and one that disappears) for
+// recorder lea on change F.
+function smallReworkPieces() {
+  const session = (opus, late, lateCost, gone, goneCost) =>
+    usageSession('s1', {
+      opus: { tokens: opus },
+      late: { tokens: late, cost: lateCost },
+      gone: { tokens: gone, cost: goneCost },
+    });
+  const change = changeDoc(F, {
+    log: [logLine(at(57), 'review', 'in-review → in-progress (retry)')],
+  });
+  const usage = [
+    usageRecord({
+      change: F,
+      at: at(55),
+      by: 'lea',
+      event: 'created',
+      to: 'draft',
+      sessions: [session(0, 0, null, 0, 1)],
+    }),
+    usageRecord({
+      change: F,
+      at: at(56),
+      by: 'lea',
+      from: 'draft',
+      to: 'in-review',
+      sessions: [session(100000, 10, 2, 20, null)],
+    }),
+    usageRecord({
+      change: F,
+      at: at(57),
+      by: 'lea',
+      event: 'review',
+      from: 'in-review',
+      to: 'in-progress',
+      sessions: [session(100000, 10, 2, 20, null)],
+    }),
+    usageRecord({
+      change: F,
+      at: at(58),
+      by: 'lea',
+      from: 'in-progress',
+      to: 'in-review',
+      sessions: [session(100004, 10, 2, 20, null)],
+    }),
+  ].map(usageEntryOf);
+  return { change, usage };
+}
+
+// CR13 for recorder max: J is only max's baseline, G has only failed records,
+// then H gets a segment.
+function unmeasuredPieces() {
+  return [
+    usageRecord({
+      change: J,
+      at: at(60),
+      by: 'max',
+      event: 'created',
+      to: 'draft',
+      sessions: [s1(10)],
+    }),
+    usageRecord({ change: G, at: at(61), by: 'max', event: 'created', to: 'draft', error: 'boom' }),
+    usageRecord({ change: G, at: at(62), by: 'max', from: 'draft', to: 'approved', error: 'boom' }),
+    usageRecord({
+      change: H,
+      at: at(63),
+      by: 'max',
+      event: 'created',
+      to: 'draft',
+      sessions: [s1(30)],
+    }),
+  ].map(usageEntryOf);
+}
+
+// Several scenarios above at once — those behind the hints asserted below and
+// CR12's returning session — plus two records of one recorder sharing an
+// instant (one collection serving a batch of events). Not mixed in: `[version]`
+// lines (CR7), rework through `blocked` or after a validation (CR3) and CR14's
+// no-gap case.
 function everything() {
   const rework = reworkScenario('review');
   const version = versionScenario();
@@ -769,14 +969,28 @@ function everything() {
       logLine(at(35), 'status', 'in-review → done'),
     ],
   });
+  const small = smallReworkPieces();
   return {
-    changes: [gapped, ...version.changes.slice(1), changeDoc(A), changeDoc(B)],
+    changes: [
+      gapped,
+      ...version.changes.slice(1),
+      changeDoc(A),
+      changeDoc(B),
+      changeDoc(E),
+      small.change,
+      changeDoc(G),
+      changeDoc(H),
+      changeDoc(J),
+    ],
     usage: [
       ...rework.usage,
       ...version.usage.map((e) => usageEntryOf({ ...e.record, recorded_by: 'zoe' })),
       ...batch,
       ...chain,
       ...shifted.map(usageEntryOf),
+      ...anomalyPieces(),
+      ...small.usage,
+      ...unmeasuredPieces(),
     ],
   };
 }
@@ -799,12 +1013,29 @@ test('CR10: the same input in a different order yields an identical analysis', (
     ['approved', 57],
   ]);
   const all = analyzeUsage(input);
-  for (const prefix of ['rework:', 'unpriced:', 'baseline:', 'failed:', 'gap:']) {
+  for (const hint of [
+    `rework: ${C} spent `,
+    `rework: ${F} spent <0.1% `,
+    'unpriced: local has ',
+    'unpriced: late has 10 tokens',
+    'unpriced: gone has 20 tokens',
+    `anomaly: session s9 decreased between ${at(50)} and ${at(51)}`,
+    'baseline: first record of max ',
+    'unmeasured: 2 change(s)',
+    `failed: 2 record(s) of ${G} `,
+    'gap: ',
+  ]) {
     assert.ok(
-      all.hints.some((h) => h.startsWith(prefix)),
-      `${prefix}\n${all.hints.join('\n')}`,
+      all.hints.some((h) => h.startsWith(hint)),
+      `${hint}\n${all.hints.join('\n')}`,
     );
   }
+  assert.ok(!all.changes.some((c) => c.id === G || c.id === J));
+  // CR12 inside the mix: s2 adds 30 (80 - 50), s1 and s9 add 0 and 20.
+  assert.deepEqual(segmentTotals(analyzeUsage(input, { id: E }).changes[0]), [
+    ['draft', 100],
+    ['approved', 50],
+  ]);
 });
 
 test('CR10: record file names do not change the analysis', () => {
