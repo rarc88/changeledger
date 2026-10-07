@@ -276,10 +276,11 @@ en el viewer sin módulo común, que duplicaría la lógica.
   - **Verify:** `pnpm verify`
   - **Support:**
   - **Resolved:** `2026-10-07T11:23:17Z`
-- [ ] Probar y corregir la atribución tras la revisión: base por últimos valores, registros con error, avisos gap, failed, unpriced y rework, y empate en el mismo instante
+- [x] Probar y corregir la atribución tras la revisión: base por últimos valores, registros con error, avisos gap, failed, unpriced y rework, y empate en el mismo instante
   - **Target:** `src/usage-analysis.mjs, src/commands/analyze.mjs, test/usage-analysis.test.mjs, test/analyze.test.mjs`
   - **Verify:** `node --test test/usage-analysis.test.mjs test/analyze.test.mjs`
   - **Criteria:** CR3, CR5, CR10, CR12, CR13, CR14, CR15
+  - **Resolved:** `2026-10-07T12:15:10Z`
 - [x] Probar y reparar la carga de módulos compartidos del viewer
   - **Target:** `src/lifecycle.mjs, src/version-guard.mjs, src/viewer/server/router.mjs, test/view.test.mjs`
   - **Verify:** `node --test test/view.test.mjs test/lifecycle.test.mjs`
