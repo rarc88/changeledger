@@ -70,10 +70,11 @@ Interfaces externas: ninguna.
 
 ## Plan
 
-- [ ] Probar y cambiar el texto del aviso unmeasured en el módulo y la CLI
+- [x] Probar y cambiar el texto del aviso unmeasured en el módulo y la CLI
   - **Target:** `src/usage-analysis.mjs, test/usage-analysis.test.mjs, test/analyze.test.mjs`
   - **Verify:** `node --test test/usage-analysis.test.mjs test/analyze.test.mjs`
   - **Criteria:** CR1
+  - **Resolved:** `2026-10-07T16:21:51Z`
 - [ ] Probar y distinguir el mensaje vacío de la sección Usage
   - **Target:** `src/viewer/public/view-renderers.js, src/viewer/public/app.js, test/view.test.mjs`
   - **Verify:** `node --test test/view.test.mjs`
