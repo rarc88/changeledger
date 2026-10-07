@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-10-02T14:00:38Z
 depends_on: ["20261002-133728", "20261001-155216"]
+archived: true
 reviewed: true
 branch: feature/20261002-140038
 related_to: ["20261001-155612", "20260711-155721", "20261002-140242", "20261002-155917"]
@@ -336,3 +337,4 @@ en el viewer sin módulo común, que duplicaría la lógica.
 - **2026-10-07T13:20:14Z** `[graduation]` spec: `usage.md`
 - **2026-10-07T13:20:14Z** `[graduation]` spec: `viewer.md`
 - **2026-10-07T13:20:15Z** `[graduation]` spec: `architecture.md`
+- **2026-10-07T13:20:15Z** `[archive]` archived
