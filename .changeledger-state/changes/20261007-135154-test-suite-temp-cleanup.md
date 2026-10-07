@@ -63,10 +63,11 @@ Interfaces externas: ninguna.
 
 ## Plan
 
-- [ ] Probar el envoltorio de la suite con un temporal propio por ejecución
+- [x] Probar el envoltorio de la suite con un temporal propio por ejecución
   - **Target:** `scripts/run-tests.mjs, test/run-tests.test.mjs`
   - **Verify:** `node --test test/run-tests.test.mjs`
   - **Criteria:** CR1, CR2, CR3
+  - **Resolved:** `2026-10-07T15:18:17Z`
 - [ ] Ejecutar la suite a través del envoltorio
   - **Target:** `package.json, test/run-tests.test.mjs`
   - **Verify:** `pnpm test`
