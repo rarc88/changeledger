@@ -151,6 +151,21 @@ una sola columna bajo 1100 px; el SVG de throughput se estira al ancho de su
 panel. Sin changes visibles muestra un estado vacío explícito, sin `NaN`,
 `Infinity` ni divisiones por cero.
 
+Al final de **Metrics**, la sección **Usage** muestra el consumo de tokens y
+coste (ver `usage.md`): totales de tokens, coste y `unpriced tokens`, barras por
+tramo, por modelo y por versión, y la lista de avisos. `/api/repo` entrega los
+registros de consumo del proyecto sin su ruta absoluta, y el cliente importa
+`src/usage-analysis.mjs` por la misma ruta de módulos compartidos. El análisis
+recorre todos los registros del proyecto y sólo después se restringe a los
+changes que pasan los filtros, incluidos los de archivados y descartados, de
+modo que sus cifras son las de `changeledger analyze` para esos changes. Sin
+cifras que mostrar, la sección dice `No usage records for the current filters.`
+Si el módulo no carga o el análisis lanza, las métricas existentes se pintan
+igual y la sección dice `Usage analysis is unavailable.` El detalle de un change
+muestra sus tramos (tokens, coste, modelos y versión) con las mismas cifras que
+`changeledger analyze <id>`, o `No usage records for this change.` /
+`No usage data for this change.`; no se refresca con el sondeo.
+
 Changes y specs comparten preferencias globales de presentación del detalle.
 En escritorio se puede alternar sin cerrar entre panel lateral y modal flotante,
 y elegir `Compact` (720 px), `Wide` (960 px, default) o `Full` (1280 px), siempre
