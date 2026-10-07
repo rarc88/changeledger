@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-10-02T14:02:42Z
 depends_on: ["20261002-140038"]
+reviewed: true
 branch: feature/20261002-140242
 related_to: ["20261002-133728", "20260711-155721"]
 owner: rarc88
@@ -138,3 +139,4 @@ obliga a una petición por cada cambio de filtro y rompe el patrón de
 - **2026-10-07T13:40:13Z** `[note]` Mandato del review: la superficie que el change gobierna — dev..HEAD contra CR1-CR7 y el Plan, con la opción ids del módulo, el filtrado después del análisis y las decisiones no especificadas y residuos del Log como puntos de escrutinio. Fuera del mandato: el error previo del viewer global sin proyectos y la fuga de /tmp de la suite.
 - **2026-10-07T13:45:40Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-10-07T13:47:42Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-10-07T13:48:00Z** `[graduation]` spec: `viewer.md`
