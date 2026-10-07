@@ -123,7 +123,9 @@ umbrales: `rework`, `unpriced`, `anomaly`, `baseline`, `unmeasured`, `failed`
 (registros con `error`) y `gap` (transiciones del Log de cualquier change entre
 la base y el registro que cierra un tramo sin ningún registro en su `change` y
 `at`; lo que consumió el registrador del tramo mientras ocurrían cae en ese
-tramo). El contexto core nombra `analyze` como la consulta del consumo.
+tramo). El contexto core nombra `analyze` como la consulta del consumo. La
+opción `ids` del módulo restringe el resultado a un conjunto de changes después
+de atribuir sobre todos los registros; el viewer la usa para sus filtros.
 
 ## Fallos
 
