@@ -73,10 +73,11 @@ Interfaces externas: ninguna.
   - **Verify:** `pnpm test`
   - **Criteria:** CR1, CR4
   - **Resolved:** `2026-10-07T15:18:18Z`
-- [ ] Ejecutar el gate completo y comprobar el temporal del sistema
+- [x] Ejecutar el gate completo y comprobar el temporal del sistema
   - **Target:** `package.json, hooks/pre-commit`
   - **Verify:** verify: manual — contar las entradas del temporal del sistema antes y después de `pnpm verify` y de un commit con el hook
   - **Criteria:** CR4
+  - **Resolved:** `2026-10-07T15:19:20Z`
 
 ## Log
 - **2026-10-07T13:51:54Z** `[version]` 0.18.0-dev
