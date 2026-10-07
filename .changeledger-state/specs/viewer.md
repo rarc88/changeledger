@@ -162,7 +162,9 @@ registros de consumo del proyecto sin su ruta absoluta, y el cliente importa
 recorre todos los registros del proyecto y sólo después se restringe a los
 changes que pasan los filtros, incluidos los de archivados y descartados, de
 modo que sus cifras son las de `changeledger analyze` para esos changes. Sin
-cifras que mostrar, la sección dice `No usage records for the current filters.`
+cifras que mostrar, la sección dice `No usage data for the current filters.` si
+algún change filtrado tiene registros y `No usage records for the current
+filters.` si ninguno los tiene.
 Si el módulo no carga o el análisis lanza, las métricas existentes se pintan
 igual y la sección dice `Usage analysis is unavailable.` El detalle de un change
 muestra sus tramos (tokens, coste, modelos y versión) con las mismas cifras que
