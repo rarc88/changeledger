@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-10-02T13:37:28Z
 depends_on: ["20261001-155612"]
+archived: true
 reviewed: true
 branch: feature/20261002-133728
 related_to: ["20260808-142200", "20260808-151640", "20260809-113240", "20260809-113241", "20261002-132127"]
@@ -258,3 +259,4 @@ humano para dividirlo por layout.
 - **2026-10-07T11:07:46Z** `[graduation]` spec: `global-state-scope.md`
 - **2026-10-07T11:07:46Z** `[graduation]` spec: `architecture.md`
 - **2026-10-07T11:07:47Z** `[graduation]` spec: `data-model.md`
+- **2026-10-07T11:07:51Z** `[archive]` archived
