@@ -28,6 +28,13 @@ umbral configurable, la estimación de lo que habría costado el trabajo sin
 ChangeLedger y el desglose por rol de orquestador o subagente, que los registros
 no distinguen más allá del modelo.
 
+Tras la revisión (2026-10-07) el humano autoriza ampliar este change con tres
+piezas: un aviso cuando un tramo absorbe transiciones que no dejaron registro
+(hoy el tramo `approved` de este change se llevó unos 43,5 M tokens de cinco
+días de otro trabajo con el colector apagado); reparar el panel de métricas del
+viewer, que no carga desde `20261001-155216`; y decir a los agentes en el
+contrato que usen `changeledger analyze` en vez de leer los registros.
+
 ## Investigation
 
 Los registros (`schema: 1`, de `20261001-155612`, más `recorded_by` de
@@ -47,6 +54,18 @@ del propio CLI a través de `SHARED_MODULES` en `src/viewer/server/router.mjs`
 para recalcular sobre el conjunto filtrado. El CLI usa `commander`, cuyas
 opciones con valores cerrados rechazan uno desconocido con su propio error.
 
+Desde `20261001-155216`, `src/lifecycle.mjs` importa `isValidCliVersion` de
+`src/version-guard.mjs`, que importa `src/config.mjs` y con él `node:fs`.
+`SHARED_MODULES` sólo sirve `metrics.mjs` y `lifecycle.mjs`: con
+`changeledger view . 4077`, `/shared/metrics.mjs` y `/shared/lifecycle.mjs`
+responden 200 y `/shared/version-guard.mjs` 404, así que el navegador no puede
+cargar el grafo de `metrics.mjs` y el panel de métricas falla.
+
+El colector filtra las sesiones por los worktrees que existen en cada foto, así
+que una sesión puede faltar en un registro y volver en el siguiente. Un registro
+con `error` no trae sesiones. Un lote de `apply` con dos transiciones del mismo
+change deja dos registros con el mismo `at`.
+
 Interfaces externas: ninguna; el comando lee sólo el ledger.
 
 ## Proposal
@@ -57,8 +76,14 @@ Un módulo puro, `src/usage-analysis.mjs`, con la misma disciplina que
 
 **Atribución.** Por cada `recorded_by`, los registros se ordenan por `at`. El
 consumo de un registro es la diferencia, sesión a sesión y modelo a modelo,
-contra el registro anterior del mismo registrador, sea del change que sea; una
-sesión que no estaba en el anterior cuenta entera. Ese consumo se atribuye al
+contra los últimos valores que ese registrador vio de cada sesión, sea en el
+registro anterior o en uno más antiguo y del change que sea; una sesión que el
+registrador nunca vio cuenta entera. Así, una sesión que falta en una foto y
+vuelve después no se cuenta dos veces. Los registros con `error` no traen datos:
+no son base ni cierran tramo, y el consumo de su hueco cae en el siguiente
+registro con datos del mismo registrador. Dos registros del mismo registrador
+con el mismo `at` se ordenan por la cadena de sus transiciones (`created`
+primero; el `to` de uno es el `from` del siguiente). Ese consumo se atribuye al
 change del registro y al **tramo** que la transición cierra:
 
 - `event: "created"` cierra `pre-draft`: la conversación previa a crear el
@@ -76,8 +101,12 @@ generan un aviso. La versión de un tramo es la del último `[version]` del Log 
 su change en o antes del `at` del registro que lo cierra, o `unknown`.
 
 **Cifras.** Los tokens se suman por tipo, y su total es la suma de los cuatro.
-El coste suma sólo `cost_usd` no nulos; los tokens de modelos sin precio se
-suman aparte en `unpriced_tokens`, nunca como coste 0.
+El coste suma sólo diferencias de `cost_usd` comparables: las de un modelo con
+precio en los dos extremos cuyo coste no baja. Los tokens de un modelo sin
+precio, o cuyo precio aparece, desaparece o baja entre dos registros, se suman
+aparte en `unpriced_tokens`, nunca como coste 0. Un change cuyos registros
+tienen todos `error` no está medido: no tiene fila en la tabla y suma en
+`unmeasured`.
 
 **Salida.**
 
@@ -92,11 +121,30 @@ suman aparte en `unpriced_tokens`, nunca como coste 0.
 
 **Avisos.** Son hechos sin umbrales, cada uno en una línea:
 
-- `rework: <id> spent <pct>% of its tokens after a failed review or validation`
-- `unpriced: <modelo> has <n> tokens without a price`
+- `rework: <id> spent <pct>% of its tokens after a failed review or validation`,
+  siempre que el rework tenga tokens; un porcentaje que redondea a 0 se escribe
+  `<0.1`
+- `unpriced: <modelo> has <n> tokens without a comparable price`
 - `anomaly: session <sesión> decreased between <at1> and <at2>; counted as 0`
 - `baseline: first record of <registrador> at <at> is not attributed`
 - `unmeasured: <n> change(s) have no usage records`
+- `failed: <n> record(s) of <id> have no data`
+- `gap: <n> transition(s) between <at1> and <at2> have no usage record; their
+  consumption is in <id> <tramo>`, cuando entre el registro base de un
+  registrador y el que cierra el tramo hay transiciones del Log (`[status]`,
+  `[review]`, `[validation]` o la creación) de cualquier change sin ningún
+  registro en su mismo `change` y `at`
+
+**Viewer.** Los módulos que sirve `SHARED_MODULES` dejan de arrastrar IO: la
+validación de versiones que usa `src/lifecycle.mjs` pasa a un módulo puro
+servido también al navegador, de modo que cada import relativo de un módulo
+compartido es a su vez compartido y ninguno importa `node:*`. El panel de
+`changeledger analyze` en el viewer sigue siendo del change `20261002-140242`.
+
+**Contrato y documentación.** «Operational discovery» de
+`templates/contract/core.md` nombra `changeledger analyze` como la consulta del
+consumo, dentro de su presupuesto; `docs/usage-capture.md` y `README.md`
+describen el comando y la resta contra los últimos valores vistos.
 
 Alternativas descartadas: umbrales configurables, que serían opinión antes que
 dato; atribuir por ventanas de tiempo del Log, que es ambiguo cuando hay varios
@@ -121,6 +169,7 @@ en el viewer sin módulo común, que duplicaría la lógica.
 - **When** se ejecuta `changeledger analyze --json`
 - **Then** ese tramo se llama `rework` y no `in-progress`
 - **And** `hints` contiene `rework: <id> spent 30% of its tokens after a failed review or validation`
+- **And** con un tramo `rework` de 4 tokens sobre 100004, `hints` contiene `rework: <id> spent <0.1% of its tokens after a failed review or validation`
 
 ### CR4 — Cada registrador se resta contra sí mismo
 - **Given** registros de `ana` y de `luis` del mismo change, ambos con una sesión llamada `s1` y acumulados distintos
@@ -131,7 +180,8 @@ en el viewer sin módulo común, que duplicaría la lógica.
 - **Given** un tramo con un modelo de `cost_usd` 1.5 de diferencia y otro modelo con `cost_usd: null` y 400 tokens de diferencia
 - **When** se ejecuta `changeledger analyze <id> --json`
 - **Then** el tramo tiene `cost_usd` 1.5 y `unpriced_tokens` 400
-- **And** `hints` contiene `unpriced: <modelo> has 400 tokens without a price`
+- **And** `hints` contiene `unpriced: <modelo> has 400 tokens without a comparable price`
+- **And** un modelo cuyo `cost_usd` acumulado baja, o cuyo precio aparece o desaparece entre dos registros, lleva sus tokens del tramo a `unpriced_tokens` con el mismo aviso
 
 ### CR6 — Una sesión que decrece cuenta cero y se avisa
 - **Given** una sesión `s9` con 500 tokens en un registro y 450 en el siguiente del mismo registrador
@@ -158,12 +208,47 @@ en el viewer sin módulo común, que duplicaría la lógica.
 - **Given** el módulo `src/usage-analysis.mjs`
 - **When** se analiza dos veces la misma entrada, en distinto orden de registros
 - **Then** ambas salidas son idénticas
-- **And** el módulo no importa `node:fs`, `node:child_process`, `node:path` ni `node:os`, y se puede importar sin efectos
+- **And** el módulo no importa `node:fs`, `node:child_process`, `node:path` ni `node:os`, ni directa ni transitivamente, y se puede importar sin efectos
 
 ### CR11 — El primer uso real
-- **Given** este repo con registros reales en el ledger de al menos un change llevado de `created` a `in-review`
+- **Given** este repo con registros reales en el ledger de este change desde `approved → in-progress` hasta su entrada en `in-review`, y los del change de prueba `20261002-155917` desde `created` (el colector estuvo apagado cuando se creó este change)
 - **When** un agente ejecuta `changeledger analyze --json` y `changeledger analyze <id>`
 - **Then** obtiene los tramos de ese change con tokens, coste y versión sin leer ningún archivo de registro
+- **And** el tramo `approved` de este change lleva el aviso `gap` por las transiciones de otros changes que no dejaron registro mientras el colector estaba apagado
+
+### CR12 — Una sesión que falta en un registro se resta contra sus últimos valores
+- **Given** un registrador cuya sesión `s2` acumula 50 tokens en un registro, falta en el siguiente y acumula 80 en el tercero
+- **When** se ejecuta `changeledger analyze <id> --json`
+- **Then** el tramo que cierra el tercer registro recibe 30 tokens de `s2`, no 80
+
+### CR13 — Un registro sin datos se avisa y nunca cuenta como cero
+- **Given** un change `A` cuyo registro `created` tiene `error` y otro change `C` cuyos dos registros tienen `error`, entre registros con datos del mismo registrador
+- **When** se ejecuta `changeledger analyze --json`
+- **Then** el registro con `error` no es base ni cierra tramo, y su consumo cae en el siguiente registro con datos del registrador
+- **And** `hints` contiene `failed: 1 record(s) of A have no data` y `failed: 2 record(s) of C have no data`
+- **And** `C` no aparece en `changes` ni en la tabla, y cuenta en `unmeasured`
+
+### CR14 — Un tramo que absorbe transiciones sin registro se avisa
+- **Given** dos registros consecutivos de un registrador y, entre sus `at`, dos transiciones del Log de otro change sin registro
+- **When** se ejecuta `changeledger analyze --json`
+- **Then** `hints` contiene `gap: 2 transition(s) between <at1> and <at2> have no usage record; their consumption is in <id> <tramo>`
+- **And** sin transiciones intermedias sin registro no hay aviso `gap`
+
+### CR15 — Dos transiciones del mismo change en el mismo instante siguen su cadena
+- **Given** un change con registros `draft → approved` y `approved → in-progress` del mismo registrador y el mismo `at`, con nombres de archivo en cualquier orden de sufijo
+- **When** se ejecuta `changeledger analyze <id> --json`
+- **Then** el consumo entre el registro anterior y ese instante va al tramo `draft`, y el tramo `approved` recibe 0, sea cual sea el sufijo
+
+### CR16 — El viewer carga los módulos compartidos
+- **Given** el viewer en marcha con `changeledger view .`
+- **When** se pide `/shared/<módulo>` de cada módulo de `SHARED_MODULES` y de cada import relativo que contienen, recursivamente
+- **Then** todos responden 200 y ninguno importa `node:*`
+
+### CR17 — El contrato y la documentación nombran `analyze`
+- **Given** `changeledger context`, `docs/usage-capture.md` y `README.md`
+- **When** un agente busca cómo consultar el consumo
+- **Then** «Operational discovery» del contexto core nombra `changeledger analyze` como la consulta del consumo, y la documentación describe el comando sin remitir a un analizador futuro
+- **And** `changeledger context` sigue dentro de su presupuesto de `templates/contract/budgets.yml`
 
 ## Plan
 
@@ -191,6 +276,25 @@ en el viewer sin módulo común, que duplicaría la lógica.
   - **Verify:** `pnpm verify`
   - **Support:**
   - **Resolved:** `2026-10-07T11:23:17Z`
+- [ ] Probar y corregir la atribución tras la revisión: base por últimos valores, registros con error, avisos gap, failed, unpriced y rework, y empate en el mismo instante
+  - **Target:** `src/usage-analysis.mjs, src/commands/analyze.mjs, test/usage-analysis.test.mjs, test/analyze.test.mjs`
+  - **Verify:** `node --test test/usage-analysis.test.mjs test/analyze.test.mjs`
+  - **Criteria:** CR3, CR5, CR10, CR12, CR13, CR14, CR15
+- [ ] Probar y reparar la carga de módulos compartidos del viewer
+  - **Target:** `src/lifecycle.mjs, src/version-guard.mjs, src/viewer/server/router.mjs, test/view.test.mjs`
+  - **Verify:** `node --test test/view.test.mjs test/lifecycle.test.mjs`
+  - **Criteria:** CR10, CR16
+- [ ] Nombrar `analyze` en el contrato y la documentación
+  - **Target:** `templates/contract/core.md, docs/usage-capture.md, README.md`
+  - **Verify:** `pnpm test`
+  - **Criteria:** CR17
+- [ ] Recorrer de nuevo el primer uso real con los avisos nuevos
+  - **Target:** `src/commands/analyze.mjs`
+  - **Verify:** verify: manual — `changeledger analyze --json` y `changeledger analyze 20261002-140038` sobre registros reales
+  - **Criteria:** CR11
+- [ ] Ejecutar el gate completo tras la ampliación
+  - **Verify:** `pnpm verify`
+  - **Support:**
 
 ## Log
 - **2026-10-02T15:24:42Z** `[status]` draft → approved (human via conversation)
