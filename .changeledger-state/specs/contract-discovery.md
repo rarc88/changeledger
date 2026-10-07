@@ -53,7 +53,13 @@ no tiene otra sede: el contrato de campos del prompt, los disparadores por
 etapa, y la guía de no sobre-fragmentar. Las obligaciones de evidencia viven en
 `implement.md` (sección `## Evidence obligations`) para el
 implementador/corrector y en `review.md` para el revisor, servidas cada una al
-pack que las consume.
+pack que las consume. La obligación sobre prosa entregable cubre documentación,
+comentarios de código y de test y notas del Log; una corrección de un hallazgo
+sobre prosa acota la frase a lo ejecutado o la borra, y el informe del
+implementador o corrector lista las frases con cuantificador universal que
+añadió o reescribió con el comando que ejecutó su borde. El prompt de revisión
+lleva esa lista, junto a las decisiones no especificadas, como puntos de
+escrutinio.
 
 El status elige el pack, pero **el tipo puede retirar un fragmento** que su
 configuración vuelve inaplicable. `readiness` es hoy el único condicionado así:
