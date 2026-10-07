@@ -320,7 +320,11 @@ vacío antes de cualquier exec); los scripts `test` y `verify` lo fijan, así qu
 la suite es hermética por construcción — ningún test alcanza la red por esta
 vía aunque no inyecte resolver. Los scripts usan una asignación de entorno
 inline y el workspace de pnpm habilita `shellEmulator`, por lo que ese
-kill-switch se aplica también cuando pnpm ejecuta la suite en Windows. Un runner
+kill-switch se aplica también cuando pnpm ejecuta la suite en Windows. El
+script `test` lanza `node --test` a través de `scripts/run-tests.mjs`, que da a
+cada ejecución una raíz temporal propia (`TMPDIR`, `TEMP` y `TMP`) y la borra
+cuando la suite termina o falla y tras SIGINT, SIGTERM, SIGHUP o SIGQUIT; un
+SIGKILL del envoltorio la deja atrás. Un runner
 inyectado puentea el kill-switch, de
 modo que los tests de la propia resolución no cambian de comportamiento.
 
