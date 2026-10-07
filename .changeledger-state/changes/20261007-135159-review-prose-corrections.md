@@ -111,10 +111,11 @@ documentación.
   - **Verify:** `pnpm test`
   - **Criteria:** CR6
   - **Resolved:** `2026-10-07T16:37:32Z`
-- [ ] Recorrer el primer uso real en el siguiente hallazgo sobre prosa
+- [x] Recorrer el primer uso real en el siguiente hallazgo sobre prosa
   - **Target:** `templates/contract/implement.md`
   - **Verify:** verify: manual — informe del corrector, prompt de confirmación y `changeledger analyze <id>`
   - **Criteria:** CR5
+  - **Resolved:** `2026-10-07T17:16:50Z`
 - [x] Ejecutar el gate completo
   - **Verify:** `pnpm verify`
   - **Support:**
