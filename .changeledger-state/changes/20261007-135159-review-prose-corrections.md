@@ -2,7 +2,7 @@
 id: "20261007-135159"
 title: Cerrar en una ronda las correcciones de prosa
 type: feature
-status: in-progress
+status: in-review
 created: 2026-10-07T13:51:59Z
 depends_on: []
 branch: feature/20261007-135159
@@ -134,3 +134,4 @@ documentación.
 - **2026-10-07T17:14:54Z** `[review]` in-review → in-progress (retry): La nota del orquestador de 2026-10-07T16:35:01Z afirma que el orquestador pasaba la lista al revisor sin que ningún criterio lo cubriera, pero CR5 ya exigía que el prompt de confirmación la incluyera; y afirma que las guardas de concepto sobre fragmentos viven en test/context.test.mjs, cuando test/agent-prompt.test.mjs y test/agent-context.test.mjs también guardan fragmentos de templates/contract/. El entregable (implement.md, review.md, guardas y presupuestos) pasa.
 - **2026-10-07T17:15:32Z** `[note]` Corrección del orquestador a su nota de 2026-10-07T16:35:01Z (hallazgos 1 y 2 de la ronda 1), aplicando la regla nueva: se acota, no se sustituye. Primera frase, acotada: de CR1 a CR5, ninguno llevaba a un fragmento del contrato que el prompt de revisión carga la lista; CR5 la pedía sólo en el primer uso real. Segunda frase, acotada: las guardas de implement.md y review.md que este change amplía están en la tabla DELEGATION_OBLIGATIONS de test/context.test.mjs; test/contract.test.mjs no tiene esa tabla. Frases con cuantificador universal de esta corrección y su borde ejecutado: «ninguno» sobre CR1-CR5, contra git show 23ebb86^ del documento (CR1-CR3 en implement.md, CR4 presupuestos, CR5 primer uso real); «no tiene esa tabla», con grep DELEGATION_OBLIGATIONS sobre test/*.mjs (aparece en test/context.test.mjs y test/agent-prompt.test.mjs, no en test/contract.test.mjs).
 - **2026-10-07T17:15:32Z** `[note]` Mandato de la confirmación (ronda 2): sólo esta corrección del Log frente a los hallazgos 1 y 2 de la ronda 1, más cualquier regresión; no hay diff de código. Esta corrección recorre CR5: el informe del corrector (la nota anterior) lista sus frases cuantificadas con el borde ejecutado, y este prompt de confirmación las incluye como puntos de escrutinio.
+- **2026-10-07T17:15:33Z** `[status]` in-progress → in-review
