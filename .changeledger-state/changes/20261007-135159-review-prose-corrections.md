@@ -101,10 +101,11 @@ documentación.
   - **Verify:** `pnpm test`
   - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-10-07T16:35:09Z`
-- [ ] Redactar las obligaciones en el fragmento de implementación
+- [x] Redactar las obligaciones en el fragmento de implementación
   - **Target:** `templates/contract/implement.md`
   - **Verify:** `pnpm test`
   - **Criteria:** CR1, CR2, CR3, CR4
+  - **Resolved:** `2026-10-07T16:35:09Z`
 - [ ] Probar y redactar en el fragmento de revisión que el prompt lleva la lista de frases cuantificadas
   - **Target:** `templates/contract/review.md, test/context.test.mjs`
   - **Verify:** `pnpm test`
