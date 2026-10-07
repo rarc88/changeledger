@@ -4,7 +4,7 @@
 // policy on top (approval plus final acceptance); it never relaxes
 // this graph.
 
-import { isValidCliVersion } from './version-guard.mjs';
+import { isValidCliVersion } from './cli-version.mjs';
 
 export const CANONICAL_STATUSES = [
   'draft',
