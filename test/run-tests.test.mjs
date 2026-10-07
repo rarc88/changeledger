@@ -77,16 +77,22 @@ test('CR1: a passing run exits 0 and leaves nothing in the system temp', (t) => 
   assert.deepEqual(fs.readdirSync(sandbox), []);
 });
 
-test('CR1: arguments reach node --test', (t) => {
-  const { sandbox, env } = setup(t);
-  // The pattern selects only the passing case, so exit 0 proves the failing
-  // file was run with the filter and the filter was forwarded.
+test('CR1: a leading option and two files reach node --test', (t) => {
+  const { sandbox, report, env } = setup(t);
+  const empty = path.join(path.dirname(sandbox), 'empty');
+  fs.mkdirSync(empty);
+  // Run from a directory with no tests, so default discovery finds nothing and
+  // only files that arrive as arguments can run. With the option forwarded the
+  // failing file's case is filtered out and the run exits 0; without it that
+  // case runs and the run fails. The report file exists only if the last file
+  // arrived. Not covered: dropping the middle file alone.
   const run = spawnSync(
     process.execPath,
-    [wrapper, '--test-name-pattern=pass-case', fixture('pass'), fixture('fail')],
-    { env, cwd: repo, encoding: 'utf8' },
+    [wrapper, '--test-name-pattern=pass-case', fixture('fail'), fixture('pass')],
+    { env, cwd: empty, encoding: 'utf8' },
   );
   assert.equal(run.status, 0, run.stdout + run.stderr);
+  assert.ok(fs.existsSync(report), 'the last file argument did not run');
   assert.deepEqual(fs.readdirSync(sandbox), []);
 });
 
@@ -113,6 +119,8 @@ test('CR2: a failing run keeps the exit code of node --test and cleans up', (t) 
 for (const [signal, code] of [
   ['SIGINT', 130],
   ['SIGTERM', 143],
+  ['SIGHUP', 129],
+  ['SIGQUIT', 131],
 ]) {
   test(`CR3: ${signal} ends the run with ${code} and cleans up`, async (t) => {
     const { sandbox, report, env } = setup(t);
@@ -135,10 +143,14 @@ for (const [signal, code] of [
       }
     });
     child.kill(signal);
+    let timer;
     const outcome = await Promise.race([
       closed,
-      new Promise((resolve) => setTimeout(resolve, 15_000, 'timeout')),
+      new Promise((resolve) => {
+        timer = setTimeout(resolve, 15_000, 'timeout');
+      }),
     ]);
+    clearTimeout(timer);
     assert.deepEqual(outcome, { status: code, sig: null });
     assert.deepEqual(fs.readdirSync(sandbox), []);
     await waitFor(() => !alive(pid), 'the test process to end');
