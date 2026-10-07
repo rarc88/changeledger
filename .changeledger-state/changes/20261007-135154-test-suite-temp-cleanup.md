@@ -2,7 +2,7 @@
 id: "20261007-135154"
 title: La suite de tests no deja directorios en el temporal del sistema
 type: bug
-status: in-progress
+status: in-review
 created: 2026-10-07T13:51:54Z
 depends_on: []
 branch: bug/20261007-135154
@@ -92,3 +92,4 @@ Interfaces externas: ninguna.
 - **2026-10-07T15:44:49Z** `[status]` in-progress → in-review
 - **2026-10-07T15:55:15Z** `[review]` in-review → in-progress (retry): Ronda 2: D2 y el código de D1 cerrados, sin regresiones; queda abierta la cabecera reescrita de scripts/run-tests.mjs, que afirma que la raíz se borra tras SIGINT, SIGTERM, SIGHUP o SIGQUIT y presenta como completa su lista de casos no cubiertos, pero una señal recibida tras mkdtempSync y antes de instalar los manejadores (unos 20 ms tras el arranque) deja changeledger-test-* (ejecutado con SIGINT, SIGTERM y SIGHUP al grupo).
 - **2026-10-07T15:59:56Z** `[note]` Corrección del orquestador tras la ronda 2, con la tercera ronda autorizada por el humano (cerrar la ventana y que confirme el mismo revisor): scripts/run-tests.mjs instala los manejadores de SIGINT, SIGTERM, SIGHUP y SIGQUIT antes de crear la raíz; como mkdtempSync y spawn son síncronos, el manejador corre cuando el hijo ya existe. La cabecera dice eso y que una señal anterior a los manejadores termina el proceso antes de que exista raíz. Barrido del orquestador con el fixture hang: retrasos de 0 a 60 ms, SIGINT, SIGTERM y SIGHUP, al proceso y al grupo: ninguna raíz queda en ningún caso. pnpm verify en verde con 1766/1766 y 0 entradas nuevas en /tmp. Mandato de la ronda 3: sólo esa ventana y la cabecera, frente al diff ya confirmado en la ronda 2.
+- **2026-10-07T15:59:56Z** `[status]` in-progress → in-review
