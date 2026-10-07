@@ -257,3 +257,4 @@ humano para dividirlo por layout.
 - **2026-10-07T11:07:46Z** `[graduation]` spec: `usage.md`
 - **2026-10-07T11:07:46Z** `[graduation]` spec: `global-state-scope.md`
 - **2026-10-07T11:07:46Z** `[graduation]` spec: `architecture.md`
+- **2026-10-07T11:07:47Z** `[graduation]` spec: `data-model.md`
