@@ -106,10 +106,11 @@ documentación.
   - **Verify:** `pnpm test`
   - **Criteria:** CR1, CR2, CR3, CR4
   - **Resolved:** `2026-10-07T16:35:09Z`
-- [ ] Probar y redactar en el fragmento de revisión que el prompt lleva la lista de frases cuantificadas
+- [x] Probar y redactar en el fragmento de revisión que el prompt lleva la lista de frases cuantificadas
   - **Target:** `templates/contract/review.md, test/context.test.mjs`
   - **Verify:** `pnpm test`
   - **Criteria:** CR6
+  - **Resolved:** `2026-10-07T16:37:32Z`
 - [ ] Recorrer el primer uso real en el siguiente hallazgo sobre prosa
   - **Target:** `templates/contract/implement.md`
   - **Verify:** verify: manual — informe del corrector, prompt de confirmación y `changeledger analyze <id>`
