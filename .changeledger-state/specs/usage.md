@@ -118,7 +118,8 @@ que el panel del viewer lo reutilice.
   antes del registro que lo cierra, o `unknown`.
 
 Un change sin ningún tramo atribuido no está medido: no tiene fila, suma en
-`unmeasured` y, con `<id>`, sus cifras son `null`. Los avisos son hechos sin
+`unmeasured` (`unmeasured: <n> change(s) have no attributed usage`, que cuenta
+también los changes sin ningún registro) y, con `<id>`, sus cifras son `null`. Los avisos son hechos sin
 umbrales: `rework`, `unpriced`, `anomaly`, `baseline`, `unmeasured`, `failed`
 (registros con `error`) y `gap` (transiciones del Log de cualquier change entre
 la base y el registro que cierra un tramo sin ningún registro en su `change` y
