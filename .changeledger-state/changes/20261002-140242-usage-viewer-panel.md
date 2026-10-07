@@ -2,7 +2,7 @@
 id: "20261002-140242"
 title: Mostrar el análisis de consumo en el viewer
 type: feature
-status: in-review
+status: in-validation
 created: 2026-10-02T14:02:42Z
 depends_on: ["20261002-140038"]
 branch: feature/20261002-140242
@@ -136,3 +136,4 @@ obliga a una petición por cada cambio de filtro y rompe el patrón de
 - **2026-10-07T13:40:00Z** `[note]` CR7 recorrido por el orquestador en el navegador del preview (changeledger view con este repo registrado): con Archived y Discarded activados, la sección Usage muestra 92253435 tokens y $31.52, las barras por tramo, modelo y versión y los cuatro avisos, idénticos a changeledger analyze --by segment y --by model; el detalle de 20261002-140242 muestra approved 1331339 tokens $0.42 claude-opus-5-5 0.18.0-dev, igual que changeledger analyze 20261002-140242; sin errores de consola del módulo. Con los filtros por defecto la sección sólo cuenta los changes visibles. La comprobación visual final queda para el humano en la validación.
 - **2026-10-07T13:40:00Z** `[status]` in-progress → in-review
 - **2026-10-07T13:40:13Z** `[note]` Mandato del review: la superficie que el change gobierna — dev..HEAD contra CR1-CR7 y el Plan, con la opción ids del módulo, el filtrado después del análisis y las decisiones no especificadas y residuos del Log como puntos de escrutinio. Fuera del mandato: el error previo del viewer global sin proyectos y la fuga de /tmp de la suite.
+- **2026-10-07T13:45:40Z** `[review]` in-review → in-validation (delegated subagent, clean context)
