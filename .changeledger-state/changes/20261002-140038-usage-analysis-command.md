@@ -296,9 +296,10 @@ en el viewer sin módulo común, que duplicaría la lógica.
   - **Verify:** verify: manual — `changeledger analyze --json` y `changeledger analyze 20261002-140038` sobre registros reales
   - **Criteria:** CR11
   - **Resolved:** `2026-10-07T12:15:11Z`
-- [ ] Ejecutar el gate completo tras la ampliación
+- [x] Ejecutar el gate completo tras la ampliación
   - **Verify:** `pnpm verify`
   - **Support:**
+  - **Resolved:** `2026-10-07T12:16:19Z`
 
 ## Log
 - **2026-10-02T15:24:42Z** `[status]` draft → approved (human via conversation)
