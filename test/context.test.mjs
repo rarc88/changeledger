@@ -1705,6 +1705,17 @@ const DELEGATION_OBLIGATIONS = [
       /\bdefect\b[^.;]{0,90}\b(not|never)\b[^.;]{0,40}\bstyle\b|\bstyle\b[^.;]{0,40}\bdefect\b/i,
     ],
   ],
+  // 20261007-135159 CR6 — the implement pack's report lists the quantified sentences
+  // it wrote; the review prompt carries that list to the reviewer to scrutinize.
+  [
+    "the review prompt carries the implementer's or corrector's list of universally quantified sentences as scrutiny points (20261007-135159 CR6)",
+    'review.md',
+    'review',
+    [
+      /\b(implement\w*|correct\w*)\b[^.;]{0,120}\b(universal\w*|quantif\w+)|\b(universal\w*|quantif\w+)\b[^.;]{0,120}\b(implement\w*|correct\w*)\b/i,
+      /\b(universal\w*|quantif\w+)\b[^.;]{0,120}\b(scrutin\w*|examin\w*|challeng\w*)|\b(scrutin\w*|examin\w*|challeng\w*)[^.;]{0,120}\b(universal\w*|quantif\w+)/i,
+    ],
+  ],
   // 20260730-214503 CR2 — the first guard of the new regime `DELEGATION_OBLIGATIONS`
   // and `CLASSIFICATION_OBLIGATIONS` adopt above (`DRAFTING_OBLIGATIONS` directly
   // above still asserts the composed spec capture and is untouched): fragment-only
