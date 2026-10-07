@@ -96,10 +96,11 @@ documentación.
 
 ## Plan
 
-- [ ] Escribir guardas de concepto, tolerantes a la redacción, para las tres obligaciones
+- [x] Escribir guardas de concepto, tolerantes a la redacción, para las tres obligaciones
   - **Target:** `test/context.test.mjs`
   - **Verify:** `pnpm test`
   - **Criteria:** CR1, CR2, CR3
+  - **Resolved:** `2026-10-07T16:35:09Z`
 - [ ] Redactar las obligaciones en el fragmento de implementación
   - **Target:** `templates/contract/implement.md`
   - **Verify:** `pnpm test`
