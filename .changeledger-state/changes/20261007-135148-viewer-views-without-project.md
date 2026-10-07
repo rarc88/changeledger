@@ -59,10 +59,11 @@ Interfaces externas: ninguna.
 
 ## Plan
 
-- [ ] Escribir pruebas fallidas de las vistas con `state.repo` nulo
+- [x] Escribir pruebas fallidas de las vistas con `state.repo` nulo
   - **Target:** `test/viewer-metadata.test.mjs`
   - **Verify:** `node --test test/viewer-metadata.test.mjs`
   - **Criteria:** CR1, CR2
+  - **Resolved:** `2026-10-07T16:13:16Z`
 - [ ] Mostrar el estado vacío en `render` cuando no hay proyecto cargado
   - **Target:** `src/viewer/public/app.js`
   - **Verify:** `node --test test/viewer-metadata.test.mjs test/view.test.mjs`
