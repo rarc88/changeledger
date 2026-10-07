@@ -2,7 +2,7 @@
 id: "20261002-140038"
 title: Analizar el consumo de los changes con changeledger analyze
 type: feature
-status: in-review
+status: blocked
 created: 2026-10-02T14:00:38Z
 depends_on: ["20261002-133728", "20261001-155216"]
 branch: feature/20261002-140038
@@ -202,3 +202,4 @@ en el viewer sin módulo común, que duplicaría la lógica.
 - **2026-10-07T11:23:33Z** `[status]` in-progress → in-review
 - **2026-10-07T11:23:45Z** `[note]` CR11 tras la transición a in-review: analyze 20261002-140038 lista el tramo in-progress con 9479096 tokens, $3.65, claude-opus-5-5 y 0.18.0-dev, cerrado en 2026-10-07T11:23:33Z.
 - **2026-10-07T11:24:05Z** `[note]` Mandato del review: la superficie que el change gobierna — el rango dev..HEAD (a46f5eb) contra CR1-CR11 y el Plan, con las decisiones no especificadas del Log como puntos de escrutinio. Fuera del mandato: la pureza transitiva de lifecycle.mjs para el viewer (anterior, de 20261001-155216) y la fuga de /tmp de la suite.
+- **2026-10-07T11:31:05Z** `[review]` in-review → blocked: F1: el código resta cada sesión contra sus últimos valores vistos y no contra el registro anterior del registrador, como dice la Proposal (una sesión que desaparece y vuelve con 50→80 cuenta 30, la Proposal manda 80); F2: los registros con error se saltan sin aviso, su consumo cae en el tramo siguiente y un change con sólo errores aparece medido con 0 tokens y $0.00, y la lista de avisos de la Proposal es cerrada. Ambos requieren decisión humana. Corregibles después en el alcance: F3 dos transiciones del mismo change en el mismo instante se desempatan por el sufijo aleatorio; F4 el aviso unpriced es falso cuando un modelo con precio se reprecia o pierde su precio; F5 el redondeo de rework_pct oculta el aviso rework; F6 docs/usage-capture.md aún remite a un analizador futuro y describe mal la resta.
