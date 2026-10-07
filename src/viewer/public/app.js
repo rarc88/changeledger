@@ -1315,15 +1315,23 @@ const usageInput = (repo) => ({
   usage: repo?.usage ?? [],
 });
 
-// The Usage section's analyses, one per grouping. The whole project is
+// The Usage section's analyses, one per grouping, plus `recorded`: whether any
+// of `changes` has a usage record, which tells an empty section apart as
+// records without attributed usage or no records. The whole project is
 // analysed and the result restricted to `changes` (the visible ones), so each
-// record is attributed as `changeledger analyze` attributes it.
+// record is attributed as `changeledger analyze` attributes it. A measured
+// change has records, so the per-change lookup of `records` (the count
+// `changeledger analyze <id>` reports) runs only when none is measured.
 export function usageSectionAnalyses(analyzeUsage, repo, changes) {
   const input = usageInput(repo);
   const ids = changes.map((c) => String(c.id));
-  return Object.fromEntries(
+  const analyses = Object.fromEntries(
     ['segment', 'model', 'version'].map((by) => [by, analyzeUsage(input, { ids, by })]),
   );
+  const recorded =
+    analyses.segment.changes.length > 0 ||
+    ids.some((id) => analyzeUsage(input, { id }).changes[0]?.records > 0);
+  return { ...analyses, recorded };
 }
 
 // One change's analysis, as `changeledger analyze <id>` computes it.

@@ -557,7 +557,7 @@ test('CR13: records with error are reported as failed; only-error and baseline-o
   for (const hint of [
     `failed: 1 record(s) of ${A} have no data`,
     `failed: 2 record(s) of ${C} have no data`,
-    'unmeasured: 2 change(s) have no usage records',
+    'unmeasured: 2 change(s) have no attributed usage',
     `baseline: first record of ana at ${at(1)} is not attributed`,
   ]) {
     assert.ok(result.hints.includes(hint), result.hints.join('\n'));
@@ -764,7 +764,7 @@ test('without an id only measured changes are listed and the rest are reported a
     [A],
   );
   assert.deepEqual(result.groups, []);
-  assert.ok(result.hints.includes('unmeasured: 2 change(s) have no usage records'));
+  assert.ok(result.hints.includes('unmeasured: 2 change(s) have no attributed usage'));
 });
 
 test('an unknown group key is refused', () => {
@@ -1138,7 +1138,7 @@ test('140242: ids drops unlisted and unmeasured changes and counts only listed o
   const quiet = analyzeUsage(input, { ids: [QUIET], by: 'segment' });
   assert.deepEqual(quiet.changes, []);
   assert.deepEqual(quiet.groups, []);
-  assert.deepEqual(quiet.hints, ['unmeasured: 1 change(s) have no usage records']);
+  assert.deepEqual(quiet.hints, ['unmeasured: 1 change(s) have no attributed usage']);
   const feature = analyzeUsage(input, { ids: new Set([FEATURE]), by: 'model' });
   assert.deepEqual(
     feature.changes.map((c) => c.id),

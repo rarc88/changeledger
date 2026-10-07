@@ -192,8 +192,9 @@ segments of every listed change grouped by that key. `--json` prints
 
 A change whose records all have `error`, or whose only record with data is its
 recorder's baseline, is not measured: it has no row and counts in the
-`unmeasured` hint. With `<id>`, its figures are `null` in JSON and the text view
-prints `no usage data` (`no usage records` if it has no well-formed record)
+`unmeasured` hint, `unmeasured: <n> change(s) have no attributed usage`, which
+also counts the changes without any record. With `<id>`, its figures are `null`
+in JSON and the text view prints `no usage data` (`no usage records` if it has no well-formed record)
 instead of a total. An empty listing or grouping prints `no usage records` when
 the ledger holds no usage record, readable or not, and `no usage data`
 otherwise.
