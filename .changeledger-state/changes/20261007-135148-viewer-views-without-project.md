@@ -69,10 +69,11 @@ Interfaces externas: ninguna.
   - **Verify:** `node --test test/viewer-metadata.test.mjs test/view.test.mjs`
   - **Criteria:** CR1, CR2
   - **Resolved:** `2026-10-07T16:13:16Z`
-- [ ] Recorrer el viewer real sin proyectos
+- [x] Recorrer el viewer real sin proyectos
   - **Target:** `src/viewer/public/app.js`
   - **Verify:** verify: manual — `changeledger view` con un registro vacío y cada vista en el navegador
   - **Criteria:** CR3
+  - **Resolved:** `2026-10-07T16:13:16Z`
 - [ ] Ejecutar el gate completo
   - **Verify:** `pnpm verify`
   - **Support:**
