@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-10-01T15:56:12Z
 depends_on: []
+archived: true
 reviewed: true
 branch: feature/20261001-155612
 related_to: ["20261001-155216", "20260711-155721", "20260808-151640"]
@@ -322,3 +323,5 @@ sin filtrar por proyecto (mezcla otros repos activos); guardar en el documento
 - **2026-10-02T14:06:42Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-10-02T15:24:42Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-10-02T15:25:51Z** `[graduation]` spec: `usage.md`
+- **2026-10-07T17:19:53Z** `[version]` 0.18.0-dev
+- **2026-10-07T17:19:53Z** `[archive]` archived
