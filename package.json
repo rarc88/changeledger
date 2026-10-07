@@ -32,7 +32,7 @@
   "scripts": {
     "lint": "biome check",
     "format": "biome check --write",
-    "test": "CHANGELEDGER_NO_GH=1 node --test",
+    "test": "CHANGELEDGER_NO_GH=1 node scripts/run-tests.mjs",
     "test:coverage": "node --test --experimental-test-coverage",
     "audit:deps": "pnpm audit --audit-level moderate",
     "check": "node bin/changeledger.mjs check",
