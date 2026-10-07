@@ -174,3 +174,109 @@ test('CR9: a ledger without usage records is not an error', (t) => {
   assert.match(out, /^no usage records$/m);
   assert.match(out, /^unmeasured: 3 change\(s\) have no usage records$/m);
 });
+
+test('CR3: rework that rounds to 0% shows as <0.1% in the table, the change view and the hint', (t) => {
+  const analyze = ledger(t, {
+    changes: {
+      [C]: { title: 'Gamma', log: [logLine(at(3), 'review', 'in-review → in-progress')] },
+    },
+    records: [
+      usageRecord({ change: C, at: at(1), event: 'created', to: 'draft', sessions: [s1(0)] }),
+      usageRecord({ change: C, at: at(2), from: 'draft', to: 'in-review', sessions: [s1(100000)] }),
+      usageRecord({
+        change: C,
+        at: at(3),
+        event: 'review',
+        from: 'in-review',
+        to: 'in-progress',
+        sessions: [s1(100000)],
+      }),
+      usageRecord({
+        change: C,
+        at: at(4),
+        from: 'in-progress',
+        to: 'in-review',
+        sessions: [s1(100004)],
+      }),
+    ],
+  });
+  const table = analyze();
+  assert.equal(table.code, 0, table.err);
+  assert.match(table.out, new RegExp(`^${C}\\s+100004\\s+\\S+\\s+<0\\.1%\\s+Gamma$`, 'm'));
+  assert.match(
+    table.out,
+    new RegExp(
+      `^rework: ${C} spent <0\\.1% of its tokens after a failed review or validation$`,
+      'm',
+    ),
+  );
+  const view = analyze(C);
+  assert.equal(view.code, 0, view.err);
+  assert.match(view.out, /^total: 100004 tokens, .*, rework <0\.1%$/m);
+});
+
+test('CR13/CR14 through the CLI: a change with only failed records has no row; failed and gap hints are printed', (t) => {
+  const analyze = ledger(t, {
+    changes: {
+      [A]: { title: 'Alpha' },
+      [B]: { title: 'Beta', log: [logLine(at(3), 'status', 'draft → approved')] },
+      [C]: { title: 'Gamma' },
+    },
+    records: [
+      usageRecord({ change: A, at: at(1), event: 'created', to: 'draft', sessions: [s1(100)] }),
+      usageRecord({ change: C, at: at(2), event: 'created', to: 'draft', error: 'boom' }),
+      usageRecord({ change: A, at: at(4), from: 'draft', to: 'approved', sessions: [s1(400)] }),
+    ],
+  });
+  const { code, out, err } = analyze();
+  assert.equal(code, 0, err);
+  assert.match(out, new RegExp(`^${A}\\s+300\\s`, 'm'));
+  assert.doesNotMatch(out, new RegExp(`^${C}`, 'm'));
+  assert.match(out, new RegExp(`^failed: 1 record\\(s\\) of ${C} have no data$`, 'm'));
+  assert.match(out, /^unmeasured: 2 change\(s\) have no usage records$/m);
+  assert.match(
+    out,
+    new RegExp(
+      `^gap: 1 transition\\(s\\) between ${at(1)} and ${at(4)} have no usage record; their consumption is in ${A} draft$`,
+      'm',
+    ),
+  );
+});
+
+test('CR13 through the CLI: analyze <id> without usage data prints no zero total', (t) => {
+  const analyze = ledger(t, {
+    changes: { [A]: { title: 'Alpha' }, [B]: { title: 'Beta' }, [C]: { title: 'Gamma' } },
+    records: [
+      usageRecord({ change: A, at: at(1), event: 'created', to: 'draft', sessions: [s1(100)] }),
+      usageRecord({ change: C, at: at(2), event: 'created', to: 'draft', error: 'boom' }),
+    ],
+  });
+  const failedOnly = analyze(C);
+  assert.equal(failedOnly.code, 0, failedOnly.err);
+  assert.deepEqual(failedOnly.out.split('\n'), [
+    `#${C} Gamma`,
+    'no usage data',
+    '',
+    `failed: 1 record(s) of ${C} have no data`,
+    '',
+  ]);
+  const unrecorded = analyze(B);
+  assert.equal(unrecorded.code, 0, unrecorded.err);
+  assert.deepEqual(unrecorded.out.split('\n'), [`#${B} Beta`, 'no usage records', '']);
+  for (const [id, records] of [
+    [C, 1],
+    [B, 0],
+  ]) {
+    const [change] = JSON.parse(analyze(id, '--json').out).changes;
+    assert.deepEqual(
+      [
+        change.records,
+        change.total_tokens,
+        change.cost_usd,
+        change.unpriced_tokens,
+        change.rework_pct,
+      ],
+      [records, null, null, null, null],
+    );
+  }
+});

@@ -4,17 +4,25 @@
 //
 // Records are cumulative snapshots. Each recorder (`recorded_by`) is ordered
 // on its own and every record is diffed, session by session and model by
-// model, against what that recorder saw before, whichever change it named.
-// The difference belongs to the record's change and to the segment its
-// transition closes.
+// model, against the last values that recorder saw of each session, whichever
+// change it named. The difference belongs to the record's change and to the
+// segment its transition closes.
 
-import { parseLogEvent } from './lifecycle.mjs';
+import { isIsoUtc, parseLogEvent } from './lifecycle.mjs';
 
 export const USAGE_ANALYSIS_SCHEMA = 1;
 export const USAGE_GROUP_KEYS = ['segment', 'model', 'version', 'type', 'recorder'];
 
 const TOKEN_FIELDS = ['input_tokens', 'output_tokens', 'cache_read_tokens', 'cache_write_tokens'];
 const UNKNOWN = 'unknown';
+const UNMEASURED_FIGURES = Object.freeze(
+  Object.fromEntries(
+    [...TOKEN_FIELDS, 'total_tokens', 'cost_usd', 'unpriced_tokens', 'rework_pct'].map((f) => [
+      f,
+      null,
+    ]),
+  ),
+);
 
 const isMapping = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const count = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
@@ -26,6 +34,29 @@ function logEvents(change) {
   return body.split('\n').map(parseLogEvent).filter(Boolean);
 }
 
+// Whether `a` goes before `b` when both are records of one change at one
+// instant: a creation goes first, then each transition before the one that
+// leaves the state it entered.
+const precedes = (a, b) =>
+  b.event !== 'created' && (a.event === 'created' || (a.to != null && a.to === b.from));
+
+// Orders records of one change sharing an instant along their transition
+// chain. `group` arrives sorted by content; among records the chain does not
+// order (or a cycle), the content order decides.
+function chainOrder(group) {
+  const remaining = [...group];
+  const ordered = [];
+  while (remaining.length) {
+    const ready = remaining.filter(
+      (r) => !remaining.some((o) => o !== r && precedes(o.record, r.record)),
+    );
+    const next = (ready.length ? ready : remaining)[0];
+    ordered.push(next);
+    remaining.splice(remaining.indexOf(next), 1);
+  }
+  return ordered;
+}
+
 // Valid `schema: 1` records only: an unreadable or malformed one is
 // `check`'s to report and carries nothing to attribute.
 function validRecords(usage) {
@@ -34,17 +65,30 @@ function validRecords(usage) {
     const record = entry?.record;
     if (entry?.error || !isMapping(record) || record.schema !== 1) continue;
     if (record.change == null || typeof record.at !== 'string') continue;
-    records.push({ name: String(entry.name ?? ''), record });
+    records.push({ record, text: JSON.stringify(record) });
   }
-  // A total order over the records, so their input order does not change the
-  // result.
-  return records.sort(
+  // A total order that depends on neither the input order nor the file
+  // names: instant, change id, transition chain, then content.
+  records.sort(
     (a, b) =>
       compare(a.record.at, b.record.at) ||
       compare(String(a.record.change), String(b.record.change)) ||
-      compare(a.name, b.name) ||
-      compare(JSON.stringify(a.record), JSON.stringify(b.record)),
+      compare(a.text, b.text),
   );
+  const ordered = [];
+  for (let i = 0; i < records.length; ) {
+    let j = i + 1;
+    while (
+      j < records.length &&
+      records[j].record.at === records[i].record.at &&
+      String(records[j].record.change) === String(records[i].record.change)
+    ) {
+      j++;
+    }
+    ordered.push(...(j - i > 1 ? chainOrder(records.slice(i, j)) : [records[i]]));
+    i = j;
+  }
+  return ordered.map((entry, seq) => ({ ...entry, seq }));
 }
 
 const sessionKey = (s) => `${s?.source ?? ''}\u0000${s?.session_id ?? ''}`;
@@ -63,15 +107,17 @@ function modelPiece(model, prev) {
 }
 
 // Walks one recorder's records in order and returns what each one adds:
-// `[{ record, pieces }]` for attributable records, plus baseline and anomaly
-// facts. `seen` keeps every session's last values, so a session missing from
-// one record is not counted again in full when it comes back.
+// `[{ record, base, pieces }]` for attributable records (`base`: the `at` of
+// the recorder's previous record with data), plus baseline and anomaly facts.
+// `seen` keeps every session's last values, so a session missing from one
+// record is not counted again in full when it comes back.
 function attributeRecorder(recorder, records) {
   const seen = new Map();
   const contributions = [];
   const anomalies = [];
   let baseline = null;
-  for (const { record } of records) {
+  let base = null;
+  for (const { record, seq } of records) {
     // The collector writes a failed snapshot (`error` set) with no sessions:
     // skipping it keeps the last real values as baseline, and its
     // consumption reaches the recorder's next record.
@@ -105,7 +151,8 @@ function attributeRecorder(recorder, records) {
       seen.set(key, state);
     }
     if (!baseline) baseline = { recorder, record };
-    else contributions.push({ recorder, record, pieces });
+    else contributions.push({ recorder, record, seq, base, pieces });
+    base = record.at;
   }
   return { baseline, contributions, anomalies };
 }
@@ -171,6 +218,35 @@ function reworkSince(events) {
   return failures[0] ?? null;
 }
 
+// Log transitions (`[status]`, `[review]`, `[validation]` and the creation
+// stamped in `created`) that left no usage record with their change and
+// instant, sorted by instant.
+function unrecordedTransitions(docs, records) {
+  const recorded = new Set(records.map((r) => `${r.record.change}\u0000${r.record.at}`));
+  const instants = [];
+  for (const [id, doc] of docs) {
+    const created = doc?.frontmatter?.created;
+    const ats = [
+      ...(isIsoUtc(created) ? [String(created)] : []),
+      ...logEvents(doc)
+        .filter((e) => ['status', 'review', 'validation'].includes(e.type))
+        .map((e) => e.at),
+    ];
+    for (const at of ats) if (!recorded.has(`${id}\u0000${at}`)) instants.push(at);
+  }
+  return instants.sort(compare);
+}
+
+// How many of the sorted `instants` fall strictly between `from` and `to`.
+function countBetween(instants, from, to) {
+  let n = 0;
+  for (const at of instants) {
+    if (at >= to) break;
+    if (at > from) n++;
+  }
+  return n;
+}
+
 function segmentName(record, failedAt) {
   if (record.event === 'created') return 'pre-draft';
   const from = record.from ?? UNKNOWN;
@@ -178,8 +254,8 @@ function segmentName(record, failedAt) {
   return from;
 }
 
-function buildSegment(contribution, events, failedAt) {
-  const { record, recorder, pieces } = contribution;
+function buildSegment(contribution, events, failedAt, unrecorded) {
+  const { record, recorder, pieces, base } = contribution;
   const totals = emptyTotals();
   const byModel = new Map();
   for (const piece of pieces.filter(hasGrowth)) {
@@ -203,6 +279,8 @@ function buildSegment(contribution, events, failedAt) {
     })),
     _totals: totals,
     _models: byModel,
+    _base: base,
+    _gap: countBetween(unrecorded, base, record.at),
   };
 }
 
@@ -252,13 +330,20 @@ export function analyzeUsage({ changes = [], usage = [] } = {}, { id, by } = {})
   const records = validRecords(usage);
   const recorders = new Map();
   const recordCounts = new Map();
+  // Changes with at least one record carrying data are measured; records
+  // with `error` carry none.
+  const measured = new Set();
+  const failedCounts = new Map();
   for (const entry of records) {
     const recorder = String(entry.record.recorded_by ?? UNKNOWN);
     if (!recorders.has(recorder)) recorders.set(recorder, []);
     recorders.get(recorder).push(entry);
     const change = String(entry.record.change);
     recordCounts.set(change, (recordCounts.get(change) ?? 0) + 1);
+    if (entry.record.error) failedCounts.set(change, (failedCounts.get(change) ?? 0) + 1);
+    else measured.add(change);
   }
+  const unrecorded = unrecordedTransitions(docs, records);
 
   const baselines = [];
   const anomalies = [];
@@ -272,11 +357,7 @@ export function analyzeUsage({ changes = [], usage = [] } = {}, { id, by } = {})
 
   const known = new Set([...docs.keys(), ...recordCounts.keys()]);
   const selected =
-    id === undefined
-      ? [...recordCounts.keys()].sort(compare)
-      : known.has(String(id))
-        ? [String(id)]
-        : [];
+    id === undefined ? [...measured].sort(compare) : known.has(String(id)) ? [String(id)] : [];
   const inScope = new Set(selected);
 
   const results = selected.map((changeId) => {
@@ -287,11 +368,9 @@ export function analyzeUsage({ changes = [], usage = [] } = {}, { id, by } = {})
       .filter((c) => String(c.record.change) === changeId)
       .sort(
         (a, b) =>
-          compare(a.record.at, b.record.at) ||
-          compare(a.recorder, b.recorder) ||
-          compare(JSON.stringify(a.record), JSON.stringify(b.record)),
+          compare(a.record.at, b.record.at) || compare(a.recorder, b.recorder) || a.seq - b.seq,
       )
-      .map((c) => buildSegment(c, events, failedAt));
+      .map((c) => buildSegment(c, events, failedAt, unrecorded));
     const totals = emptyTotals();
     const rework = emptyTotals();
     for (const segment of segments) {
@@ -300,12 +379,16 @@ export function analyzeUsage({ changes = [], usage = [] } = {}, { id, by } = {})
     }
     const own = figures(totals);
     return {
+      _reworkTokens: figures(rework).total_tokens,
       id: changeId,
       title: doc?.frontmatter?.title ?? null,
       type: String(doc?.frontmatter?.type ?? UNKNOWN),
       records: recordCounts.get(changeId) ?? 0,
       ...own,
       rework_pct: percent(figures(rework).total_tokens, own.total_tokens),
+      // A change without a record carrying data (reachable only through
+      // `id`) is not measured: its figures are unknown, not 0.
+      ...(measured.has(changeId) ? {} : UNMEASURED_FIGURES),
       segments,
     };
   });
@@ -320,9 +403,10 @@ export function analyzeUsage({ changes = [], usage = [] } = {}, { id, by } = {})
 
   const hints = [];
   for (const change of results) {
-    if (change.rework_pct > 0) {
+    if (change._reworkTokens > 0) {
+      const pct = change.rework_pct === 0 ? '<0.1' : change.rework_pct;
       hints.push(
-        `rework: ${change.id} spent ${change.rework_pct}% of its tokens after a failed review or validation`,
+        `rework: ${change.id} spent ${pct}% of its tokens after a failed review or validation`,
       );
     }
   }
@@ -337,7 +421,7 @@ export function analyzeUsage({ changes = [], usage = [] } = {}, { id, by } = {})
     }
   }
   for (const model of [...unpriced.keys()].sort(compare)) {
-    hints.push(`unpriced: ${model} has ${unpriced.get(model)} tokens without a price`);
+    hints.push(`unpriced: ${model} has ${unpriced.get(model)} tokens without a comparable price`);
   }
   for (const a of anomalies
     .filter((a) => inScope.has(String(a.record.change)))
@@ -352,15 +436,28 @@ export function analyzeUsage({ changes = [], usage = [] } = {}, { id, by } = {})
     hints.push(`baseline: first record of ${b.recorder} at ${b.record.at} is not attributed`);
   }
   if (id === undefined) {
-    const unmeasured = [...docs.keys()].filter((key) => !recordCounts.has(key)).length;
+    const unmeasured = [...known].filter((key) => !measured.has(key)).length;
     if (unmeasured > 0) hints.push(`unmeasured: ${unmeasured} change(s) have no usage records`);
+  }
+  for (const change of [...failedCounts.keys()].sort(compare)) {
+    if (id !== undefined && change !== String(id)) continue;
+    hints.push(`failed: ${failedCounts.get(change)} record(s) of ${change} have no data`);
+  }
+  for (const change of results) {
+    for (const segment of change.segments) {
+      if (segment._gap > 0) {
+        hints.push(
+          `gap: ${segment._gap} transition(s) between ${segment._base} and ${segment.at} have no usage record; their consumption is in ${change.id} ${segment.segment}`,
+        );
+      }
+    }
   }
 
   return {
     schema: USAGE_ANALYSIS_SCHEMA,
-    changes: results.map((c) => ({
+    changes: results.map(({ _reworkTokens, ...c }) => ({
       ...c,
-      segments: c.segments.map(({ _totals, _models, ...segment }) => segment),
+      segments: c.segments.map(({ _totals, _models, _base, _gap, ...segment }) => segment),
     })),
     groups,
     hints,

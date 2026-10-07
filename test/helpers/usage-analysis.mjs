@@ -8,9 +8,14 @@ export const logLine = (at, type, payload) => `- **${at}** \`[${type}]\` ${paylo
 
 export function changeText(
   id,
-  { title = `Change ${id}`, type = 'feature', status = 'in-progress', log = [] } = {},
+  {
+    title = `Change ${id}`,
+    type = 'feature',
+    status = 'in-progress',
+    log = [],
+    created = `${id.slice(0, 4)}-${id.slice(4, 6)}-${id.slice(6, 8)}T00:00:00Z`,
+  } = {},
 ) {
-  const created = `${id.slice(0, 4)}-${id.slice(4, 6)}-${id.slice(6, 8)}T00:00:00Z`;
   return `---\nid: "${id}"\ntitle: ${title}\ntype: ${type}\nstatus: ${status}\ncreated: ${created}\ndepends_on: []\n---\n\n## Request\n\nDemo.\n\n## Log\n${log.map((l) => `${l}\n`).join('')}`;
 }
 

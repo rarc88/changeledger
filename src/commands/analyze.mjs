@@ -18,6 +18,15 @@ export function analyze(id, { by } = {}, cwd = process.cwd()) {
 
 const money = (cost) => (cost === null ? 'n/a' : `$${cost.toFixed(2)}`);
 
+// A rework share that rounds to 0 while rework has tokens prints as `<0.1%`,
+// as its hint does.
+function reworkShare(change) {
+  const tokens = change.segments
+    .filter((s) => s.segment === 'rework')
+    .reduce((sum, s) => sum + s.total_tokens, 0);
+  return tokens > 0 && change.rework_pct === 0 ? '<0.1%' : `${change.rework_pct}%`;
+}
+
 // Left-aligned columns separated by two spaces; the last column is not padded.
 function table(header, rows) {
   const widths = header.map((h, i) => Math.max(h.length, ...rows.map((r) => String(r[i]).length)));
@@ -36,16 +45,21 @@ function changesView(result) {
       c.id,
       c.total_tokens,
       money(c.cost_usd),
-      `${c.rework_pct}%`,
+      reworkShare(c),
       c.title ?? '',
     ]),
   );
 }
 
 function changeView(change) {
+  const heading = `#${change.id} ${change.title ?? ''}`.trimEnd();
+  // Not measured: its records (if any) all failed, so no total is printed.
+  if (change.total_tokens === null) {
+    return [heading, change.records > 0 ? 'no usage data' : 'no usage records'];
+  }
   const lines = [
-    `#${change.id} ${change.title ?? ''}`.trimEnd(),
-    `total: ${change.total_tokens} tokens, ${money(change.cost_usd)}, ${change.unpriced_tokens} unpriced tokens, rework ${change.rework_pct}%`,
+    heading,
+    `total: ${change.total_tokens} tokens, ${money(change.cost_usd)}, ${change.unpriced_tokens} unpriced tokens, rework ${reworkShare(change)}`,
   ];
   if (!change.segments.length) return [...lines, 'no usage records'];
   return [
