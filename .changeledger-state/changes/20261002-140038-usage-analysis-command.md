@@ -280,10 +280,11 @@ en el viewer sin módulo común, que duplicaría la lógica.
   - **Target:** `src/usage-analysis.mjs, src/commands/analyze.mjs, test/usage-analysis.test.mjs, test/analyze.test.mjs`
   - **Verify:** `node --test test/usage-analysis.test.mjs test/analyze.test.mjs`
   - **Criteria:** CR3, CR5, CR10, CR12, CR13, CR14, CR15
-- [ ] Probar y reparar la carga de módulos compartidos del viewer
+- [x] Probar y reparar la carga de módulos compartidos del viewer
   - **Target:** `src/lifecycle.mjs, src/version-guard.mjs, src/viewer/server/router.mjs, test/view.test.mjs`
   - **Verify:** `node --test test/view.test.mjs test/lifecycle.test.mjs`
   - **Criteria:** CR10, CR16
+  - **Resolved:** `2026-10-07T12:12:08Z`
 - [ ] Nombrar `analyze` en el contrato y la documentación
   - **Target:** `templates/contract/core.md, docs/usage-capture.md, README.md`
   - **Verify:** `pnpm test`
