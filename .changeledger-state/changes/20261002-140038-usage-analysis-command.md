@@ -335,3 +335,4 @@ en el viewer sin módulo común, que duplicaría la lógica.
 - **2026-10-07T13:19:35Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-10-07T13:20:14Z** `[graduation]` spec: `usage.md`
 - **2026-10-07T13:20:14Z** `[graduation]` spec: `viewer.md`
+- **2026-10-07T13:20:15Z** `[graduation]` spec: `architecture.md`
