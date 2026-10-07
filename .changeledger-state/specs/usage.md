@@ -52,8 +52,43 @@ consumo de un tramo es la diferencia entre dos fotos consecutivas; `ccusage`
 recalcula el coste acumulado de una sesión con los precios de cada foto, así que
 un cambio de precio dentro de una sesión mezcla tablas entre dos fotos.
 
-Los registros viven en `<git-common-dir>/changeledger/usage/<id>/`, comunes a
-los worktrees del clon, fuera del ledger y sin versionar.
+## Dónde viven
+
+Los registros son una colección más del ledger, `usage`, con un archivo plano
+por registro, `<id>--<YYYYMMDDTHHMMSSZ>-<sufijo>.json`: el instante es el del
+evento y el sufijo son 8 caracteres hexadecimales aleatorios. Se versionan y se
+comparten como el resto del ledger; la activación sigue siendo por clon, así
+que cada persona decide si mide y lo que mide se comparte. Cada registro añade
+`recorded_by`, la identidad que la CLI resuelve para `owner`, o `null` si no
+resuelve ninguna.
+
+- Con la ref de estado viven en `.changeledger-state/usage/`. Cada foto se
+  publica después de su transición como un commit compare-and-swap propio,
+  `usage: <id> <event>`, que sólo añade su registro. Si la ref avanzó se
+  reintenta una vez, y si vuelve a fallar se avisa con
+  `usage: record not published: <motivo>` sin tocar la transición. Como el
+  sufijo aleatorio distingue las rutas de dos clones, `sync` fusiona sus
+  registros sin conflicto. `mutateState` rechaza que una mutación local elimine
+  un registro o cambie sus bytes; el fast-forward y la fusión de `sync` no lo
+  comprueban.
+- En el layout legacy viven en `.changeledger/usage/` del worktree, y
+  `changeledger commit` prepara los registros pendientes del change cuyo id
+  lleva el commit. Los que git ignora y no tienen seguimiento se quedan fuera
+  con el aviso `usage: records ignored by git were not staged: …`, y cualquier
+  otro fallo al prepararlos avisa con `usage: records not staged: …`; ninguno de
+  los dos bloquea el commit.
+
+El colector vuelve a sortear el sufijo cuando encuentra el nombre ocupado; con
+la ref de estado, si no lo detecta y los bytes difieren, `mutateState` rechaza
+la publicación con el aviso anterior. `cutover` e `import` llevan la colección;
+`import` identifica cada registro por su nombre, y el mismo nombre con otros
+bytes es conflicto.
+
+La carga del ledger, común a la CLI y al viewer, expone los registros parseados
+y asociados al id de su change en ambos layouts. `changeledger check` valida
+cada uno — JSON, `schema: 1`, `change` igual al id de su nombre y forma del
+nombre — con errores que empiezan por `usage record <nombre>: `. Un registro
+inválido no impide cargar el resto del ledger, pero `check` lo rechaza.
 
 ## Fallos
 
