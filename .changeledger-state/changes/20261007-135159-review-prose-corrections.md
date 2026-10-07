@@ -2,9 +2,10 @@
 id: "20261007-135159"
 title: Cerrar en una ronda las correcciones de prosa
 type: feature
-status: approved
+status: in-progress
 created: 2026-10-07T13:51:59Z
 depends_on: []
+branch: feature/20261007-135159
 related_to: ["20260730-165310", "20261002-133728", "20261002-140038"]
 owner: rarc88
 ---
@@ -109,3 +110,5 @@ documentación.
 ## Log
 - **2026-10-07T13:51:59Z** `[version]` 0.18.0-dev
 - **2026-10-07T15:03:05Z** `[status]` draft → approved (human via conversation)
+- **2026-10-07T16:27:18Z** `[status]` approved → in-progress
+- **2026-10-07T16:27:18Z** `[branch]` set: feature/20261007-135159 (auto)
