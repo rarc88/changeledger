@@ -2,7 +2,7 @@
 id: "20261007-135148"
 title: Cambiar de vista en el viewer sin proyecto cargado no rompe
 type: bug
-status: in-review
+status: in-validation
 created: 2026-10-07T13:51:48Z
 depends_on: []
 branch: bug/20261007-135148
@@ -88,3 +88,4 @@ Interfaces externas: ninguna.
 - **2026-10-07T16:13:17Z** `[note]` CR3 recorrido por el orquestador: con el registro del viewer vaciado temporalmente (copia guardada y restaurada después), changeledger view en el navegador del preview; Board, Table, Graph, Ledger y Metrics muestran No projects registered. Run changeledger init in a repo. y Projects muestra No projects registered.; la consola no registra ningún TypeError (sólo los ERR_CONNECTION_REFUSED del servidor anterior parado y un 404 de recurso).
 - **2026-10-07T16:13:18Z** `[status]` in-progress → in-review
 - **2026-10-07T16:13:22Z** `[note]` Mandato del review: la superficie que el change gobierna — dev..HEAD contra CR1-CR3 y el Plan, con las decisiones no especificadas y los residuos del Log como puntos de escrutinio.
+- **2026-10-07T16:17:14Z** `[review]` in-review → in-validation (delegated subagent, clean context)
