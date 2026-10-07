@@ -1635,7 +1635,7 @@ const DELEGATION_OBLIGATIONS = [
     ],
   ],
   [
-    'deliverable prose executes the edge of a universal quantifier or narrows to what was observed',
+    'deliverable prose — docs, code and test comments, Log notes — executes the edge of a universal quantifier or narrows to what was observed (20261007-135159 CR1)',
     'implement.md',
     'implement',
     [
@@ -1644,10 +1644,38 @@ const DELEGATION_OBLIGATIONS = [
       // turned this guard red; `[^.;]` is what still holds the match to one
       // sentence, and the count is only a second fence.
       /\b(test comments?|Log notes?)\b[^.;]{0,140}\bquantif\w+|\bquantif\w+[^.;]{0,140}\b(test comments?|Log notes?)\b/i,
+      // 20261007-135159 CR1: the audience named test comments and Log notes only;
+      // docs and code comments join it. Each is its own half, so dropping one
+      // names the one that went.
+      /\b(documentation|docs?)\b[^.;]{0,140}\bquantif\w+|\bquantif\w+[^.;]{0,140}\b(documentation|docs?)\b/i,
+      /\b(code\b[^.;]{0,25}\bcomments?|comments?\b[^.;]{0,20}\bcode)\b[^.;]{0,140}\bquantif\w+|\bquantif\w+[^.;]{0,140}\b(code\b[^.;]{0,25}\bcomments?|comments?\b[^.;]{0,20}\bcode)\b/i,
       // The edge is executed, and executed BEFORE the sentence exists: the ordering
       // is the obligation, so it stays inside the same bounded window.
       /\b(edge|falsif\w+)\b[^.;]{0,100}\b(execut\w+|run|ran)\b[^.;]{0,100}\bbefore\b|\bbefore\b[^.;]{0,100}\b(execut\w+|run|ran)\b[^.;]{0,100}\b(edge|falsif\w+)\b/i,
       /\bnarrow\w*\b[^.;]{0,60}\b(observed|incident|measured)\b|\b(observed|incident|measured)\b[^.;]{0,60}\bnarrow\w*/i,
+    ],
+  ],
+  // 20261007-135159 CR2/CR3 — what a prose correction does, and what the report
+  // carries. Rows here rather than in the curated `CONCEPT_GUARDS`: the bullet's own
+  // guard lives in this table, and the obligations ride the same bullet.
+  [
+    'a correction of a prose finding narrows or deletes the sentence and never replaces it with another universal claim (20261007-135159 CR2)',
+    'implement.md',
+    'implement',
+    [
+      // Narrow and delete are separate halves, so dropping either one fails its own.
+      /\b(correct\w*|fix\w*)\b[^.;]{0,120}\bnarrow\w*|\bnarrow\w*[^.;]{0,120}\b(correct\w*|fix\w*)\b/i,
+      /\b(correct\w*|fix\w*)\b[^.;]{0,140}\b(delet\w*|remov\w*|drop\w*|strik\w*)|\b(delet\w*|remov\w*|drop\w*|strik\w*)[^.;]{0,140}\b(correct\w*|fix\w*)\b/i,
+      /\b(never|not|without|no)\b[^.;]{0,40}\b(replac\w+|substitut\w+|introduc\w+|add\w*|swap\w*)\b[^.;]{0,60}\b(universal\w*|quantif\w+)|\b(universal\w*|quantif\w+)\b[^.;]{0,40}\b(claims?|assertions?|sentences?)\b[^.;]{0,40}\b(never|not)\b[^.;]{0,20}\b(replac\w+|substitut\w+)/i,
+    ],
+  ],
+  [
+    'the report lists each universally quantified sentence added or rewritten, with the command that executed its edge (20261007-135159 CR3)',
+    'implement.md',
+    'implement',
+    [
+      /\breports?\b[^.;]{0,80}\b(universal\w*|quantif\w+)|\b(universal\w*|quantif\w+)\b[^.;]{0,100}\breports?\b/i,
+      /\bcommands?\b[^.;]{0,60}\b(edge|falsif\w+)\b|\b(edge|falsif\w+)\b[^.;]{0,60}\bcommands?\b/i,
     ],
   ],
   [
