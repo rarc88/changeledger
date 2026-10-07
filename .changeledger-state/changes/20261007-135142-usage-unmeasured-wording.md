@@ -2,9 +2,10 @@
 id: "20261007-135142"
 title: Decir sin consumo atribuido en lugar de sin registros cuando hay registros
 type: bug
-status: approved
+status: in-progress
 created: 2026-10-07T13:51:42Z
 depends_on: []
+branch: bug/20261007-135142
 related_to: ["20261002-140038", "20261002-140242"]
 owner: rarc88
 ---
@@ -88,3 +89,5 @@ Interfaces externas: ninguna.
 ## Log
 - **2026-10-07T13:51:42Z** `[version]` 0.18.0-dev
 - **2026-10-07T15:02:53Z** `[status]` draft → approved (human via conversation)
+- **2026-10-07T16:17:26Z** `[status]` approved → in-progress
+- **2026-10-07T16:17:26Z** `[branch]` set: bug/20261007-135142 (auto)
