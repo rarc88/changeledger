@@ -5,7 +5,7 @@ type: bug
 status: draft
 created: 2026-10-07T17:23:22Z
 depends_on: []
-related_to: ["20261007-135159"]
+related_to: ["20261007-135159", "20261002-133728"]
 owner: rarc88
 ---
 
