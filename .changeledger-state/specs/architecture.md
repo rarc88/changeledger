@@ -146,13 +146,14 @@ estado efímero al contexto determinista.
 
 `src/state-store.mjs` implementa el núcleo de almacenamiento de la capacidad
 acotada por `global-state-scope.md`: el ledger completo como árbol exclusivo
-(`.changeledger-state/{manifest.yml, config.yml, changes/, specs/, releases/}`)
+(`.changeledger-state/{manifest.yml, config.yml, changes/, specs/, releases/, usage/}`)
 en la ref fija `refs/heads/changeledger/state`. Lectura por snapshot sin
 checkout (`readSnapshot`, sobre `src/git-batch.mjs`: un `ls-tree` + `cat-file
 --batch` por lotes con validación UTF-8 estricta), escritura por
 compare-and-swap (`mutateState`: árbol candidato en índice temporal,
 `update-ref` con old-value, `LedgerConflictError` en conflicto) e integridad
-padre-contra-candidato: ninguna identidad desaparece sin `remove` explícito.
+padre-contra-candidato: ninguna identidad desaparece sin `remove` explícito,
+y un registro de consumo (`usage.md`) no admite ni `remove` ni reescritura.
 La activación es checkout-independiente — `refs/changeledger/activation`
 apunta a un commit cuya `authority.yml` nombra la ref de verdad y el ledger
 que la activación posee: `ledger_dir`, la ruta del `.changeledger` relativa
@@ -186,7 +187,7 @@ exacto ocultaba en silencio una activación viva ahí. Sin activación propia �
 ausente, o anclada a un `ledger_dir` que no es el descubierto —, el
 comportamiento es el de siempre, byte a byte, con `state: null` — y en un
 directorio que no está dentro de ningún repo git, cero subprocesos. Con
-activación, `changes`, `specs`, `releases` y `config` salen de `readSnapshot`
+activación, `changes`, `specs`, `releases`, `usage` y `config` salen de `readSnapshot`
 en lugar del working tree, y el resultado gana `state: { revision }` — la
 costura que el CAS de escritura usará como `expectedRevision`. La carga
 resuelve la activación y enumera el snapshot exactamente UNA vez
@@ -326,7 +327,7 @@ repo sin activar y el ledger limpio (ni cambios sin commitear bajo
 `.changeledger/` ni índice con staged). Valida el snapshot completo con las
 reglas de `checkRepo` antes de escribir nada, publica la ref con `initState`,
 activa y crea en la rama de integración el commit de limpieza que elimina
-`changes/`, `specs/` y `releases/` conservando `config.yml` como marcador de
+`changes/`, `specs/`, `releases/` y `usage/` conservando `config.yml` como marcador de
 descubrimiento. El `config.yml` del snapshot se republica byte a byte vía
 `mutateState` tras `initState`, porque `initState` serializa el mapping
 parseado y perdería comentarios y orden de claves justo cuando la copia de la
@@ -425,14 +426,15 @@ estado de un repo activado: la fuente es una rama con layout de worktree
 refs en formato de estado). La ref debe resolver a un commit
 (`assertCommitObject`, nunca peel) y todos sus documentos se validan con las
 reglas de `checkRepo` antes de clasificar nada. La clasificación es por
-identidad de contenido (change=id, spec=nombre, release=versión) contra el
+identidad de contenido (change=id, spec=nombre, release=versión, registro de
+consumo=nombre de archivo) contra el
 snapshot: ausente → alta; byte-idéntico → no-op; para changes, la relación de
 prefijo propio entre las entradas del `## Log` ordena las versiones — el
 snapshot que extiende al importado es no-op, el importado que extiende al
 snapshot es actualización (escrita en el path existente del snapshot aunque
 la fuente renombrara el archivo: la identidad es el id, honrar el nombre
 publicaría el change dos veces); todo lo demás (mismo Log con cuerpo
-distinto, Logs divergentes, specs/releases con contenido distinto) es
+distinto, Logs divergentes, specs, releases o registros con contenido distinto) es
 conflicto para el humano. Un conflicto cualquiera aborta el import entero sin
 escribir (todo-o-nada); sin conflictos, altas y actualizaciones aterrizan en
 una única `mutateState` cuyo mensaje registra ref y commit importados, y
