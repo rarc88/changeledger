@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-10-02T14:02:42Z
 depends_on: ["20261002-140038"]
+archived: true
 reviewed: true
 branch: feature/20261002-140242
 related_to: ["20261002-133728", "20260711-155721"]
@@ -141,3 +142,4 @@ obliga a una petición por cada cambio de filtro y rompe el patrón de
 - **2026-10-07T13:47:42Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-10-07T13:48:00Z** `[graduation]` spec: `viewer.md`
 - **2026-10-07T13:48:01Z** `[graduation]` spec: `usage.md`
+- **2026-10-07T13:48:02Z** `[archive]` archived
