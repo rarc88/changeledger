@@ -38,7 +38,10 @@ estáticos pequeños: `security.js` (escape/sanitización/Mermaid), `state.js`
 documental en memoria), `viewer-routing.js` (URL e history) y `app-state.js` (estado global y
 helpers de transición puros — repo, filtros, vista, proyecto, sort — sin tocar el
 DOM); `app.js` queda como bootstrap y wiring de eventos. El graph muestra un estado vacío cuando los filtros no dejan changes
-visibles, en vez de generar un SVG con dimensiones inválidas. La profundidad del
+visibles, en vez de generar un SVG con dimensiones inválidas. Sin un repo
+cargado, las vistas board, table, graph, ledger y metrics muestran
+`No projects registered. Run changeledger init in a repo.` en su contenedor en
+vez de fallar, y la vista de proyectos conserva su propio estado vacío. La profundidad del
 grafo usa un set de visitados por rama para detectar ciclos solo en el camino
 actual: dependencias compartidas entre ramas no colapsan la capa del nodo
 dependiente, y los ciclos reales siguen terminando en un SVG finito.
