@@ -6,7 +6,7 @@ status: in-progress
 created: 2026-10-02T14:00:38Z
 depends_on: ["20261002-133728", "20261001-155216"]
 branch: feature/20261002-140038
-related_to: ["20261001-155612", "20260711-155721"]
+related_to: ["20261001-155612", "20260711-155721", "20261002-140242", "20261002-155917"]
 owner: rarc88
 release_impact: minor
 ---
