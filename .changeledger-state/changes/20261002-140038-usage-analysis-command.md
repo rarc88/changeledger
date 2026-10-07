@@ -2,7 +2,7 @@
 id: "20261002-140038"
 title: Analizar el consumo de los changes con changeledger analyze
 type: feature
-status: in-progress
+status: in-review
 created: 2026-10-02T14:00:38Z
 depends_on: ["20261002-133728", "20261001-155216"]
 branch: feature/20261002-140038
@@ -329,3 +329,4 @@ en el viewer sin módulo común, que duplicaría la lógica.
 - **2026-10-07T12:34:01Z** `[note]` Mandato de la ronda 3 (autorizada por el humano, revisor nuevo): confirmación del diff sin commitear frente a HEAD 5602ddd, limitada a que D1, D2, D3, D4 y D4b queden cerrados, a las dos decisiones del humano (rework tras blocked y change sólo con base no medido) y a cualquier regresión que introduzca; la prosa anterior que no cambió y el texto del aviso unmeasured fijado por la Proposal quedan como seguimientos, no como motivo de fallo.
 - **2026-10-07T12:39:02Z** `[review]` in-review → in-progress (retry): Ronda 3: D1, D2, D3, D4b y las dos decisiones del humano cerrados, sin regresiones; D4 sigue abierto: el comentario reescrito de test/usage-analysis.test.mjs (~890) dice cubrir CR1-CR7 y CR12-CR15 salvo el caso sin gap de CR14, pero la mezcla everything() no tiene líneas [version] (CR7, --by version da sólo unknown) ni un review in-review → blocked → in-progress (la cláusula de CR3 que añade la corrección).
 - **2026-10-07T13:15:56Z** `[note]` Corrección del orquestador tras la ronda 3, autorizada por el humano: el comentario de everything() en test/usage-analysis.test.mjs deja de enumerar criterios y dice que mezcla los escenarios de los avisos que el test afirma y la sesión que vuelve de CR12, y que no mezcla líneas [version] (CR7), el rework por blocked o tras una validation (CR3) ni el caso sin gap de CR14. Cuarta ronda autorizada por el humano: confirma el mismo revisor de la ronda 3, limitado a ese comentario.
+- **2026-10-07T13:15:57Z** `[status]` in-progress → in-review
