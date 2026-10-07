@@ -1,8 +1,8 @@
 ---
 title: Consumo de tokens por change
-updated: 2026-10-02T15:25:51Z
+updated: 2026-10-07T11:07:46Z
 tags: [usage, metrics]
-graduated_from: ["20261001-155612"]
+graduated_from: ["20261001-155612", "20261002-133728"]
 ---
 
 # Consumo de tokens por change
