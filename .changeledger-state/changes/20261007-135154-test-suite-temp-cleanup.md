@@ -67,10 +67,11 @@ Interfaces externas: ninguna.
   - **Verify:** `node --test test/run-tests.test.mjs`
   - **Criteria:** CR1, CR2, CR3
 - [ ] Ejecutar la suite a través del envoltorio
-  - **Target:** `package.json`
-  - **Verify:** `pnpm verify`
+  - **Target:** `package.json, test/run-tests.test.mjs`
+  - **Verify:** `pnpm test`
   - **Criteria:** CR1, CR4
 - [ ] Ejecutar el gate completo y comprobar el temporal del sistema
+  - **Target:** `package.json, hooks/pre-commit`
   - **Verify:** verify: manual — contar las entradas del temporal del sistema antes y después de `pnpm verify` y de un commit con el hook
   - **Criteria:** CR4
 
