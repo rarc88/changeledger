@@ -1,0 +1,82 @@
+{
+  "schema": 1,
+  "change": "20261002-140038",
+  "at": "2026-10-07T12:33:56Z",
+  "event": "status",
+  "from": "in-progress",
+  "to": "in-review",
+  "recorded_by": "rarc88",
+  "collector": {
+    "name": "ccusage",
+    "version": "20.0.26",
+    "pricing": "online"
+  },
+  "sessions": [
+    {
+      "source": "claude",
+      "session_id": "30628da2-cd2e-41e0-8a21-382f08a2b76e",
+      "project_path": "-home-rarc88-repositories-changeledger",
+      "first_activity": "2026-10-01T12:46:14.614Z",
+      "last_activity": "2026-10-07T12:33:53.716Z",
+      "models": [
+        {
+          "model": "claude-opus-5-5",
+          "input_tokens": 2240,
+          "output_tokens": 351593,
+          "cache_read_tokens": 201000248,
+          "cache_write_tokens": 4970695,
+          "cost_usd": 75.73755660000006
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 426,
+          "output_tokens": 5561,
+          "cache_read_tokens": 23643060,
+          "cache_write_tokens": 763571,
+          "cost_usd": 6.694001499999998
+        }
+      ]
+    },
+    {
+      "source": "claude",
+      "session_id": "bca829f8-f9bc-4abc-b720-c69de247d1be",
+      "project_path": "-home-rarc88-repositories-changeledger",
+      "first_activity": "2026-09-28T18:47:42.199Z",
+      "last_activity": "2026-10-01T10:19:39.737Z",
+      "models": [
+        {
+          "model": "claude-opus-5-5",
+          "input_tokens": 164,
+          "output_tokens": 40347,
+          "cache_read_tokens": 8923320,
+          "cache_write_tokens": 233083,
+          "cost_usd": 4.456924
+        }
+      ]
+    },
+    {
+      "source": "claude",
+      "session_id": "aa1501d3-dc26-420d-ba1d-de501d075c1f",
+      "project_path": "-home-rarc88-repositories-changeledger",
+      "first_activity": "2026-10-01T16:08:33.596Z",
+      "last_activity": "2026-10-01T16:21:21.582Z",
+      "models": [
+        {
+          "model": "claude-opus-5-5",
+          "input_tokens": 32,
+          "output_tokens": 12227,
+          "cache_read_tokens": 1081981,
+          "cache_write_tokens": 41256,
+          "cost_usd": 0.7911121999999999
+        }
+      ]
+    }
+  ],
+  "excluded": [
+    {
+      "source": "codex",
+      "sessions": 1
+    }
+  ],
+  "error": null
+}
