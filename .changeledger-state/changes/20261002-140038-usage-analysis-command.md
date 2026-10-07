@@ -91,9 +91,9 @@ change del registro y al **tramo** que la transición cierra:
 - Cualquier otra transición cierra el tramo de su estado de origen (`from`):
   `draft`, `approved`, `in-progress`, `in-review`, `in-validation`, `blocked`,
   `done`.
-- Un tramo `in-progress` posterior a un `[review] in-review → in-progress` o a un
-  `[validation] in-validation → in-progress` del mismo change se llama
-  `rework`.
+- Un tramo `in-progress` cerrado después de un `[review]` o un `[validation]`
+  fallido del mismo change (el que vuelve a `in-progress` o el que pasa por
+  `blocked`) se llama `rework`.
 
 El primer registro de cada registrador no tiene base y no se atribuye. Una
 sesión cuyos tokens bajan entre dos registros cuenta 0 en ese tramo. Ambos casos
@@ -104,9 +104,10 @@ su change en o antes del `at` del registro que lo cierra, o `unknown`.
 El coste suma sólo diferencias de `cost_usd` comparables: las de un modelo con
 precio en los dos extremos cuyo coste no baja. Los tokens de un modelo sin
 precio, o cuyo precio aparece, desaparece o baja entre dos registros, se suman
-aparte en `unpriced_tokens`, nunca como coste 0. Un change cuyos registros
-tienen todos `error` no está medido: no tiene fila en la tabla y suma en
-`unmeasured`.
+aparte en `unpriced_tokens`, nunca como coste 0. Un change sin ningún tramo
+atribuido — porque sus registros tienen todos `error` o porque su único
+registro con datos es la base de su registrador — no está medido: no tiene fila
+en la tabla, suma en `unmeasured` y, con `<id>`, sus cifras son `null`.
 
 **Salida.**
 
@@ -169,6 +170,7 @@ en el viewer sin módulo común, que duplicaría la lógica.
 - **When** se ejecuta `changeledger analyze --json`
 - **Then** ese tramo se llama `rework` y no `in-progress`
 - **And** `hints` contiene `rework: <id> spent 30% of its tokens after a failed review or validation`
+- **And** tras `[review] in-review → blocked` y `[status] blocked → in-progress`, el tramo `in-progress` cerrado después también se llama `rework`
 - **And** con un tramo `rework` de 4 tokens sobre 100004, `hints` contiene `rework: <id> spent <0.1% of its tokens after a failed review or validation`
 
 ### CR4 — Cada registrador se resta contra sí mismo
@@ -227,6 +229,7 @@ en el viewer sin módulo común, que duplicaría la lógica.
 - **Then** el registro con `error` no es base ni cierra tramo, y su consumo cae en el siguiente registro con datos del registrador
 - **And** `hints` contiene `failed: 1 record(s) of A have no data` y `failed: 2 record(s) of C have no data`
 - **And** `C` no aparece en `changes` ni en la tabla, y cuenta en `unmeasured`
+- **And** un change cuyo único registro con datos es la base de su registrador tampoco aparece y cuenta en `unmeasured`, y `analyze <id>` de cualquiera de los dos muestra cifras `null` sin afirmar que no tiene registros
 
 ### CR14 — Un tramo que absorbe transiciones sin registro se avisa
 - **Given** dos registros consecutivos de un registrador y, entre sus `at`, dos transiciones del Log de otro change sin registro
