@@ -80,10 +80,11 @@ Interfaces externas: ninguna.
   - **Verify:** `node --test test/view.test.mjs`
   - **Criteria:** CR2, CR3
   - **Resolved:** `2026-10-07T16:21:51Z`
-- [ ] Ajustar la documentación del colector
+- [x] Ajustar la documentación del colector
   - **Target:** `docs/usage-capture.md`
   - **Verify:** `pnpm test`
   - **Support:**
+  - **Resolved:** `2026-10-07T16:21:52Z`
 - [ ] Ejecutar el gate completo
   - **Verify:** `pnpm verify`
   - **Support:**
