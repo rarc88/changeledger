@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-10-01T15:52:16Z
 depends_on: []
+archived: true
 reviewed: true
 branch: feature/20261001-155216
 related_to: ["20260924-184354", "20260628-113218", "20260720-125007", "20260824-134716", "20260809-113241"]
@@ -233,3 +234,5 @@ flowchart LR
 - **2026-10-02T15:24:41Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-10-02T15:25:11Z** `[graduation]` spec: `data-model.md`
 - **2026-10-02T15:25:11Z** `[graduation]` spec: `architecture.md`
+- **2026-10-07T17:19:53Z** `[version]` 0.18.0-dev
+- **2026-10-07T17:19:53Z** `[archive]` archived
