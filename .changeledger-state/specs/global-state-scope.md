@@ -24,7 +24,7 @@ mide contra esta spec antes de crearse.
 ## Lo que la capacidad incluye
 
 1. **Una sola ref de verdad.** El ledger completo — manifest, config, changes,
-   specs y releases — vive en una ref propia y fija, como árbol exclusivo, y
+   specs, releases y registros de consumo — vive en una ref propia y fija, como árbol exclusivo, y
    se lee sea cual sea la rama del checkout. CLI y viewer leen del mismo
    resolver y el mismo snapshot: nunca dos verdades.
 2. **Mutación local sobre git puro.** Lectura por snapshot sin checkout;
@@ -32,7 +32,7 @@ mide contra esta spec antes de crearse.
    objetos y refs de git — la agnosticidad de proveedor no es una capacidad
    aparte: es consecuencia de no usar nada que no sea git.
 3. **Integridad del lado del cliente, fail-closed.** Ninguna identidad —
-   change, spec o release — presente en una foto puede desaparecer de su
+   change, spec, release o registro de consumo — presente en una foto puede desaparecer de su
    descendiente, validado antes de confirmar.
 4. **Sincronización opcional, best-effort y gobernada por el contrato.** El
    transporte es `fetch`/`push` planos con compare-and-swap contra el remoto.
