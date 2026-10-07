@@ -26,6 +26,10 @@ graduated_from: ["20260613-205854", "20260616-151230", "20260616-162020", "20260
 - **release**: manifiesto YAML inmutable en `.changeledger/releases/<version>.yml` con
   versión SemVer estable, timestamp y ids de changes. La pertenencia se deriva
   solo de estos manifiestos y no se duplica en cada change.
+- **registro de consumo**: JSON `schema: 1` inmutable en la colección `usage`
+  del ledger, uno por foto del colector, nombrado
+  `<id>--<YYYYMMDDTHHMMSSZ>-<8 hex>.json`; su contenido y su ciclo están en
+  `usage.md`.
 
 ## Identidad
 
