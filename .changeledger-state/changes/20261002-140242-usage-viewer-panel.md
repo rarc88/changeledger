@@ -140,3 +140,4 @@ obliga a una petición por cada cambio de filtro y rompe el patrón de
 - **2026-10-07T13:45:40Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-10-07T13:47:42Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-10-07T13:48:00Z** `[graduation]` spec: `viewer.md`
+- **2026-10-07T13:48:01Z** `[graduation]` spec: `usage.md`
