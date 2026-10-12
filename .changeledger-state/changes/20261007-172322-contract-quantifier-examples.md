@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-10-07T17:23:22Z
 depends_on: []
+archived: true
 reviewed: true
 branch: bug/20261007-172322
 related_to: ["20261007-135159", "20261002-133728"]
@@ -65,3 +66,4 @@ Interfaces externas: ninguna.
 - **2026-10-12T12:48:50Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-10-12T12:51:57Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-10-12T12:52:13Z** `[graduation]` skipped: la spec contract-discovery describe la obligación sin enumerar sus ejemplos de cuantificadores
+- **2026-10-12T12:52:14Z** `[archive]` archived
