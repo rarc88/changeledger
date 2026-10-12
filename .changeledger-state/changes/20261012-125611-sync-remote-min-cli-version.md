@@ -2,7 +2,7 @@
 id: "20261012-125611"
 title: sync no adopta una revisión remota cuyo mínimo supera la CLI instalada
 type: bug
-status: in-validation
+status: done
 created: 2026-10-12T12:56:11Z
 depends_on: []
 branch: bug/20261012-125611
@@ -79,3 +79,4 @@ la herramienta.
 - **2026-10-12T13:45:51Z** `[status]` in-progress → in-review
 - **2026-10-12T13:45:56Z** `[note]` Mandato de revisión: la superficie que el change gobierna — la adopción de la revisión remota en sync (fast-forward, reconciliación, publicación) frente al mínimo de CLI, y el traslado de assertCliAdmitted, con dev..HEAD y sus tests.
 - **2026-10-12T13:51:34Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-10-12T14:14:44Z** `[validation]` in-validation → done (human accepted via conversation)
