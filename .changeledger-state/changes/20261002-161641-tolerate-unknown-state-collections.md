@@ -109,10 +109,11 @@ que es justo el fallo observado.
 
 ## Plan
 
-- [ ] Escribir pruebas fallidas: lectura tolerante, aviso, conservación, integridad y rutas mal formadas
+- [x] Escribir pruebas fallidas: lectura tolerante, aviso, conservación, integridad y rutas mal formadas
   - **Target:** `test/state-store.test.mjs, test/cli-bin.test.mjs, test/sync.test.mjs`
   - **Verify:** `node --test test/state-store.test.mjs test/cli-bin.test.mjs test/sync.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4, CR5
+  - **Resolved:** `2026-10-12T11:29:19Z`
 - [ ] Separar en el store las colecciones desconocidas de las rutas mal formadas y cubrirlas con la integridad
   - **Target:** `src/state-store.mjs, src/repo.mjs`
   - **Verify:** `node --test test/state-store.test.mjs test/repo.test.mjs`
