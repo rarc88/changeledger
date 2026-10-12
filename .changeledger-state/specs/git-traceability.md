@@ -118,10 +118,21 @@ y `agent-context` cargan un change de esos tipos. `releaseTypes` sólo lee
 formado (`release_branch: ""`) lanza
 `config "git.release_branch" must be a non-empty string` y hace fallar toda
 composición, incluido el core del bootstrap; sin tipos de release no la lee.
-`check --commits` usa `git.integration_branch` como base por defecto, sin mirar
-el tipo de ningún change (una base posicional explícita conserva precedencia);
-cuando no existe, se conserva la autodetección de base mediante `origin/HEAD`,
-`main` o `master`.
+Sin base posicional, `check --commits` (`defaultCommitsBase`,
+`src/commands/check.mjs`) usa la rama de integración del change de la rama
+checked out: casa los changes que no están `done` ni `discarded` cuya `branch`
+registrada es esa rama o, sin `branch`, cuya `renderChangeBranch` la produce, y
+toma su `changeIntegrationBranch` (la autodetección de abajo si esa rama no
+está declarada). Si casan varios con bases distintas falla con
+`branch "<rama>" is recorded by changes #A (integrates into X) and #B
+(integrates into Y); pass <base> explicitly`; si casan varios con la misma base,
+la usa. Un error al cargar el ledger o al resolver la rama del change (por
+ejemplo, un tipo `release` sin `git.release_branch`) se reporta como
+`error  (commits): <mensaje>` en vez de caer a otra base. Sólo lee el ledger
+cuando algún tipo declara `integrates_into: release`; sin tipos así, con HEAD
+desacoplado o sin change que case, usa `git.integration_branch` y, si no existe, la autodetección mediante
+`origin/HEAD`, `main` o `master`. Una base posicional explícita conserva
+precedencia y nunca lee el ledger.
 
 `changeledger check` valida el mismo contrato que los consumidores Git: `git`
 debe ser un mapping —un `git` que no lo es se reporta una sola vez— e
@@ -201,7 +212,8 @@ larga vida; revisan el worktree antes de empezar; commitean la documentación
 aprobada antes de tocar código; e implementan un change a la vez. Los cambios no
 relacionados no se incluyen silenciosamente. Cuando el contexto del change
 publica `integration_branch`, la rama del change parte de ella, el resultado se
-integra en ella y es la `<base>` con que se comprueban los commits del change.
+integra en ella; `check --commits` sin base la toma como `<base>` cuando la
+rama checked out es la del change.
 Cuando además publica `back_merge_branch`, el resultado integrado se lleva
 también a esa rama y se registra en el Log con `changeledger log <id>`; ningún
 comando automatiza ese merge.
