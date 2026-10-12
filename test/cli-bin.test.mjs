@@ -1881,7 +1881,7 @@ test('174310 CR7: a fresh repo refuses new hotfix until release_branch is declar
   );
   const created = runIn(root, env, 'new', 'hotfix', 'x', 'X', '--owner', 'Roberto Ruiz');
   assert.equal(created.code, 0, created.err);
-  assert.match(created.out, /^Created .*\.changeledger\/changes\/\d{8}-\d{6}-x\.md$/m);
+  assert.match(created.out, /^Created .*\.changeledger[\\/]changes[\\/]\d{8}-\d{6}-x\.md$/m);
   const [name] = fs.readdirSync(changesDir);
   const id = name.slice(0, 15);
 
