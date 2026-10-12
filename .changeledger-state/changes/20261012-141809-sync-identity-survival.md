@@ -93,10 +93,11 @@ la herramienta.
   - **Verify:** `pnpm test`
   - **Criteria:** CR1, CR2, CR3, CR4, CR5, CR6
   - **Resolved:** `2026-10-12T15:43:50Z`
-- [ ] Comprobar la supervivencia por ruta con un helper común antes de adoptar
+- [x] Comprobar la supervivencia por ruta con un helper común antes de adoptar
   - **Target:** `src/state-store.mjs, src/commands/sync.mjs`
   - **Verify:** `pnpm test`
   - **Criteria:** CR1, CR2, CR3, CR4, CR5, CR6
+  - **Resolved:** `2026-10-12T15:43:50Z`
 - [ ] Actualizar la cabecera de `src/commands/sync.mjs` y los comentarios de `src/state-store.mjs` que describen qué comprueba cada camino
   - **Support:**
 - [ ] Ejecutar el gate completo
