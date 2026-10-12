@@ -90,3 +90,4 @@ Interfaces externas: ninguna; los errores llegan de `/api/repo` (por ejemplo
 - **2026-10-12T11:14:26Z** `[status]` draft → approved (human via conversation)
 - **2026-10-12T11:59:11Z** `[status]` approved → in-progress
 - **2026-10-12T11:59:11Z** `[branch]` set: bug/20261007-172305 (auto)
+- **2026-10-12T12:07:39Z** `[note]` El orquestador corrige el Given de CR5: al recorrerlo, un proyecto registrado cuya ruta ya no existe aparece como gone-project (missing), deshabilitado en el selector, y el viewer no lo selecciona al cargar; si la ruta desaparece con el proyecto ya cargado, state.repo sigue con el último payload y el error sólo se ve en Ledger, el caso que el implementador dejó fuera de CR1-CR4. El caso alcanzable de una primera carga fallida con proyecto seleccionado es un proyecto que existe y cuya carga falla, y CR5 pasa a describir ese.
