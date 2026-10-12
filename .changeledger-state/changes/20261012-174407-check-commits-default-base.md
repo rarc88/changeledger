@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-10-12T17:44:07Z
 depends_on: []
+reviewed: true
 branch: bug/20261012-174407
 related_to: ["20261012-174310", "20261002-181346", "20261002-181428", "20260711-210115", "20260805-052741", "20260808-141944", "20261002-204623"]
 owner: rarc88
@@ -166,3 +167,4 @@ Fixture común de los CR (salvo que se diga otra cosa): repo con `git.integratio
 - **2026-10-12T19:05:27Z** `[note]` Revisión de confirmación: pass. Seguimientos no bloqueantes: el comentario de defaultCommitsBase dice «would not change the answer» refiriéndose a la base (un documento malformado haría fallar una lectura del ledger, que este lint omite a propósito por CR9); ningún test fija que un estado propio como cancelled sigue decidiendo; defaultCommitsBase lee hasReleaseType de loadEffectiveConfig y después usa la config de loadRepo, rutas que difieren en un repo activado (no examinado).
 - **2026-10-12T19:14:03Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-10-12T19:16:42Z** `[note]` graduation-review de la reconciliación de git-traceability: apply. Cada afirmación del pasaje de la base por defecto y de la frase del workflow confirmada ejecutando contra bug/20261012-174407; sin contradicciones en el resto del spec. Matices de redacción opcionales no aplicados (se aterriza el borrador revisado tal cual): «resolver la rama del change» cubre también el error de change_branch_format, y «la autodetección de abajo» es una referencia posicional.
+- **2026-10-12T19:16:43Z** `[graduation]` spec: `git-traceability.md`
