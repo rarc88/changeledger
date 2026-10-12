@@ -2,7 +2,7 @@
 id: "20261007-172305"
 title: El viewer muestra el error de carga de un proyecto en la vista activa
 type: bug
-status: in-review
+status: in-validation
 created: 2026-10-07T17:23:05Z
 depends_on: []
 branch: bug/20261007-172305
@@ -103,3 +103,4 @@ Interfaces externas: ninguna; los errores llegan de `/api/repo` (por ejemplo
 - **2026-10-12T12:14:07Z** `[note]` Corrección del orquestador a su nota que justifica el cambio de CR5 (hallazgo F2), acotando sin sustituir: al abrir el viewer sin enlace profundo, un proyecto cuya ruta ya no existe aparece como (missing) y deshabilitado y no se seleccionó en el recorrido; con un enlace profundo de Ledger sí se selecciona, según la revisión. La frase de que con el proyecto ya cargado el error sólo se ve en Ledger se retira. La nota del recorrido de CR5 queda acotada a lo ejecutado: el proyecto roto se seleccionó con los demás proyectos deshabilitados, así que no había otro payload cargado. Frases cuantificadas de esta corrección: ninguna universal; «no se seleccionó en el recorrido» y «no había otro payload cargado» se refieren al recorrido ya registrado.
 - **2026-10-12T12:15:58Z** `[note]` Corrección del retry (subagente corrector, sin commitear): F1, la guarda de render() pinta el error de carga cuando hay proyecto seleccionado con error y state.repo es nulo o su project_id no es el del proyecto seleccionado (toda carga exige project_id por matchesProjectProvenance); app-state.js no cambia. Test nuevo: alpha cargado, se selecciona beta cuya carga falla, re-render por búsqueda y por las seis activaciones de vista, el error de beta sigue y no aparecen los changes de alpha; volver a alpha con carga válida lo recupera. Rojo con board keeps the selected project error; mutante con la condición antigua falla; el mutante que deja ganar siempre al error sobrevive porque un fallo del mismo proyecto con su payload cargado sigue siendo pasajero (residuo ya declarado). pnpm verify en verde con 1781/1781. Mandato de la confirmación (ronda 2): sólo el diff sin commitear frente a 6f08546 y las notas del orquestador posteriores al review, limitado a F1, F2 y F3 y a cualquier regresión. Frases cuantificadas informadas: los mensajes de assert keeps the selected project error y hides the previous project, sobre las seis activaciones del bucle del test.
 - **2026-10-12T12:15:59Z** `[status]` in-progress → in-review
+- **2026-10-12T12:21:40Z** `[review]` in-review → in-validation (delegated subagent, clean context)
