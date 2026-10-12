@@ -361,8 +361,14 @@ inline y el workspace de pnpm habilita `shellEmulator`, por lo que ese
 kill-switch se aplica también cuando pnpm ejecuta la suite en Windows. El
 script `test` lanza `node --test` a través de `scripts/run-tests.mjs`, que da a
 cada ejecución una raíz temporal propia (`TMPDIR`, `TEMP` y `TMP`) y la borra
-cuando la suite termina o falla y tras SIGINT, SIGTERM, SIGHUP o SIGQUIT; un
-SIGKILL del envoltorio la deja atrás. Un runner
+cuando la suite termina o falla y, en POSIX, tras SIGINT, SIGTERM, SIGHUP o
+SIGQUIT; un SIGKILL del envoltorio la deja atrás. En Windows no hay señales
+POSIX: Ctrl+C normalmente entrega SIGINT y cerrar la consola SIGHUP, mientras
+que `subprocess.kill()` con SIGINT, SIGTERM, SIGHUP o SIGQUIT termina el
+envoltorio sin ejecutar sus manejadores, como un SIGKILL; por eso las pruebas de
+señales del envoltorio se saltan en Windows. Ctrl+Break (SIGBREAK) no tiene
+manejador, y la limpieza tras un Ctrl+C real o un cierre de consola en Windows
+no se ha ejecutado. Un runner
 inyectado puentea el kill-switch, de
 modo que los tests de la propia resolución no cambian de comportamiento.
 
