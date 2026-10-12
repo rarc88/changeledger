@@ -47,7 +47,12 @@ proyecto seleccionado cuyo payload aún no está cargado, esas vistas muestran
 conserve; al seleccionar un proyecto —por el selector, la restauración de ruta,
 un resultado de la búsqueda global o el refresco del registro— y al fallar su
 carga, los filtros de tipo, owner y estado y el aviso de documentos inválidos se
-rehacen con el payload del proyecto seleccionado, vacíos mientras no lo hay. El
+rehacen con el payload del proyecto seleccionado, vacíos mientras no lo hay.
+Seleccionar un proyecto cierra el detalle abierto, y el detalle sólo abre changes
+del payload del proyecto seleccionado. Un resultado de la búsqueda global de otro
+proyecto no abre nada si su carga falla —un toast `Could not load project
+"<nombre>": <error>` lo dice mientras la búsqueda global sigue activa— ni si,
+mientras carga, se selecciona otro proyecto. El
 sondeo periódico sin proyectos repinta la vista activa sin cambiarla; sólo la
 carga de arranque cae en Board. Si la carga del proyecto seleccionado falla y
 no hay payload suyo cargado (ninguno, o el de otro proyecto), la vista activa
