@@ -2,9 +2,10 @@
 id: "20261012-174340"
 title: "La validación y la migración de la config no cubren seed_stage, release_branch ni el tdd por tipo"
 type: bug
-status: approved
+status: in-progress
 created: 2026-10-12T17:43:40Z
 depends_on: []
+branch: bug/20261012-174340
 related_to: ["20261002-113320", "20261002-113435", "20261002-181346", "20261002-204623", "20260726-141119"]
 owner: rarc88
 ---
@@ -225,3 +226,5 @@ los CR1 y CR4 pasan a ser parte de ese contrato. No cambia ningún formato.
 ## Log
 - **2026-10-12T17:43:40Z** `[version]` 0.18.0-dev
 - **2026-10-12T17:58:08Z** `[status]` draft → approved (human via conversation)
+- **2026-10-12T19:05:31Z** `[status]` approved → in-progress
+- **2026-10-12T19:05:31Z** `[branch]` set: bug/20261012-174340 (auto)
