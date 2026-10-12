@@ -1109,6 +1109,76 @@ test('new rejects an unknown type', () => {
   assert.throws(() => newChange({ type: 'nope', title: 't', now: 'x' }, root), /Unknown type/);
 });
 
+// 20261012-174310 — a type that integrates into the release branch cannot be
+// created while `git.release_branch` is undeclared: the change would be stuck
+// without a loadable context.
+const RELEASE_REQUIREMENT =
+  'type "hotfix" integrates into git.release_branch, which is not declared — set git.release_branch in .changeledger/config.yml, for example "main"';
+const NEW_AT = '2026-10-12T10:00:00Z';
+
+function setReleaseBranch(root, value) {
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  fs.writeFileSync(
+    configFile,
+    fs
+      .readFileSync(configFile, 'utf8')
+      .replace(/^ {2}release_branch:.*$/m, `  release_branch: ${value}`),
+  );
+}
+
+const changeFiles = (root) => fs.readdirSync(path.join(root, '.changeledger', 'changes'));
+
+test('174310 CR5: new refuses a release-type change without a release branch and writes nothing', () => {
+  const root = tmp();
+  init(root);
+  assert.throws(
+    () =>
+      newChange({ type: 'hotfix', slug: 'x', title: 'X', now: NEW_AT }, root, {
+        ownerHandle: () => '',
+      }),
+    (e) => e.message === RELEASE_REQUIREMENT,
+  );
+  assert.deepEqual(changeFiles(root), []);
+  assert.equal(fs.readdirSync(path.join(root, '.changeledger', 'changes')).length, 0);
+  // A type without the release role keeps being created in the same repo.
+  newChange({ type: 'bug', slug: 'x', title: 'X', now: NEW_AT }, root, { ownerHandle: () => '' });
+  assert.equal(changeFiles(root).length, 1);
+  // Declared, the same creation succeeds.
+  setReleaseBranch(root, 'main');
+  newChange({ type: 'hotfix', slug: 'y', title: 'Y', now: NEW_AT }, root, {
+    ownerHandle: () => '',
+  });
+  assert.equal(changeFiles(root).length, 2);
+});
+
+test('174310 CR6: --print and --from refuse the same way and write nothing', () => {
+  const root = tmp();
+  init(root);
+  assert.throws(
+    () => scaffoldChange({ type: 'hotfix', slug: 'y', title: 'Y', now: NEW_AT }, root),
+    (e) => e.message === RELEASE_REQUIREMENT,
+  );
+
+  // A valid hotfix draft composed while a release branch was declared, then the
+  // branch retired before it lands.
+  setReleaseBranch(root, 'main');
+  const draft = scaffoldChange({ type: 'hotfix', slug: 'y', title: 'Y', now: NEW_AT }, root, {
+    ownerHandle: () => '',
+  });
+  setReleaseBranch(root, '');
+  assert.throws(
+    () =>
+      newChangeFrom(
+        { type: 'hotfix', slug: 'y', title: 'Y', from: sourceFile(root, draft.text) },
+        root,
+      ),
+    (e) =>
+      e.message.includes('the incoming document is invalid, nothing was written:') &&
+      e.message.includes(`  ${draft.name}: ${RELEASE_REQUIREMENT}`),
+  );
+  assert.deepEqual(changeFiles(root), []);
+});
+
 function silentOutput() {
   return { log() {}, error() {}, warn() {} };
 }

@@ -12,6 +12,7 @@ import {
   integrationBranch,
   integrationRoleError,
   releaseBranch,
+  releaseBranchRequirementError,
   renderChangeBranch,
   USAGE_COLLECTOR_GIT_KEY,
   usageCollector,
@@ -77,6 +78,18 @@ export function checkUsageGitConfig(repoRoot, run) {
   }
 }
 
+const TERMINAL_STATUSES = ['done', 'discarded'];
+
+// `checkConfig` already reports a malformed `git.release_branch`, so it reads
+// here as "nothing to add" rather than as a second error on every change.
+function releaseRequirementError(config, type) {
+  try {
+    return releaseBranchRequirementError(config, type);
+  } catch {
+    return undefined;
+  }
+}
+
 export function checkRepo({ config, changes, specs = [], releases = [], usage = [] }, opts = {}) {
   const errors = [];
   const warnings = [];
@@ -138,6 +151,13 @@ export function checkRepo({ config, changes, specs = [], releases = [], usage = 
     }
     if (fm.status && !statuses.includes(fm.status)) {
       err(c, `unknown status "${fm.status}"; valid statuses: ${statuses.join(', ')}`);
+    }
+    // A change of a release type that no declared branch can host is stuck: its
+    // context and its branch cannot load. Terminal changes are history, so
+    // retiring `git.release_branch` later never turns them red (20261012-174310).
+    if (statuses.includes(fm.status) && !TERMINAL_STATUSES.includes(fm.status)) {
+      const requirement = releaseRequirementError(config, fm.type);
+      if (requirement) err(c, requirement);
     }
     if ('depends_on' in fm && !Array.isArray(fm.depends_on)) err(c, 'depends_on must be a list');
     if ('related_to' in fm && !Array.isArray(fm.related_to)) err(c, 'related_to must be a list');

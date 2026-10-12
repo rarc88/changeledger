@@ -278,7 +278,8 @@ function releaseTypeRepo({
   const config = parseYaml(fs.readFileSync(configFile, 'utf8'));
   config.git = { change_branch_format: '{type}/{id}' };
   if (integrationBranch) config.git.integration_branch = integrationBranch;
-  if (releaseBranch) config.git.release_branch = releaseBranch;
+  // `new` refuses a release type without a branch: declare it while creating.
+  config.git.release_branch = releaseBranch ?? 'main';
   config.types.fix = {
     stages: ['request', 'investigation', 'specification', 'plan', 'log'],
     integrates_into: 'release',
@@ -315,6 +316,10 @@ function releaseTypeRepo({
     if (shape === 'dev-ahead') git(root, ['checkout', '-q', 'main']);
   }
   for (const { id } of Object.values(changes)) status(id, 'approved', root);
+  if (!releaseBranch) {
+    delete config.git.release_branch;
+    fs.writeFileSync(configFile, stringifyYaml(config));
+  }
   return { root, changes };
 }
 

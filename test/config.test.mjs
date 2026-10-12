@@ -9,6 +9,7 @@ import {
   integrationBranch,
   loadEffectiveConfig,
   releaseBranch,
+  releaseBranchRequirementError,
   renderChangeBranch,
 } from '../src/config.mjs';
 import { STATE_REF, writeActivation } from '../src/state-store.mjs';
@@ -409,6 +410,39 @@ test('181346 CR4: a release type without git.release_branch fails instead of fal
     changeIntegrationBranch(roleConfig({ integration_branch: 'dev' }), 'feature'),
     'dev',
   );
+});
+
+// 20261012-174310: the creation-time and check-time twin of the CR4 failure.
+
+test('174310 CR4/CR8: releaseBranchRequirementError names the action only for an undeclared release type', () => {
+  const message =
+    'type "fix" integrates into git.release_branch, which is not declared — set git.release_branch in .changeledger/config.yml, for example "main"';
+  for (const git of [{ integration_branch: 'dev' }, { release_branch: null }, undefined]) {
+    assert.equal(releaseBranchRequirementError(roleConfig(git), 'fix'), message);
+  }
+  // Declared branch, a type without the release role, an integration role and an
+  // unknown type all stay silent.
+  assert.equal(
+    releaseBranchRequirementError(roleConfig({ release_branch: 'main' }), 'fix'),
+    undefined,
+  );
+  for (const type of ['feature', 'chore', 'unknown', undefined]) {
+    assert.equal(releaseBranchRequirementError(roleConfig(undefined), type), undefined);
+  }
+});
+
+test('174310 CR8: the requirement message extends the one changeIntegrationBranch throws', () => {
+  const config = roleConfig(undefined);
+  let thrown;
+  assert.throws(
+    () => changeIntegrationBranch(config, 'fix'),
+    (error) => {
+      thrown = error.message;
+      return true;
+    },
+  );
+  assert.equal(thrown, 'type "fix" integrates into git.release_branch, which is not declared');
+  assert.ok(releaseBranchRequirementError(config, 'fix').startsWith(thrown));
 });
 
 test('181346 CR2: changeIntegrationBranch rejects an unknown integrates_into role', () => {
