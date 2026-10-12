@@ -345,7 +345,7 @@ sigue al tipo.
   - **Verify:** `node --test test/sync.test.mjs test/activate.test.mjs test/agent.test.mjs`
   - **Criteria:** CR8
   - **Resolved:** `2026-10-12T19:46:48Z`
-- [ ] Comparar también con `refs/remotes/<remoto>/<integración>` en la
+- [x] Comparar también con `refs/remotes/<remoto>/<integración>` en la
   comprobación de los tipos de release, con candidatas ausentes, remoto ambiguo y
   orden local-antes-que-remota como en la Specification, y reescribir los
   comentarios de la guarda y de `mergeBases`/`refExists` para que no afirmen más
@@ -353,6 +353,7 @@ sigue al tipo.
   - **Target:** `src/commands/agent.mjs`
   - **Verify:** `node --test test/agent.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4, CR5, CR6, CR7, CR9, CR10, CR11, CR17, CR18
+  - **Resolved:** `2026-10-12T19:46:48Z`
 - [ ] Gate completo: `biome check`, `node --test` y `changeledger check` (o
   `pnpm verify` si la versión de pnpm lo permite)
   - **Support:**
