@@ -69,8 +69,9 @@ resuelve ninguna.
   `usage: record not published: <motivo>` sin tocar la transición. Como el
   sufijo aleatorio distingue las rutas de dos clones, `sync` fusiona sus
   registros sin conflicto. `mutateState` rechaza que una mutación local elimine
-  un registro o cambie sus bytes; el fast-forward y la fusión de `sync` no lo
-  comprueban.
+  un registro o cambie sus bytes, y `sync` rechaza un fast-forward o una
+  fusión cuyo árbol haga lo mismo con un registro del tip local; publicar un
+  tip local que va por delante no lo comprueba.
 - En el layout legacy viven en `.changeledger/usage/` del worktree, y
   `changeledger commit` prepara los registros pendientes del change cuyo id
   lleva el commit. Los que git ignora y no tienen seguimiento se quedan fuera
@@ -90,7 +91,8 @@ cada uno — JSON, `schema: 1`, `change` igual al id de su nombre, un `at`
 presente con la forma `YYYY-MM-DDTHH:MM:SSZ` y forma del nombre — con errores
 que empiezan por `usage record <nombre>: `. Un registro inválido no impide
 cargar el resto del ledger, pero `check` lo rechaza. El análisis no ubica un
-registro cuyo `at` no es texto.
+registro ilegible o que no sea un objeto, sin `schema: 1`, sin `change`, o cuyo
+`at` no sea texto con la forma `YYYY-MM-DDTHH:MM:SSZ`.
 
 ## Análisis
 
@@ -123,10 +125,11 @@ Un change sin ningún tramo atribuido no está medido: no tiene fila, suma en
 `unmeasured` (`unmeasured: <n> change(s) have no attributed usage`, que cuenta
 también los changes sin ningún registro) y, con `<id>`, sus cifras son `null`. Los avisos son hechos sin
 umbrales: `rework`, `unpriced`, `anomaly`, `baseline`, `unmeasured`, `failed`
-(registros con `error`) y `gap` (transiciones del Log de cualquier change entre
+(registros con `error`), `gap` (transiciones del Log de cualquier change entre
 la base y el registro que cierra un tramo sin ningún registro en su `change` y
 `at`; lo que consumió el registrador del tramo mientras ocurrían cae en ese
-tramo). El contexto core nombra `analyze` como la consulta del consumo. La
+tramo) y `skipped` (cuántos registros de todo el ledger no se pueden ubicar,
+pida el change que pida). El contexto core nombra `analyze` como la consulta del consumo. La
 opción `ids` del módulo restringe el resultado a un conjunto de changes después
 de atribuir sobre todos los registros; el viewer la usa para sus filtros.
 
