@@ -56,6 +56,16 @@ Interfaces externas: ninguna.
 - **When** se abren los filtros de tipo y de owner
 - **Then** no ofrecen `bug` ni `ana`
 
+### CR5 — Los filtros no ofrecen valores de otro proyecto mientras carga el seleccionado
+- **Given** el proyecto A cargado con el tipo `bug` y el owner `ana`, y la carga del proyecto C seleccionado todavía en vuelo
+- **When** se abren los filtros de tipo y de owner
+- **Then** no ofrecen `bug` ni `ana`
+
+### CR6 — El aviso de documentos inválidos es del proyecto seleccionado
+- **Given** el proyecto A cargado con un documento de change inválido, y el proyecto B seleccionado cuya carga falla o sigue en vuelo
+- **When** se mira la cabecera del viewer
+- **Then** no aparece el aviso de documentos inválidos de A
+
 ### CR4 — El primer uso real
 - **Given** `changeledger view` con un proyecto válido A y un proyecto B cuya config está rota
 - **When** se carga A, se selecciona B, se busca y se cambia de vista, y se vuelve a A
@@ -66,11 +76,11 @@ Interfaces externas: ninguna.
 - [ ] Escribir pruebas fallidas de la carga en vuelo y de los filtros tras un fallo
   - **Target:** `test/viewer-metadata.test.mjs`
   - **Verify:** `pnpm test`
-  - **Criteria:** CR1, CR2, CR3
+  - **Criteria:** CR1, CR2, CR3, CR5, CR6
 - [ ] Pintar el estado de carga y no reutilizar el payload ni los filtros de otro proyecto
   - **Target:** `src/viewer/public/app.js, src/viewer/public/app-state.js`
   - **Verify:** `pnpm test`
-  - **Criteria:** CR1, CR2, CR3
+  - **Criteria:** CR1, CR2, CR3, CR5, CR6
 - [ ] Recorrer el viewer real con dos proyectos, uno de ellos roto
   - **Target:** `src/viewer/public/app.js`
   - **Verify:** verify: manual — `changeledger view` con dos proyectos temporales y cambio entre ellos en el navegador
