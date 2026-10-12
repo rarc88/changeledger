@@ -141,11 +141,11 @@ export function isAncestor(cwd, ancestor, descendant = 'HEAD', run = defaultRun)
   }
 }
 
-// Every best common ancestor of two refs (`merge-base --all`): one commit
+// The best common ancestors of two revisions (`merge-base --all`): one commit
 // normally, several after criss-cross merges, where a single base picked by
 // commit date can hide the others. Empty when git finds none (unrelated
-// histories) or fails (a ref that does not resolve); `refExists` tells those
-// apart.
+// histories) or fails (a revision that does not resolve); `refExists` tells
+// those apart. Both revisions go through git's own lookup, as in `refExists`.
 export function mergeBases(cwd, a, b, run = defaultRun) {
   try {
     return String(run(['merge-base', '--all', a, b], cwd))
@@ -157,7 +157,10 @@ export function mergeBases(cwd, a, b, run = defaultRun) {
   }
 }
 
-// Whether `ref` resolves to a commit in this repository.
+// Whether `ref` resolves to a commit through git's revision lookup
+// (gitrevisions(7)), not whether a ref of exactly that name exists: `dev` also
+// resolves through a tag `dev`, and `refs/heads/dev` through
+// `refs/tags/refs/heads/dev` while the branch is absent.
 export function refExists(cwd, ref, run = defaultRun) {
   try {
     run(['rev-parse', '--verify', '--quiet', `${ref}^{commit}`], cwd);

@@ -52,8 +52,9 @@ const STATE_BRANCH = STATE_REF.slice('refs/heads/'.length);
 // Which remote the state ref travels over. `origin` when it exists — the name
 // every clone gets by default — otherwise the single configured remote. Several
 // remotes and no `origin` is a genuine ambiguity: picking one for the human
-// would publish the journal somewhere they never named.
-export function resolveRemote(repoRoot, run) {
+// would publish the journal somewhere they never named. `subject` names what is
+// looked up in that error; the start guard passes its integration branch.
+export function resolveRemote(repoRoot, run, subject = 'the state ref') {
   const remotes = run(['remote'], repoRoot)
     .split('\n')
     .map((name) => name.trim())
@@ -62,7 +63,7 @@ export function resolveRemote(repoRoot, run) {
   if (remotes.includes('origin')) return 'origin';
   if (remotes.length === 1) return remotes[0];
   throw new Error(
-    `cannot decide which remote holds the state ref: this repo configures ${remotes.join(', ')} and none is "origin"`,
+    `cannot decide which remote holds ${subject}: this repo configures ${remotes.join(', ')} and none is "origin"`,
   );
 }
 

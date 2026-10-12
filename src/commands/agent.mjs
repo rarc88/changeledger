@@ -37,6 +37,7 @@ import {
   setStatus,
   setTask,
 } from '../writer.mjs';
+import { resolveRemote } from './sync.mjs';
 
 // Locates a change and the ledger it lives in. Inactive: unchanged —
 // `resolveChange` scans the worktree, tolerant of unrelated unparseable
@@ -80,6 +81,13 @@ function locate(cwd, id) {
   };
 }
 
+// A configured branch name as the ref git reads. A short name follows the
+// lookup order of gitrevisions(7), where `refs/<name>` and `refs/tags/<name>`
+// come before `refs/heads/<name>`: `git tag dev main` made `dev` read as `main`
+// (20261012-175147). The full ref reads the branch while it exists; with the
+// branch absent git still falls back to refs such as `refs/tags/refs/heads/<name>`.
+const branchRef = (name) => `refs/heads/${name}`;
+
 function assertImplementationBranch(config, change, repoRoot, gitRun) {
   const expected = renderChangeBranch(config, change);
   if (expected === undefined) return;
@@ -94,7 +102,7 @@ function assertImplementationBranch(config, change, repoRoot, gitRun) {
   // The base follows the role of the change's type (`integrates_into`), so a
   // release type descends from `git.release_branch` (20261002-181346).
   const baseline = changeIntegrationBranch(config, change.type);
-  if (baseline && !isAncestor(repoRoot, baseline, 'HEAD', gitRun)) {
+  if (baseline && !isAncestor(repoRoot, branchRef(baseline), 'HEAD', gitRun)) {
     throw new Error(`branch "${expected}" must descend from integration branch "${baseline}"`);
   }
 
@@ -102,27 +110,57 @@ function assertImplementationBranch(config, change, repoRoot, gitRun) {
   // (a release type) must not carry integration work that branch does not have
   // yet: when `dev` is ahead of `main`, a branch cut from `dev` still descends
   // from `main` and passes the check above (20261002-204623). The commits
-  // reachable from both `HEAD` and the integration branch are exactly the
-  // ancestors of their merge bases, so requiring every merge base (criss-cross
-  // merges leave several) to be in `baseline` means no integration commit
-  // outside `baseline` is shared with `HEAD`. It does not inspect commits that
-  // are only on `HEAD`. With no merge base it fails closed, like the ancestry
-  // check above, naming which cause applies.
+  // reachable from both `HEAD` and a copy of the integration branch are exactly
+  // the ancestors of their merge bases, so requiring each merge base (criss-cross
+  // merges leave several) to be in `baseline` keeps the commits of that copy
+  // shared with `HEAD` inside `baseline`. It does not inspect commits that are
+  // only on `HEAD`, such as a cherry-picked copy of integration work. With no
+  // merge base it fails closed, like the ancestry check above, naming which
+  // cause applies.
   const integration = integrationBranch(config);
   if (integration && integration !== baseline) {
-    const bases = mergeBases(repoRoot, 'HEAD', integration, gitRun);
-    if (bases.length === 0) {
-      const cause = refExists(repoRoot, integration, gitRun)
-        ? `it shares no history with integration branch "${integration}"`
-        : `integration branch "${integration}" does not exist locally — create it (e.g. from its remote-tracking copy) before starting`;
-      throw new Error(`branch "${expected}" cannot start: ${cause}`);
-    }
-    if (!bases.every((base) => isAncestor(repoRoot, base, baseline, gitRun))) {
-      throw new Error(
-        `branch "${expected}" contains commits of "${integration}" that are not in "${baseline}"`,
-      );
+    for (const { ref, name } of integrationCopies(integration, expected, repoRoot, gitRun)) {
+      const bases = mergeBases(repoRoot, 'HEAD', ref, gitRun);
+      if (bases.length === 0) {
+        throw new Error(
+          `branch "${expected}" cannot start: it shares no history with integration branch "${name}"`,
+        );
+      }
+      if (!bases.every((base) => isAncestor(repoRoot, base, branchRef(baseline), gitRun))) {
+        throw new Error(
+          `branch "${expected}" contains commits of "${name}" that are not in "${baseline}"`,
+        );
+      }
     }
   }
+}
+
+// The copies of the integration branch the guard above compares, local first:
+// the branch and, when the repo has a remote, its remote-tracking copy there,
+// because a hotfix cut from `origin/dev` carried work the local `dev` lacked
+// (20261012-175147). The remote is the one `sync` resolves; several remotes and
+// none named `origin` fail closed rather than compare with the local copy
+// alone. A missing copy is skipped, since a remote need not publish the branch;
+// with neither copy present it fails closed. It reads refs already in the repo
+// and runs no fetch, so work pushed after the last fetch is not seen.
+function integrationCopies(integration, expected, repoRoot, gitRun) {
+  let remote;
+  try {
+    remote = resolveRemote(repoRoot, gitRun, `integration branch "${integration}"`);
+  } catch (error) {
+    throw new Error(`branch "${expected}" cannot start: ${error.message}`);
+  }
+  const copies = [{ ref: branchRef(integration), name: integration }];
+  if (remote) {
+    copies.push({ ref: `refs/remotes/${remote}/${integration}`, name: `${remote}/${integration}` });
+  }
+  const present = copies.filter(({ ref }) => refExists(repoRoot, ref, gitRun));
+  if (present.length === 0) {
+    throw new Error(
+      `branch "${expected}" cannot start: integration branch "${integration}" does not exist locally — create it (e.g. from its remote-tracking copy) before starting`,
+    );
+  }
+  return present;
 }
 
 // The pre-text guards of `status`: which destinations this actor may ask for at
