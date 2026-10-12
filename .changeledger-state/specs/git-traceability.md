@@ -169,20 +169,37 @@ El contexto publica `change_branch=<rama>` y la transición `approved →
 in-progress` exige ese nombre exacto y, cuando la rama de integración del change
 está declarada, que la rama descienda de ella (`branch "<rama>" must descend
 from integration branch "<base>"`, que para un tipo `release` nombra la rama de
-release). Cuando la rama de integración del change difiere de una
-`git.integration_branch` declarada, la guarda exige además que todas las bases
-de fusión entre la rama y `git.integration_branch` (`mergeBases`,
-`git merge-base --all`, `src/git.mjs`) sean ancestros de la rama de integración
-del change; si no, falla con `branch "<rama>" contains commits of "<integración>"
-that are not in "<base>"`. Así una rama de un tipo `release` creada desde una
-rama de integración que va por delante se rechaza. La comprobación mira los
-commits que la rama comparte con la de integración, no los que sólo están en la
-rama: trabajo traído con cherry-pick no se detecta. Sin bases de fusión falla
-cerrada con `branch "<rama>" cannot start: <causa>`, donde la causa dice que
-`git.integration_branch` no existe en local (`integration branch "<integración>"
-does not exist locally — create it (e.g. from its remote-tracking copy) before
-starting`) o que las historias no se relacionan (`it shares no history with
-integration branch "<integración>"`). La ausencia o `null` de
+release). La guarda pasa a Git cada rama configurada por su ref completa
+`refs/heads/<rama>` (`branchRef`, `src/commands/agent.mjs`) y antes comprueba
+que exista una ref con exactamente ese nombre (`refExists`, `git show-ref
+--verify --quiet`, `src/git.mjs`): una etiqueta u otra ref con el mismo nombre
+corto (`git tag dev main`, `refs/dev`) no sustituye a la rama, y una rama ausente
+no se resuelve a través de refs como `refs/tags/refs/heads/<rama>` o
+`refs/heads/refs/heads/<rama>`, que `git tag`, `git branch` o un fetch de
+etiquetas pueden crear. Una base ausente falla con el mismo `must descend`. Los
+mensajes nombran las ramas por su nombre corto. Cuando la rama de integración
+del change difiere de una `git.integration_branch` declarada, la guarda compara
+`HEAD` con las copias de `git.integration_branch` que existen, primero la local
+y después su copia remote-tracking `refs/remotes/<remoto>/<integración>` del
+remoto que elige `resolveRemote` (`src/commands/sync.mjs`: `origin` si existe,
+si no el único remoto configurado). Exige que todas las bases de fusión entre
+la rama y cada copia (`mergeBases`, `git merge-base --all`) sean ancestros de la
+rama de integración del change; si no, falla con `branch "<rama>" contains
+commits of "<copia>" that are not in "<base>"`, donde la copia es, por ejemplo, `dev` u
+`origin/dev`. Así se rechaza una rama de un tipo `release` creada desde una rama
+de integración, local o remota, que va por delante. Una copia ausente se salta,
+porque un remoto puede no publicar la rama; sin ninguna de las dos falla cerrada
+con `branch "<rama>" cannot start: integration branch "<integración>" does not
+exist locally — create it (e.g. from its remote-tracking copy) before starting`,
+y una copia sin historia común con `branch "<rama>" cannot start: it shares no
+history with integration branch "<copia>"`. Con varios remotos y ninguno
+`origin` falla cerrada con `branch "<rama>" cannot start: cannot decide which
+remote holds integration branch "<integración>": this repo configures <remotos>
+and none is "origin"`. Los tipos que se integran en `git.integration_branch` no
+resuelven remoto. La guarda sólo lee refs presentes y no ejecuta `fetch` ni
+`ls-remote`: lo publicado después del último fetch no se ve. Mira los commits que
+la rama comparte con cada copia, no los que sólo están en la rama: trabajo
+traído con cherry-pick no se detecta. La ausencia o `null` de
 `change_branch_format` desactivan esta
 comprobación entera en una config vigente, incluido el error de rama de release
 no declarada, que entonces aparece al componer el contexto del change.
