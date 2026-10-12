@@ -2,7 +2,7 @@
 id: "20261012-125617"
 title: check valida el instante de los registros de consumo
 type: bug
-status: in-progress
+status: in-review
 created: 2026-10-12T12:56:17Z
 depends_on: []
 branch: bug/20261012-125617
@@ -73,3 +73,4 @@ Interfaces externas: ninguna.
 - **2026-10-12T13:51:46Z** `[status]` approved → in-progress
 - **2026-10-12T13:51:46Z** `[branch]` set: bug/20261012-125617 (auto)
 - **2026-10-12T13:57:30Z** `[note]` Reproducido antes del cambio: check sobre un ledger con registros sin at, con at 123 y con at "ayer" salió con 0. Implementación: usageRecordIssue reporta missing "at" y «at must be an ISO 8601 UTC instant, got <valor>» con la regex ISO_UTC que check ya usa para created y updated; los 114 registros de usage/ de este repo la cumplen y check pasa sobre él. CR3 queda fijado en test/usage-analysis.test.mjs y, por la CLI, en test/analyze.test.mjs (fuera del Target del Plan, que sólo nombraba el primero); quitar la condición de at de isPlaceable los hace fallar. El orquestador actualizó el comentario de isPlaceable en src/usage-analysis.mjs, que decía que check no reporta un at ausente.
+- **2026-10-12T13:57:32Z** `[status]` in-progress → in-review
