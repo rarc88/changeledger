@@ -2,7 +2,7 @@
 id: "20261012-141809"
 title: sync no adopta una revisión que pierde identidades de la foto local
 type: bug
-status: in-review
+status: in-validation
 created: 2026-10-12T14:18:09Z
 depends_on: []
 branch: bug/20261012-141809
@@ -118,3 +118,4 @@ la herramienta.
 - **2026-10-12T15:53:53Z** `[note]` Corrección de la ronda 1 (del orquestador): docs/usage-capture.md decía que la reconciliación y el fast-forward de sync no ejecutan la comprobación de los registros de consumo; ahora dice que sync rechaza un fast-forward o una reconciliación cuyo árbol borra o reescribe un registro del tip local y no adopta nada, y que publicar un tip local por delante no la ejecuta. Un grep de docs/ y README.md no encontró otra copia de la frase; la spec usage se corrige al graduar.
 - **2026-10-12T15:53:54Z** `[status]` in-progress → in-review
 - **2026-10-12T15:53:58Z** `[note]` Mandato de la revisión de confirmación: el hallazgo de la ronda 1 (frase obsoleta de docs/usage-capture.md) sobre el diff sin commit encima de 7fc8198b, y regresiones que introduzca.
+- **2026-10-12T15:55:21Z** `[review]` in-review → in-validation (delegated subagent, clean context)
