@@ -196,9 +196,10 @@ cualquier error de `check`; no se midió.
   - **Verify:** `node --test test/cli-bin.test.mjs`
   - **Criteria:** CR1, CR7
   - **Resolved:** `2026-10-12T18:28:31Z`
-- [ ] Actualizar el comentario del tipo `hotfix` en `templates/config.yml` («until then `new` and `check` refuse a change of this type, as do `context <id>` and `agent-context`») sin añadir una pin de prosa a ningún test, y correr la puerta completa
+- [x] Actualizar el comentario del tipo `hotfix` en `templates/config.yml` («until then `new` and `check` refuse a change of this type, as do `context <id>` and `agent-context`») sin añadir una pin de prosa a ningún test, y correr la puerta completa
   - **Support:**
   - **Verify:** `pnpm verify`
+  - **Resolved:** `2026-10-12T18:28:31Z`
 
 ## Log
 - **2026-10-12T17:43:10Z** `[version]` 0.18.0-dev
