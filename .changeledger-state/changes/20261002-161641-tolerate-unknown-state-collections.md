@@ -119,10 +119,11 @@ que es justo el fallo observado.
   - **Verify:** `node --test test/state-store.test.mjs test/repo.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4
   - **Resolved:** `2026-10-12T11:29:20Z`
-- [ ] Emitir el aviso una vez por comando y repetirlo en `check`
+- [x] Emitir el aviso una vez por comando y repetirlo en `check`
   - **Target:** `bin/changeledger.mjs, src/commands/check.mjs, test/cli-bin.test.mjs, test/check.test.mjs`
   - **Verify:** `node --test test/cli-bin.test.mjs test/check.test.mjs`
   - **Criteria:** CR1, CR5
+  - **Resolved:** `2026-10-12T11:29:20Z`
 - [ ] Probar el flujo habitual completo frente a una colección futura, con `sync`
   - **Target:** `test/sync.test.mjs`
   - **Verify:** `node --test test/sync.test.mjs`
