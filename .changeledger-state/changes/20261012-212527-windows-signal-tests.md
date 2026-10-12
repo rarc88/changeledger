@@ -347,10 +347,11 @@ los dos separadores (`[\\/]`) en esa expresión.
   - **Verify:** `pnpm verify`
   - **Resolved:** `2026-10-12T21:55:49Z`
 
-- [ ] Aceptar ambos separadores de ruta en la aserción `Created …` de `174310 CR7`
+- [x] Aceptar ambos separadores de ruta en la aserción `Created …` de `174310 CR7`
   - **Target:** `test/cli-bin.test.mjs`
   - **Verify:** `node --test test/cli-bin.test.mjs`
   - **Criteria:** CR7
+  - **Resolved:** `2026-10-12T22:16:37Z`
 - [ ] Comprobar en el CI de Windows que `174310 CR7` pasa
   - **Target:** `test/cli-bin.test.mjs`
   - **Verify:** verify: manual — en los logs de `verify (node 24 / windows-latest)` y `verify (node 26 / windows-latest)`, `174310 CR7` con `✔` y ninguna prueba bajo `failing tests`
