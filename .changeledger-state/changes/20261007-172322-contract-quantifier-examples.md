@@ -2,7 +2,7 @@
 id: "20261007-172322"
 title: Incluir never y only entre los cuantificadores de la obligación de prosa
 type: bug
-status: in-validation
+status: done
 created: 2026-10-07T17:23:22Z
 depends_on: []
 branch: bug/20261007-172322
@@ -62,3 +62,4 @@ Interfaces externas: ninguna.
 - **2026-10-12T12:46:14Z** `[status]` in-progress → in-review
 - **2026-10-12T12:46:19Z** `[note]` Mandato del review: la superficie que el change gobierna — dev..HEAD contra CR1-CR2 y el Plan, con las reglas de AGENTS.md sobre la prosa del contrato (guardas tolerantes, sin fijar frases literales, presupuestos) y la frase cuantificada informada en la nota anterior como puntos de escrutinio.
 - **2026-10-12T12:48:50Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-10-12T12:51:57Z** `[validation]` in-validation → done (human accepted via conversation)
