@@ -220,11 +220,12 @@ los CR1 y CR4 pasan a ser parte de ese contrato. No cambia ningún formato.
   - **Verify:** `node --test test/cli-bin.test.mjs`
   - **Criteria:** CR2
   - **Resolved:** `2026-10-12T19:18:10Z`
-- [ ] Test de extremo a extremo de CR9 sobre la CLI (`config migrate`, `check`,
+- [x] Test de extremo a extremo de CR9 sobre la CLI (`config migrate`, `check`,
   edición, `check`)
   - **Target:** `test/cli-bin.test.mjs`
   - **Verify:** `node --test test/cli-bin.test.mjs`
   - **Criteria:** CR9
+  - **Resolved:** `2026-10-12T19:18:11Z`
 - [ ] Gate completo tras la implementación
   - **Support:**
   - **Verify:** `pnpm verify`
