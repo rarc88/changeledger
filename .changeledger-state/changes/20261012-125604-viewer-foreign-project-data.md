@@ -88,9 +88,10 @@ Interfaces externas: ninguna.
   - **Verify:** verify: manual — `changeledger view` con dos proyectos temporales y cambio entre ellos en el navegador
   - **Criteria:** CR4
   - **Resolved:** `2026-10-12T13:15:18Z`
-- [ ] Ejecutar el gate completo
+- [x] Ejecutar el gate completo
   - **Verify:** `pnpm verify`
   - **Support:**
+  - **Resolved:** `2026-10-12T13:15:18Z`
 
 ## Log
 - **2026-10-12T12:56:04Z** `[version]` 0.18.0-dev
