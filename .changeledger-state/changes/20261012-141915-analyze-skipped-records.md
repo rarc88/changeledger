@@ -63,10 +63,11 @@ inválido, que impediría analizar el resto, cuando `check` ya es el gate.
 
 ## Plan
 
-- [ ] Escribir pruebas fallidas de la pista y de la forma de at
+- [x] Escribir pruebas fallidas de la pista y de la forma de at
   - **Target:** `test/usage-analysis.test.mjs, test/analyze.test.mjs`
   - **Verify:** `pnpm test`
   - **Criteria:** CR1, CR2, CR3
+  - **Resolved:** `2026-10-12T16:19:10Z`
 - [ ] Contar los registros no ubicables y exigir la forma de at en isPlaceable
   - **Target:** `src/usage-analysis.mjs`
   - **Verify:** `pnpm test`
