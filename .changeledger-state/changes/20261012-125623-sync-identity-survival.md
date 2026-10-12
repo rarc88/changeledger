@@ -124,3 +124,4 @@ ve un borrado intermedio vuelto a añadir dentro del rango remoto.
 - **2026-10-12T12:58:48Z** `[status]` draft → approved (human via conversation)
 - **2026-10-12T14:04:08Z** `[status]` approved → in-progress
 - **2026-10-12T14:04:08Z** `[branch]` set: audit/20261012-125623 (auto)
+- **2026-10-12T14:09:43Z** `[note]` Hallazgos de la investigación delegada volcados en Investigation; reproducciones R1–R7 ejecutadas en repos desechables con CHANGELEDGER_HOME aislado (el registro real no cambió). El alcance de la corrección queda para el humano.
