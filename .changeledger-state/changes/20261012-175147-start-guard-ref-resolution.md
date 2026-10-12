@@ -2,7 +2,7 @@
 id: "20261012-175147"
 title: La guarda de arranque resuelve las ramas por nombre ambiguo y sólo en local
 type: bug
-status: in-progress
+status: in-review
 created: 2026-10-12T17:51:47Z
 depends_on: []
 branch: bug/20261012-175147
@@ -367,3 +367,4 @@ sigue al tipo.
 - **2026-10-12T19:29:37Z** `[branch]` set: bug/20261012-175147 (auto)
 - **2026-10-12T19:46:46Z** `[note]` Implementación: branchRef cualifica como refs/heads/<nombre> cada rama configurada que la guarda pasa a isAncestor, mergeBases y refExists (mensajes con el nombre corto); integrationCopies compara la rama de integración local y después su copia remote-tracking del remoto que elige resolveRemote (tercer parámetro opcional, mensajes de sync/activate intactos), salta la ausente, falla cerrada sin ninguna y con varios remotos sin origin; los tipos de integración no resuelven remoto; sin fetch ni ls-remote. 17 tests nuevos 175147; 16 mutantes caen en sus tests. pnpm verify en verde (1982 tests).
 - **2026-10-12T19:46:46Z** `[note]` Residuo para decisión humana: si la rama configurada no existe, git resuelve refs/heads/<n> a través de refs/tags/refs/heads/<n> (o refs/refs/heads/<n>, refs/remotes/refs/heads/<n>); con una ref así creada a mano, dos casos que antes fallaban cerrados ahora arrancan (K2: dev y origin/dev ausentes; R1: main renombrada). Arreglo posible: comprobar existencia exacta con git show-ref --verify antes de usar la ref completa. Otros residuos: checkoutBranch/cutover y heads/<rama> con etiqueta homónima (tarea aparte); lo empujado tras el último fetch no se ve; un cherry-pick no se detecta; la copia remota de la rama de release no se compara; change_branch_format null desactiva la guarda; plegado de mayúsculas; integration_branch: origin/dev falla cerrada con «does not exist locally» o «must descend». Decisiones: un fallo de git remote falla cerrado con el prefijo de la guarda; primero se comprueba qué copias existen y luego las bases.
+- **2026-10-12T19:46:49Z** `[status]` in-progress → in-review
