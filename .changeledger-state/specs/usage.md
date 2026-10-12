@@ -86,9 +86,11 @@ bytes es conflicto.
 
 La carga del ledger, común a la CLI y al viewer, expone los registros parseados
 y asociados al id de su change en ambos layouts. `changeledger check` valida
-cada uno — JSON, `schema: 1`, `change` igual al id de su nombre y forma del
-nombre — con errores que empiezan por `usage record <nombre>: `. Un registro
-inválido no impide cargar el resto del ledger, pero `check` lo rechaza.
+cada uno — JSON, `schema: 1`, `change` igual al id de su nombre, un `at`
+presente con la forma `YYYY-MM-DDTHH:MM:SSZ` y forma del nombre — con errores
+que empiezan por `usage record <nombre>: `. Un registro inválido no impide
+cargar el resto del ledger, pero `check` lo rechaza. El análisis no ubica un
+registro cuyo `at` no es texto.
 
 ## Análisis
 
