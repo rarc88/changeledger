@@ -60,10 +60,11 @@ Interfaces externas: ninguna.
   - **Verify:** `pnpm test`
   - **Criteria:** CR1, CR2
   - **Resolved:** `2026-10-12T12:25:46Z`
-- [ ] Recorrer el viewer real sin proyectos durante diez segundos
+- [x] Recorrer el viewer real sin proyectos durante diez segundos
   - **Target:** `src/viewer/public/app.js`
   - **Verify:** verify: manual — `changeledger view` con un registro vacío, Metrics y espera
   - **Criteria:** CR3
+  - **Resolved:** `2026-10-12T12:25:46Z`
 - [ ] Ejecutar el gate completo
   - **Verify:** `pnpm verify`
   - **Support:**
