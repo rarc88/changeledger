@@ -122,3 +122,4 @@ la herramienta.
 - **2026-10-12T15:55:21Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-10-12T16:39:43Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-10-12T16:40:33Z** `[graduation]` spec: `architecture.md`
+- **2026-10-12T16:40:33Z** `[graduation]` spec: `usage.md`
