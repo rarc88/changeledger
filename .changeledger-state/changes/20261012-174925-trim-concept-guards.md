@@ -5,6 +5,7 @@ type: refactor
 status: done
 created: 2026-10-12T17:49:25Z
 depends_on: []
+reviewed: true
 branch: refactor/20261012-174925
 related_to: ["20261007-135159", "20261007-172322", "20261012-174407", "20260730-002730", "20260730-214503", "20260729-143656", "20261002-113320", "20261002-113435", "20261002-152555", "20261002-181346", "20261002-181428"]
 owner: rarc88
@@ -139,3 +140,4 @@ Interfaces externas: ninguna. Superficie enteramente en `test/context.test.mjs`.
 - **2026-10-12T18:15:34Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-10-12T18:15:40Z** `[note]` Revisión de confirmación: pass. Seguimientos no bloqueantes: el calificador «from an existing spec» no está en el patrón de la entrada 16 (trade de patrón tolerante); la cápsula graduation-review también prohíbe añadir entradas al Log y delegar, sin guard.
 - **2026-10-12T18:36:47Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-10-12T18:37:09Z** `[graduation]` skipped: Solo recorta tests: la spec contract-discovery ya describe los guards de obligación juzgados en la sede de su fragmento dueño, que es lo que estas entradas pasan a hacer; ninguna verdad persistente cambia.
