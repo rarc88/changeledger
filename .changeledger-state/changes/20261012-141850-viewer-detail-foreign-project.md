@@ -43,7 +43,7 @@ Interfaces externas: ninguna.
 ### CR2 — Un fallo de carga no abre un change de otro proyecto
 - **Given** los proyectos A y B con un change del mismo id `20261012-120000`, A cargado y la carga de B fallando
 - **When** se pulsa el resultado de la búsqueda global de ese change de B
-- **Then** no se abre ningún detalle y la vista activa muestra el error de carga de B
+- **Then** no se abre ningún detalle y un aviso (toast) muestra el error de carga de B, visible aunque la búsqueda global siga activa
 
 ## Plan
 
