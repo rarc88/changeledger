@@ -2,7 +2,7 @@
 id: "20261012-174340"
 title: "La validación y la migración de la config no cubren seed_stage, release_branch ni el tdd por tipo"
 type: bug
-status: in-review
+status: in-validation
 created: 2026-10-12T17:43:40Z
 depends_on: []
 branch: bug/20261012-174340
@@ -240,3 +240,4 @@ los CR1 y CR4 pasan a ser parte de ese contrato. No cambia ningún formato.
 - **2026-10-12T19:18:00Z** `[note]` Decisiones no especificadas: REVIEWABLE_STAGES deja de exportarse; el comentario de release_branch distinta va en el del tipo hotfix de la plantilla porque el del bloque git lo fija el test 113219 CR1 y lo duplica setBlankGitSection; CR5 cubre también integration_branch vacía. Residuos: graduate --new no revalida seed_stage; configs existentes con valores ya inválidos sólo las marca check; setBlankGitSection duplica el comentario de git; la reconciliación de architecture, lifecycle y git-traceability queda para el cierre.
 - **2026-10-12T19:18:12Z** `[status]` in-progress → in-review
 - **2026-10-12T19:18:17Z** `[note]` Mandato de revisión: la superficie que gobierna el change — checkConfig (seed_stage, ramas iguales), stagesRequiredByReview y activateReviewableStages, y los comentarios de templates/config.yml; rango 366a5a8b..205a31a2.
+- **2026-10-12T19:29:28Z** `[review]` in-review → in-validation (delegated subagent, clean context)
