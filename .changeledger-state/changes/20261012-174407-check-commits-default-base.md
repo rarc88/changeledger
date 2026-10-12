@@ -2,7 +2,7 @@
 id: "20261012-174407"
 title: "check --commits sin base usa la rama de integración del change de la rama actual"
 type: bug
-status: in-validation
+status: done
 created: 2026-10-12T17:44:07Z
 depends_on: []
 branch: bug/20261012-174407
@@ -164,3 +164,4 @@ Fixture común de los CR (salvo que se diga otra cosa): repo con `git.integratio
 - **2026-10-12T19:02:05Z** `[note]` Mandato de la revisión de confirmación: los defectos nombrados (dos comentarios universales de check.mjs, guard de HEAD desacoplado sin test, notas del Log) y regresiones de la corrección, sobre el diff sin commit encima de 76d1a63d.
 - **2026-10-12T19:05:21Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-10-12T19:05:27Z** `[note]` Revisión de confirmación: pass. Seguimientos no bloqueantes: el comentario de defaultCommitsBase dice «would not change the answer» refiriéndose a la base (un documento malformado haría fallar una lectura del ledger, que este lint omite a propósito por CR9); ningún test fija que un estado propio como cancelled sigue decidiendo; defaultCommitsBase lee hasReleaseType de loadEffectiveConfig y después usa la config de loadRepo, rutas que difieren en un repo activado (no examinado).
+- **2026-10-12T19:14:03Z** `[validation]` in-validation → done (human accepted via conversation)
