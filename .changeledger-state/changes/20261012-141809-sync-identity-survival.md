@@ -2,7 +2,7 @@
 id: "20261012-141809"
 title: sync no adopta una revisión que pierde identidades de la foto local
 type: bug
-status: draft
+status: approved
 created: 2026-10-12T14:18:09Z
 depends_on: []
 related_to: ["20261012-125623", "20261002-161641", "20261012-125611"]
@@ -103,3 +103,4 @@ la herramienta.
 
 ## Log
 - **2026-10-12T14:18:09Z** `[version]` 0.18.0-dev
+- **2026-10-12T15:23:52Z** `[status]` draft → approved (human via conversation)
