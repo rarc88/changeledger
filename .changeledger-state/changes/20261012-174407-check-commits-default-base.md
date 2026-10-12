@@ -2,7 +2,7 @@
 id: "20261012-174407"
 title: "check --commits sin base usa la rama de integración del change de la rama actual"
 type: bug
-status: in-review
+status: in-validation
 created: 2026-10-12T17:44:07Z
 depends_on: []
 branch: bug/20261012-174407
@@ -162,3 +162,4 @@ Fixture común de los CR (salvo que se diga otra cosa): repo con `git.integratio
 - **2026-10-12T19:01:59Z** `[note]` Corrección tras la revisión (ronda 1): se acotan dos comentarios de src/commands/check.mjs (TERMINAL_STATUSES: sólo done y discarded no deciden, un estado propio como cancelled sí; defaultCommitsBase: con roles válidos y sin tipos de release la base es git.integration_branch, y este lint no detecta un rol inválido en ese caso) y se añade el test 174407 CR3 de HEAD desacoplado, que cae al quitar el guard. Fe de erratas de la nota anterior: los tests nuevos de check.test.mjs eran 11 (ahora 12), y el guard de HEAD desacoplado no era un mutante equivalente: con tipos de release y un documento malformado cambia el resultado.
 - **2026-10-12T19:02:00Z** `[status]` in-progress → in-review
 - **2026-10-12T19:02:05Z** `[note]` Mandato de la revisión de confirmación: los defectos nombrados (dos comentarios universales de check.mjs, guard de HEAD desacoplado sin test, notas del Log) y regresiones de la corrección, sobre el diff sin commit encima de 76d1a63d.
+- **2026-10-12T19:05:21Z** `[review]` in-review → in-validation (delegated subagent, clean context)
