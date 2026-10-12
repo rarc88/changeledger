@@ -80,3 +80,4 @@ inválido, que impediría analizar el resto, cuando `check` ya es el gate.
 - **2026-10-12T15:24:01Z** `[status]` draft → approved (human via conversation)
 - **2026-10-12T16:14:15Z** `[status]` approved → in-progress
 - **2026-10-12T16:14:15Z** `[branch]` set: feature/20261012-141915 (auto)
+- **2026-10-12T16:19:09Z** `[note]` Reproducido antes del cambio con analyzeUsage: un registro con at "ayer" se ubicaba y cerraba un tramo, uno con at 123 se descartaba, y ninguno producía aviso. Implementación: isPlaceable exige además isIsoUtc(record.at), reutilizado de src/lifecycle.mjs, que usage-analysis ya importaba; analyzeUsage cuenta sobre todo el ledger los registros que isPlaceable rechaza y añade al final la pista skipped:. Sobre el ledger de este repo, analyze --json no emite skipped:. Mutantes M1–M4 fallaron por la aserción esperada.
