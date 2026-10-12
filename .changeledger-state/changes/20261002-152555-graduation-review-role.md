@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-10-02T15:25:55Z
 depends_on: []
+archived: true
 reviewed: true
 branch: feature/20261002-152555
 related_to: ["20261002-113320", "20261002-113435"]
@@ -205,3 +206,5 @@ Estado actual, verificado en `dev`:
 - **2026-10-02T16:32:15Z** `[note]` graduation-review de la reconciliación (contract-discovery, lifecycle): recomienda aplicar; confirma cada frase cambiada contra el código y ninguna otra spec contradice el change. Nota cosmética: un salto de línea corto en contract-discovery.
 - **2026-10-02T16:32:17Z** `[graduation]` spec: `contract-discovery.md`
 - **2026-10-02T16:32:18Z** `[graduation]` spec: `lifecycle.md`
+- **2026-10-12T21:17:02Z** `[version]` 0.18.0-dev
+- **2026-10-12T21:17:02Z** `[archive]` archived

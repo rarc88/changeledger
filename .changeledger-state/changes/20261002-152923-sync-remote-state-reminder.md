@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-10-02T15:29:23Z
 depends_on: []
+archived: true
 reviewed: true
 branch: feature/20261002-152923
 related_to: ["20260811-151426", "20261002-113320", "20261002-113435"]
@@ -173,3 +174,5 @@ de seguimiento del remoto.
 - **2026-10-02T16:36:34Z** `[note]` graduation-review ronda 1 de la reconciliación de architecture: recomienda corregir — faltaba la condición «sin activar», el respaldo ante resolveRemote era más estrecho que el catch real, y la frase de sync --status «offline puro… sin resolver ningún remoto» no quedaba acotada a repos activados. Corregido el borrador; se delega a un revisor nuevo.
 - **2026-10-02T16:37:25Z** `[note]` graduation-review ronda 2 de la reconciliación de architecture: recomienda aplicar; las tres peticiones de la ronda 1 quedan cerradas. Matiz opcional no aplicado: «sólo leen refs locales» sería más exacto como «sólo leen estado local», porque resolveRemote lee la configuración de remotos con git remote.
 - **2026-10-02T16:37:26Z** `[graduation]` spec: `architecture.md`
+- **2026-10-12T21:17:02Z** `[version]` 0.18.0-dev
+- **2026-10-12T21:17:02Z** `[archive]` archived

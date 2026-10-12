@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-10-12T17:43:40Z
 depends_on: []
+archived: true
 reviewed: true
 branch: bug/20261012-174340
 related_to: ["20261002-113320", "20261002-113435", "20261002-181346", "20261002-204623", "20260726-141119"]
@@ -248,3 +249,4 @@ los CR1 y CR4 pasan a ser parte de ese contrato. No cambia ningún formato.
 - **2026-10-12T21:13:14Z** `[graduation]` spec: `architecture.md`
 - **2026-10-12T21:13:14Z** `[graduation]` spec: `lifecycle.md`
 - **2026-10-12T21:13:15Z** `[graduation]` spec: `git-traceability.md`
+- **2026-10-12T21:17:02Z** `[archive]` archived

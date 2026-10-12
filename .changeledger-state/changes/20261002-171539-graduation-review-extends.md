@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-10-02T17:15:39Z
 depends_on: []
+archived: true
 reviewed: true
 branch: feature/20261002-171539
 related_to: ["20261002-152555"]
@@ -113,3 +114,5 @@ pierde el paralelismo con la lista de modos del mismo overlay.
 - **2026-10-02T17:30:51Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-10-02T17:32:17Z** `[note]` graduation-review de la reconciliación (lifecycle): recomienda aplicar; la frase coincide con la condición de close.md y ninguna otra spec conserva «crea o corrige».
 - **2026-10-02T17:32:18Z** `[graduation]` spec: `lifecycle.md`
+- **2026-10-12T21:17:02Z** `[version]` 0.18.0-dev
+- **2026-10-12T21:17:02Z** `[archive]` archived

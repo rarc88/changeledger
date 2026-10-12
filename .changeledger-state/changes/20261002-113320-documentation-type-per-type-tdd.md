@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-10-02T11:33:20Z
 depends_on: []
+archived: true
 reviewed: true
 branch: feature/20261002-113320
 related_to: []
@@ -268,3 +269,5 @@ Los criterios que pide el párrafo:
 - **2026-10-02T14:58:17Z** `[graduation]` spec: `contract-discovery.md`
 - **2026-10-02T14:58:18Z** `[graduation]` spec: `validation.md`
 - **2026-10-02T14:58:19Z** `[graduation]` spec: `architecture.md`
+- **2026-10-12T21:17:02Z** `[version]` 0.18.0-dev
+- **2026-10-12T21:17:02Z** `[archive]` archived

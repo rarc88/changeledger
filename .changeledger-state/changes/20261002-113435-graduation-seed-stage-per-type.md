@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-10-02T11:34:35Z
 depends_on: ["20261002-113320"]
+archived: true
 reviewed: true
 branch: feature/20261002-113435
 related_to: []
@@ -154,3 +155,5 @@ graduación.
 - **2026-10-02T15:19:00Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-10-02T15:20:08Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-10-02T15:20:40Z** `[graduation]` spec: `lifecycle.md`
+- **2026-10-12T21:17:02Z** `[version]` 0.18.0-dev
+- **2026-10-12T21:17:02Z** `[archive]` archived

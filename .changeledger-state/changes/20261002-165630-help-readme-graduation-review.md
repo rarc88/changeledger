@@ -5,6 +5,7 @@ type: quick
 status: done
 created: 2026-10-02T16:56:30Z
 depends_on: []
+archived: true
 reviewed: true
 branch: quick/20261002-165630
 related_to: ["20261002-152555"]
@@ -35,3 +36,5 @@ contrato, las specs y cualquier comportamiento. Se revierte con el commit.
 - **2026-10-02T17:06:02Z** `[status]` in-progress → in-validation
 - **2026-10-02T17:08:40Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-10-02T17:08:42Z** `[graduation]` skipped: Sólo textos de ayuda del CLI y README; ninguna spec afirma su contenido
+- **2026-10-12T21:17:02Z** `[version]` 0.18.0-dev
+- **2026-10-12T21:17:02Z** `[archive]` archived

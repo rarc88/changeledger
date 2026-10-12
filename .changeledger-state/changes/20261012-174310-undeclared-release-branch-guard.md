@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-10-12T17:43:10Z
 depends_on: []
+archived: true
 reviewed: true
 branch: bug/20261012-174310
 related_to: ["20261002-181346", "20261002-181428", "20261002-204623"]
@@ -216,3 +217,4 @@ cualquier error de `check`; no se midió.
 - **2026-10-12T18:45:15Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-10-12T18:48:37Z** `[note]` graduation-review de la reconciliación de git-traceability: apply. Todas las afirmaciones nuevas confirmadas contra 43daa326 (check en los seis estados abiertos, new/--print/--from/apply, approve e in-review rechazados, release_branch mal formado reportado una vez); sin contradicciones en el resto del spec. Observaciones menores: reflujo cosmético aplicado; el spec no menciona que un change ya atascado sigue editable (residuo del Log).
 - **2026-10-12T18:48:37Z** `[graduation]` spec: `git-traceability.md`
+- **2026-10-12T21:17:02Z** `[archive]` archived

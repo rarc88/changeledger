@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-10-02T20:46:23Z
 depends_on: []
+archived: true
 reviewed: true
 branch: bug/20261002-204623
 related_to: ["20261002-181346", "20261002-181428"]
@@ -128,3 +129,4 @@ comparte con `dev` ya está en `main`.
 - **2026-10-02T21:33:56Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-10-02T21:34:54Z** `[note]` graduation-review de la reconciliación (git-traceability): recomienda aplicar; cada frase coincide con assertImplementationBranch y mergeBases, y no queda rastro de la limitación anterior. Matiz no bloqueante: mergeBases devuelve vacío también ante otros fallos de git, y entonces el mensaje diría «shares no history».
 - **2026-10-02T21:34:56Z** `[graduation]` spec: `git-traceability.md`
+- **2026-10-12T21:17:02Z** `[archive]` archived

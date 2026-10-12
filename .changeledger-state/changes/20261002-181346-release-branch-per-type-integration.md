@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-10-02T18:13:46Z
 depends_on: []
+archived: true
 reviewed: true
 branch: feature/20261002-181346
 related_to: ["20260711-210115", "20260731-161655", "20261002-113320"]
@@ -232,3 +233,4 @@ previo trata la rama de release ni la integración por tipo.
 - **2026-10-02T19:19:33Z** `[note]` graduation-review ronda 1 de la reconciliación de git-traceability: recomienda corregir — «git.integration_branch en cualquier otro caso» era falso para un rol inválido (el resolutor lanza integrationRoleError). Acotado al rol integration o ausente, añadiendo que un rol inválido lanza el mismo mensaje que check. Se delega a un revisor nuevo.
 - **2026-10-02T19:20:13Z** `[note]` graduation-review ronda 2 de git-traceability: recomienda aplicar; la frase acotada es cierta para todos los roles. Matiz opcional no aplicado: el resolutor también lanza si git o la clave están mal formados, algo que la spec ya cubre en su descripción de la validación.
 - **2026-10-02T19:20:14Z** `[graduation]` spec: `git-traceability.md`
+- **2026-10-12T21:17:02Z** `[archive]` archived
