@@ -1294,6 +1294,104 @@ test('141119 CR6: a light type demanding review gains both stages in canonical o
   );
 });
 
+// 20261012-174340 — the 3 → 4 stage repair asks the same rule as `checkConfig`:
+// with the type's effective tdd off only `specification` is required, so no
+// `plan` is inserted.
+
+const refactorSource = (globalTdd, typeLines = '') =>
+  SCHEMA3_REVIEW_WITHOUT_SPEC.replace('tdd: true\n', `tdd: ${globalTdd}\n`).replace(
+    '  refactor:\n    stages: [request, proposal, plan, log]\n    review_required: true\n',
+    `  refactor:\n    stages: [request, proposal, log]\n    review_required: true\n${typeLines}`,
+  );
+const refactorChanges = (result) => result.changes.filter((c) => c.includes('types.refactor'));
+
+test('174340 CR6: a global tdd off migrates a review_required type without plan', () => {
+  const result = buildMigration(refactorSource('false'), '0.17.0');
+  assert.ok(result);
+  assert.match(result.yaml, /^ {4}stages: \[request, proposal, specification, log\]$/m);
+  assert.deepEqual(refactorChanges(result), ['added stage specification to types.refactor.stages']);
+  assert.ok(!result.changes.some((c) => c.includes('added stage plan')), result.changes.join('\n'));
+});
+
+test('174340 CR7: the type tdd wins over the global one in the migration', () => {
+  const off = buildMigration(refactorSource('true', '    tdd: false\n'), '0.17.0');
+  assert.match(off.yaml, /^ {4}stages: \[request, proposal, specification, log\]$/m);
+  assert.deepEqual(refactorChanges(off), ['added stage specification to types.refactor.stages']);
+
+  const on = buildMigration(refactorSource('false', '    tdd: true\n'), '0.17.0');
+  assert.match(on.yaml, /^ {4}stages: \[request, proposal, specification, plan, log\]$/m);
+
+  // Already declares specification and not plan: byte for byte, no change line.
+  const kept = refactorSource('true', '    tdd: false\n').replace(
+    'stages: [request, proposal, log]',
+    'stages: [request, proposal, specification, log]',
+  );
+  const result = buildMigration(kept, '0.17.0');
+  assert.match(result.yaml, /^ {4}stages: \[request, proposal, specification, log\]$/m);
+  assert.deepEqual(refactorChanges(result), []);
+});
+
+test('174340 CR8: with effective tdd on the migration still adds specification and plan', () => {
+  const result = buildMigration(refactorSource('true'), '0.17.0');
+  assert.match(result.yaml, /^ {4}stages: \[request, proposal, specification, plan, log\]$/m);
+  assert.deepEqual(refactorChanges(result), [
+    'added stage specification to types.refactor.stages',
+    'added stage plan to types.refactor.stages',
+  ]);
+});
+
+test('174340 CR8: every migrated variant passes the stage coupling and is terminal', () => {
+  const variants = [
+    refactorSource('false'),
+    refactorSource('true', '    tdd: false\n'),
+    refactorSource('false', '    tdd: true\n'),
+    refactorSource('true'),
+  ];
+  for (const source of variants) {
+    const root = tmp();
+    init(root, '0.17.0');
+    const configFile = path.join(root, '.changeledger', 'config.yml');
+    fs.writeFileSync(configFile, source);
+    applyMigration(configFile, { repoRoot: root, runningVersion: '0.17.0' });
+
+    const after = silentOutput();
+    check([], root, after);
+    assert.ok(
+      !after.messages.error.some((m) => m.includes('requires active stages')),
+      `unexpected coupling error: ${JSON.stringify(after.messages.error)}`,
+    );
+    const migrated = fs.readFileSync(configFile, 'utf8');
+    assert.equal(buildMigration(migrated, '0.17.0'), null, 'migration must be terminal');
+  }
+});
+
+// Migrations chain: the `review_required` that 0 → 1 adds in the same run is
+// read from the live document, together with the tdd the type declares.
+test('174340: the stage repair sees the review_required a chained 0 → 1 migration wrote', () => {
+  const source = `\
+language: en
+changes_dir: .changeledger/changes
+statuses: [draft, approved, in-progress, in-review, in-validation, blocked, done, discarded]
+stages: [request, investigation, proposal, specification, plan, log]
+types:
+  feature:
+    stages: [request, proposal, log]
+    tdd: false
+  bug:
+    stages: [request, proposal, log]
+`;
+  const result = buildMigration(source, '0.17.0');
+  assert.ok(result);
+  assert.deepEqual(
+    result.changes.filter((c) => c.includes('added stage')),
+    [
+      'added stage specification to types.feature.stages',
+      'added stage specification to types.bug.stages',
+      'added stage plan to types.bug.stages',
+    ],
+  );
+});
+
 // 20260726-141122 — migration 3 → 4 also publishes the Definition of Ready
 // hints, which until now only ever existed as a comment in the template.
 
