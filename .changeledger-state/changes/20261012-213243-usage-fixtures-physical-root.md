@@ -2,7 +2,7 @@
 id: "20261012-213243"
 title: "Los fixtures de usage anuncian la forma lógica del temporal y el CLI no los casa en macOS"
 type: bug
-status: in-review
+status: in-progress
 created: 2026-10-12T21:32:43Z
 depends_on: []
 branch: bug/20261012-213243
@@ -241,3 +241,4 @@ symlink a él; `<id>` es el id del change del fixture.
 - **2026-10-12T21:43:44Z** `[note]` Implementación: repoWithChange nace en fs.realpathSync.native; el test 20261002-133728 CR2 (capa worktree) afirma ahora una sesión y stderr vacío; tests nuevos 20261012-213243 CR1 (guard del asiento, saltado en win32) y CR4 (extremo a extremo por CLI desde un symlink propio, saltado en win32). Reproducción en Linux con TMPDIR=<symlink>: antes 179 pass y 2 fail en agent.test.mjs con «usage: no sessions matched this repository», después 181/181; suite completa con TMPDIR por symlink 2002/2002; pnpm verify en verde (2002). Mutantes M1-M3 caen. Decisiones: CR4 compara los tres registros como conjunto ordenado porque los registros del mismo segundo comparten instante; se añadió el guard de CR1 como test propio. Residuos: una sesión registrada con la forma lógica (/home/rarc88/repositories/changeledger) sigue sin casar (exclusión del Request); no ejecutado en macOS ni Windows reales; otros fixtures con fs.mkdtempSync(os.tmpdir()) no se auditaron.
 - **2026-10-12T21:43:46Z** `[status]` in-progress → in-review
 - **2026-10-12T21:43:52Z** `[note]` Mandato de revisión: la superficie que gobierna el change — el asiento de repoWithChange y los tests de usage de test/agent.test.mjs que dependen de él; rango f391718c..a991bfbb.
+- **2026-10-12T21:51:21Z** `[review]` in-review → in-progress (retry): Prosa sin acotar en test/agent.test.mjs: el comentario de repoWithChange afirma «an 8.3 short name on Windows» sin acotar a los runners y atribuye getcwd y git en forma física sin acotar a POSIX/macOS (y «os.tmpdir() is a symlink on macOS» es impreciso); el comentario de CR4 afirma que el orden de nombres «is not» el de las transiciones cuando sólo «need not be»; el motivo del skip de CR4 es falso con Developer Mode. La nota del Log expandió $PWD y da 181/181 donde el archivo tiene 183 tests.
