@@ -2,7 +2,7 @@
 id: "20261012-141850"
 title: "El detalle de un change no sobrevive ni se abre desde el payload de otro proyecto"
 type: bug
-status: in-review
+status: in-validation
 created: 2026-10-12T14:18:50Z
 depends_on: []
 branch: bug/20261012-141850
@@ -82,3 +82,4 @@ Interfaces externas: ninguna.
 - **2026-10-12T16:38:21Z** `[note]` Corrección de CR3: gotoChange vuelve sin abrir el detalle si el proyecto seleccionado ya no es el del resultado; el toast deja de comprobar el proyecto porque la guarda va antes. Rojo literal: «no gamma change opens for the beta hit», actual '#20261012-130000'. pnpm verify: 1854/1854.
 - **2026-10-12T16:38:21Z** `[status]` in-progress → in-review
 - **2026-10-12T16:38:27Z** `[note]` Mandato de la revisión de confirmación: CR3 y la simplificación de la condición del toast sobre el diff sin commit encima de be4c9e94, y regresiones que introduzca.
+- **2026-10-12T16:39:38Z** `[review]` in-review → in-validation (delegated subagent, clean context)
