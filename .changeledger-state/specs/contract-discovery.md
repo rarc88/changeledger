@@ -2,7 +2,7 @@
 title: Discovery del contrato
 updated: 2026-10-07T17:18:41Z
 tags: [ contract ]
-graduated_from: ["20260614-151759", "20260616-162027", "20260626-174204", "20260627-103625", "20260627-205033", "20260629-155349", "20260629-165838", "20260629-210543", "20260629-234939", "20260630-225213", "20260701-213931", "20260701-230608", "20260703-150229", "20260704-144327", "20260710-102907", "20260711-103759", "20260711-103803", "20260714-150300", "20260714-153633", "20260715-124113", "20260720-212659", "20260726-141121", "20260726-124833", "20260726-130727", "20260727-110603", "20260726-124834", "20260726-130728", "20260726-124835", "20260727-194233", "20260728-170429", "20260728-195445", "20260728-212043", "20260729-143656", "20260729-162015", "20260730-002908", "20260730-183807", "20261007-135159"]
+graduated_from: ["20260614-151759", "20260616-162027", "20260626-174204", "20260627-103625", "20260627-205033", "20260629-155349", "20260629-165838", "20260629-210543", "20260629-234939", "20260630-225213", "20260701-213931", "20260701-230608", "20260703-150229", "20260704-144327", "20260710-102907", "20260711-103759", "20260711-103803", "20260714-150300", "20260714-153633", "20260715-124113", "20260720-212659", "20260726-141121", "20260726-124833", "20260726-130727", "20260727-110603", "20260726-124834", "20260726-130728", "20260726-124835", "20260727-194233", "20260728-170429", "20260728-195445", "20260728-212043", "20260729-143656", "20260729-162015", "20260730-002908", "20260730-183807", "20261007-135159", "20261002-113320", "20261002-152555"]
 ---
 
 ## Discovery del contrato
@@ -62,29 +62,45 @@ lleva esa lista, junto a las decisiones no especificadas, como puntos de
 escrutinio.
 
 El status elige el pack, pero **el tipo puede retirar un fragmento** que su
-configuración vuelve inaplicable. `readiness` es hoy el único condicionado así:
-su contenido presupone `## Specification` y `## Plan`, de modo que un tipo sin
-`specification` activa recibía reglas que su documento no puede satisfacer y que
-`check` después rechaza — la cabecera de política y el cuerpo compuesto se
-contradecían dentro de la misma captura. La condición se deriva de las stages
-activas del tipo en `config.yml`, nunca de una lista de nombres de tipo: la
-lista envejece en cuanto la configuración cambia. `spec` y `delegation` siguen
+configuración vuelve inaplicable. `readiness` es hoy el único condicionado así
+(`fragmentsForType`, `src/commands/context.mjs`): su contenido presupone
+`## Specification` y `## Plan`, de modo que un tipo sin `specification` activa
+recibía reglas que su documento no puede satisfacer y que `check` después
+rechaza — la cabecera de política y el cuerpo compuesto se contradecían dentro
+de la misma captura. Tampoco se compone para un tipo cuyo `tdd` efectivo está
+apagado: no debe ninguna de esas obligaciones, y su cabecera lo dice con
+`tdd=off`. La condición se deriva de las stages activas del tipo en
+`config.yml` y del resolutor único `effectiveTdd` (`src/check.mjs`), nunca de
+una lista de nombres de tipo: la lista envejece en cuanto la configuración
+cambia. `spec` y `delegation` siguen
 componiéndose para todos los tipos, y la invocación de modo desnudo no resuelve
 ningún tipo, así que el filtro no la alcanza.
 
 La delegación portable separa el contrato del orquestador del de sus hojas:
-`changeledger agent-prompt <role>` entrega un esqueleto para investigación,
-implementación o review, y el delegado identificado carga únicamente
-`changeledger agent-context <role> [change-id]`. Las cápsulas delimitan su
-responsabilidad y autoridad; investigation y review son de solo lectura y no
-reciben comandos de lifecycle. Cada esqueleto declara que su `agent-context`
-reemplaza la carga predeterminada del bootstrap para esa tarea delegada; el
-bootstrap general no expone roles ni detalles de delegación.
+`changeledger agent-prompt <role>` entrega un esqueleto para cada rol de
+`AGENT_ROLES` (`src/commands/agent-context.mjs`) —`investigation`,
+`implementation`, `review`, `post-review` y `graduation-review`—, y el delegado
+identificado carga únicamente `changeledger agent-context <role> [change-id]`.
+Las cápsulas delimitan su responsabilidad y autoridad; todas salvo
+`implementation` son de solo lectura y ninguna recibe comandos de lifecycle.
+Cada esqueleto declara que su `agent-context` reemplaza la carga predeterminada
+del bootstrap para esa tarea delegada; el bootstrap general no expone roles ni
+detalles de delegación. La cápsula lleva la misma línea **Effective policy**
+(`buildAgentContext`,
+`src/commands/agent-context.mjs`), y la de implementación condiciona a ella su
+red-green (`tdd=on`): con change seleccionado publica el `tdd` efectivo del tipo
+de ese change; sin él —sólo `investigation` admite omitir el id— publica el
+global. A diferencia del modo por id de `context`, la línea incluye `tdd`
+también para tipos sin `specification`.
 
 Cada composición de modo o id incluye una cabecera determinista **Effective
-policy** derivada de `.changeledger/config.yml` con defaults resueltos (idioma,
-`tdd`; en modo por id además `review_required` y stages del tipo), de modo que
-el agente no lee el config crudo. El core lleva la línea transversal mínima. En
+policy** derivada de `.changeledger/config.yml` con defaults resueltos
+(`transversalPolicy`, `src/commands/context.mjs`; entre otros, idioma y `tdd`; en
+modo por id además `review_required` y stages del tipo), de modo que el agente
+no lee el config crudo. El core y los modos publican el `tdd` global; el modo
+por id publica el `tdd` efectivo del tipo del change y lo omite cuando el tipo
+no activa `specification`, porque `readiness`, el único fragmento que define la
+obligación, no se compone para él. El core lleva la línea transversal mínima. En
 modo por id, cada dependencia local de `depends_on` se resume como
 `#id — título — status` sin incorporar su cuerpo; las referencias externas se
 conservan como referencias sin resolución local. `related_to` se presenta en

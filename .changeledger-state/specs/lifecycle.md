@@ -2,7 +2,7 @@
 title: Ciclo de vida y gate de revisión
 updated: 2026-10-07T16:23:15Z
 tags: [ lifecycle ]
-graduated_from: ["20260614-165720", "20260614-182513", "20260615-150510", "20260615-170803", "20260615-210508", "20260616-212836", "20260616-212840", "20260616-212319", "20260616-212322", "20260626-160038", "20260628-104751", "20260630-191857", "20260630-225210", "20260703-150230", "20260703-150231", "20260703-150232", "20260703-220014", "20260710-105205", "20260705-134703", "20260711-103756", "20260710-201703", "20260711-160446", "20260715-125139", "20260716-131649", "20260718-105457", "20260726-141119", "20260726-141120", "20260726-141123", "20260726-124836", "20260722-124656", "20260729-144812", "20260730-165310", "20260730-183520", "20260722-124655", "20260730-214503", "20260730-213353", "20260731-161653", "20260805-052741", "20260806-103551", "20260808-141944", "20261007-135154"]
+graduated_from: ["20260614-165720", "20260614-182513", "20260615-150510", "20260615-170803", "20260615-210508", "20260616-212836", "20260616-212840", "20260616-212319", "20260616-212322", "20260626-160038", "20260628-104751", "20260630-191857", "20260630-225210", "20260703-150230", "20260703-150231", "20260703-150232", "20260703-220014", "20260710-105205", "20260705-134703", "20260711-103756", "20260710-201703", "20260711-160446", "20260715-125139", "20260716-131649", "20260718-105457", "20260726-141119", "20260726-141120", "20260726-141123", "20260726-124836", "20260722-124656", "20260729-144812", "20260730-165310", "20260730-183520", "20260722-124655", "20260730-214503", "20260730-213353", "20260731-161653", "20260805-052741", "20260806-103551", "20260808-141944", "20261007-135154", "20261002-113320", "20261002-113435", "20261002-152555", "20261002-171539", "20261002-181428"]
 ---
 
 ## Ciclo de vida y gate de revisión
@@ -44,7 +44,8 @@ El gate opcional **`in-review`** cierra el lazo doc↔código para los tipos que
 requieren una **revisión independiente**. La revisión la
 ejecuta un **subagente con contexto limpio** (sin el historial de implementación,
 para no heredar sesgo) y un **modelo acorde a la dificultad**. *Qué* valida:
-cada `CRn` cumplido, sin residuo y Plan realmente hecho. La
+cada `CRn` cumplido, sin residuo y, cuando el tipo activa `plan`, Plan realmente
+hecho. La
 auditoría profunda de seguridad/lint/SAST queda en herramientas dedicadas que el
 revisor puede invocar; ChangeLedger no las reimplementa. El *cómo* se lanza el
 subagente es del agente anfitrión — `changeledger context review` solo fija el qué.
@@ -113,17 +114,23 @@ baratos para exploración localizada, inventarios, edición mecánica, tests y
 verificaciones acotadas.
 
 **Activación por tipo.** `config.yml` marca `review_required: true` por tipo
-(`feature`, `bug`, `refactor` por defecto). `chore`, `audit` y `quick` saltan
-únicamente la revisión: van `in-progress → in-validation`. Todo tipo pasa por
-validación humana antes de `done`; así `done` siempre significa resultado
-aceptado.
+(`feature`, `bug`, `hotfix`, `refactor` y `documentation` por defecto). `chore`,
+`audit` y `quick` saltan únicamente la revisión: van
+`in-progress → in-validation`. Todo tipo pasa por validación humana antes de
+`done`; así `done` siempre significa resultado aceptado.
 
 Exigir revisión y no poder contener nada verificable es una configuración
-incoherente, no una preferencia: `checkCoverage` sólo corre para tipos que
-activan `specification`, y los bloques `### CRn` sólo se parsean de esa stage, de
-modo que un tipo con `review_required: true` sin ella manda al revisor un encargo
-sin criterios que comprobar. `checkConfig` lo rechaza nombrando el tipo y las
-stages ausentes en orden canónico. Por eso `refactor` activa `specification`: es
+incoherente, no una preferencia: los bloques `### CRn` sólo se parsean de
+`## Specification`, de modo que un tipo con `review_required: true` sin ella
+manda al revisor un encargo sin criterios que comprobar. Con el `tdd` efectivo
+del tipo encendido, las tareas que citan esos criterios viven en `## Plan` y la
+cobertura las ata, así que se exigen las dos stages (`REVIEWABLE_STAGES`); con
+el `tdd` efectivo apagado no hay cobertura y los criterios solos son el encargo
+del revisor, así que basta `specification`. `checkConfig` (`src/check.mjs`,
+resolviendo el `tdd` con `effectiveTdd`) rechaza la incoherencia nombrando el
+tipo y las stages ausentes en orden canónico
+(`config type "<t>": review_required: true requires active stages: <faltantes>`).
+Por eso `refactor` activa `specification`: es
 el tipo con más probabilidad de cambiar comportamiento en silencio, y sus
 criterios son la prueba de que se preservó; el trabajo mecánico pertenece a
 `chore` o `quick`. Queda pendiente una incoherencia menor y conocida: `chore`
@@ -140,6 +147,37 @@ gate, pero con el ciclo corto completo (`draft → approved` humano →
 `[#id]`. Si el alcance crece durante la ejecución, se descarta y se recrea con
 el tipo correcto. Su graduación es siempre `--skip`: por elegibilidad no
 produce verdad persistente.
+
+**Tipo `documentation`.** Tipo oficial cuyo entregable es verdad persistente
+sobre un tema, contrastada con lo que el código hace realmente, sin tocar código
+de la aplicación. La plantilla de `init` (`templates/config.yml`) lo declara con
+stages `request`, `investigation`, `specification` y `log`, `review_required:
+true`, `tdd: false`, `seed_stage: investigation` e impacto de release `none`. Sin Plan, sus criterios son el
+encargo completo: recorre `draft → approved` humano → `in-progress → in-review →
+in-validation → done` sin ninguna tarea. Como no hay Plan donde poner las
+obligaciones de ejecución, el contrato (`templates/contract/spec.md`) manda
+redactarlas como CR propios del change: perímetro fijado en el draft según quién
+llama a qué y no por coincidencias de texto, cita de ruta y símbolo en cada
+afirmación, decisión humana de cada divergencia con una spec existente antes de
+`in-review` —si falta, el change va a `blocked`— y correcciones de specs
+existentes redactadas dentro del change, donde el revisor las ve. Ninguna
+migración de esquema lo añade: un repo ya existente lo declara en su config si
+lo quiere.
+
+**Tipo `hotfix`.** Tipo oficial para corregir código ya publicado: su rama parte
+de la rama de release y se integra en ella. La plantilla de `init`
+(`templates/config.yml`) lo declara justo después de `bug`, con sus mismas
+stages (`request`, `investigation`, `specification`, `plan` y `log`),
+`review_required: true`, `integrates_into: release` e impacto de release
+`patch`; ninguna migración de esquema lo añade. La elección entre `bug` y un
+tipo de release se liga al papel del tipo, no a su nombre: cuando el agente
+clasifica un problema como defecto y la línea `Effective policy:` publica
+`release_types=`, el contrato (`templates/contract/spec.md`) manda preguntar
+explícitamente al humano si es un fix normal (`bug`, a la rama de integración) o
+de uno de esos tipos (a la rama de release), sin inferir la respuesta y sin crear
+el draft hasta tenerla; sin `release_types=` no pregunta ni propone un tipo de
+release. Es una regla de contrato: nada impide mecánicamente crear un `bug` sin
+preguntar.
 
 **Ownership operacional.** El core compuesto publica una única matriz de
 transición → propietario → mecanismo. Distingue las decisiones humanas
@@ -356,13 +394,32 @@ existente posee esa verdad; `--skip` se reserva para cambios que no alteran verd
 persistente. Cada spec creada o modificada se enlaza individualmente con
 `graduate --into` antes del archivo.
 
+**Revisión de la reconciliación.** En un tipo con `review_required`, cuando el
+cierre crea, corrige o amplía specs, el orquestador delega el rol `graduation-review`
+una vez redactada la reconciliación y antes del primer `--into`
+(`templates/contract/close.md`); ante hallazgos corrige la redacción y delega de
+nuevo a un revisor nuevo, y registra el resultado con `changeledger log <id>`.
+`--skip` no la requiere. Es una obligación del contrato: ni `graduate` ni
+`check` comprueban que se haya hecho. `changeledger agent-context
+graduation-review <id>` solo carga sobre un change `done` (`ALLOWED_STATUSES`,
+`src/commands/agent-context.mjs`) y entrega una cápsula estrictamente read-only:
+el delegado contrasta el diff de cada spec afectada, tomado del origen que nombra
+su prompt (el journal de estado en un repo activado, el worktree en uno
+inactivo), con el código que cita y con el change aceptado; comprueba las reglas
+de spec —verdad actual sin cronología, ningún CR como estructura, cada
+cuantificador universal cumplido en el código o acotado, lo eliminado obsoleto y
+nada de lo que el change hizo verdad ausente— y devuelve hallazgos con evidencia
+y una única recomendación: aplicar o corregir. No cambia el status, no añade
+entradas al Log ni nombra comandos de lifecycle o graduación. `post-review`
+conserva su restricción a `in-validation`.
+
 Los identificadores de criterios pertenecen al change y no forman parte de la
 estructura durable. Tanto `changeledger check` como `graduate --into` rechazan
 headings Markdown, incluidos Setext y headings anidados, cuyo texto comienza con
 `CR` seguido de dígitos fuera de bloques de código. Las menciones en prosa y los
 ejemplos dentro de código permanecen permitidos.
 
-**Revisión de graduación.** Tras `done`, cada change se resuelve: gradúa a un spec
+**Resolución de graduación.** Tras `done`, cada change se resuelve: gradúa a un spec
 o registra un skip (bug/chore sin verdad persistente). La finalización con
 `--into` y el skip fijan `reviewed: true` (`writer.setReviewed`);
 `changeledger list --pending graduation` lista los `done` con `reviewed !==
@@ -392,7 +449,11 @@ escribir, por lo que `skip` o `skip-*` nunca pueden convertirse accidentalmente
 en nombres de spec.
 
 Para una spec nueva, `--new` llama a `scaffoldSpec()`: crea una semilla desde
-Specification/Proposal con un marcador explícito de scaffold, pero no escribe el
+la fase que el tipo del change declara en `types.<tipo>.seed_stage` o, si no la
+declara, desde Specification y, a falta de ella, Proposal. `checkConfig` exige
+que `seed_stage` sea texto (`seed_stage must be a string`) y una de las stages
+activas del tipo (`seed_stage "<s>" is not an active stage`). La semilla lleva
+un marcador explícito de scaffold, pero no escribe el
 Log ni fija `reviewed`; el change continúa pendiente. El agente reemplaza la
 semilla por verdad actual durable y elimina el marcador. Después `--into`
 (`graduate(..., { into: true })`) exige que la spec exista y que el marcador ya

@@ -2,7 +2,7 @@
 title: Arquitectura de ChangeLedger
 updated: 2026-10-12T16:40:33Z
 tags: [ architecture, cli, viewer ]
-graduated_from: ["20260615-214816", "20260615-214817", "20260615-214819", "20260615-214828", "20260615-222616", "20260615-222619", "20260615-222620", "20260615-222617", "20260615-222618", "20260616-151226", "20260617-190005", "20260617-190008", "20260617-190007", "20260617-185958", "20260617-195016", "20260617-231423", "20260617-231428", "20260618-122611", "20260619-171002", "20260620-214902", "20260623-235628", "20260624-005437", "20260624-153236", "20260627-111218", "20260627-205033", "20260628-113218", "20260628-113219", "20260628-213942", "20260711-103758", "20260711-160445", "20260711-162556", "20260726-141119", "20260726-141122", "20260731-161652", "20260808-151640", "20260808-151641", "20260808-151643", "20260809-113240", "20260809-113241", "20260808-171107", "20260808-234920", "20260809-113242", "20260809-131004", "20260809-140157", "20260809-194234", "20260809-194235", "20260809-194233", "20260810-120457", "20260810-182641", "20260810-181803", "20260810-180434", "20260811-110629", "20260811-122031", "20260811-151426", "20260811-163203", "20260811-163204", "20260811-163205", "20260812-022248", "20260812-020449", "20260824-134716", "20260924-184354", "20261001-155216", "20261002-133728", "20261002-140038", "20261002-161641", "20260925-130844", "20261012-125611", "20261012-141809"]
+graduated_from: ["20260615-214816", "20260615-214817", "20260615-214819", "20260615-214828", "20260615-222616", "20260615-222619", "20260615-222620", "20260615-222617", "20260615-222618", "20260616-151226", "20260617-190005", "20260617-190008", "20260617-190007", "20260617-185958", "20260617-195016", "20260617-231423", "20260617-231428", "20260618-122611", "20260619-171002", "20260620-214902", "20260623-235628", "20260624-005437", "20260624-153236", "20260627-111218", "20260627-205033", "20260628-113218", "20260628-113219", "20260628-213942", "20260711-103758", "20260711-160445", "20260711-162556", "20260726-141119", "20260726-141122", "20260731-161652", "20260808-151640", "20260808-151641", "20260808-151643", "20260809-113240", "20260809-113241", "20260808-171107", "20260808-234920", "20260809-113242", "20260809-131004", "20260809-140157", "20260809-194234", "20260809-194235", "20260809-194233", "20260810-120457", "20260810-182641", "20260810-181803", "20260810-180434", "20260811-110629", "20260811-122031", "20260811-151426", "20260811-163203", "20260811-163204", "20260811-163205", "20260812-022248", "20260812-020449", "20260824-134716", "20260924-184354", "20261001-155216", "20261002-133728", "20261002-140038", "20261002-161641", "20260925-130844", "20261012-125611", "20261012-141809", "20261002-113320", "20261002-152923"]
 ---
 
 # Arquitectura de ChangeLedger
@@ -108,12 +108,16 @@ sigue siendo opt-out). La
 migración 1 → 2 añade el tipo `quick` y sus impactos a repos schema 1 sin pisar
 un `quick` custom ni extensiones propias (guardas `Object.hasOwn`). La migración
 3 → 4 repara el acoplamiento entre `review_required` y las stages verificables:
-inserta las stages ausentes, en su posición canónica, sólo en los tipos que
-declaran `review_required: true`, y deja byte a byte los demás. Lee el documento
+inserta las de `REVIEWABLE_STAGES` (`specification`, `plan`) ausentes, en su
+posición canónica, sólo en los tipos que declaran `review_required: true`, y deja
+byte a byte los demás. No mira el `tdd` del tipo: inserta también `plan` en un
+tipo con `tdd` efectivo apagado, al que `checkConfig` sólo exige
+`specification`. Lee el documento
 YAML vivo y no la instantánea previa, porque una migración anterior de la misma
 cadena puede haber añadido el propio `review_required` que dispara la reparación.
 Nunca inserta una stage que la lista canónica del repo no declare: sin punto de
-inserción legítimo se abstiene y deja en pie el error exacto de `checkConfig`, en
+inserción legítimo se abstiene y deja en pie el error exacto de `checkConfig`, si
+lo hay, en
 vez de fabricar una lista inválida y declararse terminada. La misma 3 → 4 añade
 además la sección `readiness` cuando falta, copiando valores y comentario de
 `templates/config.yml` para que plantilla y migración no puedan divergir, y
@@ -498,9 +502,10 @@ no es colisión.
 Nunca bloqueante y desacoplado: sin remoto es no-op informativo; un fallo de
 red es aviso con exit 0 (el push rechazado por carrera sí es exit distinto de
 cero: el remoto está vivo y la orden es re-ejecutar, sin pérdida local);
-ningún otro comando consulta ni espera a sync. `sync --status` es offline
-puro: enumera las copias remote-tracking existentes de la ref
-(`for-each-ref`, sin resolver ningún remoto — `20260811-163204`) y reporta la
+ningún otro comando consulta ni espera a sync. En un repo activado,
+`sync --status` es offline puro: enumera las copias remote-tracking existentes
+de la ref (`for-each-ref`, sin resolver ningún remoto — `20260811-163204`) y
+reporta la
 relación por cada una desde el último fetch, que el push exitoso avanza para
 no quedar stale.
 
@@ -509,8 +514,16 @@ Un clon fresco trae la ref solo como copia remote-tracking, y
 `changeledger activate` la siembra (`seedStateRef`, `20260811-163203`): CAS
 de creación contra ausencia con el árbol leído y validado ANTES de que la
 ref exista. `sync` en un repo con la ref presente y sin activar es no-op que
-nombra `activate` — el paso manual único por clon nunca es invisible y un
-fetch jamás cambia el modo de operación de un repo.
+nombra `activate`. En un repo sin activar al que le falta la ref local pero
+tiene la copia remote-tracking del remoto que resuelve `resolveRemote` —el mismo
+que usa `activate`—, `sync` y `sync --status` también son no-op que nombran
+`activate` y dicen que ese remoto publica estado global (`publishedTrackingRef`,
+`src/commands/sync.mjs`); sólo leen refs locales, sin fetch ni escrituras de
+refs o ficheros. Si no hay remoto, si hay varios y ninguno es `origin` o si
+falla `git remote`, conservan el mensaje de que no hay nada que sincronizar; una
+copia que sólo existe bajo otro remoto no produce aviso. Así el paso
+manual único por clon nunca es invisible y un fetch jamás cambia el modo de
+operación de un repo.
 
 El invariante del store es uno y ahora es uniforme (`20260811-163205`): la
 ref nunca apunta a una revisión que ningún lector pueda cargar — todo camino

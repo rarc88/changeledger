@@ -1,8 +1,8 @@
 ---
 title: Validación (changeledger check)
-updated: 2026-09-24T18:38:27Z
+updated: 2026-10-02T14:58:18Z
 tags: [ validation ]
-graduated_from: ["20260616-151221", "20260616-162014", "20260616-162050", "20260616-162104", "20260703-150231", "20260711-103800", "20260726-194220", "20260729-162616", "20260824-134716"]
+graduated_from: ["20260616-151221", "20260616-162014", "20260616-162050", "20260616-162104", "20260703-150231", "20260711-103800", "20260726-194220", "20260729-162616", "20260824-134716", "20261002-113320"]
 ---
 
 ## Validación (`changeledger check`)
@@ -74,7 +74,9 @@ changes. La aceptación humana valida primero el candidato con la transición
 antes de tocar change o spec. Estas rutas resuelven y parsean únicamente el
 archivo seleccionado; incluso un sibling ilegible queda fuera del gate scoped.
 
-Con `tdd: true`, `approved` e `in-progress` endurecen la Definition of Ready:
+Con el `tdd` efectivo del tipo encendido (`effectiveTdd`: `types.<tipo>.tdd`
+sobre el `tdd` global; ver Definition of Ready), `approved` e `in-progress`
+endurecen la Definition of Ready:
 cada `CRn` debe declarar pasos `Given`/`When`/`Then`, y cada tarea que referencia
 un criterio debe nombrar tanto objetivo como verificación según los patrones
 configurados en `readiness.target_patterns` y `readiness.verification_patterns`.
@@ -89,7 +91,7 @@ configurado o por defecto, junto con los `target_patterns` y
 `verification_patterns` efectivos. Además, cada `CRn` referenciado por una tarea
 debe existir en `## Specification`; un `(CR999)` huérfano es un error en cambios
 listos para implementar. En `draft`, esos mismos huecos son warnings para no
-bloquear la autoría temprana; con `tdd:false` no se evalúan.
+bloquear la autoría temprana; con el `tdd` efectivo apagado no se evalúan.
 
 Las entradas superiores de Log que incumplen la gramática reciben un
 diagnóstico con archivo, línea, forma canónica y los ocho tipos válidos. El
