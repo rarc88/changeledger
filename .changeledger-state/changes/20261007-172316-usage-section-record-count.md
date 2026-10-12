@@ -53,10 +53,11 @@ que cambiaría el esquema público para un detalle del viewer.
   - **Verify:** `pnpm test`
   - **Criteria:** CR3
   - **Resolved:** `2026-10-12T12:37:21Z`
-- [ ] Probar y usar la cuenta en la sección Usage
+- [x] Probar y usar la cuenta en la sección Usage
   - **Target:** `src/viewer/public/app.js, test/view.test.mjs`
   - **Verify:** `pnpm test`
   - **Criteria:** CR1, CR2
+  - **Resolved:** `2026-10-12T12:37:21Z`
 - [ ] Ejecutar el gate completo
   - **Verify:** `pnpm verify`
   - **Support:**
