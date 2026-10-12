@@ -296,11 +296,12 @@ criterio consume de forma automática el texto del log del CI, que se lee a mano
   - **Target:** `test/run-tests.test.mjs`
   - **Verify:** verify: manual — en los logs de `verify (node 24 / windows-latest)` y `verify (node 26 / windows-latest)`, las cuatro líneas `﹣ CR3: … # <motivo>` y ninguna de ellas bajo `failing tests`
   - **Criteria:** CR1
-- [ ] Nombrar en la cabecera de `scripts/run-tests.mjs` el alcance en Windows:
+- [x] Nombrar en la cabecera de `scripts/run-tests.mjs` el alcance en Windows:
   sólo Ctrl+C (SIGINT) y cerrar la consola (SIGHUP) llegan a los manejadores;
   cualquier terminación forzosa deja la raíz como SIGKILL; Ctrl+C en Windows no
   se ha ejecutado
   - **Support:** comentario, sin comportamiento observable
+  - **Resolved:** `2026-10-12T21:55:48Z`
 - [ ] Escribir la prueba de barrido de CR4 en `test/usage-collector.test.mjs` y comprobar
   que falla con tres coincidencias antes de tocar los especificadores
   - **Target:** `test/usage-collector.test.mjs`
