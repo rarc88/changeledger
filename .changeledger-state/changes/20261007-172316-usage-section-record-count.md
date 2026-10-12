@@ -2,7 +2,7 @@
 id: "20261007-172316"
 title: Decidir el mensaje vacío de Usage sin un análisis por change
 type: refactor
-status: in-validation
+status: done
 created: 2026-10-07T17:23:16Z
 depends_on: []
 branch: refactor/20261007-172316
@@ -73,3 +73,4 @@ que cambiaría el esquema público para un detalle del viewer.
 - **2026-10-12T12:37:28Z** `[note]` Mandato del review: la superficie que el change gobierna — dev..HEAD contra CR1-CR3 y el Plan, con las decisiones no especificadas y residuos del Log como puntos de escrutinio. Frases cuantificadas informadas: el título del test CR3 «for every change of the ledger» (bucle sobre A, B, C y D, con mutantes 3 y 4); el título del test CR2 (3 llamadas frente a 403); el comentario de usageRecordCounts «It is the records figure analyzeUsage reports for a change (0 for a change that has none)» (comparado en CR3 para C y D); y el comentario de app.js «once, instead of analysing the project again for each change» (CR2).
 - **2026-10-12T12:43:58Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-10-12T12:44:03Z** `[note]` Observaciones del review para seguimiento (anteriores al change): ningún test detecta que se quite de isPlaceable el filtro de at no string; el comentario de usageSectionAnalyses dice whether any of changes has a usage record cuando cuentan sólo los registros que el análisis puede situar. El revisor comparó analyze --json de dev y de HEAD sobre el ledger real con y sin --by: idénticos byte a byte.
+- **2026-10-12T12:51:53Z** `[validation]` in-validation → done (human accepted via conversation)
