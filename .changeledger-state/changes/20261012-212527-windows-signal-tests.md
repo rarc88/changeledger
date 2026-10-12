@@ -2,7 +2,7 @@
 id: "20261012-212527"
 title: "La suite falla en Windows: pruebas de señales del envoltorio e imports de rutas absolutas"
 type: bug
-status: in-review
+status: in-validation
 created: 2026-10-12T21:25:27Z
 depends_on: []
 branch: bug/20261012-212527
@@ -377,3 +377,4 @@ los dos separadores (`[\\/]`) en esa expresión.
 - **2026-10-12T22:40:59Z** `[note]` Corrección tras la revisión (ronda 1): el comentario de test/run-tests.test.mjs dice ahora que el envoltorio terminó por una señal y sin código de salida en los cuatro casos (SIGINT, SIGTERM y SIGQUIT con la señal enviada, SIGHUP como SIGKILL) y que Node no ofrece forma de enviar Ctrl+C ni el cierre de la consola; el test de barrido pasa a llamarse «no test embeds JSON.stringify(path.resolve|join(...)) as an import specifier of a child script»; la cabecera de scripts/run-tests.mjs atribuye a Node sólo que Ctrl+C entrega SIGINT y cerrar la consola SIGHUP, y añade Ctrl+Break (SIGBREAK) a lo no cubierto. Sólo comentarios y un nombre de test; pnpm verify en verde (2001).
 - **2026-10-12T22:40:59Z** `[status]` in-progress → in-review
 - **2026-10-12T22:41:04Z** `[note]` Mandato de la revisión de confirmación: los defectos nombrados (comentario «all four cases», nombre del test de barrido, atribución a Node en la cabecera, «cannot be sent from here», Ctrl+Break) y regresiones de la corrección, sobre el diff sin commit encima de 2a71cba7.
+- **2026-10-12T22:44:13Z** `[review]` in-review → in-validation (delegated subagent, clean context)
