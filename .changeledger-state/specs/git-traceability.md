@@ -131,11 +131,20 @@ tipo bien formado, `integrates_into`, si está presente, debe valer `integration
 o `release` (`config type "<t>": integrates_into must be "integration" or
 "release"`); resolutor y checker comparten ese mensaje (`integrationRoleError`).
 Que falte `git.release_branch` no es un defecto de config aunque algún tipo la
-use: se informa al arrancar el change o al componer su contexto. El accessor
-compartido produce el diagnóstico canónico, por lo que el check reporta
-configuraciones inválidas sin lanzar excepciones ni reescribirlas. Las claves Git
-desconocidas permanecen permitidas y se conservan como extensiones del
-repositorio.
+use: un repo recién inicializado, con `hotfix` declarado y la rama vacía, pasa
+`check`. El defecto es de cada change: `checkRepo` reporta en todo change no
+terminal (ni `done` ni `discarded`) de un tipo `release` `type "<t>" integrates
+into git.release_branch, which is not declared — set git.release_branch in
+.changeledger/config.yml, for example "main"`, construido desde el mismo tramo
+que el error del resolutor (`releaseBranchRequirementError`, `src/config.mjs`).
+`new` rehúsa crear ese change con el mismo mensaje antes de reservar id o
+escribir nada, también con `--print`; `new --from` y `apply` lo rehúsan por su
+validación del candidato, y un change así no pasa a `approved` ni entra en
+`in-review`. Un `git.release_branch` mal formado lo reporta sólo `checkConfig`,
+una vez, sin repetirlo por change. El accessor compartido produce el diagnóstico
+canónico, por lo que el check reporta configuraciones inválidas sin lanzar
+excepciones ni reescribirlas. Las claves Git desconocidas permanecen permitidas
+y se conservan como extensiones del repositorio.
 
 `git.change_branch_format` declara el nombre determinista de cada rama de
 change. Admite texto literal y los placeholders inmutables `{type}` y `{id}`;
@@ -172,16 +181,17 @@ El schema 3 distribuye esta capacidad a configuraciones existentes y repos
 nuevos. La migración v2 → v3 y la plantilla crean un bloque Git separado y
 documentado con `integration_branch:` vacío, que conserva la autodetección; su
 comentario, el mismo en ambas, dice que las ramas de change parten de
-`integration_branch` y se integran en ella, y que los tipos con `integrates_into:
-release` usan `release_branch`. La plantilla declara además `release_branch:`
-vacío, y el comentario de su tipo `hotfix` (ver **Ciclo de vida y gate de
-revisión**) pide declarar esa rama antes de redactar uno: mientras falta, un
-`hotfix` se crea con `new` y se aprueba, pero `context <id>` y `agent-context`
-lo rechazan con el error de rama de release no declarada. La migración no añade
-la clave, y sin ella nada cambia mientras ningún tipo declare `integrates_into:
-release`. El formulario estructurado del viewer permite declarar, cambiar o
-vaciar la rama de integración; al eliminarla preserva las demás claves bajo
-`git`. Preview y aplicación usan el mismo motor de migración.
+`integration_branch` y se integran en ella, y que los tipos con
+`integrates_into: release` usan `release_branch`. La plantilla declara además
+`release_branch:` vacío, y el comentario de su tipo `hotfix` (ver **Ciclo de
+vida y gate de revisión**) pide declarar esa rama antes de redactar uno:
+mientras falta, `new` rehúsa crear un `hotfix`, `check` reporta el que ya exista
+abierto, y `context <id>` y `agent-context` lo rechazan con el error de rama de
+release no declarada. La migración no añade la clave, y sin ella nada cambia
+mientras ningún tipo declare `integrates_into: release`. El formulario
+estructurado del viewer permite declarar, cambiar o vaciar la rama de
+integración; al eliminarla preserva las demás claves bajo `git`. Preview y
+aplicación usan el mismo motor de migración.
 
 El contrato canónico protege esa trazabilidad con un workflow git explícito:
 los agentes no implementan changes aprobados en la rama de integración ni en la
