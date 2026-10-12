@@ -2,7 +2,7 @@
 id: "20261007-172305"
 title: El viewer muestra el error de carga de un proyecto en la vista activa
 type: bug
-status: in-validation
+status: done
 created: 2026-10-07T17:23:05Z
 depends_on: []
 branch: bug/20261007-172305
@@ -105,3 +105,4 @@ Interfaces externas: ninguna; los errores llegan de `/api/repo` (por ejemplo
 - **2026-10-12T12:15:59Z** `[status]` in-progress → in-review
 - **2026-10-12T12:21:40Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-10-12T12:21:45Z** `[note]` Seguimientos del review de confirmación: en el test F1 el filtro 'anything' deja sin poder de detección el assert hides the previous project en board y table; con A cargado, B fallido y C en carga, un re-render pinta los changes de A con C seleccionado (variante previa del residuo de carga en vuelo); los filtros y el shell pueden seguir mostrando valores de A tras fallar B (no verificado).
+- **2026-10-12T12:51:43Z** `[validation]` in-validation → done (human accepted via conversation)
