@@ -2,7 +2,7 @@
 id: "20261007-172311"
 title: El sondeo del viewer sin proyectos no cambia la vista elegida
 type: bug
-status: in-validation
+status: done
 created: 2026-10-07T17:23:11Z
 depends_on: []
 branch: bug/20261007-172311
@@ -81,3 +81,4 @@ Interfaces externas: ninguna.
 - **2026-10-12T12:25:53Z** `[note]` Mandato del review: la superficie que el change gobierna — dev..HEAD contra CR1-CR3 y el Plan, con las decisiones no especificadas y residuos del Log como puntos de escrutinio. Frases cuantificadas informadas: ninguna en comentarios ni documentación; los títulos de test se limitan al caso metrics que ejecutan.
 - **2026-10-12T12:31:08Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-10-12T12:31:12Z** `[note]` Notas del review para la fusión y seguimiento: test/viewer-metadata.test.mjs chocará con 20261007-172305 porque las dos ramas declaran const NO_PROJECTS_TEXT en el nivel superior; al fusionar hay que dejar una sola declaración. renderGlobal no lleva revisión, así que una respuesta vieja puede pintar encima de una búsqueda más nueva, y el sondeo sin proyectos pasa a ser una fuente más de esa carrera (previa a este change).
+- **2026-10-12T12:51:48Z** `[validation]` in-validation → done (human accepted via conversation)
