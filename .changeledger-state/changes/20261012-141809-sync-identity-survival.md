@@ -2,7 +2,7 @@
 id: "20261012-141809"
 title: sync no adopta una revisión que pierde identidades de la foto local
 type: bug
-status: in-validation
+status: done
 created: 2026-10-12T14:18:09Z
 depends_on: []
 branch: bug/20261012-141809
@@ -119,3 +119,4 @@ la herramienta.
 - **2026-10-12T15:53:54Z** `[status]` in-progress → in-review
 - **2026-10-12T15:53:58Z** `[note]` Mandato de la revisión de confirmación: el hallazgo de la ronda 1 (frase obsoleta de docs/usage-capture.md) sobre el diff sin commit encima de 7fc8198b, y regresiones que introduzca.
 - **2026-10-12T15:55:21Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-10-12T16:39:43Z** `[validation]` in-validation → done (human accepted via conversation)
