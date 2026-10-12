@@ -63,9 +63,9 @@ Interfaces externas: ninguna; los errores llegan de `/api/repo` (por ejemplo
 - **Then** muestra `No projects registered. Run changeledger init in a repo.`
 
 ### CR5 — El primer uso real
-- **Given** `changeledger view` con un proyecto registrado cuya ruta ya no existe
-- **When** se abre en el navegador y se recorren Board, Table, Graph, Ledger y Metrics
-- **Then** cada vista muestra el error `project path is gone` y la consola no registra ningún `TypeError`
+- **Given** `changeledger view` con un proyecto registrado que existe pero cuya carga falla (su `.changeledger/config.yml` no es YAML válido, así que `/api/repo` responde `500` con `Internal server error`)
+- **When** se selecciona en el navegador, se recorren Board, Table, Graph, Ledger y Metrics, se escribe en la búsqueda y después se repara la config
+- **Then** cada vista muestra `Internal server error`, la búsqueda no lo tapa, la consola no registra ningún `TypeError` y el sondeo siguiente vuelve a pintar el proyecto
 
 ## Plan
 
@@ -79,7 +79,7 @@ Interfaces externas: ninguna; los errores llegan de `/api/repo` (por ejemplo
   - **Criteria:** CR1, CR2, CR3, CR4
 - [ ] Recorrer el viewer real con un proyecto cuya ruta desapareció
   - **Target:** `src/viewer/public/app.js`
-  - **Verify:** verify: manual — `changeledger view` con un `CHANGELEDGER_HOME` de prueba y cada vista en el navegador
+  - **Verify:** verify: manual — `changeledger view` con un proyecto temporal de config rota y cada vista en el navegador
   - **Criteria:** CR5
 - [ ] Ejecutar el gate completo
   - **Verify:** `pnpm verify`
