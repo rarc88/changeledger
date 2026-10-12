@@ -2,7 +2,7 @@
 id: "20261012-174407"
 title: "check --commits sin base usa la rama de integración del change de la rama actual"
 type: bug
-status: in-review
+status: in-progress
 created: 2026-10-12T17:44:07Z
 depends_on: []
 branch: bug/20261012-174407
@@ -158,3 +158,4 @@ Fixture común de los CR (salvo que se diga otra cosa): repo con `git.integratio
 - **2026-10-12T18:48:49Z** `[note]` Decisiones no especificadas: los estados terminales son done y discarded fijos; con change_branch_format mal formado y tipos de release, un change sin branch hace fallar el comando con el error de config; con tres o más changes ambiguos el mensaje enumera «#a (…), #b (…) and #c (…)»; si la base de un change casado no se resuelve (sin integration_branch) se usa defaultBaseBranch. Residuos: el guard de HEAD desacoplado no tiene mutante (equivalente); no se añadió barrido de frase retirada para la cláusula de implement.md; la reconciliación de git-traceability queda para el cierre; no se muestra qué change decidió la base.
 - **2026-10-12T18:48:51Z** `[status]` in-progress → in-review
 - **2026-10-12T18:49:18Z** `[note]` Mandato de revisión: la superficie que gobierna el change — resolución de la base por defecto de check --commits (src/commands/check.mjs), su texto de ayuda y la cláusula retirada de implement.md; rango 1147c93a..76d1a63d.
+- **2026-10-12T18:58:03Z** `[review]` in-review → in-progress (retry): Dos comentarios universales de src/commands/check.mjs quedan refutados por bordes ejecutados (un integrates_into inválido sin tipos de release; un estado terminal propio como cancelled) y deben acotarse; el guard de HEAD desacoplado no es equivalente (con tipos de release y un documento malformado cambia el resultado) y ningún test lo fija; la nota del Log decía 12 tests nuevos en check.test.mjs (son 11) y llamaba equivalente a ese mutante.
