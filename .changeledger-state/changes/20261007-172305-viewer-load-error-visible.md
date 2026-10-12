@@ -2,9 +2,10 @@
 id: "20261007-172305"
 title: El viewer muestra el error de carga de un proyecto en la vista activa
 type: bug
-status: approved
+status: in-progress
 created: 2026-10-07T17:23:05Z
 depends_on: []
+branch: bug/20261007-172305
 related_to: ["20261007-135148"]
 owner: rarc88
 ---
@@ -87,3 +88,5 @@ Interfaces externas: ninguna; los errores llegan de `/api/repo` (por ejemplo
 ## Log
 - **2026-10-07T17:23:05Z** `[version]` 0.18.0-dev
 - **2026-10-12T11:14:26Z** `[status]` draft → approved (human via conversation)
+- **2026-10-12T11:59:11Z** `[status]` approved → in-progress
+- **2026-10-12T11:59:11Z** `[branch]` set: bug/20261007-172305 (auto)
