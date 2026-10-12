@@ -326,12 +326,13 @@ sigue al tipo.
   - **Verify:** `node --test test/agent.test.mjs`
   - **Criteria:** CR12, CR13, CR14, CR15, CR16, CR17
   - **Resolved:** `2026-10-12T19:46:47Z`
-- [ ] Cualificar como `refs/heads/<nombre>` toda rama configurada que
+- [x] Cualificar como `refs/heads/<nombre>` toda rama configurada que
   `assertImplementationBranch` pasa a `isAncestor`, `mergeBases` y `refExists`,
   manteniendo el nombre corto en los mensajes
   - **Target:** `src/commands/agent.mjs`
   - **Verify:** `node --test test/agent.test.mjs`
   - **Criteria:** CR12, CR13, CR14, CR15, CR16
+  - **Resolved:** `2026-10-12T19:46:47Z`
 - [ ] Tests en rojo de la copia remote-tracking, ausencias, remotos ambiguos, sin
   red, y regresiones de los tests existentes
   - **Target:** `test/agent.test.mjs`
