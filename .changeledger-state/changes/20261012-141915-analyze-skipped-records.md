@@ -2,9 +2,10 @@
 id: "20261012-141915"
 title: analyze avisa de los registros de consumo que no puede ubicar
 type: feature
-status: approved
+status: in-progress
 created: 2026-10-12T14:19:15Z
 depends_on: []
+branch: feature/20261012-141915
 related_to: ["20261012-125617", "20261002-140038"]
 owner: rarc88
 ---
@@ -77,3 +78,5 @@ inválido, que impediría analizar el resto, cuando `check` ya es el gate.
 ## Log
 - **2026-10-12T14:19:15Z** `[version]` 0.18.0-dev
 - **2026-10-12T15:24:01Z** `[status]` draft → approved (human via conversation)
+- **2026-10-12T16:14:15Z** `[status]` approved → in-progress
+- **2026-10-12T16:14:15Z** `[branch]` set: feature/20261012-141915 (auto)
