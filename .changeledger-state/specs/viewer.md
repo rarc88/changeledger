@@ -38,10 +38,16 @@ estáticos pequeños: `security.js` (escape/sanitización/Mermaid), `state.js`
 documental en memoria), `viewer-routing.js` (URL e history) y `app-state.js` (estado global y
 helpers de transición puros — repo, filtros, vista, proyecto, sort — sin tocar el
 DOM); `app.js` queda como bootstrap y wiring de eventos. El graph muestra un estado vacío cuando los filtros no dejan changes
-visibles, en vez de generar un SVG con dimensiones inválidas. Sin un repo
-cargado, las vistas board, table, graph, ledger y metrics muestran
+visibles, en vez de generar un SVG con dimensiones inválidas. Sin un proyecto
+seleccionado, las vistas board, table, graph, ledger y metrics muestran
 `No projects registered. Run changeledger init in a repo.` en su contenedor en
-vez de fallar, y la vista de proyectos conserva su propio estado vacío. El
+vez de fallar, y la vista de proyectos conserva su propio estado vacío. Con un
+proyecto seleccionado cuyo payload aún no está cargado, esas vistas muestran
+`Loading project…` y no los changes del payload de otro proyecto que el viewer
+conserve; al seleccionar un proyecto —por el selector, la restauración de ruta,
+un resultado de la búsqueda global o el refresco del registro— y al fallar su
+carga, los filtros de tipo, owner y estado y el aviso de documentos inválidos se
+rehacen con el payload del proyecto seleccionado, vacíos mientras no lo hay. El
 sondeo periódico sin proyectos repinta la vista activa sin cambiarla; sólo la
 carga de arranque cae en Board. Si la carga del proyecto seleccionado falla y
 no hay payload suyo cargado (ninguno, o el de otro proyecto), la vista activa
