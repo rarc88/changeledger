@@ -43,10 +43,11 @@ Interfaces externas: ninguna.
 
 ## Plan
 
-- [ ] Probar con una guarda tolerante y añadir los ejemplos
+- [x] Probar con una guarda tolerante y añadir los ejemplos
   - **Target:** `templates/contract/implement.md, test/context.test.mjs`
   - **Verify:** `pnpm test`
   - **Criteria:** CR1, CR2
+  - **Resolved:** `2026-10-12T12:46:12Z`
 - [ ] Ejecutar el gate completo
   - **Verify:** `pnpm verify`
   - **Support:**
