@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-10-12T14:19:15Z
 depends_on: []
+reviewed: true
 branch: feature/20261012-141915
 related_to: ["20261012-125617", "20261002-140038"]
 owner: rarc88
@@ -92,3 +93,4 @@ inválido, que impediría analizar el resto, cuando `check` ya es el gate.
 - **2026-10-12T16:25:45Z** `[note]` Mandato de la revisión de confirmación: el hallazgo de la ronda 1 (pista skipped ausente en docs/usage-capture.md) sobre el diff sin commit encima de 7fa30974, y regresiones que introduzca.
 - **2026-10-12T16:27:42Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-10-12T16:39:51Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-10-12T16:40:34Z** `[graduation]` spec: `usage.md`
