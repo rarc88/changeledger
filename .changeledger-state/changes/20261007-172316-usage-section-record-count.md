@@ -48,10 +48,11 @@ que cambiaría el esquema público para un detalle del viewer.
 
 ## Plan
 
-- [ ] Probar y exportar la cuenta de registros por change desde el módulo
+- [x] Probar y exportar la cuenta de registros por change desde el módulo
   - **Target:** `src/usage-analysis.mjs, test/usage-analysis.test.mjs`
   - **Verify:** `pnpm test`
   - **Criteria:** CR3
+  - **Resolved:** `2026-10-12T12:37:21Z`
 - [ ] Probar y usar la cuenta en la sección Usage
   - **Target:** `src/viewer/public/app.js, test/view.test.mjs`
   - **Verify:** `pnpm test`
