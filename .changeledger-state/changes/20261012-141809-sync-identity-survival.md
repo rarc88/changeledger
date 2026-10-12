@@ -2,7 +2,7 @@
 id: "20261012-141809"
 title: sync no adopta una revisión que pierde identidades de la foto local
 type: bug
-status: in-progress
+status: in-review
 created: 2026-10-12T14:18:09Z
 depends_on: []
 branch: bug/20261012-141809
@@ -112,3 +112,4 @@ la herramienta.
 - **2026-10-12T15:24:27Z** `[status]` approved → in-progress
 - **2026-10-12T15:24:27Z** `[branch]` set: bug/20261012-141809 (auto)
 - **2026-10-12T15:43:50Z** `[note]` Reproducido antes del cambio en repos desechables: sync salió con 0 tras un fast-forward que borraba un change, tras una reconciliación publicada que lo perdía y tras un fast-forward que reescribía un registro de consumo. Implementación: assertLocalStateSurvives en src/state-store.mjs, llamado por advanceStateRef antes del CAS y por commitMergedState después de la comprobación de entradas desconocidas y antes de crear el commit; compara por ruta y, para los registros de consumo, por oid. En sync la comprobación de versión mínima corre antes. Sobre la historia de changeledger/state de este repo, reproducir la regla arista a arista no encontró ninguna ruta perdida. Mutantes M1–M7 fallaron por la aserción esperada.
+- **2026-10-12T15:43:52Z** `[status]` in-progress → in-review
