@@ -19,7 +19,10 @@ y `verify (node 26 / windows-latest)` fallan con seis pruebas que pasan en Linux
   `test/run-tests.test.mjs` (`CR3: <signal> ends the run with <code> and cleans up`);
 - dos pruebas de `test/usage-collector.test.mjs`: `the test helpers isolate a developer's
   global git config` y `an env override on (emulated) Windows reaches no shell and prints no
-  DEP0190`, ambas con `ERR_UNSUPPORTED_ESM_URL_SCHEME`.
+  DEP0190`, ambas con `ERR_UNSUPPORTED_ESM_URL_SCHEME`;
+- tras corregir esas seis, el CI de Windows del PR rarc88/changeledger#9 mostró una séptima:
+  `174310 CR7: a fresh repo refuses new hotfix until release_branch is declared, then it loads
+  end to end` (`test/cli-bin.test.mjs`).
 
 Se pide, en un único change para los fallos de Windows:
 
@@ -242,6 +245,16 @@ verificación definitiva es el CI de Windows (CR5).
 (`ERR_UNSUPPORTED_ESM_URL_SCHEME`) son interfaces estables de Node >= 24 (`engines`); ningún
 criterio consume de forma automática el texto del log del CI, que se lee a mano.
 
+### Separador de ruta en `174310 CR7`
+
+El test `174310 CR7` de `test/cli-bin.test.mjs` afirma la salida de `new` con
+`/^Created .*\.changeledger\/changes\/\d{8}-\d{6}-x\.md$/m`. En Windows el CLI imprime la
+ruta con su separador nativo: `Created C:\Users\RUNNER~1\…\.changeledger\changes\20261012-220144-x.md`
+(jobs 115025290058 y 115025290137 del run 38313728966), y la expresión no casa. El producto es
+correcto (imprime la ruta del sistema); el defecto es del test, que fija `/`. Es la única
+expresión de `test/` con `\.changeledger\/changes\/` (grep). Arreglo: aceptar cualquiera de
+los dos separadores (`[\\/]`) en esa expresión.
+
 ## Specification
 
 ### CR1 — En Windows las cuatro pruebas de señales se saltan con motivo
@@ -279,8 +292,14 @@ criterio consume de forma automática el texto del log del CI, que se lee a mano
 ### CR6 — El producto no cambia
 - **Given** el commit que resuelve este change
 - **When** se compara con su padre
-- **Then** sólo cambian `test/run-tests.test.mjs`, `test/usage-collector.test.mjs` y el comentario de cabecera de `scripts/run-tests.mjs`; `src/`, `bin/` y `templates/` quedan intactos
+- **Then** sólo cambian `test/run-tests.test.mjs`, `test/usage-collector.test.mjs`, `test/cli-bin.test.mjs` y el comentario de cabecera de `scripts/run-tests.mjs`; `src/`, `bin/` y `templates/` quedan intactos
 - **And** el CLI se comporta igual que antes porque ningún código de `src/`, `bin/` ni `scripts/` importa una ruta absoluta (el análisis de la Investigation)
+
+### CR7 — `174310 CR7` acepta el separador de ruta de la plataforma
+- **Given** el test `174310 CR7: a fresh repo refuses new hotfix until release_branch is declared, then it loads end to end` de `test/cli-bin.test.mjs`
+- **When** se ejecuta en Linux y en el job `verify` de `windows-latest` (node 24 y node 26)
+- **Then** pasa en las dos plataformas: su aserción sobre la salida de `new` casa tanto `Created …/.changeledger/changes/<id>-x.md` como `Created …\.changeledger\changes\<id>-x.md`
+- **And** en Linux, con la expresión revertida a sólo `/` y la salida simulada con `\`, la aserción falla
 
 ## Plan
 
@@ -327,6 +346,18 @@ criterio consume de forma automática el texto del log del CI, que se lee a mano
   - **Support:**
   - **Verify:** `pnpm verify`
   - **Resolved:** `2026-10-12T21:55:49Z`
+
+- [ ] Aceptar ambos separadores de ruta en la aserción `Created …` de `174310 CR7`
+  - **Target:** `test/cli-bin.test.mjs`
+  - **Verify:** `node --test test/cli-bin.test.mjs`
+  - **Criteria:** CR7
+- [ ] Comprobar en el CI de Windows que `174310 CR7` pasa
+  - **Target:** `test/cli-bin.test.mjs`
+  - **Verify:** verify: manual — en los logs de `verify (node 24 / windows-latest)` y `verify (node 26 / windows-latest)`, `174310 CR7` con `✔` y ninguna prueba bajo `failing tests`
+  - **Criteria:** CR7
+- [ ] Ejecutar el gate completo tras CR7
+  - **Support:**
+  - **Verify:** `pnpm verify`
 
 ## Log
 - **2026-10-12T21:25:27Z** `[version]` 0.18.0-dev
