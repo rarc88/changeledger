@@ -2,9 +2,10 @@
 id: "20261012-174407"
 title: "check --commits sin base usa la rama de integración del change de la rama actual"
 type: bug
-status: approved
+status: in-progress
 created: 2026-10-12T17:44:07Z
 depends_on: []
+branch: bug/20261012-174407
 related_to: ["20261012-174310", "20261002-181346", "20261002-181428", "20260711-210115", "20260805-052741", "20260808-141944", "20261002-204623"]
 owner: rarc88
 ---
@@ -146,3 +147,5 @@ Fixture común de los CR (salvo que se diga otra cosa): repo con `git.integratio
 - **2026-10-12T17:44:07Z** `[version]` 0.18.0-dev
 - **2026-10-12T17:58:12Z** `[status]` draft → approved (human via conversation)
 - **2026-10-12T18:37:31Z** `[note]` Antes de empezar: CR10, el punto 5 de la Investigation y la tarea 4 se ajustan porque #20261012-174925 (ya done) retiró de la entrada 20 de CONCEPT_GUARDS la aserción sobre la base de check --commits; este change ya no toca test/context.test.mjs para eso, y la entrada 20 debe seguir en verde tras retirar la cláusula de implement.md.
+- **2026-10-12T18:37:35Z** `[status]` approved → in-progress
+- **2026-10-12T18:37:35Z** `[branch]` set: bug/20261012-174407 (auto)
