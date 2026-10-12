@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-10-12T17:51:47Z
 depends_on: []
+reviewed: true
 branch: bug/20261012-175147
 related_to: ["20261002-204623", "20261002-181346", "20261002-181428", "20260731-161655", "20260811-151426", "20260811-163203", "20260811-163204", "20261002-152923", "20261012-174407"]
 owner: rarc88
@@ -377,3 +378,4 @@ sigue al tipo.
 - **2026-10-12T20:19:57Z** `[note]` Revisión de confirmación: pass. La interfaz externa de la que depende la guarda pasa a ser git show-ref --verify --quiet <ref> (plumbing estable, exit 0/1, probado también con reftable), no git rev-parse --verify --quiet <ref>^{commit} como declaraba la Investigation. Seguimientos no bloqueantes: una copia remote-tracking que apunta a un objeto que no es commit falla cerrada con «shares no history» (mensaje inexacto, sin test); ventana TOCTOU entre show-ref y merge-base sin medir; P5 y P8 sólo cubiertos por probes; un symref existente cuenta como presente.
 - **2026-10-12T21:08:20Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-10-12T21:16:03Z** `[note]` graduation-review de la reconciliación de git-traceability (guarda de arranque): apply. Cada afirmación confirmada ejecutando contra bug/20261012-175147 (orden local y luego remote-tracking, remoto elegido, copia ausente saltada, ninguna presente o varios remotos sin origin fallan cerrados, tipos de integración sin remoto, sin fetch ni ls-remote, existencia exacta con show-ref); sin contradicciones en otras specs. Matices opcionales no aplicados: «sólo lee refs presentes» omite la lista de remotos que da git remote; una línea más larga que el resto.
+- **2026-10-12T21:16:04Z** `[graduation]` spec: `git-traceability.md`
