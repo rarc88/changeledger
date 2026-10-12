@@ -2,7 +2,7 @@
 id: "20260925-130844"
 title: activate adopta una ref de estado cuyo mínimo supera la CLI instalada
 type: bug
-status: draft
+status: approved
 created: 2026-09-25T13:08:44Z
 depends_on: ["20260924-184354"]
 related_to: ["20260811-163203"]
@@ -103,3 +103,5 @@ desde la copia remota que se protege aquí viene de `20260811-163203`.
   - **Support:**
 
 ## Log
+- **2026-10-12T11:14:21Z** `[version]` 0.18.0-dev
+- **2026-10-12T11:14:21Z** `[status]` draft → approved (human via conversation)
