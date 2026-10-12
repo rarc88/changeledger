@@ -2,7 +2,7 @@
 id: "20261012-175147"
 title: La guarda de arranque resuelve las ramas por nombre ambiguo y sólo en local
 type: bug
-status: in-review
+status: in-progress
 created: 2026-10-12T17:51:47Z
 depends_on: []
 branch: bug/20261012-175147
@@ -369,3 +369,4 @@ sigue al tipo.
 - **2026-10-12T19:46:46Z** `[note]` Residuo para decisión humana: si la rama configurada no existe, git resuelve refs/heads/<n> a través de refs/tags/refs/heads/<n> (o refs/refs/heads/<n>, refs/remotes/refs/heads/<n>); con una ref así creada a mano, dos casos que antes fallaban cerrados ahora arrancan (K2: dev y origin/dev ausentes; R1: main renombrada). Arreglo posible: comprobar existencia exacta con git show-ref --verify antes de usar la ref completa. Otros residuos: checkoutBranch/cutover y heads/<rama> con etiqueta homónima (tarea aparte); lo empujado tras el último fetch no se ve; un cherry-pick no se detecta; la copia remota de la rama de release no se compara; change_branch_format null desactiva la guarda; plegado de mayúsculas; integration_branch: origin/dev falla cerrada con «does not exist locally» o «must descend». Decisiones: un fallo de git remote falla cerrado con el prefijo de la guarda; primero se comprueba qué copias existen y luego las bases.
 - **2026-10-12T19:46:49Z** `[status]` in-progress → in-review
 - **2026-10-12T19:46:55Z** `[note]` Mandato de revisión: la superficie que gobierna el change — resolución de refs y copia remote-tracking en la guarda de arranque (src/commands/agent.mjs), el parámetro de resolveRemote y los comentarios de src/git.mjs; rango d78e8db1..46c57358.
+- **2026-10-12T19:58:20Z** `[review]` in-review → in-progress (retry): Con la rama configurada ausente, refs/heads/<n> cae en refs/tags/refs/heads/<n>, refs/heads/refs/heads/<n> o similares (alcanzables con git tag, git branch o un fetch --tags) y la guarda arranca donde la base fallaba cerrada (K2, R1, P4-P6); desmiente el comentario «with neither copy present it fails closed». Cerrar con existencia exacta (git show-ref --verify) en integrationCopies y antes de la ascendencia del baseline, con tests de K2 y R1, y reescribir los comentarios de branchRef/refExists y el de «naming which cause applies».
