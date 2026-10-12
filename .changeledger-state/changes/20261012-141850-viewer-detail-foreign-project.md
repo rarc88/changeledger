@@ -2,9 +2,10 @@
 id: "20261012-141850"
 title: "El detalle de un change no sobrevive ni se abre desde el payload de otro proyecto"
 type: bug
-status: approved
+status: in-progress
 created: 2026-10-12T14:18:50Z
 depends_on: []
+branch: bug/20261012-141850
 related_to: ["20261012-125604"]
 owner: rarc88
 ---
@@ -61,3 +62,5 @@ Interfaces externas: ninguna.
 ## Log
 - **2026-10-12T14:18:50Z** `[version]` 0.18.0-dev
 - **2026-10-12T15:23:56Z** `[status]` draft → approved (human via conversation)
+- **2026-10-12T15:55:28Z** `[status]` approved → in-progress
+- **2026-10-12T15:55:28Z** `[branch]` set: bug/20261012-141850 (auto)
