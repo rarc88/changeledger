@@ -227,10 +227,11 @@ symlink a él; `<id>` es el id del change del fixture.
   - **Verify:** `CHANGELEDGER_NO_GH=1 node --test --test-name-pattern="CR4" test/agent.test.mjs`
   - **Criteria:** CR4
   - **Resolved:** `2026-10-12T21:43:46Z`
-- [ ] Ejecutar la suite completa con el temporal por symlink y la puerta de
+- [x] Ejecutar la suite completa con el temporal por symlink y la puerta de
   calidad
   - **Support:**
   - **Verify:** `pnpm verify`
+  - **Resolved:** `2026-10-12T21:43:46Z`
 
 ## Log
 - **2026-10-12T21:32:43Z** `[version]` 0.18.0-dev
