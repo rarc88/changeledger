@@ -213,12 +213,13 @@ los CR1 y CR4 pasan a ser parte de ese contrato. No cambia ningún formato.
   - **Verify:** `node --test test/config-migration.test.mjs test/check.test.mjs`
   - **Criteria:** CR6, CR7, CR8
   - **Resolved:** `2026-10-12T19:18:10Z`
-- [ ] Comentarios de `templates/config.yml` sobre `seed_stage` (valores
+- [x] Comentarios de `templates/config.yml` sobre `seed_stage` (valores
   legítimos) y sobre `git.release_branch` (distinta de `integration_branch`);
   `init` sigue dando una config sin errores
   - **Target:** `templates/config.yml`
   - **Verify:** `node --test test/cli-bin.test.mjs`
   - **Criteria:** CR2
+  - **Resolved:** `2026-10-12T19:18:10Z`
 - [ ] Test de extremo a extremo de CR9 sobre la CLI (`config migrate`, `check`,
   edición, `check`)
   - **Target:** `test/cli-bin.test.mjs`
