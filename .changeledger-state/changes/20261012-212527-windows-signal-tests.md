@@ -2,7 +2,7 @@
 id: "20261012-212527"
 title: "La suite falla en Windows: pruebas de señales del envoltorio e imports de rutas absolutas"
 type: bug
-status: in-validation
+status: done
 created: 2026-10-12T21:25:27Z
 depends_on: []
 branch: bug/20261012-212527
@@ -379,3 +379,4 @@ los dos separadores (`[\\/]`) en esa expresión.
 - **2026-10-12T22:41:04Z** `[note]` Mandato de la revisión de confirmación: los defectos nombrados (comentario «all four cases», nombre del test de barrido, atribución a Node en la cabecera, «cannot be sent from here», Ctrl+Break) y regresiones de la corrección, sobre el diff sin commit encima de 2a71cba7.
 - **2026-10-12T22:44:13Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-10-12T22:44:19Z** `[note]` Revisión de confirmación: pass. Seguimientos no bloqueantes: Node documenta que Ctrl+C «usually» genera SIGINT (la cabecera omite el matiz); «Node offers no way to send…» se apoya en la API kill documentada y extiende por razonamiento al resto de Node; el título de CR4 dice «ninguna prueba incrusta una ruta cruda» cuando el barrido vigila una forma (residuo ya anotado); limpieza tras Ctrl+C real en Windows no ejecutada.
+- **2026-10-12T22:48:02Z** `[validation]` in-validation → done (human accepted via conversation)
