@@ -755,6 +755,44 @@ test('175147 CR6: with neither a local nor a remote-tracking integration branch 
   );
 });
 
+// With a branch absent, git resolves its full ref through same-named refs
+// further down the gitrevisions(7) lookup order. Each case drops both copies of
+// `dev`, plants one such ref at `main` and checks that git really reads it in
+// place of the missing copy before the guard runs.
+function plantedWithoutIntegrationBranch(plant, missing) {
+  const fixture = remoteTypeRepo();
+  const { root } = fixture;
+  git(root, ['push', '-q', 'origin', '--delete', 'dev']);
+  git(root, ['fetch', '-q', '--prune', 'origin']);
+  git(root, ['branch', '-q', '-D', 'dev']);
+  git(root, plant);
+  assert.equal(git(root, ['rev-parse', missing]), git(root, ['rev-parse', 'refs/heads/main']));
+  return fixture;
+}
+
+for (const [label, plant, missing] of [
+  ['git tag refs/heads/dev', ['tag', 'refs/heads/dev', 'main'], 'refs/heads/dev'],
+  ['git branch refs/heads/dev', ['branch', 'refs/heads/dev', 'main'], 'refs/heads/dev'],
+  [
+    'refs/tags/refs/remotes/origin/dev',
+    ['update-ref', 'refs/tags/refs/remotes/origin/dev', 'main'],
+    'refs/remotes/origin/dev',
+  ],
+]) {
+  test(`175147 CR6: a ref made by ${label} does not stand in for an absent integration branch`, () => {
+    const { root, changes } = plantedWithoutIntegrationBranch(plant, missing);
+    const { id } = changes.fix;
+
+    assertStartRefused(
+      root,
+      changes.fix,
+      'fix',
+      'main',
+      `branch "fix/${id}" cannot start: integration branch "dev" does not exist locally — create it (e.g. from its remote-tracking copy) before starting`,
+    );
+  });
+}
+
 // Remotes `fork` and `upstream`, neither named `origin`.
 function ambiguousRemotes(root, bare) {
   git(root, ['remote', 'rename', 'origin', 'upstream']);
@@ -886,6 +924,42 @@ test('175147 CR14: the ancestry check of a release type resolves the release bra
   );
 });
 
+test('175147 CR14: a tag named refs/heads/main does not stand in for an absent release branch', () => {
+  const { root, changes } = remoteTypeRepo();
+  const { id } = changes.fix;
+  commitOn(root, 'dev', 'DEVWORK');
+  git(root, ['branch', '-m', 'main', 'gone']);
+  git(root, ['tag', 'refs/heads/main', 'refs/heads/dev']);
+  assert.equal(
+    git(root, ['rev-parse', 'refs/heads/main']),
+    git(root, ['rev-parse', 'refs/heads/dev']),
+  );
+
+  assertStartRefused(
+    root,
+    changes.fix,
+    'fix',
+    'refs/heads/dev',
+    `branch "fix/${id}" must descend from integration branch "main"`,
+  );
+});
+
+test('175147 CR14: without a remote, a tag named refs/heads/main does not stand in for a missing release branch', () => {
+  const { root, changes } = releaseTypeRepo({ shape: 'dev-ahead' });
+  const { file, id } = changes.fix;
+  git(root, ['checkout', '-q', '-b', `fix/${id}`, 'main']);
+  git(root, ['branch', '-m', 'main', 'gone']);
+  git(root, ['tag', 'refs/heads/main', 'HEAD']);
+  assert.equal(git(root, ['remote']), '');
+  const before = fs.readFileSync(file, 'utf8');
+
+  assert.throws(
+    () => status(id, 'in-progress', root, { ownerHandle: () => '' }),
+    (error) => error.message === `branch "fix/${id}" must descend from integration branch "main"`,
+  );
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
 test('175147 CR15: the ancestry check of an integration type resolves the integration branch', () => {
   const { root, changes } = remoteTypeRepo();
   const { id } = changes.feature;
@@ -897,6 +971,22 @@ test('175147 CR15: the ancestry check of an integration type resolves the integr
     changes.feature,
     'feature',
     'refs/heads/main',
+    `branch "feature/${id}" must descend from integration branch "dev"`,
+  );
+});
+
+test('175147 CR15: a tag named refs/heads/dev does not stand in for an absent integration branch', () => {
+  const { root, changes } = plantedWithoutIntegrationBranch(
+    ['tag', 'refs/heads/dev', 'main'],
+    'refs/heads/dev',
+  );
+  const { id } = changes.feature;
+
+  assertStartRefused(
+    root,
+    changes.feature,
+    'feature',
+    'main',
     `branch "feature/${id}" must descend from integration branch "dev"`,
   );
 });

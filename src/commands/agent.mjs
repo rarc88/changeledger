@@ -84,8 +84,10 @@ function locate(cwd, id) {
 // A configured branch name as the ref git reads. A short name follows the
 // lookup order of gitrevisions(7), where `refs/<name>` and `refs/tags/<name>`
 // come before `refs/heads/<name>`: `git tag dev main` made `dev` read as `main`
-// (20261012-175147). The full ref reads the branch while it exists; with the
-// branch absent git still falls back to refs such as `refs/tags/refs/heads/<name>`.
+// (20261012-175147). The full ref names the branch only while it exists: with
+// the branch absent git falls back to refs such as `refs/tags/refs/heads/<name>`
+// or `refs/heads/refs/heads/<name>`, so the guard checks that the branch exists
+// (`refExists`) before handing its full ref to git.
 const branchRef = (name) => `refs/heads/${name}`;
 
 function assertImplementationBranch(config, change, repoRoot, gitRun) {
@@ -100,9 +102,17 @@ function assertImplementationBranch(config, change, repoRoot, gitRun) {
   }
 
   // The base follows the role of the change's type (`integrates_into`), so a
-  // release type descends from `git.release_branch` (20261002-181346).
+  // release type descends from `git.release_branch` (20261002-181346). An
+  // absent base fails here too, before git can read its full ref through a ref
+  // such as `refs/tags/refs/heads/<name>`.
   const baseline = changeIntegrationBranch(config, change.type);
-  if (baseline && !isAncestor(repoRoot, branchRef(baseline), 'HEAD', gitRun)) {
+  if (
+    baseline &&
+    !(
+      refExists(repoRoot, branchRef(baseline), gitRun) &&
+      isAncestor(repoRoot, branchRef(baseline), 'HEAD', gitRun)
+    )
+  ) {
     throw new Error(`branch "${expected}" must descend from integration branch "${baseline}"`);
   }
 
@@ -115,8 +125,8 @@ function assertImplementationBranch(config, change, repoRoot, gitRun) {
   // merges leave several) to be in `baseline` keeps the commits of that copy
   // shared with `HEAD` inside `baseline`. It does not inspect commits that are
   // only on `HEAD`, such as a cherry-picked copy of integration work. With no
-  // merge base it fails closed, like the ancestry check above, naming which
-  // cause applies.
+  // merge base it fails closed, like the ancestry check above, and says the
+  // branch shares no history with that copy: absent copies never reach it.
   const integration = integrationBranch(config);
   if (integration && integration !== baseline) {
     for (const { ref, name } of integrationCopies(integration, expected, repoRoot, gitRun)) {
@@ -140,9 +150,11 @@ function assertImplementationBranch(config, change, repoRoot, gitRun) {
 // because a hotfix cut from `origin/dev` carried work the local `dev` lacked
 // (20261012-175147). The remote is the one `sync` resolves; several remotes and
 // none named `origin` fail closed rather than compare with the local copy
-// alone. A missing copy is skipped, since a remote need not publish the branch;
-// with neither copy present it fails closed. It reads refs already in the repo
-// and runs no fetch, so work pushed after the last fetch is not seen.
+// alone. A copy counts as present only when a ref of exactly its full name
+// exists, not when git resolves that name through another ref. A missing copy
+// is skipped, since a remote need not publish the branch; with neither copy
+// present it fails closed. It reads refs already in the repo and runs no fetch,
+// so work pushed after the last fetch is not seen.
 function integrationCopies(integration, expected, repoRoot, gitRun) {
   let remote;
   try {
