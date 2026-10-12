@@ -2,7 +2,7 @@
 id: "20260925-130844"
 title: activate adopta una ref de estado cuyo mínimo supera la CLI instalada
 type: bug
-status: in-validation
+status: done
 created: 2026-09-25T13:08:44Z
 depends_on: ["20260924-184354"]
 branch: bug/20260925-130844
@@ -116,3 +116,4 @@ desde la copia remota que se protege aquí viene de `20260811-163203`.
 - **2026-10-12T11:53:16Z** `[note]` Mandato del review: la superficie que el change gobierna — dev..HEAD contra CR1-CR4 y el Plan, con las decisiones no especificadas y los residuos del Log como puntos de escrutinio. Frases cuantificadas informadas: el comentario de assertCliAdmitted («before any ref is written»: test CR1 con git for-each-ref antes y después, y mutantes M1 y M4); el comentario de los tests sobre la versión instalada (bin lee package.json); el de stateFilesWithMin (CR4 list con exit 0); el de freshClone (CR1 llega a la acción de activate); y el comentario acotado de repoCliVersionError (CR3 llega a activate y da el diagnóstico).
 - **2026-10-12T11:58:58Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-10-12T11:59:02Z** `[note]` Observaciones del review para la validación y seguimiento: activate sobre una ref de estado local cuya config no se puede leer (por ejemplo, sin config.yml) pasa de escribir la activación con exit 0 a fallar sin escribir nada, también en el no-op Already activated (fail-closed, no especificado en los CR); la costura installedVersion de activate() no tiene consumidores; sync podría adoptar una revisión remota con un mínimo mayor sin esta comprobación (no examinado).
+- **2026-10-12T12:03:01Z** `[validation]` in-validation → done (human accepted via conversation)
