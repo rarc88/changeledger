@@ -73,9 +73,10 @@ inválido, que impediría analizar el resto, cuando `check` ya es el gate.
   - **Verify:** `pnpm test`
   - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-10-12T16:19:10Z`
-- [ ] Ejecutar el gate completo
+- [x] Ejecutar el gate completo
   - **Verify:** `pnpm verify`
   - **Support:**
+  - **Resolved:** `2026-10-12T16:19:10Z`
 
 ## Log
 - **2026-10-12T14:19:15Z** `[version]` 0.18.0-dev
