@@ -2,7 +2,7 @@
 id: "20261012-125623"
 title: Auditar la supervivencia de identidades en sync
 type: audit
-status: draft
+status: approved
 created: 2026-10-12T12:56:23Z
 depends_on: []
 related_to: ["20261002-133728", "20261002-161641", "20260808-142200"]
@@ -37,3 +37,4 @@ reproducciones; y el coste y el riesgo de cada opción frente al techo.
 
 ## Log
 - **2026-10-12T12:56:23Z** `[version]` 0.18.0-dev
+- **2026-10-12T12:58:48Z** `[status]` draft → approved (human via conversation)
