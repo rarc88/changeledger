@@ -2,7 +2,7 @@
 id: "20261012-212527"
 title: "La suite falla en Windows: pruebas de señales del envoltorio e imports de rutas absolutas"
 type: bug
-status: in-progress
+status: in-review
 created: 2026-10-12T21:25:27Z
 depends_on: []
 branch: bug/20261012-212527
@@ -371,3 +371,4 @@ los dos separadores (`[\\/]`) en esa expresión.
 - **2026-10-12T22:14:49Z** `[note]` CI de Windows del PR rarc88/changeledger#9 (run 38313728966, jobs 115025290058 y 115025290137): las cuatro pruebas CR3 de señales aparecen saltadas con el motivo «on Windows child.kill() terminates the wrapper forcibly and runs no signal handler» y ninguna figura bajo failing tests (CR1); «the test helpers isolate a developer's global git config» y «an env override on (emulated) Windows reaches no shell and prints no DEP0190» pasan con ✔ y ningún log contiene ERR_UNSUPPORTED_ESM_URL_SCHEME (CR5). Queda un fallo nuevo en ambos jobs: 174310 CR7 (test/cli-bin.test.mjs) exige una ruta con / y Windows imprime \ en «Created …\.changeledger\changes\…-x.md»; se incorpora a este change por decisión del humano (un único change para los fallos de Windows).
 - **2026-10-12T22:16:36Z** `[note]` CR7: la aserción Created … de 174310 CR7 acepta [\\/] como separador. Comprobado en Linux con node: la expresión anterior no casa una salida Created C:\…\.changeledger\changes\<id>-x.md y sí la nueva; ambas casan la forma con /. El test pasa en Linux; pnpm verify en verde (2001).
 - **2026-10-12T22:31:43Z** `[note]` CI de Windows del PR rarc88/changeledger#9 sobre 2a71cba7 (run 38315727343, jobs 115031757739 y 115031757758): verde, 174310 CR7 con ✔, fail 0, skipped 11 (las cuatro de señales más siete saltos POSIX previos). Los dos jobs de macOS de este PR fallan sólo en 20261002-133728 CR1, que corrige #20261012-213243 (ya en dev).
+- **2026-10-12T22:31:45Z** `[status]` in-progress → in-review
