@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-10-12T21:25:27Z
 depends_on: []
+reviewed: true
 branch: bug/20261012-212527
 related_to: ["20261002-133728", "20261007-135154", "20260812-025623", "20261001-155612", "20260730-220857"]
 owner: rarc88
@@ -381,3 +382,4 @@ los dos separadores (`[\\/]`) en esa expresión.
 - **2026-10-12T22:44:19Z** `[note]` Revisión de confirmación: pass. Seguimientos no bloqueantes: Node documenta que Ctrl+C «usually» genera SIGINT (la cabecera omite el matiz); «Node offers no way to send…» se apoya en la API kill documentada y extiende por razonamiento al resto de Node; el título de CR4 dice «ninguna prueba incrusta una ruta cruda» cuando el barrido vigila una forma (residuo ya anotado); limpieza tras Ctrl+C real en Windows no ejecutada.
 - **2026-10-12T22:48:02Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-10-12T22:50:54Z** `[note]` graduation-review de la reconciliación de lifecycle (envoltorio de la suite): primera ronda pidió decir que tampoco se ha probado la limpieza tras cerrar la consola en Windows y, opcionalmente, no nombrar archivos de test y enumerar las cuatro señales; corregido. Segunda ronda con revisor nuevo: apply, cada afirmación confirmada con el código, los logs del CI de Windows y la documentación de Node. Matiz opcional no aplicado: «no se ha ejecutado» podría leerse como «no corrió» en vez de «no se ha probado»; coincide con la cabecera de scripts/run-tests.mjs. Los especificadores de import y la expresión de 174310 CR7 son internos de pruebas y no requieren spec.
+- **2026-10-12T22:50:55Z** `[graduation]` spec: `lifecycle.md`
