@@ -79,7 +79,7 @@ Interfaces externas: ninguna; los errores llegan de `/api/repo` (por ejemplo
   - **Verify:** `pnpm test`
   - **Criteria:** CR1, CR2, CR3, CR4
   - **Resolved:** `2026-10-12T12:07:41Z`
-- [x] Recorrer el viewer real con un proyecto cuya ruta desapareció
+- [x] Recorrer el viewer real con un proyecto cuya carga falla
   - **Target:** `src/viewer/public/app.js`
   - **Verify:** verify: manual — `changeledger view` con un proyecto temporal de config rota y cada vista en el navegador
   - **Criteria:** CR5
