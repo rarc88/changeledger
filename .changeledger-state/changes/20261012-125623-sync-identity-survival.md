@@ -5,6 +5,7 @@ type: audit
 status: done
 created: 2026-10-12T12:56:23Z
 depends_on: []
+archived: true
 reviewed: true
 branch: audit/20261012-125623
 related_to: ["20261002-133728", "20261002-161641", "20260808-142200"]
@@ -129,3 +130,4 @@ ve un borrado intermedio vuelto a añadir dentro del rango remoto.
 - **2026-10-12T14:09:43Z** `[status]` in-progress → in-validation
 - **2026-10-12T14:14:54Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-10-12T14:15:51Z** `[graduation]` skipped: auditoría: no cambia comportamiento; sus hallazgos alimentan el change de corrección
+- **2026-10-12T14:16:00Z** `[archive]` archived
