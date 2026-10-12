@@ -2,7 +2,7 @@
 id: "20261012-125604"
 title: El viewer no presenta datos de otro proyecto mientras carga el seleccionado
 type: bug
-status: draft
+status: approved
 created: 2026-10-12T12:56:04Z
 depends_on: []
 related_to: ["20261007-172305", "20261007-135148"]
@@ -80,3 +80,4 @@ Interfaces externas: ninguna.
 
 ## Log
 - **2026-10-12T12:56:04Z** `[version]` 0.18.0-dev
+- **2026-10-12T12:58:36Z** `[status]` draft → approved (human via conversation)
