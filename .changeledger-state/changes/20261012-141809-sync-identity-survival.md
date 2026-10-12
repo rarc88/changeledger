@@ -2,9 +2,10 @@
 id: "20261012-141809"
 title: sync no adopta una revisión que pierde identidades de la foto local
 type: bug
-status: approved
+status: in-progress
 created: 2026-10-12T14:18:09Z
 depends_on: []
+branch: bug/20261012-141809
 related_to: ["20261012-125623", "20261002-161641", "20261012-125611"]
 owner: rarc88
 ---
@@ -104,3 +105,5 @@ la herramienta.
 ## Log
 - **2026-10-12T14:18:09Z** `[version]` 0.18.0-dev
 - **2026-10-12T15:23:52Z** `[status]` draft → approved (human via conversation)
+- **2026-10-12T15:24:27Z** `[status]` approved → in-progress
+- **2026-10-12T15:24:27Z** `[branch]` set: bug/20261012-141809 (auto)
