@@ -2,9 +2,10 @@
 id: "20261012-174310"
 title: "Un tipo de release sin rama de release declarada se puede crear y check no lo ve"
 type: bug
-status: approved
+status: in-progress
 created: 2026-10-12T17:43:10Z
 depends_on: []
+branch: bug/20261012-174310
 related_to: ["20261002-181346", "20261002-181428", "20261002-204623"]
 owner: rarc88
 ---
@@ -198,3 +199,5 @@ cualquier error de `check`; no se midió.
 ## Log
 - **2026-10-12T17:43:10Z** `[version]` 0.18.0-dev
 - **2026-10-12T17:58:04Z** `[status]` draft → approved (human via conversation)
+- **2026-10-12T18:15:46Z** `[status]` approved → in-progress
+- **2026-10-12T18:15:46Z** `[branch]` set: bug/20261012-174310 (auto)
