@@ -221,11 +221,12 @@ symlink a él; `<id>` es el id del change del fixture.
   - **Verify:** `TMPDIR=<link> CHANGELEDGER_NO_GH=1 node --test test/agent.test.mjs`
   - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-10-12T21:43:45Z`
-- [ ] Test de extremo a extremo por CLI en un repo bajo un symlink propio del
+- [x] Test de extremo a extremo por CLI en un repo bajo un symlink propio del
   test (no a través de `os.tmpdir()`), saltado en `win32`
   - **Target:** `test/agent.test.mjs`
   - **Verify:** `CHANGELEDGER_NO_GH=1 node --test --test-name-pattern="CR4" test/agent.test.mjs`
   - **Criteria:** CR4
+  - **Resolved:** `2026-10-12T21:43:46Z`
 - [ ] Ejecutar la suite completa con el temporal por symlink y la puerta de
   calidad
   - **Support:**
