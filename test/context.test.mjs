@@ -3586,7 +3586,7 @@ const CONCEPT_GUARDS = [
   {
     entry: 16,
     obligation:
-      'the documentation type writes its execution rules as its own CRs, citing path and symbol, and the human decides every divergence before in-review',
+      'the documentation type writes its execution rules as its own CRs, citing path and symbol, and the human decides every divergence from an existing spec before in-review',
     verify: () => {
       const spec = flattened(contractFragment('spec.md'));
       assert.match(
@@ -3603,7 +3603,7 @@ const CONCEPT_GUARDS = [
       assert.match(
         spec,
         /(?=[^.;]{0,200}\bhuman\b)(?=[^.;]{0,200}\bdivergen)(?=[^.;]{0,200}`in-review`)/i,
-        'spec no longer has the human decide every divergence before in-review',
+        'spec no longer has the human decide every divergence from an existing spec before in-review',
       );
     },
   },
