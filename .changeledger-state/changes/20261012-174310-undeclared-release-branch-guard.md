@@ -2,7 +2,7 @@
 id: "20261012-174310"
 title: "Un tipo de release sin rama de release declarada se puede crear y check no lo ve"
 type: bug
-status: in-review
+status: in-validation
 created: 2026-10-12T17:43:10Z
 depends_on: []
 branch: bug/20261012-174310
@@ -210,3 +210,4 @@ cualquier error de `check`; no se midió.
 - **2026-10-12T18:28:29Z** `[note]` Decisiones no especificadas: un git.release_branch mal formado hace lanzar al helper; check lo silencia (ya lo reporta checkConfig una vez) y new falla con él. check sólo marca changes cuyo status está en config.statuses. Residuos: un change ya atascado sigue editable (edit sólo rechaza errores nuevos), como preveía la Investigation.
 - **2026-10-12T18:28:32Z** `[status]` in-progress → in-review
 - **2026-10-12T18:28:40Z** `[note]` Mandato de revisión: la superficie que gobierna el change — creación (new, --print, --from, apply) y check de changes de tipos de release sin git.release_branch, más el ajuste del fixture de test/agent.test.mjs; rango 0e7a5cc9..43daa326.
+- **2026-10-12T18:40:20Z** `[review]` in-review → in-validation (delegated subagent, clean context)
