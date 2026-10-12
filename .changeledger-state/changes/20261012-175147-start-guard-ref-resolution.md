@@ -2,9 +2,10 @@
 id: "20261012-175147"
 title: La guarda de arranque resuelve las ramas por nombre ambiguo y sólo en local
 type: bug
-status: approved
+status: in-progress
 created: 2026-10-12T17:51:47Z
 depends_on: []
+branch: bug/20261012-175147
 related_to: ["20261002-204623", "20261002-181346", "20261002-181428", "20260731-161655", "20260811-151426", "20260811-163203", "20260811-163204", "20261002-152923", "20261012-174407"]
 owner: rarc88
 ---
@@ -356,3 +357,5 @@ sigue al tipo.
 ## Log
 - **2026-10-12T17:51:47Z** `[version]` 0.18.0-dev
 - **2026-10-12T17:58:21Z** `[status]` draft → approved (human via conversation)
+- **2026-10-12T19:29:37Z** `[status]` approved → in-progress
+- **2026-10-12T19:29:37Z** `[branch]` set: bug/20261012-175147 (auto)
