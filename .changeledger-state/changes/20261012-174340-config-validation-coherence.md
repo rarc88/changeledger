@@ -206,12 +206,13 @@ los CR1 y CR4 pasan a ser parte de ese contrato. No cambia ningún formato.
   - **Verify:** `node --test test/config-migration.test.mjs`
   - **Criteria:** CR6, CR7, CR8
   - **Resolved:** `2026-10-12T19:18:09Z`
-- [ ] Una única función exportada por `src/check.mjs` que devuelve las fases
+- [x] Una única función exportada por `src/check.mjs` que devuelve las fases
   que exige `review_required` según `effectiveTdd`; la usan `checkConfig` y
   `activateReviewableStages`, leyendo la config del documento vivo
   - **Target:** `src/check.mjs`, `src/config-migration.mjs`
   - **Verify:** `node --test test/config-migration.test.mjs test/check.test.mjs`
   - **Criteria:** CR6, CR7, CR8
+  - **Resolved:** `2026-10-12T19:18:10Z`
 - [ ] Comentarios de `templates/config.yml` sobre `seed_stage` (valores
   legítimos) y sobre `git.release_branch` (distinta de `integration_branch`);
   `init` sigue dando una config sin errores
