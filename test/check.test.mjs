@@ -4207,6 +4207,24 @@ test('174407 CR3: without a resolved change the base is git.integration_branch',
   assert.deepEqual(detached.calls, expected);
 });
 
+test('174407 CR3: detached HEAD keeps the fallback chain without reading the ledger', () => {
+  const fx = releaseFixture({
+    changes: {
+      [`${HOTFIX_ID}-h.md`]: hotfixDoc(),
+      '20261012-999999-bad.md': 'not a change',
+    },
+  });
+  branchFrom(fx, `hotfix/${HOTFIX_ID}`, 'main', `fix(x): hotfix work [#${HOTFIX_ID}]`);
+  fx.git(['checkout', '-q', '--detach']);
+
+  // a release type exists, so only the detached-HEAD guard keeps the malformed
+  // document from being loaded
+  const out = captureOutput();
+  assert.equal(check(['--commits'], fx.root, out), 1);
+  assert.deepEqual(out.diagnostics, [mainOnlyError(fx.mainSha)]);
+  assert.deepEqual(out.calls, ['\n1 error(s) — commits dev..HEAD']);
+});
+
 test('174407 CR4: an explicit base wins and the ledger is not read', () => {
   const fx = releaseFixture({
     changes: {

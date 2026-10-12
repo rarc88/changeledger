@@ -14,8 +14,9 @@ import { checkoutBranch, defaultBaseBranch, lintCommitRange } from '../git.mjs';
 import { loadRepo } from '../repo.mjs';
 import { STATE_ROOT, unknownCollectionsMessage } from '../state-store.mjs';
 
-// Statuses whose changes no longer decide a branch's base: a reused branch name
-// must not hijack the lint of whoever checks it out later.
+// Statuses whose changes do not decide a branch's base. Only `done` and
+// `discarded` are listed: a custom terminal-like status such as `cancelled`
+// still decides.
 const TERMINAL_STATUSES = ['done', 'discarded'];
 
 function hasReleaseType(config) {
@@ -37,8 +38,10 @@ function changesOnBranch(repo, branch) {
 // `git.integration_branch`, else the auto-detected default branch. Outside a
 // ChangeLedger repo the lint still works on plain git. A malformed declared
 // value fails fast in `integrationBranch`. The ledger is read only when some
-// type integrates into the release branch: otherwise every change's base is
-// `git.integration_branch` and the answer cannot differ.
+// type declares `integrates_into: release`. Without one, and with valid roles,
+// a change's base is `git.integration_branch` and reading the ledger would not
+// change the answer; `changeledger check` reports an invalid role as a config
+// error, but this lint does not detect it when no type integrates into release.
 function defaultCommitsBase(cwd) {
   const changeledgerDir = findChangeledgerDir(cwd);
   if (!changeledgerDir) return defaultBaseBranch(cwd);
