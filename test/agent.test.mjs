@@ -88,9 +88,10 @@ function init(root) {
 
 function repoWithChange({ configExtra = '' } = {}) {
   // Native realpath at the seat, as in `initStateRepo` (20260812-022248 CR2):
-  // os.tmpdir() is a symlink on macOS and an 8.3 short name on Windows. A CLI
-  // spawned in the root reads it from getcwd and git answers in physical form,
-  // so on macOS CI a session announced with the raw temp path went unmatched
+  // on macOS os.tmpdir() lives under /var, a symlink to /private/var, and on
+  // Windows runners it can carry an 8.3 short name. On POSIX a CLI spawned in
+  // the root reads it from getcwd and git answers in physical form, so on macOS
+  // CI a session announced with the raw temp path went unmatched
   // (20261012-213243).
   const root = fs.realpathSync.native(
     fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-agent-')),
@@ -3656,7 +3657,7 @@ test('20261012-213243 CR1: repoWithChange is born in native realpath when the te
 });
 
 test('20261012-213243 CR4: a repo reached through a symlink records usage for the session getcwd announces', {
-  skip: process.platform === 'win32' && 'symlinks need privileges on win32',
+  skip: process.platform === 'win32' && 'symlinks may need privileges on win32',
 }, (t) => {
   const { real, link } = symlinkedDir(t);
   const logical = path.join(link, 'demo');
@@ -3702,7 +3703,7 @@ test('20261012-213243 CR4: a repo reached through a symlink records usage for th
 
   const records = usageRecords(logical, id);
   // Compared as a set: records written within one second share their instant,
-  // so the file-name order is not the order of the transitions.
+  // so the file-name order need not be the order of the transitions.
   assert.deepEqual(records.map((r) => `${r.event} ${r.from} -> ${r.to}`).sort(), [
     'created null -> draft',
     'status approved -> in-progress',
