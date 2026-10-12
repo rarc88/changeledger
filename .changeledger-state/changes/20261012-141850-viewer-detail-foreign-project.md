@@ -2,7 +2,7 @@
 id: "20261012-141850"
 title: "El detalle de un change no sobrevive ni se abre desde el payload de otro proyecto"
 type: bug
-status: draft
+status: approved
 created: 2026-10-12T14:18:50Z
 depends_on: []
 related_to: ["20261012-125604"]
@@ -60,3 +60,4 @@ Interfaces externas: ninguna.
 
 ## Log
 - **2026-10-12T14:18:50Z** `[version]` 0.18.0-dev
+- **2026-10-12T15:23:56Z** `[status]` draft → approved (human via conversation)
