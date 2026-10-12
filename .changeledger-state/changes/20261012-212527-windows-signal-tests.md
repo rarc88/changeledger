@@ -317,11 +317,12 @@ criterio consume de forma automática el texto del log del CI, que se lee a mano
   - **Verify:** `node --test test/usage-collector.test.mjs`
   - **Criteria:** CR3, CR4, CR6
   - **Resolved:** `2026-10-12T21:55:49Z`
-- [ ] Comprobar en el CI de Windows que las dos pruebas pasan y que el log no contiene
+- [x] Comprobar en el CI de Windows que las dos pruebas pasan y que el log no contiene
   `ERR_UNSUPPORTED_ESM_URL_SCHEME`
   - **Target:** `test/usage-collector.test.mjs`
   - **Verify:** verify: manual — en los logs de `verify (node 24 / windows-latest)` y `verify (node 26 / windows-latest)`, ambas pruebas con `✔`, ninguna bajo `failing tests` y cero apariciones de `ERR_UNSUPPORTED_ESM_URL_SCHEME`; si aflora otro fallo dentro de ellas, anotarlo en el Log y parar
   - **Criteria:** CR5
+  - **Resolved:** `2026-10-12T22:14:50Z`
 - [x] Ejecutar el gate completo
   - **Support:**
   - **Verify:** `pnpm verify`
