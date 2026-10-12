@@ -129,9 +129,10 @@ que es justo el fallo observado.
   - **Verify:** `node --test test/sync.test.mjs`
   - **Criteria:** CR6
   - **Resolved:** `2026-10-12T11:29:20Z`
-- [ ] Ejecutar el gate completo
+- [x] Ejecutar el gate completo
   - **Verify:** `pnpm verify`
   - **Support:**
+  - **Resolved:** `2026-10-12T11:29:21Z`
 
 ## Log
 - **2026-10-02T16:16:41Z** `[version]` 0.18.0-dev
