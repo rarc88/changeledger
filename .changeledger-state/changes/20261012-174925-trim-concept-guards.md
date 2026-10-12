@@ -108,10 +108,11 @@ Interfaces externas: ninguna. Superficie enteramente en `test/context.test.mjs`.
   - **Verify:** `node --test --test-name-pattern "concept guard" test/context.test.mjs`
   - **Criteria:** CR5
   - **Resolved:** `2026-10-12T18:04:33Z`
-- [ ] Comprobar que ni prosa ni comportamiento cambian: diff vacío contra el baseline en `templates`, `src`, `bin` y `AGENTS.md`, y suite y lint en verde
+- [x] Comprobar que ni prosa ni comportamiento cambian: diff vacío contra el baseline en `templates`, `src`, `bin` y `AGENTS.md`, y suite y lint en verde
   - **Target:** `test/context.test.mjs`
   - **Verify:** `pnpm test`
   - **Criteria:** CR6
+  - **Resolved:** `2026-10-12T18:04:33Z`
 - [ ] Registrar en el Log el residuo que pasa a descansar en review
   - **Target:** `test/context.test.mjs`
   - **Verify:** `node --test test/context.test.mjs`
