@@ -200,11 +200,12 @@ los CR1 y CR4 pasan a ser parte de ese contrato. No cambia ningún formato.
   - **Verify:** `node --test test/check.test.mjs`
   - **Criteria:** CR4, CR5
   - **Resolved:** `2026-10-12T19:18:09Z`
-- [ ] Tests en rojo de la migración con `tdd` global y por tipo apagado o
+- [x] Tests en rojo de la migración con `tdd` global y por tipo apagado o
   encendido (CR6–CR8), construidos como los de `141119 CR6` con un schema 3
   - **Target:** `test/config-migration.test.mjs`
   - **Verify:** `node --test test/config-migration.test.mjs`
   - **Criteria:** CR6, CR7, CR8
+  - **Resolved:** `2026-10-12T19:18:09Z`
 - [ ] Una única función exportada por `src/check.mjs` que devuelve las fases
   que exige `review_required` según `effectiveTdd`; la usan `checkConfig` y
   `activateReviewableStages`, leyendo la config del documento vivo
