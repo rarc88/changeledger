@@ -352,10 +352,11 @@ los dos separadores (`[\\/]`) en esa expresión.
   - **Verify:** `node --test test/cli-bin.test.mjs`
   - **Criteria:** CR7
   - **Resolved:** `2026-10-12T22:16:37Z`
-- [ ] Comprobar en el CI de Windows que `174310 CR7` pasa
+- [x] Comprobar en el CI de Windows que `174310 CR7` pasa
   - **Target:** `test/cli-bin.test.mjs`
   - **Verify:** verify: manual — en los logs de `verify (node 24 / windows-latest)` y `verify (node 26 / windows-latest)`, `174310 CR7` con `✔` y ninguna prueba bajo `failing tests`
   - **Criteria:** CR7
+  - **Resolved:** `2026-10-12T22:31:44Z`
 - [x] Ejecutar el gate completo tras CR7
   - **Support:**
   - **Verify:** `pnpm verify`
