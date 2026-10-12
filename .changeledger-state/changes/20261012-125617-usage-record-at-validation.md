@@ -78,3 +78,4 @@ Interfaces externas: ninguna.
 - **2026-10-12T14:01:41Z** `[review]` in-review → in-progress (retry): El comentario de isPlaceable en src/usage-analysis.mjs afirma que check reporta un at que no es un instante ISO UTC, pero ISO_UTC sólo valida la forma: check acepta 2026-99-99T99:99:99Z y 2026-02-30T00:00:00Z. La nota del Log cifra en 114 los registros de usage/; el state ref tiene 105.
 - **2026-10-12T14:01:45Z** `[note]` Corrige la nota de implementación: el state ref tiene 105 registros de usage/ (git ls-tree), no 114, y todos cumplen ISO_UTC según la revisión. El comentario de isPlaceable se acota a la forma YYYY-MM-DDTHH:MM:SSZ que ISO_UTC comprueba.
 - **2026-10-12T14:02:53Z** `[status]` in-progress → in-review
+- **2026-10-12T14:02:58Z** `[note]` Mandato de la revisión de confirmación: los dos hallazgos de la ronda 1 (comentario de isPlaceable y cifra de registros del Log) sobre el diff sin commit encima de 5d2b14a8, y regresiones que introduzca.
