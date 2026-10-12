@@ -45,17 +45,22 @@ Interfaces externas: ninguna.
 - **When** se pulsa el resultado de la búsqueda global de ese change de B
 - **Then** no se abre ningún detalle y un aviso (toast) muestra el error de carga de B, visible aunque la búsqueda global siga activa
 
+### CR3 — Cambiar de proyecto mientras carga el del resultado no abre otro change
+- **Given** los proyectos A, B y C, con B y C teniendo un change del mismo id `20261012-130000`, A cargado y la búsqueda global activa
+- **When** se pulsa el resultado de ese change de B y, mientras carga B, se selecciona C y su carga termina
+- **Then** no se abre ningún detalle
+
 ## Plan
 
 - [x] Reproducir los dos casos con pruebas fallidas
   - **Target:** `test/viewer-metadata.test.mjs`
   - **Verify:** `pnpm test`
-  - **Criteria:** CR1, CR2
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-10-12T16:09:23Z`
 - [x] Cerrar el detalle al seleccionar proyecto y abrirlo sólo desde el payload del seleccionado
   - **Target:** `src/viewer/public/app.js`
   - **Verify:** `pnpm test`
-  - **Criteria:** CR1, CR2
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-10-12T16:09:23Z`
 - [x] Ejecutar el gate completo
   - **Verify:** `pnpm verify`
