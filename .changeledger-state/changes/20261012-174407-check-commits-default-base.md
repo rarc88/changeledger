@@ -129,10 +129,11 @@ Fixture común de los CR (salvo que se diga otra cosa): repo con `git.integratio
   - **Verify:** `node --test test/check.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4, CR5, CR6, CR11
   - **Resolved:** `2026-10-12T18:48:49Z`
-- [ ] Fallar sin elegir en silencio con bases ambiguas, release sin declarar o ledger ilegible, y leer el ledger sólo con tipos de release
+- [x] Fallar sin elegir en silencio con bases ambiguas, release sin declarar o ledger ilegible, y leer el ledger sólo con tipos de release
   - **Target:** `src/commands/check.mjs`
   - **Verify:** `node --test test/check.test.mjs`
   - **Criteria:** CR7, CR8, CR9
+  - **Resolved:** `2026-10-12T18:48:50Z`
 - [ ] Actualizar el texto de ayuda de `--commits [base]`
   - **Target:** `bin/changeledger.mjs`
   - **Verify:** `node --test test/cli-bin.test.mjs`
