@@ -84,9 +84,10 @@ Interfaces externas: ninguna; los errores llegan de `/api/repo` (por ejemplo
   - **Verify:** verify: manual — `changeledger view` con un proyecto temporal de config rota y cada vista en el navegador
   - **Criteria:** CR5
   - **Resolved:** `2026-10-12T12:07:41Z`
-- [ ] Ejecutar el gate completo
+- [x] Ejecutar el gate completo
   - **Verify:** `pnpm verify`
   - **Support:**
+  - **Resolved:** `2026-10-12T12:07:41Z`
 
 ## Log
 - **2026-10-07T17:23:05Z** `[version]` 0.18.0-dev
