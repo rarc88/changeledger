@@ -89,3 +89,4 @@ inválido, que impediría analizar el resto, cuando `check` ya es el gate.
 - **2026-10-12T16:24:16Z** `[review]` in-review → in-progress (retry): docs/usage-capture.md enumera las pistas de analyze (rework … failed … gap) y no incluye skipped, que este change añade.
 - **2026-10-12T16:25:40Z** `[note]` Corrección de la ronda 1 (del orquestador): docs/usage-capture.md añade skipped a la lista de pistas y describe qué cuenta, con la lista de condiciones de isPlaceable. La spec usage se corrige al graduar.
 - **2026-10-12T16:25:40Z** `[status]` in-progress → in-review
+- **2026-10-12T16:25:45Z** `[note]` Mandato de la revisión de confirmación: el hallazgo de la ronda 1 (pista skipped ausente en docs/usage-capture.md) sobre el diff sin commit encima de 7fa30974, y regresiones que introduzca.
