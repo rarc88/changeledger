@@ -2,9 +2,10 @@
 id: "20261012-125617"
 title: check valida el instante de los registros de consumo
 type: bug
-status: approved
+status: in-progress
 created: 2026-10-12T12:56:17Z
 depends_on: []
+branch: bug/20261012-125617
 related_to: ["20261002-133728", "20261007-172316"]
 owner: rarc88
 ---
@@ -66,3 +67,5 @@ Interfaces externas: ninguna.
 ## Log
 - **2026-10-12T12:56:17Z** `[version]` 0.18.0-dev
 - **2026-10-12T12:58:44Z** `[status]` draft → approved (human via conversation)
+- **2026-10-12T13:51:46Z** `[status]` approved → in-progress
+- **2026-10-12T13:51:46Z** `[branch]` set: bug/20261012-125617 (auto)
