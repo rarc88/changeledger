@@ -144,8 +144,9 @@ Fixture común de los CR (salvo que se diga otra cosa): repo con `git.integratio
   - **Verify:** `node --test test/context.test.mjs`
   - **Criteria:** CR10
   - **Resolved:** `2026-10-12T18:48:51Z`
-- [ ] Ejecutar la puerta de calidad completa
+- [x] Ejecutar la puerta de calidad completa
   - **Support:** `pnpm verify`
+  - **Resolved:** `2026-10-12T18:48:51Z`
 
 ## Log
 - **2026-10-12T17:44:07Z** `[version]` 0.18.0-dev
