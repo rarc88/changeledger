@@ -2,7 +2,7 @@
 id: "20261012-125604"
 title: El viewer no presenta datos de otro proyecto mientras carga el seleccionado
 type: bug
-status: in-progress
+status: in-review
 created: 2026-10-12T12:56:04Z
 depends_on: []
 branch: bug/20261012-125604
@@ -101,3 +101,4 @@ Interfaces externas: ninguna.
 - **2026-10-12T13:08:18Z** `[note]` La implementación de CR1–CR3 mostró dos casos más del mismo pedido: los menús de filtros listan los valores de A mientras la carga de C está en vuelo, y el aviso de documentos inválidos de A sigue visible con B seleccionado. Se añaden CR5 y CR6 porque el Request pide que el viewer no presente datos de otro proyecto como del seleccionado.
 - **2026-10-12T13:15:16Z** `[note]` Implementación: `selectedRepo()` devuelve el payload sólo si es del proyecto seleccionado; `render()` pinta `Loading project…` mientras no lo es y no hay error de carga; `dropForeignProjectShell()` rehace los filtros y retira el aviso de documentos inválidos al seleccionar otro proyecto y al fallar su carga. Un fallo al recargar el mismo proyecto conserva sus filtros y su aviso (test propio). Mutantes N1–N5 y M1–M10 fallaron por la aserción esperada.
 - **2026-10-12T13:15:17Z** `[note]` CR4: con `changeledger view` sobre alpha (bug con owner ana y un documento inválido) y beta (config rota), al seleccionar beta, buscar Alpha y pasar por board, table, graph, ledger y metrics, cada vista mostró «Internal server error» sin «Alpha change»; el filtro de tipo quedó vacío, el de owner sólo con Unassigned y no hubo aviso. Al volver a alpha se vieron su change, ana y el aviso de su documento inválido. La consola sólo registró los 500 de beta.
+- **2026-10-12T13:15:19Z** `[status]` in-progress → in-review
