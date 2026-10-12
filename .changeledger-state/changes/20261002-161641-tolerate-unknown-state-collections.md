@@ -124,10 +124,11 @@ que es justo el fallo observado.
   - **Verify:** `node --test test/cli-bin.test.mjs test/check.test.mjs`
   - **Criteria:** CR1, CR5
   - **Resolved:** `2026-10-12T11:29:20Z`
-- [ ] Probar el flujo habitual completo frente a una colección futura, con `sync`
+- [x] Probar el flujo habitual completo frente a una colección futura, con `sync`
   - **Target:** `test/sync.test.mjs`
   - **Verify:** `node --test test/sync.test.mjs`
   - **Criteria:** CR6
+  - **Resolved:** `2026-10-12T11:29:20Z`
 - [ ] Ejecutar el gate completo
   - **Verify:** `pnpm verify`
   - **Support:**
