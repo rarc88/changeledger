@@ -2,9 +2,10 @@
 id: "20260925-130844"
 title: activate adopta una ref de estado cuyo mínimo supera la CLI instalada
 type: bug
-status: approved
+status: in-progress
 created: 2026-09-25T13:08:44Z
 depends_on: ["20260924-184354"]
+branch: bug/20260925-130844
 related_to: ["20260811-163203"]
 owner: Roberto Ruiz
 release_impact: patch
@@ -105,3 +106,5 @@ desde la copia remota que se protege aquí viene de `20260811-163203`.
 ## Log
 - **2026-10-12T11:14:21Z** `[version]` 0.18.0-dev
 - **2026-10-12T11:14:21Z** `[status]` draft → approved (human via conversation)
+- **2026-10-12T11:49:10Z** `[status]` approved → in-progress
+- **2026-10-12T11:49:10Z** `[branch]` set: bug/20260925-130844 (auto)
