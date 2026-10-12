@@ -137,3 +137,4 @@ Interfaces externas: ninguna. Superficie enteramente en `test/context.test.mjs`.
 - **2026-10-12T18:13:20Z** `[status]` in-progress → in-review
 - **2026-10-12T18:13:25Z** `[note]` Mandato de la revisión de confirmación: el defecto nombrado (texto de obligación y mensaje de la entrada 16) y regresiones de la corrección, sobre el diff sin commit encima de 9522ec58.
 - **2026-10-12T18:15:34Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-10-12T18:15:40Z** `[note]` Revisión de confirmación: pass. Seguimientos no bloqueantes: el calificador «from an existing spec» no está en el patrón de la entrada 16 (trade de patrón tolerante); la cápsula graduation-review también prohíbe añadir entradas al Log y delegar, sin guard.
