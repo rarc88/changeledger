@@ -2,9 +2,10 @@
 id: "20261002-161641"
 title: Tolerar en la ref de estado colecciones que la CLI no conoce
 type: feature
-status: approved
+status: in-progress
 created: 2026-10-02T16:16:41Z
 depends_on: []
+branch: feature/20261002-161641
 related_to: ["20261002-133728", "20260808-151640", "20260808-142200", "20260925-130844", "20260924-184354"]
 owner: rarc88
 release_impact: minor
@@ -131,3 +132,5 @@ que es justo el fallo observado.
 ## Log
 - **2026-10-02T16:16:41Z** `[version]` 0.18.0-dev
 - **2026-10-07T17:21:52Z** `[status]` draft → approved (human via conversation)
+- **2026-10-12T11:14:58Z** `[status]` approved → in-progress
+- **2026-10-12T11:14:58Z** `[branch]` set: feature/20261002-161641 (auto)
