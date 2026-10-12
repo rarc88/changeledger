@@ -2,7 +2,7 @@
 id: "20261012-174340"
 title: "La validación y la migración de la config no cubren seed_stage, release_branch ni el tdd por tipo"
 type: bug
-status: in-validation
+status: done
 created: 2026-10-12T17:43:40Z
 depends_on: []
 branch: bug/20261012-174340
@@ -242,3 +242,4 @@ los CR1 y CR4 pasan a ser parte de ese contrato. No cambia ningún formato.
 - **2026-10-12T19:18:17Z** `[note]` Mandato de revisión: la superficie que gobierna el change — checkConfig (seed_stage, ramas iguales), stagesRequiredByReview y activateReviewableStages, y los comentarios de templates/config.yml; rango 366a5a8b..205a31a2.
 - **2026-10-12T19:29:28Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-10-12T19:29:32Z** `[note]` Revisión independiente: pass (CR1-CR9 ejecutados, 1963 tests). Observaciones no bloqueantes: la comparación de ramas es textual tras recortar (refs/heads/dev o Dev frente a dev pasan, como pide CR4); con sólo release_branch declarada y coincidente con la rama autodetectada el tipo de release también queda sin back-merge ni guarda (defecto previo, CR5 lo admite); con ramas iguales draft → approved queda bloqueado por el error de config pero approved → in-progress no revalida la config; el comentario del hotfix en la plantilla quedó con una línea corta; el test de CR9 usa un fixture reducido (el revisor lo ejecutó con la plantilla completa, mismo resultado).
+- **2026-10-12T21:08:14Z** `[validation]` in-validation → done (human accepted via conversation)
