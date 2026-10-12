@@ -2,7 +2,7 @@
 id: "20261012-175147"
 title: La guarda de arranque resuelve las ramas por nombre ambiguo y sólo en local
 type: bug
-status: in-validation
+status: done
 created: 2026-10-12T17:51:47Z
 depends_on: []
 branch: bug/20261012-175147
@@ -375,3 +375,4 @@ sigue al tipo.
 - **2026-10-12T20:08:50Z** `[note]` Mandato de la revisión de confirmación: el defecto nombrado (refs de rama ausente resueltas a otras refs; comentario «with neither copy present it fails closed») y regresiones de la corrección, sobre el diff sin commit encima de 46c57358.
 - **2026-10-12T20:19:52Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-10-12T20:19:57Z** `[note]` Revisión de confirmación: pass. La interfaz externa de la que depende la guarda pasa a ser git show-ref --verify --quiet <ref> (plumbing estable, exit 0/1, probado también con reftable), no git rev-parse --verify --quiet <ref>^{commit} como declaraba la Investigation. Seguimientos no bloqueantes: una copia remote-tracking que apunta a un objeto que no es commit falla cerrada con «shares no history» (mensaje inexacto, sin test); ventana TOCTOU entre show-ref y merge-base sin medir; P5 y P8 sólo cubiertos por probes; un symref existente cuenta como presente.
+- **2026-10-12T21:08:20Z** `[validation]` in-validation → done (human accepted via conversation)
