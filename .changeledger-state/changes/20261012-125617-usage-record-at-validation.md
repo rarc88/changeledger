@@ -2,7 +2,7 @@
 id: "20261012-125617"
 title: check valida el instante de los registros de consumo
 type: bug
-status: in-review
+status: in-validation
 created: 2026-10-12T12:56:17Z
 depends_on: []
 branch: bug/20261012-125617
@@ -79,3 +79,4 @@ Interfaces externas: ninguna.
 - **2026-10-12T14:01:45Z** `[note]` Corrige la nota de implementación: el state ref tiene 105 registros de usage/ (git ls-tree), no 114, y todos cumplen ISO_UTC según la revisión. El comentario de isPlaceable se acota a la forma YYYY-MM-DDTHH:MM:SSZ que ISO_UTC comprueba.
 - **2026-10-12T14:02:53Z** `[status]` in-progress → in-review
 - **2026-10-12T14:02:58Z** `[note]` Mandato de la revisión de confirmación: los dos hallazgos de la ronda 1 (comentario de isPlaceable y cifra de registros del Log) sobre el diff sin commit encima de 5d2b14a8, y regresiones que introduzca.
+- **2026-10-12T14:03:57Z** `[review]` in-review → in-validation (delegated subagent, clean context)
