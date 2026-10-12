@@ -333,11 +333,12 @@ sigue al tipo.
   - **Verify:** `node --test test/agent.test.mjs`
   - **Criteria:** CR12, CR13, CR14, CR15, CR16
   - **Resolved:** `2026-10-12T19:46:47Z`
-- [ ] Tests en rojo de la copia remote-tracking, ausencias, remotos ambiguos, sin
+- [x] Tests en rojo de la copia remote-tracking, ausencias, remotos ambiguos, sin
   red, y regresiones de los tests existentes
   - **Target:** `test/agent.test.mjs`
   - **Verify:** `node --test test/agent.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4, CR5, CR6, CR7, CR8, CR9, CR10, CR11, CR18
+  - **Resolved:** `2026-10-12T19:46:47Z`
 - [ ] Parámetro opcional de `resolveRemote` con lo que se busca (por defecto
   `the state ref`)
   - **Target:** `src/commands/sync.mjs`
