@@ -2,7 +2,7 @@
 id: "20261012-141850"
 title: "El detalle de un change no sobrevive ni se abre desde el payload de otro proyecto"
 type: bug
-status: in-review
+status: in-validation
 created: 2026-10-12T14:18:50Z
 depends_on: []
 branch: bug/20261012-141850
@@ -71,3 +71,4 @@ Interfaces externas: ninguna.
 - **2026-10-12T16:09:22Z** `[note]` Reproducido antes del cambio con JSDOM sobre app.js: el detalle de alpha seguía abierto al seleccionar beta y al pulsar un enlace externo a beta con su carga fallida, y un resultado de la búsqueda global de beta con el mismo id abría el change de alpha. Implementación: syncSelectedProjectShell cierra el detalle tras cada selección de proyecto; openDetail busca en selectedRepo(); gotoChange muestra el toast «Could not load project "<nombre>": <error>» cuando la búsqueda global está activa y la carga del proyecto del resultado falla. Tres tests de 161656 construían state.repo sin project_id y se les añadió. Mutantes M1–M8 fallaron por la aserción esperada.
 - **2026-10-12T16:09:24Z** `[status]` in-progress → in-review
 - **2026-10-12T16:09:30Z** `[note]` Mandato de revisión: la superficie que el change gobierna — el detalle de change al cambiar de proyecto (closeDetail en la selección, openDetail sobre selectedRepo, gotoChange y su toast) en src/viewer/public/app.js con sus tests, sobre dev..HEAD.
+- **2026-10-12T16:14:09Z** `[review]` in-review → in-validation (delegated subagent, clean context)
