@@ -359,3 +359,4 @@ sigue al tipo.
 - **2026-10-12T17:58:21Z** `[status]` draft → approved (human via conversation)
 - **2026-10-12T19:29:37Z** `[status]` approved → in-progress
 - **2026-10-12T19:29:37Z** `[branch]` set: bug/20261012-175147 (auto)
+- **2026-10-12T19:46:46Z** `[note]` Implementación: branchRef cualifica como refs/heads/<nombre> cada rama configurada que la guarda pasa a isAncestor, mergeBases y refExists (mensajes con el nombre corto); integrationCopies compara la rama de integración local y después su copia remote-tracking del remoto que elige resolveRemote (tercer parámetro opcional, mensajes de sync/activate intactos), salta la ausente, falla cerrada sin ninguna y con varios remotos sin origin; los tipos de integración no resuelven remoto; sin fetch ni ls-remote. 17 tests nuevos 175147; 16 mutantes caen en sus tests. pnpm verify en verde (1982 tests).
