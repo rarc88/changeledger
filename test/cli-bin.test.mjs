@@ -2050,3 +2050,67 @@ test('20261002-161641 CR5: check passes over an unknown collection and shows the
   assert.equal(occurrences(single.err, 'does not know'), 1, single.err);
   assert.equal(single.out, `✓ change ${id} valid\n`);
 });
+
+// --- 20261012-174407: `check --commits` without a base follows the change on the branch ---
+
+test('174407 CR10: check --help says where the default base comes from', () => {
+  const help = run('check', '--help').out.replace(/\s+/g, ' ');
+  assert.match(help, /--commits \[base\]/);
+  assert.match(
+    help,
+    /base defaults to the integration branch of the change on the current branch, else git\.integration_branch, else auto-detected/,
+  );
+});
+
+test('174407 CR1: a hotfix branch lints against the release branch the context publishes', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
+  initGitFixture(root, { args: ['-b', 'main'] });
+  noChangeGit(root, ['config', 'commit.gpgsign', 'false']);
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
+  assert.equal(runIn(root, env, 'init').code, 0);
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  fs.writeFileSync(
+    configFile,
+    fs
+      .readFileSync(configFile, 'utf8')
+      .replace('  integration_branch:\n', '  integration_branch: dev\n')
+      .replace('  release_branch:\n', '  release_branch: main\n'),
+  );
+  assert.equal(runIn(root, env, 'new', 'hotfix', 'urgent', 'Urgent', '--owner', 'Test').code, 0);
+  const id = JSON.parse(runIn(root, env, 'list', '--json').out)[0].id;
+  const changeFile = path.join(
+    root,
+    '.changeledger',
+    'changes',
+    fs.readdirSync(path.join(root, '.changeledger', 'changes')).find((n) => n.includes(id)),
+  );
+  const branch = `hotfix/${id}`;
+  fs.writeFileSync(
+    changeFile,
+    fs
+      .readFileSync(changeFile, 'utf8')
+      .replace('status: draft', 'status: in-progress')
+      .replace('\nrelated_to:', `\nbranch: ${branch}\nrelated_to:`),
+  );
+  noChangeGit(root, ['add', '-A']);
+  noChangeGit(root, ['commit', '-m', `chore(init): seed [#${id}]`]);
+  noChangeGit(root, ['branch', 'dev']);
+  fs.writeFileSync(path.join(root, 'only-main.txt'), 'x\n');
+  noChangeGit(root, ['add', 'only-main.txt']);
+  noChangeGit(root, ['commit', '-m', 'fix(y): shipped on main, no marker']);
+  noChangeGit(root, ['checkout', '-q', '-b', branch]);
+  fs.writeFileSync(path.join(root, 'work.txt'), 'x\n');
+  noChangeGit(root, ['add', 'work.txt']);
+  noChangeGit(root, ['commit', '-m', `fix(x): hotfix work [#${id}]`]);
+
+  const context = runIn(root, env, 'context', id);
+  assert.equal(context.code, 0, context.err);
+  assert.match(context.out, /integration_branch=main — back_merge_branch=dev/);
+
+  const checked = runIn(root, env, 'check', '--commits');
+  assert.equal(checked.code, 0, checked.err);
+  assert.match(checked.out, /✓ commits main\.\.HEAD valid/);
+  assert.equal(runIn(root, env, 'check', '--commits', 'dev').code, 1);
+});

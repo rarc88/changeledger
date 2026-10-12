@@ -18,14 +18,13 @@ Never implement approved changes on the integration branch or the release branch
 (`git.integration_branch`, `git.release_branch`); while either is undeclared, the
 same holds for the default branch and any other long-lived shared branch. Create
 or switch to a work branch or ask the human before continuing. When the change
-context publishes `integration_branch`, create the change branch from it,
-integrate the finished result into it and use it as the `<base>` when checking
-the change's commits. The release branch is reserved for releases and for the
-types that integrate into it. When the change context also publishes
-`back_merge_branch`, bring the integrated result into that branch as well and
-record it in the Log with `changeledger log <id>`. Inspect the worktree first. If
-unrelated changes exist, do not include them silently; ask the human whether to
-stash, commit, ignore or include them before changing the worktree.
+context publishes `integration_branch`, create the change branch from it and
+integrate the finished result into it. The release branch is reserved for
+releases and for the types that integrate into it. When the change context also
+publishes `back_merge_branch`, bring the integrated result into that branch as
+well and record it in the Log with `changeledger log <id>`. Inspect the worktree
+first. If unrelated changes exist, do not include them silently; ask the human
+whether to stash, commit, ignore or include them before changing the worktree.
 
 When `git.change_branch_format` is declared, use the `change_branch` published
 by the change context exactly. The convention is opt-in: absent or null does

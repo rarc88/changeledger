@@ -4172,3 +4172,263 @@ test('20261002-161641 CR5: check adds no warning when every collection is known'
     'the ref holds a change and a usage record',
   );
 });
+
+// --- check --commits base from the change on the current branch (20261012-174407) ---
+
+const RELEASE_CONFIG = `changes_dir: .changeledger/changes
+git:
+  integration_branch: dev
+  release_branch: main
+  change_branch_format: "{type}/{id}"
+types:
+  bug:
+    stages: [request, plan]
+  hotfix:
+    stages: [request, plan]
+    integrates_into: release
+`;
+
+const HOTFIX_ID = '20261012-174140';
+const BUG_ID = '20261012-174141';
+const MAIN_ONLY_SUBJECT = 'fix(y): earlier hotfix shipped on main, no marker';
+
+function changeDocument(id, type, status, branch) {
+  const lines = [
+    '---',
+    `id: "${id}"`,
+    `title: "Change ${id}"`,
+    `type: ${type}`,
+    `status: ${status}`,
+  ];
+  lines.push('created: 2026-10-12T17:41:40Z', 'depends_on: []');
+  if (branch) lines.push(`branch: ${branch}`);
+  lines.push('related_to: []', 'owner: tester', '---', '', '## Request', '', 'x', '');
+  return lines.join('\n');
+}
+
+// `main` holds a marker-less commit that `dev` lacks, and `dev` holds another
+// one that `main` lacks, so the two possible bases give different verdicts.
+function releaseFixture({ config = RELEASE_CONFIG, changes = {} } = {}) {
+  const { root, git } = gitFixture();
+  const changesDir = path.join(root, '.changeledger', 'changes');
+  fs.mkdirSync(changesDir, { recursive: true });
+  fs.writeFileSync(path.join(root, '.changeledger', 'config.yml'), config);
+  for (const [name, text] of Object.entries(changes)) {
+    fs.writeFileSync(path.join(changesDir, name), text);
+  }
+  const commit = (file, subject) => {
+    fs.writeFileSync(path.join(root, file), `${file}\n`);
+    git(['add', file]);
+    git(['commit', '-q', '-m', subject]);
+  };
+  git(['branch', 'dev']);
+  commit('m.txt', MAIN_ONLY_SUBJECT);
+  const mainSha = git(['rev-parse', '--short', 'HEAD']).trim();
+  git(['checkout', '-q', 'dev']);
+  commit('d.txt', 'feat(x): unreleased dev work, no marker');
+  git(['checkout', '-q', 'main']);
+  return { root, git, commit, mainSha };
+}
+
+function branchFrom(fx, name, from, subject) {
+  fx.git(['checkout', '-q', '-b', name, from]);
+  fx.commit(`${name.replace(/\W/g, '_')}.txt`, subject);
+}
+
+const mainOnlyError = (sha) =>
+  `  error  (commits): ${sha} missing [#id] marker: "${MAIN_ONLY_SUBJECT}"`;
+const hotfixDoc = (branch = `hotfix/${HOTFIX_ID}`, status = 'in-progress') =>
+  changeDocument(HOTFIX_ID, 'hotfix', status, branch);
+const bugDoc = (branch = `bug/${BUG_ID}`, status = 'in-progress') =>
+  changeDocument(BUG_ID, 'bug', status, branch);
+
+test('174407 CR1: a hotfix branch created from release lints against the release branch', () => {
+  const fx = releaseFixture({ changes: { [`${HOTFIX_ID}-h.md`]: hotfixDoc() } });
+  branchFrom(fx, `hotfix/${HOTFIX_ID}`, 'main', `fix(x): hotfix work [#${HOTFIX_ID}]`);
+
+  const out = captureOutput();
+  assert.equal(check(['--commits'], fx.root, out), 0, out.diagnostics.join('\n'));
+  assert.deepEqual(out.calls, ['✓ commits main..HEAD valid']);
+  assert.deepEqual(out.diagnostics, []);
+});
+
+test('174407 CR2: a change of an integration type keeps git.integration_branch', () => {
+  const fx = releaseFixture({ changes: { [`${BUG_ID}-b.md`]: bugDoc() } });
+  branchFrom(fx, `bug/${BUG_ID}`, 'dev', `fix(x): bug work [#${BUG_ID}]`);
+
+  const out = captureOutput();
+  assert.equal(check(['--commits'], fx.root, out), 0, out.diagnostics.join('\n'));
+  assert.deepEqual(out.calls, ['✓ commits dev..HEAD valid']);
+});
+
+test('174407 CR3: without a resolved change the base is git.integration_branch', () => {
+  const fx = releaseFixture({ changes: { [`${HOTFIX_ID}-h.md`]: hotfixDoc() } });
+  const expected = ['\n1 error(s) — commits dev..HEAD'];
+
+  // on `main`: no change records or renders that branch
+  const onMain = captureOutput();
+  assert.equal(check(['--commits'], fx.root, onMain), 1);
+  assert.deepEqual(onMain.diagnostics, [mainOnlyError(fx.mainSha)]);
+  assert.deepEqual(onMain.calls, expected);
+
+  // detached HEAD on the hotfix branch name: `checkoutBranch` reads ''
+  branchFrom(fx, `hotfix/${HOTFIX_ID}`, 'main', `fix(x): hotfix work [#${HOTFIX_ID}]`);
+  fx.git(['checkout', '-q', '--detach']);
+  const detached = captureOutput();
+  assert.equal(check(['--commits'], fx.root, detached), 1);
+  assert.deepEqual(detached.diagnostics, [mainOnlyError(fx.mainSha)]);
+  assert.deepEqual(detached.calls, expected);
+});
+
+test('174407 CR3: detached HEAD keeps the fallback chain without reading the ledger', () => {
+  const fx = releaseFixture({
+    changes: {
+      [`${HOTFIX_ID}-h.md`]: hotfixDoc(),
+      '20261012-999999-bad.md': 'not a change',
+    },
+  });
+  branchFrom(fx, `hotfix/${HOTFIX_ID}`, 'main', `fix(x): hotfix work [#${HOTFIX_ID}]`);
+  fx.git(['checkout', '-q', '--detach']);
+
+  // a release type exists, so only the detached-HEAD guard keeps the malformed
+  // document from being loaded
+  const out = captureOutput();
+  assert.equal(check(['--commits'], fx.root, out), 1);
+  assert.deepEqual(out.diagnostics, [mainOnlyError(fx.mainSha)]);
+  assert.deepEqual(out.calls, ['\n1 error(s) — commits dev..HEAD']);
+});
+
+test('174407 CR4: an explicit base wins and the ledger is not read', () => {
+  const fx = releaseFixture({
+    changes: {
+      [`${HOTFIX_ID}-h.md`]: hotfixDoc(),
+      '20261012-999999-bad.md': 'not a change',
+    },
+  });
+  branchFrom(fx, `hotfix/${HOTFIX_ID}`, 'main', `fix(x): hotfix work [#${HOTFIX_ID}]`);
+
+  const out = captureOutput();
+  assert.equal(check(['--commits', 'dev'], fx.root, out), 1);
+  assert.deepEqual(out.diagnostics, [mainOnlyError(fx.mainSha)]);
+  assert.deepEqual(out.calls, ['\n1 error(s) — commits dev..HEAD']);
+});
+
+test('174407 CR5: a change with no recorded branch is matched by its rendered branch', () => {
+  const fx = releaseFixture({
+    changes: { [`${HOTFIX_ID}-h.md`]: hotfixDoc(null, 'approved') },
+  });
+  branchFrom(fx, `hotfix/${HOTFIX_ID}`, 'main', `fix(x): hotfix work [#${HOTFIX_ID}]`);
+
+  const out = captureOutput();
+  assert.equal(check(['--commits'], fx.root, out), 0, out.diagnostics.join('\n'));
+  assert.deepEqual(out.calls, ['✓ commits main..HEAD valid']);
+});
+
+test('174407 CR6: terminal changes do not decide the base', () => {
+  for (const status of ['done', 'discarded']) {
+    const fx = releaseFixture({
+      changes: { [`${HOTFIX_ID}-h.md`]: hotfixDoc('shared/work', status) },
+    });
+    branchFrom(fx, 'shared/work', 'main', `fix(x): shared work [#${HOTFIX_ID}]`);
+
+    const out = captureOutput();
+    assert.equal(check(['--commits'], fx.root, out), 1, status);
+    const text = [...out.diagnostics, ...out.calls].join('\n');
+    assert.match(text, /commits dev\.\.HEAD/, status);
+    assert.doesNotMatch(text, /commits main\.\.HEAD/, status);
+  }
+});
+
+const AMBIGUOUS_MESSAGE = `branch "shared/work" is recorded by changes #${HOTFIX_ID} (integrates into main) and #${BUG_ID} (integrates into dev); pass <base> explicitly`;
+
+test('174407 CR7: two bases on one branch fail instead of choosing one', () => {
+  const fx = releaseFixture({
+    changes: {
+      [`${HOTFIX_ID}-h.md`]: hotfixDoc('shared/work'),
+      [`${BUG_ID}-b.md`]: bugDoc('shared/work'),
+    },
+  });
+  branchFrom(fx, 'shared/work', 'main', `fix(x): shared work [#${HOTFIX_ID}]`);
+
+  const out = captureOutput();
+  assert.equal(check(['--commits'], fx.root, out), 1);
+  assert.deepEqual(out.diagnostics, [`  error  (commits): ${AMBIGUOUS_MESSAGE}`]);
+  assert.deepEqual(out.calls, []);
+
+  const json = captureOutput();
+  assert.equal(check(['--commits', '--json'], fx.root, json), 1);
+  assert.equal(
+    json.calls.at(-1),
+    JSON.stringify(
+      { errors: [{ file: '(commits)', message: AMBIGUOUS_MESSAGE }], warnings: [] },
+      null,
+      2,
+    ),
+  );
+});
+
+test('174407 CR7: two changes with the same base on one branch use it', () => {
+  const other = changeDocument('20261012-174142', 'bug', 'in-progress', 'shared/work');
+  const fx = releaseFixture({
+    changes: { [`${BUG_ID}-b.md`]: bugDoc('shared/work'), '20261012-174142-o.md': other },
+  });
+  branchFrom(fx, 'shared/work', 'dev', `fix(x): shared work [#${BUG_ID}]`);
+
+  const out = captureOutput();
+  assert.equal(check(['--commits'], fx.root, out), 0, out.diagnostics.join('\n'));
+  assert.deepEqual(out.calls, ['✓ commits dev..HEAD valid']);
+});
+
+test('174407 CR8: a release type without git.release_branch fails instead of using dev', () => {
+  const fx = releaseFixture({
+    config: RELEASE_CONFIG.replace('  release_branch: main\n', ''),
+    changes: { [`${HOTFIX_ID}-h.md`]: hotfixDoc() },
+  });
+
+  // no change resolved on `main`: the CR3 fallback, no error from the type
+  const onMain = captureOutput();
+  assert.equal(check(['--commits'], fx.root, onMain), 1);
+  assert.deepEqual(onMain.diagnostics, [mainOnlyError(fx.mainSha)]);
+  assert.deepEqual(onMain.calls, ['\n1 error(s) — commits dev..HEAD']);
+
+  branchFrom(fx, `hotfix/${HOTFIX_ID}`, 'main', `fix(x): hotfix work [#${HOTFIX_ID}]`);
+  const out = captureOutput();
+  assert.equal(check(['--commits'], fx.root, out), 1);
+  assert.deepEqual(out.diagnostics, [
+    '  error  (commits): type "hotfix" integrates into git.release_branch, which is not declared',
+  ]);
+  assert.deepEqual(out.calls, []);
+});
+
+test('174407 CR9: the ledger is read only when a type integrates into release', () => {
+  const bad = { '20261012-999999-bad.md': 'not a change' };
+  const withoutRelease = RELEASE_CONFIG.replace('    integrates_into: release\n', '');
+  const plain = releaseFixture({ config: withoutRelease, changes: bad });
+  branchFrom(plain, `hotfix/${HOTFIX_ID}`, 'main', `fix(x): hotfix work [#${HOTFIX_ID}]`);
+  const ok = captureOutput();
+  assert.equal(check(['--commits'], plain.root, ok), 1);
+  assert.match(ok.calls.join('\n'), /commits dev\.\.HEAD/);
+  assert.deepEqual(ok.diagnostics, [mainOnlyError(plain.mainSha)]);
+
+  const released = releaseFixture({ changes: bad });
+  branchFrom(released, `hotfix/${HOTFIX_ID}`, 'main', `fix(x): hotfix work [#${HOTFIX_ID}]`);
+  const out = captureOutput();
+  assert.equal(check(['--commits'], released.root, out), 1);
+  const file = path.join(released.root, '.changeledger', 'changes', '20261012-999999-bad.md');
+  assert.deepEqual(out.diagnostics, [
+    `  error  (commits): ${file}: Change is missing its frontmatter block`,
+  ]);
+  assert.deepEqual(out.calls, []);
+});
+
+test('174407 CR11: without git.integration_branch the auto-detected base remains', () => {
+  const fx = releaseFixture({
+    config: RELEASE_CONFIG.replace('  integration_branch: dev\n', ''),
+    changes: { [`${BUG_ID}-b.md`]: bugDoc() },
+  });
+  branchFrom(fx, `bug/${BUG_ID}`, 'main', `fix(x): bug work [#${BUG_ID}]`);
+
+  const out = captureOutput();
+  assert.equal(check(['--commits'], fx.root, out), 0, out.diagnostics.join('\n'));
+  assert.deepEqual(out.calls, ['✓ commits main..HEAD valid']);
+});
