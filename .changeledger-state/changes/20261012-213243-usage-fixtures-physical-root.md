@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-10-12T21:32:43Z
 depends_on: []
+reviewed: true
 branch: bug/20261012-213243
 related_to: ["20261002-133728", "20261001-155612", "20260812-022248"]
 owner: rarc88
@@ -248,3 +249,4 @@ symlink a él; `<id>` es el id del change del fixture.
 - **2026-10-12T21:58:29Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-10-12T22:16:46Z** `[note]` CI del PR rarc88/changeledger#10: verify (node 24 / macos-latest) y verify (node 26 / macos-latest) en verde, con 20261002-133728 CR1 y CR2 pasando; los fallos de windows-latest de ese PR son los que corrige #20261012-212527.
 - **2026-10-12T22:17:37Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-10-12T22:17:47Z** `[graduation]` skipped: Sólo cambia fixtures y tests de test/agent.test.mjs; el comportamiento del producto (emparejar sesiones por igualdad con la ruta del repo) no cambia y la spec usage ya lo describe.
