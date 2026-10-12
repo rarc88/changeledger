@@ -137,7 +137,12 @@ precedencia y nunca lee el ledger.
 `changeledger check` valida el mismo contrato que los consumidores Git: `git`
 debe ser un mapping —un `git` que no lo es se reporta una sola vez— e
 `integration_branch` y `release_branch`, si no son ausentes o `null`, deben ser
-strings no vacíos (`config "git.<clave>" must be a non-empty string`). En cada
+strings no vacíos (`config "git.<clave>" must be a non-empty string`). Cuando
+ambas se declaran y resuelven sin error, `release_branch` debe diferir de
+`integration_branch` tras recortar espacios (`config "git.release_branch" must
+differ from "git.integration_branch" (both are "<rama>")`): iguales, un tipo
+`release` se quedaría sin `back_merge_branch` y sin la comprobación de la guarda
+de arranque. La comparación es textual. En cada
 tipo bien formado, `integrates_into`, si está presente, debe valer `integration`
 o `release` (`config type "<t>": integrates_into must be "integration" or
 "release"`); resolutor y checker comparten ese mensaje (`integrationRoleError`).
