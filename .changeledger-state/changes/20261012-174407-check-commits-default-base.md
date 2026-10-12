@@ -2,7 +2,7 @@
 id: "20261012-174407"
 title: "check --commits sin base usa la rama de integración del change de la rama actual"
 type: bug
-status: in-progress
+status: in-review
 created: 2026-10-12T17:44:07Z
 depends_on: []
 branch: bug/20261012-174407
@@ -160,3 +160,4 @@ Fixture común de los CR (salvo que se diga otra cosa): repo con `git.integratio
 - **2026-10-12T18:49:18Z** `[note]` Mandato de revisión: la superficie que gobierna el change — resolución de la base por defecto de check --commits (src/commands/check.mjs), su texto de ayuda y la cláusula retirada de implement.md; rango 1147c93a..76d1a63d.
 - **2026-10-12T18:58:03Z** `[review]` in-review → in-progress (retry): Dos comentarios universales de src/commands/check.mjs quedan refutados por bordes ejecutados (un integrates_into inválido sin tipos de release; un estado terminal propio como cancelled) y deben acotarse; el guard de HEAD desacoplado no es equivalente (con tipos de release y un documento malformado cambia el resultado) y ningún test lo fija; la nota del Log decía 12 tests nuevos en check.test.mjs (son 11) y llamaba equivalente a ese mutante.
 - **2026-10-12T19:01:59Z** `[note]` Corrección tras la revisión (ronda 1): se acotan dos comentarios de src/commands/check.mjs (TERMINAL_STATUSES: sólo done y discarded no deciden, un estado propio como cancelled sí; defaultCommitsBase: con roles válidos y sin tipos de release la base es git.integration_branch, y este lint no detecta un rol inválido en ese caso) y se añade el test 174407 CR3 de HEAD desacoplado, que cae al quitar el guard. Fe de erratas de la nota anterior: los tests nuevos de check.test.mjs eran 11 (ahora 12), y el guard de HEAD desacoplado no era un mutante equivalente: con tipos de release y un documento malformado cambia el resultado.
+- **2026-10-12T19:02:00Z** `[status]` in-progress → in-review
