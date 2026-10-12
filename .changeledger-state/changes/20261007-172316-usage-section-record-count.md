@@ -2,7 +2,7 @@
 id: "20261007-172316"
 title: Decidir el mensaje vacío de Usage sin un análisis por change
 type: refactor
-status: in-review
+status: in-validation
 created: 2026-10-07T17:23:16Z
 depends_on: []
 branch: refactor/20261007-172316
@@ -71,3 +71,4 @@ que cambiaría el esquema público para un detalle del viewer.
 - **2026-10-12T12:37:22Z** `[note]` Implementación delegada (subagente, tier medio), tareas 1 a 3: src/usage-analysis.mjs exporta usageRecordCounts(usage), un Map por change con los registros bien formados (predicado isPlaceable compartido con validRecords), y analyzeUsage toma de ahí su records; usageSectionAnalyses recibe esa función como cuarto argumento y calcula recorded con una sola llamada. Antes: 403 llamadas a analyzeUsage con 400 changes filtrados sin medir; después: 3. Red de CR2 con 403 !== 3 y de CR3 por la exportación ausente; CR1 son los tests existentes de 20261007-135142 y 140242 CR6, verdes antes y después. Mutantes: volver a la búsqueda por id, recorded sin filtrar, la cuenta sin los registros con error y la cuenta sin comprobar schema; todos fallan. pnpm verify en verde con 1816/1816. Decisiones no especificadas: nombre y forma Map de la exportación; cuarto argumento obligatorio porque el módulo se carga dinámicamente; se quita el atajo por changes medidos. Residuos: el detalle de un change sigue analizando con id una vez por vista; analyzeUsage recorre los registros dos veces; el comentario de validRecords queda sobre el predicado.
 - **2026-10-12T12:37:23Z** `[status]` in-progress → in-review
 - **2026-10-12T12:37:28Z** `[note]` Mandato del review: la superficie que el change gobierna — dev..HEAD contra CR1-CR3 y el Plan, con las decisiones no especificadas y residuos del Log como puntos de escrutinio. Frases cuantificadas informadas: el título del test CR3 «for every change of the ledger» (bucle sobre A, B, C y D, con mutantes 3 y 4); el título del test CR2 (3 llamadas frente a 403); el comentario de usageRecordCounts «It is the records figure analyzeUsage reports for a change (0 for a change that has none)» (comparado en CR3 para C y D); y el comentario de app.js «once, instead of analysing the project again for each change» (CR2).
+- **2026-10-12T12:43:58Z** `[review]` in-review → in-validation (delegated subagent, clean context)
