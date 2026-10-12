@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-10-12T17:43:10Z
 depends_on: []
+reviewed: true
 branch: bug/20261012-174310
 related_to: ["20261002-181346", "20261002-181428", "20261002-204623"]
 owner: rarc88
@@ -214,3 +215,4 @@ cualquier error de `check`; no se midió.
 - **2026-10-12T18:40:25Z** `[note]` Revisión independiente: pass. Observaciones no bloqueantes: con git.release_branch mal formado (""), new hotfix falla con el error de config pero new --from crea el change porque ese error ya existía (política preexistente de newErrors); el guard statuses.includes(fm.status) de check no tiene test (un status desconocido ya da su propio error); un change atascado tampoco puede entrar en in-review, como preveía la Investigation. Fuera del mandato, sin inspeccionar: el cambio de tipo bug → hotfix vía edit.
 - **2026-10-12T18:45:15Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-10-12T18:48:37Z** `[note]` graduation-review de la reconciliación de git-traceability: apply. Todas las afirmaciones nuevas confirmadas contra 43daa326 (check en los seis estados abiertos, new/--print/--from/apply, approve e in-review rechazados, release_branch mal formado reportado una vez); sin contradicciones en el resto del spec. Observaciones menores: reflujo cosmético aplicado; el spec no menciona que un change ya atascado sigue editable (residuo del Log).
+- **2026-10-12T18:48:37Z** `[graduation]` spec: `git-traceability.md`
