@@ -113,10 +113,11 @@ Interfaces externas: ninguna. Superficie enteramente en `test/context.test.mjs`.
   - **Verify:** `pnpm test`
   - **Criteria:** CR6
   - **Resolved:** `2026-10-12T18:04:33Z`
-- [ ] Registrar en el Log el residuo que pasa a descansar en review
+- [x] Registrar en el Log el residuo que pasa a descansar en review
   - **Target:** `test/context.test.mjs`
   - **Verify:** `node --test test/context.test.mjs`
   - **Criteria:** CR8
+  - **Resolved:** `2026-10-12T18:04:34Z`
 - [ ] Ejecutar el gate completo
   - **Verify:** `pnpm verify`
   - **Support:** cierre operativo
