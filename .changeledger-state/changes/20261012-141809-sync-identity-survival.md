@@ -22,10 +22,16 @@ entre la foto local y la revisión que adoptaría, con un helper común, sin
 escribir ni publicar nada; y que la cabecera de `src/commands/sync.mjs` describa
 las comprobaciones que hace antes de adoptar.
 
-Excluido salvo que el humano lo añada antes de aprobar: rechazar la publicación
-de un tip local que ya perdió identidades respecto del remoto (R5 de la
-auditoría, sólo alcanzable con git crudo local) y rechazar en el fast-forward la
-reescritura de los bytes de un registro de consumo (R6).
+Incluido por decisión del humano: rechazar también, en el fast-forward y en la
+reconciliación, una revisión que reescribe los bytes de un registro de consumo
+presente en la foto local (R6 de la auditoría), porque la spec `usage` los
+declara inmutables y `mutateState` ya rechaza reescribirlos.
+
+Excluido por decisión del humano: rechazar la publicación de un tip local que ya
+perdió identidades respecto del remoto (R5), porque sólo la produce git crudo
+local, un actor en el que la herramienta confía por diseño (INTENT.md), que
+también puede publicar con `git push` sin pasar por `sync`; los demás clones la
+rechazan al adoptarla por CR1–CR3.
 
 ## Investigation
 
@@ -73,16 +79,22 @@ la herramienta.
 - **When** se ejecuta `changeledger sync`
 - **Then** termina con el diagnóstico actual `merged state drops ".changeledger-state/future/a.json", an entry of a collection this ChangeLedger does not know (future); update the installation before syncing`
 
+### CR6 — Un registro de consumo reescrito no se adopta
+- **Given** un clon activado con un registro de consumo, y una revisión remota que reescribe sus bytes, primero como descendiente de la local y después en un remoto divergente cuyo lado local no tocó ese registro
+- **When** se ejecuta `changeledger sync` frente a cada una
+- **Then** cada ejecución termina con código distinto de cero con `Error: state revision <oid> rewrites usage record "<ruta>", present in the local state; sync adopted nothing` en el fast-forward y `Error: merged state rewrites usage record "<ruta>", present in the local state; sync adopted nothing` en la reconciliación
+- **And** la ref local conserva su oid, no se crea el commit de merge y el remoto no cambia
+
 ## Plan
 
 - [ ] Escribir pruebas fallidas del fast-forward y de la reconciliación que pierden identidades
   - **Target:** `test/sync.test.mjs`
   - **Verify:** `pnpm test`
-  - **Criteria:** CR1, CR2, CR3, CR4, CR5
+  - **Criteria:** CR1, CR2, CR3, CR4, CR5, CR6
 - [ ] Comprobar la supervivencia por ruta con un helper común antes de adoptar
   - **Target:** `src/state-store.mjs, src/commands/sync.mjs`
   - **Verify:** `pnpm test`
-  - **Criteria:** CR1, CR2, CR3, CR4, CR5
+  - **Criteria:** CR1, CR2, CR3, CR4, CR5, CR6
 - [ ] Actualizar la cabecera de `src/commands/sync.mjs` y los comentarios de `src/state-store.mjs` que describen qué comprueba cada camino
   - **Support:**
 - [ ] Ejecutar el gate completo
