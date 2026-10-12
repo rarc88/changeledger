@@ -186,12 +186,13 @@ los CR1 y CR4 pasan a ser parte de ese contrato. No cambia ningún formato.
   - **Verify:** `node --test test/check.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4, CR5
   - **Resolved:** `2026-10-12T19:18:08Z`
-- [ ] `checkConfig` rechaza un `seed_stage` que no sea `investigation`,
+- [x] `checkConfig` rechaza un `seed_stage` que no sea `investigation`,
   `proposal` ni `specification`, después de los errores de tipo y de fase
   inactiva, con el mensaje literal de CR1
   - **Target:** `src/check.mjs`
   - **Verify:** `node --test test/check.test.mjs`
   - **Criteria:** CR1, CR2, CR3
+  - **Resolved:** `2026-10-12T19:18:08Z`
 - [ ] `checkConfig` rechaza `git.release_branch` igual a
   `git.integration_branch` (valores ya resueltos y recortados) sólo cuando
   ambos se resuelven sin error
