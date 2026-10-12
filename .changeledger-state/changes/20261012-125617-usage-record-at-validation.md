@@ -52,10 +52,11 @@ Interfaces externas: ninguna.
 
 ## Plan
 
-- [ ] Probar y validar at en check
+- [x] Probar y validar at en check
   - **Target:** `src/check.mjs, test/check.test.mjs`
   - **Verify:** `pnpm test`
   - **Criteria:** CR1, CR2
+  - **Resolved:** `2026-10-12T13:57:31Z`
 - [ ] Fijar con un test el filtro de at del análisis
   - **Target:** `test/usage-analysis.test.mjs`
   - **Verify:** `pnpm test`
