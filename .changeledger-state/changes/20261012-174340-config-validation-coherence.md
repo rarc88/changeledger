@@ -193,12 +193,13 @@ los CR1 y CR4 pasan a ser parte de ese contrato. No cambia ningún formato.
   - **Verify:** `node --test test/check.test.mjs`
   - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-10-12T19:18:08Z`
-- [ ] `checkConfig` rechaza `git.release_branch` igual a
+- [x] `checkConfig` rechaza `git.release_branch` igual a
   `git.integration_branch` (valores ya resueltos y recortados) sólo cuando
   ambos se resuelven sin error
   - **Target:** `src/check.mjs`
   - **Verify:** `node --test test/check.test.mjs`
   - **Criteria:** CR4, CR5
+  - **Resolved:** `2026-10-12T19:18:09Z`
 - [ ] Tests en rojo de la migración con `tdd` global y por tipo apagado o
   encendido (CR6–CR8), construidos como los de `141119 CR6` con un schema 3
   - **Target:** `test/config-migration.test.mjs`
