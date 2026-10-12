@@ -101,9 +101,10 @@ desde la copia remota que se protege aquí viene de `20260811-163203`.
   - **Verify:** `node --test test/activate.test.mjs test/version-guard.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4
   - **Resolved:** `2026-10-12T11:53:10Z`
-- [ ] Ejecutar el gate completo
+- [x] Ejecutar el gate completo
   - **Verify:** `pnpm test && pnpm verify`
   - **Support:**
+  - **Resolved:** `2026-10-12T11:53:11Z`
 
 ## Log
 - **2026-10-12T11:14:21Z** `[version]` 0.18.0-dev
