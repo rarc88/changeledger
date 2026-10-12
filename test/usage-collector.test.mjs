@@ -8,6 +8,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
+import { pathToFileURL } from 'node:url';
 import { usageCollector } from '../src/config.mjs';
 import { defaultRun } from '../src/git.mjs';
 import { STATE_REF, writeActivation } from '../src/state-store.mjs';
@@ -411,8 +412,8 @@ test("the test helpers isolate a developer's global git config", () => {
       [
         '--input-type=module',
         '-e',
-        `${withHelper ? `await import(${JSON.stringify(path.resolve('test/helpers/git-env.mjs'))});` : ''}
-         const { usageCollector } = await import(${JSON.stringify(path.resolve('src/config.mjs'))});
+        `${withHelper ? `await import(${JSON.stringify(pathToFileURL(path.resolve('test/helpers/git-env.mjs')).href)});` : ''}
+         const { usageCollector } = await import(${JSON.stringify(pathToFileURL(path.resolve('src/config.mjs')).href)});
          console.log(String(usageCollector(${JSON.stringify(dir)})));`,
       ],
       { env: { ...sanitizedEnv(), GIT_CONFIG_GLOBAL: developerGlobal }, encoding: 'utf8' },
@@ -420,6 +421,52 @@ test("the test helpers isolate a developer's global git config", () => {
   assert.equal(probe(false), 'ccusage', 'the stand-in global config must be effective');
   assert.equal(probe(true), 'undefined');
   assert.equal(usageCollector(dir), undefined);
+});
+
+// On Windows `path.resolve` returns `D:\a\...`, which the ESM loader reads as a
+// URL with the scheme `d:` (ERR_UNSUPPORTED_ESM_URL_SCHEME). A child script must
+// import `pathToFileURL(path.resolve(...)).href`, never the raw path. The
+// pattern is assembled from parts so this file does not match its own sweep.
+const rawPathSpecifier = new RegExp(
+  [
+    '(?:import\\(\\s*|\\bfrom\\s+)',
+    '\\$\\{\\s*JSON\\.stringify\\(\\s*path\\.(?:resolve|join)\\(',
+  ].join(''),
+);
+
+function testSources(dir) {
+  return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) return testSources(full);
+    return entry.name.endsWith('.mjs') ? [full] : [];
+  });
+}
+
+test('no test embeds JSON.stringify(path.resolve|join(...)) as an import specifier of a child script', () => {
+  // Samples are assembled from parts for the same reason as the pattern.
+  const dyn = (spec) => `await import(${'$'}{${spec}});`;
+  const stat = (spec) => `import x from ${'$'}{${spec}};`;
+  const stringify = (inner) => `JSON.stringify(${inner})`;
+  assert.match(dyn(stringify("path.resolve('a')")), rawPathSpecifier);
+  assert.match(dyn(stringify("path.join('a', 'b')")), rawPathSpecifier);
+  assert.match(stat(stringify("path.resolve('a')")), rawPathSpecifier);
+  assert.doesNotMatch(dyn(stringify("pathToFileURL(path.resolve('a')).href")), rawPathSpecifier);
+  assert.doesNotMatch(
+    dyn(stringify("new URL('../src/a.mjs', import.meta.url).href")),
+    rawPathSpecifier,
+  );
+
+  const files = testSources(path.resolve('test'));
+  assert.ok(files.length > 10, `expected the sweep to read the test files, read ${files.length}`);
+  const offenders = files.flatMap((file) =>
+    fs
+      .readFileSync(file, 'utf8')
+      .split('\n')
+      .flatMap((line, i) =>
+        rawPathSpecifier.test(line) ? [`${path.relative('.', file)}:${i + 1}: ${line.trim()}`] : [],
+      ),
+  );
+  assert.deepEqual(offenders, []);
 });
 
 test('a missing git binary reads as unset; another git failure skips with a warning', () => {
@@ -525,7 +572,7 @@ test('only the built-in npx command goes through a shell, and only on Windows', 
 test('an env override on (emulated) Windows reaches no shell and prints no DEP0190', () => {
   const script = `
     Object.defineProperty(process, 'platform', { value: 'win32' });
-    const { defaultCcusageRunner } = await import(${JSON.stringify(path.resolve('src/usage-collector.mjs'))});
+    const { defaultCcusageRunner } = await import(${JSON.stringify(pathToFileURL(path.resolve('src/usage-collector.mjs')).href)});
     const r = defaultCcusageRunner(['session'], { timeoutMs: 5000 });
     process.stdout.write(JSON.stringify({ code: r.error?.code ?? null, status: r.status, out: r.stdout }));
   `;

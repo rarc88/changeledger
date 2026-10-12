@@ -14,6 +14,15 @@
 // which cannot be handled and leaves the root behind; directories a test
 // creates outside os.tmpdir(); and the failure paths of starting the child or
 // removing the root, which no test exercises.
+//
+// Windows (20261012-212527): Windows has no POSIX signals. Node documents that
+// Ctrl+C delivers SIGINT and closing the console delivers SIGHUP there; in the
+// CI runs, subprocess.kill() with SIGINT, SIGTERM, SIGHUP and SIGQUIT ended
+// this process without running the handlers described above, so the tests for
+// those four signals are skipped there. Treat any other forced termination
+// (process.kill, taskkill /F) as a SIGKILL that leaves the root. Also not
+// covered: Ctrl+Break (SIGBREAK), which those handlers do not listen for.
+// Cleanup after a real Ctrl+C on Windows has not been run.
 
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
