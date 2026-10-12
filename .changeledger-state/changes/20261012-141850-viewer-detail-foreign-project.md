@@ -2,7 +2,7 @@
 id: "20261012-141850"
 title: "El detalle de un change no sobrevive ni se abre desde el payload de otro proyecto"
 type: bug
-status: in-validation
+status: in-progress
 created: 2026-10-12T14:18:50Z
 depends_on: []
 branch: bug/20261012-141850
@@ -72,3 +72,4 @@ Interfaces externas: ninguna.
 - **2026-10-12T16:09:24Z** `[status]` in-progress → in-review
 - **2026-10-12T16:09:30Z** `[note]` Mandato de revisión: la superficie que el change gobierna — el detalle de change al cambiar de proyecto (closeDetail en la selección, openDetail sobre selectedRepo, gotoChange y su toast) en src/viewer/public/app.js con sus tests, sobre dev..HEAD.
 - **2026-10-12T16:14:09Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-10-12T16:34:55Z** `[validation]` in-validation → in-progress (human rejected via conversation): Añadir la guarda de la carrera en gotoChange: si el proyecto seleccionado cambia mientras carga el del resultado, no abrir un change del otro proyecto con el mismo id.
