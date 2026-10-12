@@ -2,7 +2,7 @@
 id: "20261012-174310"
 title: "Un tipo de release sin rama de release declarada se puede crear y check no lo ve"
 type: bug
-status: in-validation
+status: done
 created: 2026-10-12T17:43:10Z
 depends_on: []
 branch: bug/20261012-174310
@@ -212,3 +212,4 @@ cualquier error de `check`; no se midió.
 - **2026-10-12T18:28:40Z** `[note]` Mandato de revisión: la superficie que gobierna el change — creación (new, --print, --from, apply) y check de changes de tipos de release sin git.release_branch, más el ajuste del fixture de test/agent.test.mjs; rango 0e7a5cc9..43daa326.
 - **2026-10-12T18:40:20Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-10-12T18:40:25Z** `[note]` Revisión independiente: pass. Observaciones no bloqueantes: con git.release_branch mal formado (""), new hotfix falla con el error de config pero new --from crea el change porque ese error ya existía (política preexistente de newErrors); el guard statuses.includes(fm.status) de check no tiene test (un status desconocido ya da su propio error); un change atascado tampoco puede entrar en in-review, como preveía la Investigation. Fuera del mandato, sin inspeccionar: el cambio de tipo bug → hotfix vía edit.
+- **2026-10-12T18:45:15Z** `[validation]` in-validation → done (human accepted via conversation)
