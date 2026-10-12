@@ -64,3 +64,4 @@ Interfaces externas: ninguna.
 - **2026-10-12T15:23:56Z** `[status]` draft → approved (human via conversation)
 - **2026-10-12T15:55:28Z** `[status]` approved → in-progress
 - **2026-10-12T15:55:28Z** `[branch]` set: bug/20261012-141850 (auto)
+- **2026-10-12T16:04:53Z** `[note]` CR2 decía que la vista activa muestra el error de carga de B, pero el resultado se pulsa con la búsqueda global activa y el error se pinta en #board, oculto mientras se muestra #global: no se ve nada. CR2 pasa a pedir un aviso (toast) con el error, como el que gotoChange ya muestra para un proyecto ausente, en vez de sacar al usuario de la búsqueda global.
