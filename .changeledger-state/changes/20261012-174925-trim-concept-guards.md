@@ -2,7 +2,7 @@
 id: "20261012-174925"
 title: Recortar los guards de concepto de las entradas 16 a 22
 type: refactor
-status: in-review
+status: in-validation
 created: 2026-10-12T17:49:25Z
 depends_on: []
 branch: refactor/20261012-174925
@@ -136,3 +136,4 @@ Interfaces externas: ninguna. Superficie enteramente en `test/context.test.mjs`.
 - **2026-10-12T18:12:19Z** `[note]` Corrección tras la revisión (ronda 1): el texto de obligación y el mensaje de la entrada 16 se acotan a «every divergence from an existing spec», como dice spec.md; el patrón no cambia. Residuo que también pasa a descansar solo en review y faltaba en la nota anterior (confirmado por el revisor con mutantes): en la cápsula graduation-review, la prohibición de cambiar el status o mover el change; en spec.md, el paso a blocked cuando queda una divergencia sin decidir y la definición del tipo documentation (verdad persistente contrastada con el código, sin código de aplicación). El change aprobado 20261012-174407 planeaba retirar la cuarta aserción de la entrada 20; este change ya la retiró, así que esa parte de su Plan queda sin objeto.
 - **2026-10-12T18:13:20Z** `[status]` in-progress → in-review
 - **2026-10-12T18:13:25Z** `[note]` Mandato de la revisión de confirmación: el defecto nombrado (texto de obligación y mensaje de la entrada 16) y regresiones de la corrección, sobre el diff sin commit encima de 9522ec58.
+- **2026-10-12T18:15:34Z** `[review]` in-review → in-validation (delegated subagent, clean context)
