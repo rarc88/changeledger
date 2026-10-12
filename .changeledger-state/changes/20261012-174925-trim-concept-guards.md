@@ -2,7 +2,7 @@
 id: "20261012-174925"
 title: Recortar los guards de concepto de las entradas 16 a 22
 type: refactor
-status: in-progress
+status: in-review
 created: 2026-10-12T17:49:25Z
 depends_on: []
 branch: refactor/20261012-174925
@@ -134,3 +134,4 @@ Interfaces externas: ninguna. Superficie enteramente en `test/context.test.mjs`.
 - **2026-10-12T18:04:59Z** `[note]` Mandato de revisión: la superficie que gobierna el change — CONCEPT_GUARDS de test/context.test.mjs (entradas 16-22 y cabecera) contra los fragmentos dueños, rango 0e7a5cc9..9522ec58.
 - **2026-10-12T18:11:54Z** `[review]` in-review → in-progress (retry): El texto de obligación de la entrada 16 dice «every divergence» pero spec.md la limita a «every divergence from an existing spec»; alinear obligación y mensaje del assert, y completar en el Log el residuo no declarado (prohibición de mover/cambiar status en la cápsula graduation-review, paso a blocked con divergencia sin decidir, definición del tipo documentation).
 - **2026-10-12T18:12:19Z** `[note]` Corrección tras la revisión (ronda 1): el texto de obligación y el mensaje de la entrada 16 se acotan a «every divergence from an existing spec», como dice spec.md; el patrón no cambia. Residuo que también pasa a descansar solo en review y faltaba en la nota anterior (confirmado por el revisor con mutantes): en la cápsula graduation-review, la prohibición de cambiar el status o mover el change; en spec.md, el paso a blocked cuando queda una divergencia sin decidir y la definición del tipo documentation (verdad persistente contrastada con el código, sin código de aplicación). El change aprobado 20261012-174407 planeaba retirar la cuarta aserción de la entrada 20; este change ya la retiró, así que esa parte de su Plan queda sin objeto.
+- **2026-10-12T18:13:20Z** `[status]` in-progress → in-review
