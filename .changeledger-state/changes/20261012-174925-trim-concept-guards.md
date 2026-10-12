@@ -93,10 +93,11 @@ Interfaces externas: ninguna. Superficie enteramente en `test/context.test.mjs`.
   - **Verify:** `node --test --test-name-pattern "113435" test/graduate.test.mjs`
   - **Criteria:** CR1, CR2
   - **Resolved:** `2026-10-12T18:04:31Z`
-- [ ] Reducir las entradas 16, 18, 19, 20, 21 y 22 a los patrones conservados, juzgando `contractFragment(<dueño>)` aplanado y sin fixtures de repo
+- [x] Reducir las entradas 16, 18, 19, 20, 21 y 22 a los patrones conservados, juzgando `contractFragment(<dueño>)` aplanado y sin fixtures de repo
   - **Target:** `test/context.test.mjs`
   - **Verify:** `node --test --test-name-pattern "concept guard" test/context.test.mjs`
   - **Criteria:** CR3, CR7
+  - **Resolved:** `2026-10-12T18:04:32Z`
 - [ ] Ejecutar los 16 mutantes de borrado, uno por vez sobre una copia de `templates/contract/` (borrar la oración o cláusula de la obligación, comprobar que solo cae su entrada) y registrar cada resultado en el Log
   - **Target:** `test/context.test.mjs`
   - **Verify:** `node --test --test-name-pattern "concept guard" test/context.test.mjs`
