@@ -2,7 +2,7 @@
 id: "20261012-141809"
 title: sync no adopta una revisión que pierde identidades de la foto local
 type: bug
-status: in-progress
+status: in-review
 created: 2026-10-12T14:18:09Z
 depends_on: []
 branch: bug/20261012-141809
@@ -116,3 +116,4 @@ la herramienta.
 - **2026-10-12T15:43:57Z** `[note]` Mandato de revisión: la superficie que el change gobierna — la adopción de revisiones en sync (advanceStateRef, commitMergedState, reconcile) frente a la supervivencia de identidades y la inmutabilidad de los registros de consumo, con los comentarios reescritos, sobre dev..HEAD.
 - **2026-10-12T15:52:31Z** `[review]` in-review → in-progress (retry): docs/usage-capture.md sigue diciendo que la reconciliación y el fast-forward de sync no ejecutan la comprobación de los registros de consumo y conservan lo que traigan los dos journals; este change lo hizo falso.
 - **2026-10-12T15:53:53Z** `[note]` Corrección de la ronda 1 (del orquestador): docs/usage-capture.md decía que la reconciliación y el fast-forward de sync no ejecutan la comprobación de los registros de consumo; ahora dice que sync rechaza un fast-forward o una reconciliación cuyo árbol borra o reescribe un registro del tip local y no adopta nada, y que publicar un tip local por delante no la ejecuta. Un grep de docs/ y README.md no encontró otra copia de la frase; la spec usage se corrige al graduar.
+- **2026-10-12T15:53:54Z** `[status]` in-progress → in-review
