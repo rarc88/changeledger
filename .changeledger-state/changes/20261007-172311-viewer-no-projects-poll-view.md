@@ -65,9 +65,10 @@ Interfaces externas: ninguna.
   - **Verify:** verify: manual — `changeledger view` con un registro vacío, Metrics y espera
   - **Criteria:** CR3
   - **Resolved:** `2026-10-12T12:25:46Z`
-- [ ] Ejecutar el gate completo
+- [x] Ejecutar el gate completo
   - **Verify:** `pnpm verify`
   - **Support:**
+  - **Resolved:** `2026-10-12T12:25:47Z`
 
 ## Log
 - **2026-10-07T17:23:11Z** `[version]` 0.18.0-dev
