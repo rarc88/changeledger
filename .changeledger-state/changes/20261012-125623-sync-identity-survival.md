@@ -2,9 +2,10 @@
 id: "20261012-125623"
 title: Auditar la supervivencia de identidades en sync
 type: audit
-status: approved
+status: in-progress
 created: 2026-10-12T12:56:23Z
 depends_on: []
+branch: audit/20261012-125623
 related_to: ["20261002-133728", "20261002-161641", "20260808-142200"]
 owner: rarc88
 ---
@@ -38,3 +39,5 @@ reproducciones; y el coste y el riesgo de cada opción frente al techo.
 ## Log
 - **2026-10-12T12:56:23Z** `[version]` 0.18.0-dev
 - **2026-10-12T12:58:48Z** `[status]` draft → approved (human via conversation)
+- **2026-10-12T14:04:08Z** `[status]` approved → in-progress
+- **2026-10-12T14:04:08Z** `[branch]` set: audit/20261012-125623 (auto)
