@@ -65,9 +65,10 @@ la herramienta.
   - **Verify:** `pnpm test`
   - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-10-12T13:45:50Z`
-- [ ] Ejecutar el gate completo
+- [x] Ejecutar el gate completo
   - **Verify:** `pnpm verify`
   - **Support:**
+  - **Resolved:** `2026-10-12T13:45:51Z`
 
 ## Log
 - **2026-10-12T12:56:11Z** `[version]` 0.18.0-dev
