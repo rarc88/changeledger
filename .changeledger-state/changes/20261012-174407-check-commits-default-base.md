@@ -145,3 +145,4 @@ Fixture común de los CR (salvo que se diga otra cosa): repo con `git.integratio
 ## Log
 - **2026-10-12T17:44:07Z** `[version]` 0.18.0-dev
 - **2026-10-12T17:58:12Z** `[status]` draft → approved (human via conversation)
+- **2026-10-12T18:37:31Z** `[note]` Antes de empezar: CR10, el punto 5 de la Investigation y la tarea 4 se ajustan porque #20261012-174925 (ya done) retiró de la entrada 20 de CONCEPT_GUARDS la aserción sobre la base de check --commits; este change ya no toca test/context.test.mjs para eso, y la entrada 20 debe seguir en verde tras retirar la cláusula de implement.md.
