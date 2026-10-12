@@ -83,10 +83,11 @@ Interfaces externas: ninguna.
   - **Verify:** `pnpm test`
   - **Criteria:** CR1, CR2, CR3, CR5, CR6
   - **Resolved:** `2026-10-12T13:15:18Z`
-- [ ] Recorrer el viewer real con dos proyectos, uno de ellos roto
+- [x] Recorrer el viewer real con dos proyectos, uno de ellos roto
   - **Target:** `src/viewer/public/app.js`
   - **Verify:** verify: manual — `changeledger view` con dos proyectos temporales y cambio entre ellos en el navegador
   - **Criteria:** CR4
+  - **Resolved:** `2026-10-12T13:15:18Z`
 - [ ] Ejecutar el gate completo
   - **Verify:** `pnpm verify`
   - **Support:**
