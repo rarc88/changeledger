@@ -2,7 +2,7 @@
 id: "20261012-212527"
 title: "La suite falla en Windows: pruebas de señales del envoltorio e imports de rutas absolutas"
 type: bug
-status: in-review
+status: in-progress
 created: 2026-10-12T21:25:27Z
 depends_on: []
 branch: bug/20261012-212527
@@ -373,3 +373,4 @@ los dos separadores (`[\\/]`) en esa expresión.
 - **2026-10-12T22:31:43Z** `[note]` CI de Windows del PR rarc88/changeledger#9 sobre 2a71cba7 (run 38315727343, jobs 115031757739 y 115031757758): verde, 174310 CR7 con ✔, fail 0, skipped 11 (las cuatro de señales más siete saltos POSIX previos). Los dos jobs de macOS de este PR fallan sólo en 20261002-133728 CR1, que corrige #20261012-213243 (ya en dev).
 - **2026-10-12T22:31:45Z** `[status]` in-progress → in-review
 - **2026-10-12T22:31:50Z** `[note]` Mandato de revisión: la superficie que gobierna el change — los saltos win32 de test/run-tests.test.mjs, los especificadores y el barrido de test/usage-collector.test.mjs, la aserción de 174310 CR7 en test/cli-bin.test.mjs y el comentario de cabecera de scripts/run-tests.mjs; rango f391718c..2a71cba7, con la evidencia del CI de Windows en el Log.
+- **2026-10-12T22:37:31Z** `[review]` in-review → in-progress (retry): Prosa refutada o sin acotar: el comentario de test/run-tests.test.mjs dice que en Windows el envoltorio terminó «with that signal … in all four cases» pero SIGHUP terminó con SIGKILL; el nombre del test de barrido promete que ninguna prueba incrusta una ruta cruda cuando sólo vigila la forma JSON.stringify(path.resolve|join(…)) en una línea; la cabecera de scripts/run-tests.mjs atribuye a Node que Ctrl+C y cerrar la consola son los únicos eventos que llegan; el comentario del test afirma que no se pueden enviar desde aquí. Además falta Ctrl+Break en la lista de casos no cubiertos.
