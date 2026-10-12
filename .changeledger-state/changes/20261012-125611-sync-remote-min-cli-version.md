@@ -60,10 +60,11 @@ la herramienta.
   - **Verify:** `pnpm test`
   - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-10-12T13:45:50Z`
-- [ ] Comparar el mínimo de la revisión remota antes de avanzar o reconciliar
+- [x] Comparar el mínimo de la revisión remota antes de avanzar o reconciliar
   - **Target:** `src/commands/sync.mjs, src/commands/activate.mjs`
   - **Verify:** `pnpm test`
   - **Criteria:** CR1, CR2, CR3
+  - **Resolved:** `2026-10-12T13:45:50Z`
 - [ ] Ejecutar el gate completo
   - **Verify:** `pnpm verify`
   - **Support:**
