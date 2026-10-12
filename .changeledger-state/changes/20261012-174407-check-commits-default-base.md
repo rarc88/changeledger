@@ -2,7 +2,7 @@
 id: "20261012-174407"
 title: "check --commits sin base usa la rama de integración del change de la rama actual"
 type: bug
-status: draft
+status: approved
 created: 2026-10-12T17:44:07Z
 depends_on: []
 related_to: ["20261012-174310", "20261002-181346", "20261002-181428", "20260711-210115", "20260805-052741", "20260808-141944", "20261002-204623"]
@@ -144,3 +144,4 @@ Fixture común de los CR (salvo que se diga otra cosa): repo con `git.integratio
 
 ## Log
 - **2026-10-12T17:44:07Z** `[version]` 0.18.0-dev
+- **2026-10-12T17:58:12Z** `[status]` draft → approved (human via conversation)
