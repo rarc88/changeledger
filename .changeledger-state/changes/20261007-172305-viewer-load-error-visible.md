@@ -2,7 +2,7 @@
 id: "20261007-172305"
 title: El viewer muestra el error de carga de un proyecto en la vista activa
 type: bug
-status: in-review
+status: in-progress
 created: 2026-10-07T17:23:05Z
 depends_on: []
 branch: bug/20261007-172305
@@ -99,3 +99,4 @@ Interfaces externas: ninguna; los errores llegan de `/api/repo` (por ejemplo
 - **2026-10-12T12:07:40Z** `[note]` CR5 recorrido por el orquestador en el navegador del preview, con el registro guardado y restaurado después: proyecto temporal walk-proj con su config.yml roto (/api/repo responde 500); tras seleccionarlo, Board, Table, Graph, Ledger y Metrics muestran Internal server error, la búsqueda no lo tapa y la consola no registra ningún TypeError; al restaurar la config, el sondeo siguiente vuelve a pintar el board vacío del proyecto. También se quitaron del registro tres entradas ctx-* que había dejado la revisión de 20261007-135159 apuntando a carpetas ya borradas.
 - **2026-10-12T12:07:49Z** `[status]` in-progress → in-review
 - **2026-10-12T12:07:53Z** `[note]` Mandato del review: la superficie que el change gobierna — dev..HEAD contra CR1-CR5 (con CR5 corregido por el orquestador, ver Log) y el Plan, con las decisiones no especificadas y residuos del Log como puntos de escrutinio. Frases cuantificadas informadas: el título del test «CR1: a failed project load shows its error in board, table, graph, ledger and metrics» (el test recorre las cinco vistas) y el comentario «The search box re-renders through the same render() that activateView calls» (leído en el código, no ejecutado en JSDOM; el recorrido de CR5 lo ejecutó en el navegador).
+- **2026-10-12T12:14:03Z** `[review]` in-review → in-progress (retry): F1: selectProject limpia lastJson y loadError pero no state.repo, y la guarda de render() sólo pinta el error con !state.repo; al pasar de un proyecto cargado A a uno B cuya carga falla, la siguiente búsqueda o cambio de vista pinta los changes de A con B seleccionado (ejecutado en un navegador real con alpha válido y beta con config rota). F2: la nota del orquestador que justifica la corrección de CR5 afirma que el viewer no selecciona al cargar un proyecto cuya ruta ya no existe, pero un enlace profundo de Ledger con exact:true sí lo selecciona, y que con el proyecto ya cargado el error sólo se ve en Ledger, pero el sondeo lo pinta también en Table. F3: el título de la tarea 3 del Plan sigue nombrando un proyecto cuya ruta desapareció.
