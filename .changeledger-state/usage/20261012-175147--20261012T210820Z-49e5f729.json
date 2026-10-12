@@ -1,0 +1,132 @@
+{
+  "schema": 1,
+  "change": "20261012-175147",
+  "at": "2026-10-12T21:08:20Z",
+  "event": "validation",
+  "from": "in-validation",
+  "to": "done",
+  "recorded_by": "rarc88",
+  "collector": {
+    "name": "ccusage",
+    "version": "20.0.26",
+    "pricing": "online"
+  },
+  "sessions": [
+    {
+      "source": "claude",
+      "session_id": "30628da2-cd2e-41e0-8a21-382f08a2b76e",
+      "project_path": "-home-rarc88-repositories-changeledger",
+      "first_activity": "2026-10-01T12:46:14.614Z",
+      "last_activity": "2026-10-12T15:26:00.609Z",
+      "models": [
+        {
+          "model": "claude-opus-5-5",
+          "input_tokens": 4754,
+          "output_tokens": 637616,
+          "cache_read_tokens": 401171064,
+          "cache_write_tokens": 9136441,
+          "cost_usd": 146.4028748000001
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 894,
+          "output_tokens": 13684,
+          "cache_read_tokens": 39473221,
+          "cache_write_tokens": 1822044,
+          "cost_usd": 8.641060100000002
+        }
+      ]
+    },
+    {
+      "source": "claude",
+      "session_id": "e62ee2ef-1be1-48ef-b34b-54df40d0b44e",
+      "project_path": "-home-rarc88-repositories-changeledger",
+      "first_activity": "2026-10-12T17:19:54.981Z",
+      "last_activity": "2026-10-12T21:08:10.660Z",
+      "models": [
+        {
+          "model": "claude-opus-5-5",
+          "input_tokens": 1244,
+          "output_tokens": 135266,
+          "cache_read_tokens": 83541676,
+          "cache_write_tokens": 1578206,
+          "cost_usd": 28.34687219999999
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 726,
+          "output_tokens": 12605,
+          "cache_read_tokens": 31185586,
+          "cache_write_tokens": 1145251,
+          "cost_usd": 6.109188099999997
+        }
+      ]
+    },
+    {
+      "source": "claude",
+      "session_id": "512696a3-9dc3-44b0-8c77-4fcbabc6b8be",
+      "project_path": "-home-rarc88-repositories-changeledger",
+      "first_activity": "2026-10-12T15:26:29.330Z",
+      "last_activity": "2026-10-12T16:50:22.735Z",
+      "models": [
+        {
+          "model": "claude-opus-5-5",
+          "input_tokens": 498,
+          "output_tokens": 50649,
+          "cache_read_tokens": 33435678,
+          "cache_write_tokens": 754969,
+          "cost_usd": 11.724734600000007
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 80,
+          "output_tokens": 452,
+          "cache_read_tokens": 2309560,
+          "cache_write_tokens": 276490,
+          "cost_usd": 0.9268610000000002
+        }
+      ]
+    },
+    {
+      "source": "claude",
+      "session_id": "bca829f8-f9bc-4abc-b720-c69de247d1be",
+      "project_path": "-home-rarc88-repositories-changeledger",
+      "first_activity": "2026-09-28T18:47:42.199Z",
+      "last_activity": "2026-10-01T10:19:39.737Z",
+      "models": [
+        {
+          "model": "claude-opus-5-5",
+          "input_tokens": 164,
+          "output_tokens": 40347,
+          "cache_read_tokens": 8923320,
+          "cache_write_tokens": 233083,
+          "cost_usd": 4.456924
+        }
+      ]
+    },
+    {
+      "source": "claude",
+      "session_id": "aa1501d3-dc26-420d-ba1d-de501d075c1f",
+      "project_path": "-home-rarc88-repositories-changeledger",
+      "first_activity": "2026-10-01T16:08:33.596Z",
+      "last_activity": "2026-10-01T16:21:21.582Z",
+      "models": [
+        {
+          "model": "claude-opus-5-5",
+          "input_tokens": 32,
+          "output_tokens": 12227,
+          "cache_read_tokens": 1081981,
+          "cache_write_tokens": 41256,
+          "cost_usd": 0.7911121999999999
+        }
+      ]
+    }
+  ],
+  "excluded": [
+    {
+      "source": "codex",
+      "sessions": 10
+    }
+  ],
+  "error": null
+}
