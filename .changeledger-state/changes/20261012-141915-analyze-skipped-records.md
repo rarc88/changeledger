@@ -1,0 +1,78 @@
+---
+id: "20261012-141915"
+title: analyze avisa de los registros de consumo que no puede ubicar
+type: feature
+status: draft
+created: 2026-10-12T14:19:15Z
+depends_on: []
+related_to: ["20261012-125617", "20261002-140038"]
+owner: rarc88
+---
+
+## Request
+
+La revisión de `20261012-125617` observó que `changeledger analyze` descarta sin
+avisar los registros de consumo que no puede ubicar, y que sí ubica un registro
+cuyo `at` es texto pero sin la forma `YYYY-MM-DDTHH:MM:SSZ` (por ejemplo
+`"ayer"`), aunque `check` lo rechaza. Se pide que `analyze` avise de cuántos
+registros del ledger no ubica, y que deje de ubicar un `at` sin esa forma.
+
+Excluido: mostrar ese aviso en el panel Usage del viewer.
+
+## Investigation
+
+En `src/usage-analysis.mjs`, el predicado `isPlaceable` exige un registro
+legible, `schema: 1`, `change` presente y `typeof record.at === 'string'`; lo
+comparten `validRecords` y `usageRecordCounts`, este último también usado por el
+viewer, así que alinear la forma de `at` cambia también los recuentos del panel
+Usage. Las pistas de `analyzeUsage` son textos con prefijo (`unpriced:`,
+`failed:`, `gap:` …) que `src/commands/analyze.mjs` imprime tras las cifras y
+`--json` devuelve en `hints`. `check` valida `at` con la regex `ISO_UTC` de
+`src/check.mjs`.
+
+Interfaces externas: ninguna.
+
+## Proposal
+
+`analyzeUsage` cuenta los registros del ledger que `isPlaceable` rechaza y, si
+hay alguno, añade la pista `skipped:` a las demás; `isPlaceable` exige para `at`
+la misma forma que `check`. El recuento es del ledger entero y no del change
+pedido, porque un registro sin `change` válido no se puede atribuir a ninguno.
+
+Descartadas: avisar de cada registro por nombre, que duplica el informe de
+`check` y crece con el ledger; y hacer fallar `analyze` ante un registro
+inválido, que impediría analizar el resto, cuando `check` ya es el gate.
+
+## Specification
+
+### CR1 — Un registro que no se ubica se anuncia
+- **Given** un ledger con un registro válido del change A y otro de A cuyo `at` es `123`
+- **When** se ejecuta `changeledger analyze A` y `changeledger analyze A --json`
+- **Then** la salida de texto incluye `skipped: 1 usage record(s) in the ledger cannot be placed; changeledger check reports why` y `hints` del JSON contiene ese mismo texto
+
+### CR2 — Un at sin la forma de check no se ubica
+- **Given** un registrador con un registro válido seguido de uno cuyo `at` es `"ayer"`
+- **When** se ejecuta `changeledger analyze --json`
+- **Then** el segundo registro no cierra ningún tramo y la pista `skipped:` lo cuenta
+
+### CR3 — Un ledger sin registros inválidos no muestra la pista
+- **Given** un ledger cuyos registros pasan `changeledger check`
+- **When** se ejecuta `changeledger analyze --json`
+- **Then** ningún elemento de `hints` empieza por `skipped:`
+
+## Plan
+
+- [ ] Escribir pruebas fallidas de la pista y de la forma de at
+  - **Target:** `test/usage-analysis.test.mjs, test/analyze.test.mjs`
+  - **Verify:** `pnpm test`
+  - **Criteria:** CR1, CR2, CR3
+- [ ] Contar los registros no ubicables y exigir la forma de at en isPlaceable
+  - **Target:** `src/usage-analysis.mjs`
+  - **Verify:** `pnpm test`
+  - **Criteria:** CR1, CR2, CR3
+- [ ] Ejecutar el gate completo
+  - **Verify:** `pnpm verify`
+  - **Support:**
+
+## Log
+- **2026-10-12T14:19:15Z** `[version]` 0.18.0-dev
