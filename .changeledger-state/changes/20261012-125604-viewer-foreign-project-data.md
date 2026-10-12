@@ -2,7 +2,7 @@
 id: "20261012-125604"
 title: El viewer no presenta datos de otro proyecto mientras carga el seleccionado
 type: bug
-status: in-validation
+status: done
 created: 2026-10-12T12:56:04Z
 depends_on: []
 branch: bug/20261012-125604
@@ -109,3 +109,4 @@ Interfaces externas: ninguna.
 - **2026-10-12T13:27:03Z** `[status]` in-progress → in-review
 - **2026-10-12T13:27:08Z** `[note]` Mandato de la revisión de confirmación: los dos hallazgos de la ronda 1 (selección por restauración de ruta y por gotoChange con la carga en vuelo; prosa falsada) sobre el diff sin commit encima de 8a48d0d3, y regresiones que introduzca.
 - **2026-10-12T13:31:28Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-10-12T14:14:40Z** `[validation]` in-validation → done (human accepted via conversation)
