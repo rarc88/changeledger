@@ -2,7 +2,7 @@
 id: "20261012-212527"
 title: "La suite falla en Windows: pruebas de señales del envoltorio e imports de rutas absolutas"
 type: bug
-status: draft
+status: approved
 created: 2026-10-12T21:25:27Z
 depends_on: []
 related_to: ["20261002-133728", "20261007-135154", "20260812-025623", "20261001-155612", "20260730-220857"]
@@ -322,3 +322,4 @@ criterio consume de forma automática el texto del log del CI, que se lee a mano
 
 ## Log
 - **2026-10-12T21:25:27Z** `[version]` 0.18.0-dev
+- **2026-10-12T21:35:27Z** `[status]` draft → approved (human via conversation)
