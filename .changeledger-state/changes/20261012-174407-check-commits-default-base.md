@@ -2,7 +2,7 @@
 id: "20261012-174407"
 title: "check --commits sin base usa la rama de integración del change de la rama actual"
 type: bug
-status: in-progress
+status: in-review
 created: 2026-10-12T17:44:07Z
 depends_on: []
 branch: bug/20261012-174407
@@ -156,3 +156,4 @@ Fixture común de los CR (salvo que se diga otra cosa): repo con `git.integratio
 - **2026-10-12T18:37:35Z** `[branch]` set: bug/20261012-174407 (auto)
 - **2026-10-12T18:48:48Z** `[note]` Implementación: defaultCommitsBase en src/commands/check.mjs sustituye a configuredIntegrationBranch; la base explícita no lo alcanza ni lee el ledger; el ledger sólo se carga si algún tipo declara integrates_into: release; casa changes ni done ni discarded por branch registrada o, sin ella, por renderChangeBranch; una base distinta única decide, varias fallan con el mensaje de CR7; errores de loadRepo o changeIntegrationBranch salen por error (commits). implement.md pierde sólo la cláusula de la base y se reflujo el párrafo; core.md intacto; la entrada 20 de CONCEPT_GUARDS sigue en verde sin tocarla. 12 tests nuevos en check.test.mjs y 2 en cli-bin.test.mjs; 10 mutantes caen en sus tests. pnpm verify en verde (1953 tests).
 - **2026-10-12T18:48:49Z** `[note]` Decisiones no especificadas: los estados terminales son done y discarded fijos; con change_branch_format mal formado y tipos de release, un change sin branch hace fallar el comando con el error de config; con tres o más changes ambiguos el mensaje enumera «#a (…), #b (…) and #c (…)»; si la base de un change casado no se resuelve (sin integration_branch) se usa defaultBaseBranch. Residuos: el guard de HEAD desacoplado no tiene mutante (equivalente); no se añadió barrido de frase retirada para la cláusula de implement.md; la reconciliación de git-traceability queda para el cierre; no se muestra qué change decidió la base.
+- **2026-10-12T18:48:51Z** `[status]` in-progress → in-review
