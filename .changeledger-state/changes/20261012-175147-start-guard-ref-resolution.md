@@ -2,7 +2,7 @@
 id: "20261012-175147"
 title: La guarda de arranque resuelve las ramas por nombre ambiguo y sólo en local
 type: bug
-status: in-progress
+status: in-review
 created: 2026-10-12T17:51:47Z
 depends_on: []
 branch: bug/20261012-175147
@@ -371,3 +371,4 @@ sigue al tipo.
 - **2026-10-12T19:46:55Z** `[note]` Mandato de revisión: la superficie que gobierna el change — resolución de refs y copia remote-tracking en la guarda de arranque (src/commands/agent.mjs), el parámetro de resolveRemote y los comentarios de src/git.mjs; rango d78e8db1..46c57358.
 - **2026-10-12T19:58:20Z** `[review]` in-review → in-progress (retry): Con la rama configurada ausente, refs/heads/<n> cae en refs/tags/refs/heads/<n>, refs/heads/refs/heads/<n> o similares (alcanzables con git tag, git branch o un fetch --tags) y la guarda arranca donde la base fallaba cerrada (K2, R1, P4-P6); desmiente el comentario «with neither copy present it fails closed». Cerrar con existencia exacta (git show-ref --verify) en integrationCopies y antes de la ascendencia del baseline, con tests de K2 y R1, y reescribir los comentarios de branchRef/refExists y el de «naming which cause applies».
 - **2026-10-12T20:08:44Z** `[note]` Corrección tras la revisión (ronda 1): refExists (src/git.mjs) pasa a existencia exacta con show-ref --verify; la ascendencia del baseline exige que la rama exista exactamente antes de isAncestor (mismo mensaje must descend) e integrationCopies filtra con ella; se reescriben los comentarios de branchRef, integrationCopies, refExists y mergeBases. 6 tests nuevos (CR6 ×3: tag, branch y refs/tags/refs/remotes; CR14 ×2: R1 y rama de release ausente; CR15: tipo de integración); probes K2, R1, P3-P6 e I1 ahora fallan cerradas y P8 sigue igual. Decisión: refExists ya no exige commit; una copia remote-tracking que apunte a un tree falla cerrada con «shares no history» (mensaje inexacto, sin test). Residuos: ventana TOCTOU entre show-ref y merge-base no medida; P5 (tag traído por fetch) y P8 sólo cubiertos por probes. pnpm verify en verde (1988 tests).
+- **2026-10-12T20:08:44Z** `[status]` in-progress → in-review
