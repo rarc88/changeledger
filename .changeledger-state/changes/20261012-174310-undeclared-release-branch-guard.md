@@ -191,10 +191,11 @@ cualquier error de `check`; no se midió.
   - **Verify:** `node --test test/cli.test.mjs test/apply.test.mjs`
   - **Criteria:** CR5, CR6
   - **Resolved:** `2026-10-12T18:28:30Z`
-- [ ] Test de extremo a extremo junto a `181428 CR1` en `test/cli-bin.test.mjs`: init fresco, `new hotfix` rehusado, declarar `release_branch: main`, `new`, `check` y `context <id>`; el test existente de `init` limpio no se toca
+- [x] Test de extremo a extremo junto a `181428 CR1` en `test/cli-bin.test.mjs`: init fresco, `new hotfix` rehusado, declarar `release_branch: main`, `new`, `check` y `context <id>`; el test existente de `init` limpio no se toca
   - **Target:** `test/cli-bin.test.mjs`
   - **Verify:** `node --test test/cli-bin.test.mjs`
   - **Criteria:** CR1, CR7
+  - **Resolved:** `2026-10-12T18:28:31Z`
 - [ ] Actualizar el comentario del tipo `hotfix` en `templates/config.yml` («until then `new` and `check` refuse a change of this type, as do `context <id>` and `agent-context`») sin añadir una pin de prosa a ningún test, y correr la puerta completa
   - **Support:**
   - **Verify:** `pnpm verify`
