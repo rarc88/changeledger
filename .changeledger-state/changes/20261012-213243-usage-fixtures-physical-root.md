@@ -215,11 +215,12 @@ symlink a él; `<id>` es el id del change del fixture.
   - **Verify:** `TMPDIR=<link> CHANGELEDGER_NO_GH=1 node --test --test-name-pattern="20261002-133728 CR(1|2): (with the state ref|in the worktree layout)" test/agent.test.mjs`
   - **Criteria:** CR3
   - **Resolved:** `2026-10-12T21:43:45Z`
-- [ ] Realpath nativo en el asiento de `repoWithChange`, con un comentario que
+- [x] Realpath nativo en el asiento de `repoWithChange`, con un comentario que
   cite `20260812-022248` CR2 como en `initStateRepo`
   - **Target:** `test/agent.test.mjs`
   - **Verify:** `TMPDIR=<link> CHANGELEDGER_NO_GH=1 node --test test/agent.test.mjs`
   - **Criteria:** CR1, CR2, CR3
+  - **Resolved:** `2026-10-12T21:43:45Z`
 - [ ] Test de extremo a extremo por CLI en un repo bajo un symlink propio del
   test (no a través de `os.tmpdir()`), saltado en `win32`
   - **Target:** `test/agent.test.mjs`
