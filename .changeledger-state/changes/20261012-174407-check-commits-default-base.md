@@ -124,10 +124,11 @@ Fixture común de los CR (salvo que se diga otra cosa): repo con `git.integratio
 
 ## Plan
 
-- [ ] Resolver la base por defecto por el change de la rama checked out, con vuelta a `git.integration_branch` y precedencia de la base explícita
+- [x] Resolver la base por defecto por el change de la rama checked out, con vuelta a `git.integration_branch` y precedencia de la base explícita
   - **Target:** `src/commands/check.mjs`
   - **Verify:** `node --test test/check.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4, CR5, CR6, CR11
+  - **Resolved:** `2026-10-12T18:48:49Z`
 - [ ] Fallar sin elegir en silencio con bases ambiguas, release sin declarar o ledger ilegible, y leer el ledger sólo con tipos de release
   - **Target:** `src/commands/check.mjs`
   - **Verify:** `node --test test/check.test.mjs`
