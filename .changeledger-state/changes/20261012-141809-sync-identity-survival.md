@@ -101,9 +101,10 @@ la herramienta.
 - [x] Actualizar la cabecera de `src/commands/sync.mjs` y los comentarios de `src/state-store.mjs` que describen qué comprueba cada camino
   - **Support:**
   - **Resolved:** `2026-10-12T15:43:51Z`
-- [ ] Ejecutar el gate completo
+- [x] Ejecutar el gate completo
   - **Verify:** `pnpm verify`
   - **Support:**
+  - **Resolved:** `2026-10-12T15:43:51Z`
 
 ## Log
 - **2026-10-12T14:18:09Z** `[version]` 0.18.0-dev
