@@ -118,9 +118,10 @@ Interfaces externas: ninguna. Superficie enteramente en `test/context.test.mjs`.
   - **Verify:** `node --test test/context.test.mjs`
   - **Criteria:** CR8
   - **Resolved:** `2026-10-12T18:04:34Z`
-- [ ] Ejecutar el gate completo
+- [x] Ejecutar el gate completo
   - **Verify:** `pnpm verify`
   - **Support:** cierre operativo
+  - **Resolved:** `2026-10-12T18:04:34Z`
 
 ## Log
 - **2026-10-12T17:49:25Z** `[version]` 0.18.0-dev
