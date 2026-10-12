@@ -52,10 +52,11 @@ Interfaces externas: ninguna.
   - **Verify:** `pnpm test`
   - **Criteria:** CR1, CR2
   - **Resolved:** `2026-10-12T16:09:23Z`
-- [ ] Cerrar el detalle al seleccionar proyecto y abrirlo sólo desde el payload del seleccionado
+- [x] Cerrar el detalle al seleccionar proyecto y abrirlo sólo desde el payload del seleccionado
   - **Target:** `src/viewer/public/app.js`
   - **Verify:** `pnpm test`
   - **Criteria:** CR1, CR2
+  - **Resolved:** `2026-10-12T16:09:23Z`
 - [ ] Ejecutar el gate completo
   - **Verify:** `pnpm verify`
   - **Support:**
