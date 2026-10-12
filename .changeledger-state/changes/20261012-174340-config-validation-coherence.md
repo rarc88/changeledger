@@ -246,3 +246,4 @@ los CR1 y CR4 pasan a ser parte de ese contrato. No cambia ningún formato.
 - **2026-10-12T21:08:14Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-10-12T21:13:13Z** `[note]` graduation-review de la reconciliación de architecture (migración 3→4), lifecycle (seed_stage) y git-traceability (ramas distintas): apply. Cada afirmación confirmada contra bug/20261012-174340 y con ejecuciones; sin contradicciones en el resto de specs. Opcional no aplicado: lifecycle sigue nombrando REVIEWABLE_STAGES (constante privada aún existente) donde la autoridad única es ahora stagesRequiredByReview.
 - **2026-10-12T21:13:14Z** `[graduation]` spec: `architecture.md`
+- **2026-10-12T21:13:14Z** `[graduation]` spec: `lifecycle.md`
