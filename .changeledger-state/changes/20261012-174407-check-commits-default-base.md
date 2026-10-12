@@ -139,10 +139,11 @@ Fixture común de los CR (salvo que se diga otra cosa): repo con `git.integratio
   - **Verify:** `node --test test/cli-bin.test.mjs`
   - **Criteria:** CR10
   - **Resolved:** `2026-10-12T18:48:50Z`
-- [ ] Retirar de `implement.md` la instrucción manual de `<base>`, con la entrada 20 de `CONCEPT_GUARDS` en verde sin tocarla
+- [x] Retirar de `implement.md` la instrucción manual de `<base>`, con la entrada 20 de `CONCEPT_GUARDS` en verde sin tocarla
   - **Target:** `templates/contract/implement.md`
   - **Verify:** `node --test test/context.test.mjs`
   - **Criteria:** CR10
+  - **Resolved:** `2026-10-12T18:48:51Z`
 - [ ] Ejecutar la puerta de calidad completa
   - **Support:** `pnpm verify`
 
