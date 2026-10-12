@@ -141,11 +141,15 @@ export function isAncestor(cwd, ancestor, descendant = 'HEAD', run = defaultRun)
   }
 }
 
-// Every best common ancestor of two refs (`merge-base --all`): one commit
+// The best common ancestors of two revisions (`merge-base --all`): one commit
 // normally, several after criss-cross merges, where a single base picked by
 // commit date can hide the others. Empty when git finds none (unrelated
-// histories) or fails (a ref that does not resolve); `refExists` tells those
-// apart.
+// histories) or fails (a revision that does not resolve to a commit). Both
+// revisions go through git's revision lookup (gitrevisions(7)), where the full
+// ref of an absent branch still resolves through a ref such as
+// `refs/tags/refs/heads/<name>`: a caller that needs the branch itself checks
+// it with `refExists` first, which also tells an absent ref apart from
+// unrelated histories.
 export function mergeBases(cwd, a, b, run = defaultRun) {
   try {
     return String(run(['merge-base', '--all', a, b], cwd))
@@ -157,10 +161,15 @@ export function mergeBases(cwd, a, b, run = defaultRun) {
   }
 }
 
-// Whether `ref` resolves to a commit in this repository.
+// Whether a ref of exactly the full name `ref` exists (`show-ref --verify`),
+// read from the local repo. It skips the revision lookup of gitrevisions(7):
+// through it, `refs/heads/dev` with the branch absent resolved to
+// `refs/tags/refs/heads/dev` or `refs/heads/refs/heads/dev`, which porcelain
+// (`git tag refs/heads/dev`, `git branch refs/heads/dev`) or a tag fetch can
+// create (20261012-175147). It checks presence, not the object type.
 export function refExists(cwd, ref, run = defaultRun) {
   try {
-    run(['rev-parse', '--verify', '--quiet', `${ref}^{commit}`], cwd);
+    run(['show-ref', '--verify', '--quiet', ref], cwd);
     return true;
   } catch {
     return false;

@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import { parseChange } from '../src/change.mjs';
@@ -32,8 +32,9 @@ import { fix } from '../src/commands/fix.mjs';
 import { skipGraduation } from '../src/commands/graduate.mjs';
 import { init as initializeRepo } from '../src/commands/init.mjs';
 import { newChange, newChangeFrom, scaffoldChange } from '../src/commands/new.mjs';
+import { resolveRemote } from '../src/commands/sync.mjs';
 import { VERSION } from '../src/framing.mjs';
-import { capturedRun } from '../src/git.mjs';
+import { capturedRun, defaultRun } from '../src/git.mjs';
 import {
   LedgerConflictError,
   mutateState,
@@ -549,6 +550,494 @@ test('204623: an integration branch with unrelated history fails closed and says
       `branch "fix/${id}" cannot start: it shares no history with integration branch "dev"`,
   );
   assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
+// --- 20261012-175147: the start guard compares branches, not same-named refs,
+// and a release type also compares with the integration branch's remote-tracking copy ---
+
+// `releaseTypeRepo({ shape: 'same' })` plus a bare `origin` that received `main`
+// and `dev`, both at one commit.
+function remoteTypeRepo() {
+  const fixture = releaseTypeRepo({ shape: 'same' });
+  const bare = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-origin-'));
+  git(bare, ['init', '-q', '--bare', '-b', 'main']);
+  git(fixture.root, ['remote', 'add', 'origin', bare]);
+  git(fixture.root, ['push', '-q', 'origin', 'main', 'dev']);
+  return { ...fixture, bare };
+}
+
+// Commits a new file on `branch`, then checks `main` out again.
+function commitOn(root, branch, name, message = `chore: ${name}`) {
+  git(root, ['checkout', '-q', branch]);
+  fs.writeFileSync(path.join(root, name), '1\n');
+  git(root, ['add', name]);
+  git(root, ['commit', '-q', '-m', message]);
+  git(root, ['checkout', '-q', 'main']);
+}
+
+// Pushes a `feat: dev work` commit on `dev` to `bare` from a separate clone,
+// leaving the fixture repo's own branches where they were.
+function pushDevWorkFromClone(bare) {
+  const clone = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-clone-'));
+  git(clone, ['clone', '-q', bare, '.']);
+  git(clone, ['checkout', '-q', 'dev']);
+  fs.writeFileSync(path.join(clone, 'DEVWORK'), '1\n');
+  git(clone, ['add', 'DEVWORK']);
+  git(clone, ['commit', '-q', '-m', 'feat: dev work']);
+  git(clone, ['push', '-q', 'origin', 'dev']);
+}
+
+// Cuts `<type>/<id>` from `base` and asserts the start throws exactly `message`
+// and leaves the document byte for byte as it was.
+function assertStartRefused(root, { file, id }, type, base, message) {
+  git(root, ['checkout', '-q', '-b', `${type}/${id}`, base]);
+  const before = fs.readFileSync(file, 'utf8');
+  assert.throws(
+    () => status(id, 'in-progress', root, { ownerHandle: () => '' }),
+    (error) => error.message === message,
+  );
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+}
+
+// Back on `main` with the refused change branch deleted, so the same repo can
+// try another base.
+function dropChangeBranch(root, { id }, type) {
+  git(root, ['checkout', '-q', 'main']);
+  git(root, ['branch', '-q', '-D', `${type}/${id}`]);
+}
+
+const cliBin = fileURLToPath(new URL('../bin/changeledger.mjs', import.meta.url));
+
+function startWithCli(root, id) {
+  const result = spawnSync(process.execPath, [cliBin, 'status', id, 'in-progress'], {
+    cwd: root,
+    encoding: 'utf8',
+    env: sanitizedEnv({ CHANGELEDGER_NO_GH: '1' }),
+  });
+  return { code: result.status, out: result.stdout, err: result.stderr };
+}
+
+// A `gitRun` that delegates to `defaultRun` and records each argv, and the
+// subcommand of an argv once leading global options are skipped.
+function recordingGitRun() {
+  const calls = [];
+  const gitRun = (args, cwd) => {
+    calls.push([...args]);
+    return defaultRun(args, cwd);
+  };
+  return { calls, gitRun };
+}
+function subcommandOf(args) {
+  let at = 0;
+  while (at < args.length && args[at].startsWith('-')) {
+    at += args[at] === '-c' || args[at] === '-C' ? 2 : 1;
+  }
+  return args.slice(at);
+}
+
+test('175147 CR1: a release branch cut from main starts while dev and origin/dev are ahead', () => {
+  const { root, changes, bare } = remoteTypeRepo();
+  const { file, id } = changes.fix;
+  commitOn(root, 'dev', 'DEVWORK', 'feat: dev work');
+  git(root, ['push', '-q', 'origin', 'dev']);
+  git(root, ['fetch', '-q', 'origin']);
+  assert.equal(
+    git(bare, ['rev-parse', 'refs/heads/dev']),
+    git(root, ['rev-parse', 'refs/heads/dev']),
+  );
+  git(root, ['checkout', '-q', '-b', `fix/${id}`, 'main']);
+
+  const { code, out } = startWithCli(root, id);
+
+  assert.equal(code, 0);
+  assert.equal(out.trim(), `#${id} → in-progress`);
+  const text = fs.readFileSync(file, 'utf8');
+  const { frontmatter } = parseChange(text);
+  assert.equal(frontmatter.status, 'in-progress');
+  assert.equal(frontmatter.branch, `fix/${id}`);
+  assert.match(text, /`\[status\]` approved → in-progress/);
+  assert.ok(text.includes(`\`[branch]\` set: fix/${id} (auto)`));
+});
+
+test('175147 CR2: a remote-tracking copy of dev ahead of main blocks a branch cut from it', () => {
+  const { root, changes, bare } = remoteTypeRepo();
+  const { file, id } = changes.fix;
+  pushDevWorkFromClone(bare);
+  git(root, ['fetch', '-q', 'origin']);
+  assert.equal(
+    git(root, ['rev-parse', 'refs/heads/dev']),
+    git(root, ['rev-parse', 'refs/heads/main']),
+  );
+  git(root, ['checkout', '-q', '-b', `fix/${id}`, 'origin/dev']);
+  const before = fs.readFileSync(file, 'utf8');
+
+  const { code, err } = startWithCli(root, id);
+
+  assert.notEqual(code, 0);
+  assert.equal(
+    err.trim(),
+    `Error: branch "fix/${id}" contains commits of "origin/dev" that are not in "main"`,
+  );
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
+test('175147 CR3: the local integration branch is compared before its remote-tracking copy', () => {
+  const { root, changes } = remoteTypeRepo();
+  commitOn(root, 'dev', 'DEVWORK');
+  git(root, ['push', '-q', 'origin', 'dev']);
+  git(root, ['fetch', '-q', 'origin']);
+  const { id } = changes.fix;
+
+  assertStartRefused(
+    root,
+    changes.fix,
+    'fix',
+    'dev',
+    `branch "fix/${id}" contains commits of "dev" that are not in "main"`,
+  );
+});
+
+test('175147 CR4: a remote without a copy of the integration branch does not block', () => {
+  const { root, changes } = remoteTypeRepo();
+  const { file, id } = changes.fix;
+  git(root, ['push', '-q', 'origin', '--delete', 'dev']);
+  git(root, ['fetch', '-q', '--prune', 'origin']);
+  assert.throws(() => git(root, ['rev-parse', '--verify', '--quiet', 'refs/remotes/origin/dev']));
+  commitOn(root, 'dev', 'DEVWORK');
+
+  assertStartRefused(
+    root,
+    changes.fix,
+    'fix',
+    'dev',
+    `branch "fix/${id}" contains commits of "dev" that are not in "main"`,
+  );
+  dropChangeBranch(root, changes.fix, 'fix');
+  startOn(root, { id, type: 'fix' }, 'main');
+
+  assert.equal(startsInProgress(file), true);
+});
+
+test('175147 CR5: without a local integration branch its remote-tracking copy is compared', () => {
+  const { root, changes } = remoteTypeRepo();
+  const { file, id } = changes.fix;
+  commitOn(root, 'dev', 'DEVWORK');
+  git(root, ['push', '-q', 'origin', 'dev']);
+  git(root, ['fetch', '-q', 'origin']);
+  git(root, ['branch', '-q', '-D', 'dev']);
+
+  assertStartRefused(
+    root,
+    changes.fix,
+    'fix',
+    'origin/dev',
+    `branch "fix/${id}" contains commits of "origin/dev" that are not in "main"`,
+  );
+  dropChangeBranch(root, changes.fix, 'fix');
+  startOn(root, { id, type: 'fix' }, 'main');
+
+  assert.equal(startsInProgress(file), true);
+});
+
+test('175147 CR6: with neither a local nor a remote-tracking integration branch it fails closed', () => {
+  const { root, changes } = remoteTypeRepo();
+  const { id } = changes.fix;
+  git(root, ['push', '-q', 'origin', '--delete', 'dev']);
+  git(root, ['fetch', '-q', '--prune', 'origin']);
+  git(root, ['branch', '-q', '-D', 'dev']);
+
+  assertStartRefused(
+    root,
+    changes.fix,
+    'fix',
+    'main',
+    `branch "fix/${id}" cannot start: integration branch "dev" does not exist locally — create it (e.g. from its remote-tracking copy) before starting`,
+  );
+});
+
+// With a branch absent, git resolves its full ref through same-named refs
+// further down the gitrevisions(7) lookup order. Each case drops both copies of
+// `dev`, plants one such ref at `main` and checks that git really reads it in
+// place of the missing copy before the guard runs.
+function plantedWithoutIntegrationBranch(plant, missing) {
+  const fixture = remoteTypeRepo();
+  const { root } = fixture;
+  git(root, ['push', '-q', 'origin', '--delete', 'dev']);
+  git(root, ['fetch', '-q', '--prune', 'origin']);
+  git(root, ['branch', '-q', '-D', 'dev']);
+  git(root, plant);
+  assert.equal(git(root, ['rev-parse', missing]), git(root, ['rev-parse', 'refs/heads/main']));
+  return fixture;
+}
+
+for (const [label, plant, missing] of [
+  ['git tag refs/heads/dev', ['tag', 'refs/heads/dev', 'main'], 'refs/heads/dev'],
+  ['git branch refs/heads/dev', ['branch', 'refs/heads/dev', 'main'], 'refs/heads/dev'],
+  [
+    'refs/tags/refs/remotes/origin/dev',
+    ['update-ref', 'refs/tags/refs/remotes/origin/dev', 'main'],
+    'refs/remotes/origin/dev',
+  ],
+]) {
+  test(`175147 CR6: a ref made by ${label} does not stand in for an absent integration branch`, () => {
+    const { root, changes } = plantedWithoutIntegrationBranch(plant, missing);
+    const { id } = changes.fix;
+
+    assertStartRefused(
+      root,
+      changes.fix,
+      'fix',
+      'main',
+      `branch "fix/${id}" cannot start: integration branch "dev" does not exist locally — create it (e.g. from its remote-tracking copy) before starting`,
+    );
+  });
+}
+
+// Remotes `fork` and `upstream`, neither named `origin`.
+function ambiguousRemotes(root, bare) {
+  git(root, ['remote', 'rename', 'origin', 'upstream']);
+  git(root, ['remote', 'add', 'fork', bare]);
+}
+
+test('175147 CR8: several remotes without origin fail closed and name what is missing', () => {
+  const { root, changes, bare } = remoteTypeRepo();
+  const { id } = changes.fix;
+  ambiguousRemotes(root, bare);
+
+  assertStartRefused(
+    root,
+    changes.fix,
+    'fix',
+    'main',
+    `branch "fix/${id}" cannot start: cannot decide which remote holds integration branch "dev": this repo configures fork, upstream and none is "origin"`,
+  );
+  assert.throws(
+    () => resolveRemote(root, defaultRun),
+    (error) =>
+      error.message ===
+      'cannot decide which remote holds the state ref: this repo configures fork, upstream and none is "origin"',
+  );
+});
+
+test('175147 CR9: an integration type does not resolve a remote', () => {
+  const { root, changes, bare } = remoteTypeRepo();
+  const { file, id } = changes.feature;
+  ambiguousRemotes(root, bare);
+
+  startOn(root, { id, type: 'feature' }, 'dev');
+
+  assert.equal(startsInProgress(file), true);
+});
+
+test('175147 CR10: the guard reads local refs and never reaches the network', () => {
+  const { root, changes } = remoteTypeRepo();
+  const { file, id } = changes.fix;
+  git(root, ['remote', 'set-url', 'origin', '/nonexistent/remote.git']);
+  const tree = git(root, ['rev-parse', 'main^{tree}']).trim();
+  const ahead = git(root, ['commit-tree', tree, '-p', 'main', '-m', 'feat: dev work']).trim();
+  git(root, ['update-ref', 'refs/remotes/origin/dev', ahead]);
+  assert.equal(git(root, ['branch', '--contains', ahead]).trim(), '');
+
+  assertStartRefused(
+    root,
+    changes.fix,
+    'fix',
+    ahead,
+    `branch "fix/${id}" contains commits of "origin/dev" that are not in "main"`,
+  );
+  dropChangeBranch(root, changes.fix, 'fix');
+  git(root, ['checkout', '-q', '-b', `fix/${id}`, 'main']);
+  const { calls, gitRun } = recordingGitRun();
+  status(id, 'in-progress', root, { ownerHandle: () => '', gitRun });
+
+  assert.equal(startsInProgress(file), true);
+  const subcommands = calls.map(subcommandOf);
+  const network = subcommands.filter(
+    ([name, sub]) =>
+      ['fetch', 'ls-remote', 'pull'].includes(name) || (name === 'remote' && sub === 'update'),
+  );
+  assert.deepEqual(network, []);
+  assert.deepEqual(
+    calls.filter((args) => subcommandOf(args)[0] === 'remote'),
+    [['remote']],
+  );
+});
+
+test('175147 CR11: a remote-tracking copy with unrelated history fails closed and says so', () => {
+  const { root, changes } = remoteTypeRepo();
+  const { id } = changes.fix;
+  const emptyTree = git(root, ['hash-object', '-t', 'tree', '/dev/null']).trim();
+  const orphan = git(root, ['commit-tree', emptyTree, '-m', 'chore: orphan']).trim();
+  git(root, ['update-ref', 'refs/remotes/origin/dev', orphan]);
+
+  assertStartRefused(
+    root,
+    changes.fix,
+    'fix',
+    'main',
+    `branch "fix/${id}" cannot start: it shares no history with integration branch "origin/dev"`,
+  );
+});
+
+test('175147 CR12: a tag named like the integration branch does not stand in for it', () => {
+  const { root, changes } = remoteTypeRepo();
+  const { id } = changes.fix;
+  commitOn(root, 'dev', 'DEVWORK');
+  git(root, ['tag', 'dev', 'main']);
+
+  assertStartRefused(
+    root,
+    changes.fix,
+    'fix',
+    'refs/heads/dev',
+    `branch "fix/${id}" contains commits of "dev" that are not in "main"`,
+  );
+});
+
+test('175147 CR13: a tag named like the release branch does not stand in for it', () => {
+  const { root, changes } = remoteTypeRepo();
+  const { id } = changes.fix;
+  commitOn(root, 'dev', 'DEVWORK');
+  git(root, ['tag', 'main', 'refs/heads/dev']);
+
+  assertStartRefused(
+    root,
+    changes.fix,
+    'fix',
+    'refs/heads/dev',
+    `branch "fix/${id}" contains commits of "dev" that are not in "main"`,
+  );
+});
+
+test('175147 CR14: the ancestry check of a release type resolves the release branch', () => {
+  const { root, changes } = remoteTypeRepo();
+  const { id } = changes.fix;
+  commitOn(root, 'main', 'RELEASE', 'chore: release');
+  git(root, ['tag', 'main', 'refs/heads/dev']);
+
+  assertStartRefused(
+    root,
+    changes.fix,
+    'fix',
+    'refs/heads/dev',
+    `branch "fix/${id}" must descend from integration branch "main"`,
+  );
+});
+
+test('175147 CR14: a tag named refs/heads/main does not stand in for an absent release branch', () => {
+  const { root, changes } = remoteTypeRepo();
+  const { id } = changes.fix;
+  commitOn(root, 'dev', 'DEVWORK');
+  git(root, ['branch', '-m', 'main', 'gone']);
+  git(root, ['tag', 'refs/heads/main', 'refs/heads/dev']);
+  assert.equal(
+    git(root, ['rev-parse', 'refs/heads/main']),
+    git(root, ['rev-parse', 'refs/heads/dev']),
+  );
+
+  assertStartRefused(
+    root,
+    changes.fix,
+    'fix',
+    'refs/heads/dev',
+    `branch "fix/${id}" must descend from integration branch "main"`,
+  );
+});
+
+test('175147 CR14: without a remote, a tag named refs/heads/main does not stand in for a missing release branch', () => {
+  const { root, changes } = releaseTypeRepo({ shape: 'dev-ahead' });
+  const { file, id } = changes.fix;
+  git(root, ['checkout', '-q', '-b', `fix/${id}`, 'main']);
+  git(root, ['branch', '-m', 'main', 'gone']);
+  git(root, ['tag', 'refs/heads/main', 'HEAD']);
+  assert.equal(git(root, ['remote']), '');
+  const before = fs.readFileSync(file, 'utf8');
+
+  assert.throws(
+    () => status(id, 'in-progress', root, { ownerHandle: () => '' }),
+    (error) => error.message === `branch "fix/${id}" must descend from integration branch "main"`,
+  );
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
+test('175147 CR15: the ancestry check of an integration type resolves the integration branch', () => {
+  const { root, changes } = remoteTypeRepo();
+  const { id } = changes.feature;
+  commitOn(root, 'dev', 'DEVWORK');
+  git(root, ['tag', 'dev', 'refs/heads/main']);
+
+  assertStartRefused(
+    root,
+    changes.feature,
+    'feature',
+    'refs/heads/main',
+    `branch "feature/${id}" must descend from integration branch "dev"`,
+  );
+});
+
+test('175147 CR15: a tag named refs/heads/dev does not stand in for an absent integration branch', () => {
+  const { root, changes } = plantedWithoutIntegrationBranch(
+    ['tag', 'refs/heads/dev', 'main'],
+    'refs/heads/dev',
+  );
+  const { id } = changes.feature;
+
+  assertStartRefused(
+    root,
+    changes.feature,
+    'feature',
+    'main',
+    `branch "feature/${id}" must descend from integration branch "dev"`,
+  );
+});
+
+test('175147 CR16: a ref outside refs/tags named like the branch does not stand in for it', () => {
+  const { root, changes } = remoteTypeRepo();
+  const { id } = changes.fix;
+  commitOn(root, 'dev', 'DEVWORK');
+  git(root, ['update-ref', 'refs/dev', 'refs/heads/main']);
+
+  assertStartRefused(
+    root,
+    changes.fix,
+    'fix',
+    'refs/heads/dev',
+    `branch "fix/${id}" contains commits of "dev" that are not in "main"`,
+  );
+});
+
+test('175147 CR17: a tag named like the remote-tracking copy does not stand in for it', () => {
+  const { root, changes, bare } = remoteTypeRepo();
+  const { id } = changes.fix;
+  pushDevWorkFromClone(bare);
+  git(root, ['fetch', '-q', 'origin']);
+  git(root, ['tag', 'origin/dev', 'main']);
+
+  assertStartRefused(
+    root,
+    changes.fix,
+    'fix',
+    'refs/remotes/origin/dev',
+    `branch "fix/${id}" contains commits of "origin/dev" that are not in "main"`,
+  );
+});
+
+test('175147 CR18: without change_branch_format the guard stays off', () => {
+  const { root, changes, bare } = remoteTypeRepo();
+  const { file, id } = changes.fix;
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  const config = parseYaml(fs.readFileSync(configFile, 'utf8'));
+  config.git.change_branch_format = null;
+  fs.writeFileSync(configFile, stringifyYaml(config));
+  ambiguousRemotes(root, bare);
+  commitOn(root, 'dev', 'DEVWORK');
+  git(root, ['checkout', '-q', '-b', `fix/${id}`, 'refs/heads/dev']);
+  const { calls, gitRun } = recordingGitRun();
+
+  status(id, 'in-progress', root, { ownerHandle: () => '', gitRun });
+
+  assert.equal(startsInProgress(file), true);
+  assert.deepEqual(calls, []);
 });
 
 function futureSchemaRepo() {
