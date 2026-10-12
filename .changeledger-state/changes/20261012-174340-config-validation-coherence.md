@@ -228,3 +228,4 @@ los CR1 y CR4 pasan a ser parte de ese contrato. No cambia ningún formato.
 - **2026-10-12T17:58:08Z** `[status]` draft → approved (human via conversation)
 - **2026-10-12T19:05:31Z** `[status]` approved → in-progress
 - **2026-10-12T19:05:31Z** `[branch]` set: bug/20261012-174340 (auto)
+- **2026-10-12T19:18:00Z** `[note]` Implementación: SEED_STAGES (investigation, proposal, specification) en checkConfig tras los errores de tipo y de fase inactiva; regla de ramas iguales sobre los valores resueltos por integrationBranch y releaseBranch, sólo si ambos resuelven y están declarados; stagesRequiredByReview exportada por src/check.mjs como regla única, que usan checkConfig y activateReviewableStages (ésta sobre doc.toJS() del documento vivo). 12 tests nuevos (5 check, 5 migración incluido el encadenado 0→1, 2 cli-bin); mutantes M1-M6 caen en sus tests. pnpm verify en verde (1963 tests). La config del propio repo no dispara las reglas nuevas.
