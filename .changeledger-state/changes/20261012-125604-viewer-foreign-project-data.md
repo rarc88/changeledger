@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-10-12T12:56:04Z
 depends_on: []
+archived: true
 reviewed: true
 branch: bug/20261012-125604
 related_to: ["20261007-172305", "20261007-135148"]
@@ -112,3 +113,4 @@ Interfaces externas: ninguna.
 - **2026-10-12T13:31:28Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-10-12T14:14:40Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-10-12T14:15:49Z** `[graduation]` spec: `viewer.md`
+- **2026-10-12T14:15:59Z** `[archive]` archived
