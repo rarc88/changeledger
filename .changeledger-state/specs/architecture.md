@@ -108,11 +108,12 @@ sigue siendo opt-out). La
 migración 1 → 2 añade el tipo `quick` y sus impactos a repos schema 1 sin pisar
 un `quick` custom ni extensiones propias (guardas `Object.hasOwn`). La migración
 3 → 4 repara el acoplamiento entre `review_required` y las stages verificables:
-inserta las de `REVIEWABLE_STAGES` (`specification`, `plan`) ausentes, en su
-posición canónica, sólo en los tipos que declaran `review_required: true`, y deja
-byte a byte los demás. No mira el `tdd` del tipo: inserta también `plan` en un
-tipo con `tdd` efectivo apagado, al que `checkConfig` sólo exige
-`specification`. Lee el documento
+inserta, en su posición canónica y sólo en los tipos que declaran
+`review_required: true`, las stages ausentes que exige
+`stagesRequiredByReview(config, tipo)` (`src/check.mjs`), la misma regla que
+aplica `checkConfig`: `specification` y `plan` con el `tdd` efectivo del tipo
+encendido, sólo `specification` con él apagado (el `tdd` del tipo manda sobre el
+global). Deja byte a byte los demás tipos. Lee el documento
 YAML vivo y no la instantánea previa, porque una migración anterior de la misma
 cadena puede haber añadido el propio `review_required` que dispara la reparación.
 Nunca inserta una stage que la lista canónica del repo no declare: sin punto de
