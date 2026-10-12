@@ -2,7 +2,7 @@
 id: "20261007-172322"
 title: Incluir never y only entre los cuantificadores de la obligación de prosa
 type: bug
-status: draft
+status: approved
 created: 2026-10-07T17:23:22Z
 depends_on: []
 related_to: ["20261007-135159", "20261002-133728"]
@@ -52,3 +52,4 @@ Interfaces externas: ninguna.
 
 ## Log
 - **2026-10-07T17:23:22Z** `[version]` 0.18.0-dev
+- **2026-10-12T11:14:40Z** `[status]` draft → approved (human via conversation)
