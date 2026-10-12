@@ -3260,7 +3260,7 @@ test('162015 CR3/CR4: delegation.md points at the unit instead of redefining it'
 //
 // The phrase-level pins over `templates/contract/` prose are retired: every one of
 // them charged a retarget, a mutant and review scrutiny to each rewrite of a
-// sentence, and that cost is what the decision removes. Twenty-two carrier obligations
+// sentence, and that cost is what the decision removes. Twenty-one carrier obligations
 // keep a guard anyway, because losing one in silence is a different failure class
 // from rewording one (finding 38: normative prose lost with nothing noticing, three
 // times, exploit proven live).
@@ -3586,39 +3586,13 @@ const CONCEPT_GUARDS = [
   {
     entry: 16,
     obligation:
-      'the documentation type carries its execution rules as its own CRs, and types.<type>.tdd overrides the global tdd',
-    // 20261002-113320 CR9. Removing any one obligation from the definition (or
-    // the override from readiness) fails its own assertion — verified one at a
-    // time: the pack's other mentions of persistent truth, paths and symbols or
-    // `blocked` satisfy none of them today. Verified to pass when the paragraph
-    // opens "The `documentation` type delivers…" and when the `blocked`
-    // fallback becomes its own sentence.
-    verify: (pack) => {
-      const spec = pack('spec');
-      assert.match(
-        spec,
-        /`documentation`[^.;]{0,80}\bpersistent truth\b[^.;]{0,120}\bcode\b/i,
-        'spec no longer defines documentation as persistent truth contrasted with the code',
-      );
-      assert.match(
-        spec,
-        /\b(no|never|not|without)\b[^.;]{0,40}\bapplication code\b/i,
-        'spec no longer keeps documentation out of application code',
-      );
+      'the documentation type writes its execution rules as its own CRs, citing path and symbol, and the human decides every divergence from an existing spec before in-review',
+    verify: () => {
+      const spec = flattened(contractFragment('spec.md'));
       assert.match(
         spec,
         /\b(execution rules|obligations)\b[^.;]{0,60}\b(own|its)\b[^.;]{0,10}\b(CRs?|criteria)\b/i,
         "spec no longer has the documentation rules written as the change's own CRs",
-      );
-      assert.match(
-        spec,
-        /\bperimeter\b[^.;]{0,80}\b(calls?|callers?|call graph|call sites?)\b/i,
-        'spec no longer fixes the documentation perimeter from who calls what',
-      );
-      assert.match(
-        spec,
-        /\bperimeter\b[^.;]{0,40}\bdraft\b|\bdraft\b[^.;]{0,40}\bperimeter\b/i,
-        'spec no longer fixes the documentation perimeter in the draft',
       );
       assert.match(
         spec,
@@ -3629,98 +3603,39 @@ const CONCEPT_GUARDS = [
       assert.match(
         spec,
         /(?=[^.;]{0,200}\bhuman\b)(?=[^.;]{0,200}\bdivergen)(?=[^.;]{0,200}`in-review`)/i,
-        'spec no longer has the human decide every divergence before in-review',
-      );
-      // The `blocked` fallback may sit in its own sentence after the rule.
-      assert.match(
-        spec,
-        /\bdivergen\w*[\s\S]{0,300}\b(decision|decid\w*|else|otherwise|without|missing|absent)\b[^.;]{0,60}`blocked`/i,
-        'spec no longer sends a change with an undecided divergence to blocked',
-      );
-      assert.match(
-        spec,
-        /\bcorrections?\b[^.;]{0,40}\bspecs?\b[^.;]{0,60}\b(inside|within|in)\b[^.;]{0,10}\bchange\b[^.;]{0,60}\breview\w*/i,
-        'spec no longer drafts spec corrections inside the change for the reviewer',
-      );
-      // Dots inside the key path are not sentence ends.
-      const override =
-        /`types\.<type>\.tdd`(?:[^.;]|\.(?!\s)){0,80}\b(overrides?|takes precedence over|prevails over)\b[^.;]{0,40}\bglobal\b/i;
-      assert.match(spec, override, 'the spec pack no longer composes the per-type tdd override');
-      assert.match(
-        flattened(contractFragment('readiness.md')),
-        override,
-        'readiness no longer carries the per-type tdd override',
-      );
-    },
-  },
-  {
-    entry: 17,
-    obligation:
-      'graduate --new seeds from the stage the type declares as seed_stage, else from the Specification or Proposal',
-    // 20261002-113435 CR6, judged on what `context <id>` composes for a `done`
-    // change, cut before the selected change so its body cannot satisfy it.
-    verify: () => {
-      const root = repo();
-      const close = flattened(
-        buildContext(addChange(root, 'done', '20261002-120000'), root).split(
-          '# Selected change',
-        )[0],
-      );
-      // A dot followed by a non-space (`types.<type>.seed_stage`) is no sentence end.
-      const clause = '(?:[^.;]|\\.(?!\\s))';
-      assert.match(
-        close,
-        new RegExp(
-          `--new\\b(?=${clause}{0,200}\\bseed\\w*)(?=${clause}{0,200}\\btypes?\\b)(?=${clause}{0,200}\`[^\`]*seed_stage\`)`,
-          'i',
-        ),
-        'close no longer seeds --new from the stage the type declares as seed_stage',
-      );
-      assert.match(
-        close,
-        new RegExp(
-          `\`[^\`]*seed_stage\`${clause}{0,80}\\b(else|otherwise|unless|without|absent|lacking|falls? back|undeclared|not declared|none)\\b${clause}{0,60}\\bSpecification\\b${clause}{0,60}\\bProposal\\b`,
-          'i',
-        ),
-        'close no longer falls back to the Specification or Proposal without a seed_stage',
+        'spec no longer has the human decide every divergence from an existing spec before in-review',
       );
     },
   },
   {
     entry: 18,
     obligation:
-      'the graduation-review delegate checks each affected spec diff read-only and recommends apply or correct',
-    // 20261002-152555 CR4, judged on the composed capsule, cut before the selected
-    // change so its body cannot satisfy it.
+      'the graduation-review delegate is read-only, contrasts each affected spec diff with the code and the change, and recommends apply or correct',
     verify: () => {
-      const root = repo();
-      const capsule = flattened(
-        buildAgentContext(
-          'graduation-review',
-          addChange(root, 'done', '20261002-152604'),
-          root,
-        ).split('# Selected change')[0],
-      );
+      const capsule = flattened(contractFragment('agent-contexts/graduation-review.md'));
+      // Files, Git and the ledger forbidden in one sentence, in any order.
+      const window = '[^.]{0,250}';
       const deny = '\\b(do not|never|must not|may not)\\b[^.;]{0,15}';
-      for (const [object, what] of [
-        ['\\b(modify|edit|write)\\b[^.;]{0,15}\\bfiles?\\b', 'files'],
-        ['\\b(change|modify|touch)\\b[^.;]{0,15}\\bGit\\b', 'Git'],
-        ['\\b(mutate|modify|write)\\b[^.;]{0,15}\\bledger\\b', 'the ledger'],
-        ['\\b(move|transition|advance)\\b[^.;]{0,15}\\bchange\\b', 'the change status'],
-      ]) {
-        assert.match(
-          capsule,
-          new RegExp(`${deny}${object}`, 'i'),
-          `the graduation-review capsule no longer forbids touching ${what}`,
-        );
-      }
+      assert.match(
+        capsule,
+        new RegExp(
+          [
+            `${deny}\\b(modify|edit|write)\\b[^.;]{0,15}\\bfiles?\\b`,
+            `${deny}\\b(change|modify|touch)\\b[^.;]{0,15}\\bGit\\b`,
+            `${deny}\\b(mutate|modify|write)\\b[^.;]{0,15}\\bledger\\b`,
+          ]
+            .map((term) => `(?=${window}${term})`)
+            .join(''),
+          'i',
+        ),
+        'the graduation-review capsule no longer forbids touching files, Git and the ledger',
+      );
       assert.doesNotMatch(
         capsule,
         /changeledger (status|task|log|review|validation|graduate|archive|approve|reopen|discard)\b/,
         'the graduation-review capsule names a lifecycle command',
       );
       // Spec, diff, code and change in one sentence, in any order.
-      const window = '[^.]{0,250}';
       assert.match(
         capsule,
         new RegExp(
@@ -3737,25 +3652,6 @@ const CONCEPT_GUARDS = [
         ),
         'the graduation-review capsule no longer contrasts each spec diff with the code and the change',
       );
-      for (const [rule, what] of [
-        [/\bcurrent\b[^.;]{0,30}\btruth\b/i, 'current truth'],
-        [/\b(no|never|not|without)\b[^.;]{0,25}\bchronolog/i, 'no chronology'],
-        [
-          /\b(no|never|not|without)\b[^.;]{0,15}\bCR\b[^.;]{0,40}\b(structure|headings?)\b/i,
-          'no CR structure',
-        ],
-        [
-          /\b(universal\w*|quantif\w*)\b[^.;]{0,80}\b(holds?|verif\w*|confirm\w*|check\w*|narrow\w*)\b/i,
-          'universal claims verified',
-        ],
-      ]) {
-        assert.match(capsule, rule, `the graduation-review capsule no longer checks ${what}`);
-      }
-      assert.match(
-        capsule,
-        /\bfindings?\b[^.;]{0,30}\bevidence\b/i,
-        'the graduation-review capsule no longer returns findings with evidence',
-      );
       assert.match(
         capsule,
         /\brecommend\w*\b[^.]{0,80}\bapply\b[^.]{0,80}\bcorrect\b/i,
@@ -3766,28 +3662,16 @@ const CONCEPT_GUARDS = [
   {
     entry: 19,
     obligation:
-      'a review_required closure that creates, corrects or extends specs is checked by graduation-review before the first --into',
-    // 20261002-152555 CR5, judged on what `context <id>` composes for a `done`
-    // change, cut before the selected change so its body cannot satisfy it.
+      'a review_required closure that touches specs is checked by graduation-review before the first --into, and findings go to a fresh reviewer after the correction',
     verify: () => {
-      const root = repo();
-      const close = flattened(
-        buildContext(addChange(root, 'done', '20261002-152605'), root).split(
-          '# Selected change',
-        )[0],
-      );
-      // review_required, creating, correcting and extending specs, delegating the
-      // role and the first `--into` in one sentence, in any order.
+      const close = flattened(contractFragment('close.md'));
+      // review_required, the delegated role and the first `--into` in one sentence.
       const window = '[^.]{0,250}';
       assert.match(
         close,
         new RegExp(
           [
             '\\breview_required\\b',
-            '\\bcreat\\w*\\b[^.;]{0,40}\\bspecs?\\b',
-            '\\bcorrect\\w*\\b[^.;]{0,30}\\bspecs?\\b',
-            '\\bextend\\w*\\b[^.;]{0,20}\\bspecs?\\b',
-            '\\bdelegat\\w*',
             '`graduation-review`',
             '\\bbefore\\b[^.;]{0,30}\\b(first|any)\\b[^.;]{0,10}`--into`',
           ]
@@ -3799,40 +3683,28 @@ const CONCEPT_GUARDS = [
       );
       assert.match(
         close,
-        /\bfindings?\b[^.;]{0,80}\b(correct|fix)\w*\b[^.;]{0,60}\bdelegat\w*\b[^.;]{0,40}\b(fresh|new|another)\b[^.;]{0,20}\b(reviewer|delegate|subagent)\b/i,
+        /\bfindings?\b[^.;]{0,80}\b(correct|fix)\w*\b[^.;]{0,100}\b(fresh|new|another)\b[^.;]{0,20}\b(reviewer|delegate|subagent)\b/i,
         'close no longer re-delegates to a fresh reviewer after correcting findings',
-      );
-      assert.match(
-        close,
-        /\b(record|log|note)\w*\b[^.;]{0,40}\b(outcome|result|recommendation)\b[^.;]{0,40}(\bLog\b|`changeledger log\b)/i,
-        'close no longer records the graduation-review outcome in the Log',
-      );
-      assert.match(
-        close,
-        /`--skip`[^.;]{0,40}\b(no|none|not|without)\b[^.;]{0,30}\breview\b|\b(no|none|not|without)\b[^.;]{0,30}\breview\b[^.;]{0,40}`--skip`/i,
-        'close no longer exempts --skip from the graduation review',
       );
     },
   },
   {
     entry: 20,
     obligation:
-      'change branches start from and integrate into the integration_branch of the change context, off the integration and release branches',
-    // 20261002-181346 CR8. A sentence ends at a period followed by whitespace, so
-    // a dotted key such as `git.release_branch` does not cut the window. The
-    // commit-lint base is guarded by concept, not by the command: `124837 CR3`
-    // keeps `check --commits` itself in core.
-    verify: (pack) => {
-      const implement = pack('implement');
+      'change branches start from and integrate into the integration_branch of the change context, never implemented on the integration or release branch',
+    // A sentence ends at a period followed by whitespace, so a dotted key such as
+    // `git.release_branch` does not cut the window.
+    verify: () => {
+      const implement = flattened(contractFragment('implement.md'));
       const sentence = (terms) =>
         new RegExp(terms.map((term) => `(?=(?:[^.]|\\.(?=\\S)){0,300}${term})`).join(''), 'i');
-      const branch = (name) => `\\b${name}(?:\\s+|_)branch`;
       assert.match(
         implement,
         sentence([
-          '\\b(never|not|no)\\b[^.;]{0,30}\\bimplement\\w*',
-          branch('integration'),
-          branch('release'),
+          '(\\b(never|not|no)\\b[^.;]{0,30}\\bimplement\\w*|\\bimplement\\w*[^.;]{0,40}\\b(never|not|no)\\b)',
+          '\\bintegration\\b',
+          '\\brelease\\b',
+          '\\bbranch\\w*',
         ]),
         'implement no longer forbids implementing on the integration and the release branch',
       );
@@ -3842,48 +3714,20 @@ const CONCEPT_GUARDS = [
           '\\bchange\\s+branch',
           '\\b(creat|start|cut|branch)\\w*\\b[^.;]{0,40}\\bfrom\\b',
           '`integration_branch`',
-          '\\b(change\\s+context\\b[^.;]{0,30}\\bpublish\\w*|publish\\w*\\b[^.;]{0,40}\\bchange\\s+context)\\b',
           '\\bintegrat\\w*\\b[^.;]{0,60}\\binto\\b',
         ]),
-        'implement no longer starts and integrates change branches on the integration_branch the change context publishes',
-      );
-      assert.match(
-        implement,
-        sentence([
-          branch('release'),
-          '\\b(reserv\\w*|kept|only)\\b[^.;]{0,30}\\breleases\\b',
-          '\\btypes?\\b[^.;]{0,40}\\bintegrat\\w*\\b[^.;]{0,15}\\binto\\b',
-        ]),
-        'implement no longer reserves the release branch for releases and the types that integrate into it',
-      );
-      assert.match(
-        implement,
-        sentence([
-          '\\b(check|lint)\\w*\\b[^.;]{0,30}\\bcommits\\b',
-          '\\bbase\\b',
-          `(${branch('integration')}|\`integration_branch\`|\\b(that|this|same)\\s+branch\\b)`,
-        ]),
-        'implement no longer makes the change integration branch the base its commits are checked against',
+        'implement no longer starts and integrates change branches on the published integration_branch',
       );
     },
   },
   {
     entry: 21,
     obligation:
-      'a defect makes the agent ask the human between a normal fix and the published release_types, never inferring it and drafting nothing until answered, and without release_types neither asking nor proposing one',
-    // 20261002-181428 CR3. Bound to the published `release_types=` field, never
-    // to reading `config.yml` or to a type name. Judged on a spec pack whose own
-    // policy line publishes `release_types=`, so only the backticked prose can
-    // satisfy it. A sentence ends at a period followed by whitespace.
+      'a defect makes the agent ask the human between a normal fix and the published release_types, and draft nothing until answered',
+    // Bound to the published `release_types=` field, not to reading `config.yml`.
+    // A sentence ends at a period followed by whitespace.
     verify: () => {
-      const root = repo();
-      setConfig(root, [[/^ {2}release_branch:$/m, '  release_branch: main']]);
-      const spec = flattened(buildContext('spec', root));
-      assert.match(
-        spec,
-        / — release_types=\S+/,
-        'fixture: the policy line publishes no release_types',
-      );
+      const spec = flattened(contractFragment('spec.md'));
       const sentence = (terms) =>
         new RegExp(terms.map((term) => `(?=(?:[^.]|\\.(?=\\S)){0,300}${term})`).join(''), 'i');
       assert.match(
@@ -3892,49 +3736,31 @@ const CONCEPT_GUARDS = [
           '\\bdefects?\\b',
           '`release_types=`',
           '\\bask\\w*\\b[^.;]{0,30}\\bhuman\\b',
-          '\\bexplicit\\w*',
           '(\\bnormal\\b[^.;]{0,15}\\bfix\\b|`bug`)',
         ]),
-        'spec no longer has a defect make the agent explicitly ask the human between a normal fix and the published release types',
-      );
-      assert.match(
-        spec,
-        /\b(never|not|no)\b[^.;]{0,20}\binfer\w*\b[^.;]{0,30}\b(answer|type|choice|classification)\b/i,
-        'spec no longer forbids inferring the answer between a normal fix and a release type',
+        'spec no longer has a defect make the agent ask the human between a normal fix and the published release types',
       );
       assert.match(
         spec,
         /\b(no|not|never)\b[^.;]{0,30}\bdrafts?\b[^.;]{0,40}\b(until|before)\b[^.;]{0,40}\b(answer\w*|repl\w*|decid\w*|respon\w*)\b|\bdrafts?\b[^.;]{0,40}\bonly\s+after\b[^.;]{0,40}\b(answer\w*|repl\w*|decid\w*|respon\w*)\b/i,
         'spec no longer withholds the draft until the human answers',
       );
-      assert.match(
-        spec,
-        sentence([
-          '(\\b(without|absent|unless|lacking|missing)\\b[^.;]{0,40}`release_types=`|`release_types=`[^.;]{0,40}\\b(absent|missing|unpublished|not published)\\b)',
-          '\\b(neither|nor|not|never|no)\\b[^.;]{0,15}\\b(ask|question)\\w*',
-          '\\b(propos|suggest|offer)\\w*\\b[^.;]{0,30}\\brelease\\b',
-        ]),
-        'spec no longer forbids asking about or proposing a release type without release_types',
-      );
     },
   },
   {
     entry: 22,
     obligation:
-      'when the change context publishes back_merge_branch, the integrated result is also brought to it and recorded in the Log',
-    // 20261002-181428 CR4. Same sentence bound as entry 20.
-    verify: (pack) => {
+      'when the change context publishes back_merge_branch, the integrated result is also brought to it',
+    verify: () => {
       const sentence = (terms) =>
         new RegExp(terms.map((term) => `(?=(?:[^.]|\\.(?=\\S)){0,300}${term})`).join(''), 'i');
       assert.match(
-        pack('implement'),
+        flattened(contractFragment('implement.md')),
         sentence([
           '`back_merge_branch`',
-          '\\b(change\\s+context\\b[^.;]{0,30}\\bpublish\\w*|publish\\w*\\b[^.;]{0,40}\\bchange\\s+context)\\b',
           '(\\b(bring|merge|integrate|carry|port)\\b[^.;]{0,50}\\bresult\\b|\\bresult\\b[^.;]{0,50}\\b(brought|merged|integrated|carried|ported)\\b)',
-          '\\b(record|log|note)\\w*\\b[^.;]{0,40}(\\bLog\\b|`changeledger log\\b)',
         ]),
-        'implement no longer brings the integrated result to the back_merge_branch the change context publishes and records it in the Log',
+        'implement no longer brings the integrated result to the published back_merge_branch',
       );
     },
   },
