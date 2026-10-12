@@ -135,10 +135,26 @@ export function changeIntegrationBranch(config, type) {
   if (roleError) throw new Error(roleError);
   if (typeConfig?.integrates_into !== 'release') return integrationBranch(config);
   const branch = releaseBranch(config);
-  if (branch === undefined) {
-    throw new Error(`type "${type}" integrates into git.release_branch, which is not declared`);
-  }
+  if (branch === undefined) throw new Error(undeclaredReleaseBranchMessage(type));
   return branch;
+}
+
+// The common stretch of both refusals: `changeIntegrationBranch` throws it as
+// is, and `releaseBranchRequirementError` extends it with the action to take,
+// so the two messages cannot drift apart.
+function undeclaredReleaseBranchMessage(type) {
+  return `type "${type}" integrates into git.release_branch, which is not declared`;
+}
+
+// The defect a change of `type` carries when the repo declares no release
+// branch for a type that integrates into it, or `undefined` when it carries
+// none. `new` refuses to create such a change with it and `check` reports it on
+// one that already exists (20261012-174310). A malformed `git.release_branch`
+// throws from `releaseBranch`, as it does for `changeIntegrationBranch`.
+export function releaseBranchRequirementError(config, type) {
+  if (config?.types?.[type]?.integrates_into !== 'release') return undefined;
+  if (releaseBranch(config) !== undefined) return undefined;
+  return `${undeclaredReleaseBranchMessage(type)} — set git.release_branch in .changeledger/config.yml, for example "main"`;
 }
 
 function isMapping(value) {

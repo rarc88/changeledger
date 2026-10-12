@@ -1833,6 +1833,107 @@ test('181428 CR1: init declares the hotfix type after bug and check stays clean'
   assert.equal(checked.code, 0, checked.err);
 });
 
+// 20261012-174310 CR1/CR5-CR7 — the first real use of the shipped `hotfix` type
+// in a fresh repo: `new` refuses while `git.release_branch` is empty, and once
+// the branch is declared the change is created, checks clean and loads.
+const HOTFIX_REQUIREMENT =
+  'type "hotfix" integrates into git.release_branch, which is not declared — set git.release_branch in .changeledger/config.yml, for example "main"';
+
+test('174310 CR7: a fresh repo refuses new hotfix until release_branch is declared, then it loads end to end', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
+  assert.equal(runIn(root, env, 'init').code, 0);
+  const changesDir = path.join(root, '.changeledger', 'changes');
+
+  const fresh = runIn(root, env, 'check');
+  assert.equal(fresh.code, 0, fresh.err);
+  assert.equal(fresh.out.trim(), '✓ 0 change(s) valid');
+
+  const refused = spawnIn(root, env, 'new', 'hotfix', 'x', 'X', '--owner', 'Roberto Ruiz');
+  assert.equal(refused.code, 1);
+  assert.equal(refused.err.trim(), `Error: ${HOTFIX_REQUIREMENT}`);
+  assert.deepEqual(fs.readdirSync(changesDir), []);
+  const printed = spawnIn(
+    root,
+    env,
+    'new',
+    'hotfix',
+    'y',
+    'Y',
+    '--print',
+    '--owner',
+    'Roberto Ruiz',
+  );
+  assert.equal(printed.code, 1);
+  assert.equal(printed.err.trim(), `Error: ${HOTFIX_REQUIREMENT}`);
+  assert.equal(printed.out, '');
+  assert.equal(runIn(root, env, 'new', 'bug', 'x', 'X', '--owner', 'Roberto Ruiz').code, 0);
+  fs.rmSync(path.join(changesDir, fs.readdirSync(changesDir)[0]));
+
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  fs.writeFileSync(
+    configFile,
+    fs
+      .readFileSync(configFile, 'utf8')
+      .replace(/^ {2}release_branch:.*$/m, '  release_branch: main'),
+  );
+  const created = runIn(root, env, 'new', 'hotfix', 'x', 'X', '--owner', 'Roberto Ruiz');
+  assert.equal(created.code, 0, created.err);
+  assert.match(created.out, /^Created .*\.changeledger\/changes\/\d{8}-\d{6}-x\.md$/m);
+  const [name] = fs.readdirSync(changesDir);
+  const id = name.slice(0, 15);
+
+  const checked = runIn(root, env, 'check');
+  assert.equal(checked.code, 0, checked.err);
+  assert.equal(checked.out.trim(), '✓ 1 change(s) valid');
+  const policy = (out) => out.split('\n').find((line) => line.startsWith('Effective policy:'));
+  const loaded = runIn(root, env, 'context', id);
+  assert.equal(loaded.code, 0, loaded.err);
+  assert.equal(
+    policy(loaded.out),
+    `Effective policy: language=en — tdd=on — release_types=hotfix — integration_branch=main — change_branch=hotfix/${id} — review_required(hotfix)=yes`,
+  );
+  const core = runIn(root, env, 'context');
+  assert.equal(core.code, 0, core.err);
+  assert.equal(policy(core.out), 'Effective policy: language=en — tdd=on — release_types=hotfix');
+});
+
+test('174310 CR2: check reports a hotfix change that reached a repo without release_branch', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
+  assert.equal(runIn(root, env, 'init').code, 0);
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  const original = fs.readFileSync(configFile, 'utf8');
+  fs.writeFileSync(
+    configFile,
+    original.replace(/^ {2}release_branch:.*$/m, '  release_branch: main'),
+  );
+  assert.equal(runIn(root, env, 'new', 'hotfix', 'x', 'X', '--owner', 'Roberto Ruiz').code, 0);
+  const [name] = fs.readdirSync(path.join(root, '.changeledger', 'changes'));
+
+  // The branch is retired after the change exists.
+  fs.writeFileSync(configFile, original);
+  const checked = spawnIn(root, env, 'check');
+  assert.equal(checked.code, 1);
+  assert.ok(
+    checked.err.includes(`  error  ${name}: ${HOTFIX_REQUIREMENT}`),
+    checked.err + checked.out,
+  );
+  assert.ok(checked.out.includes('1 error(s), 0 warning(s) — 1 change(s)'), checked.out);
+
+  fs.writeFileSync(
+    configFile,
+    original.replace(/^ {2}release_branch:.*$/m, '  release_branch: main'),
+  );
+  const clean = runIn(root, env, 'check');
+  assert.equal(clean.code, 0, clean.err);
+  assert.equal(clean.out.trim(), '✓ 1 change(s) valid');
+});
+
 // --- 20261002-161641: a state ref holding collections this CLI does not know --
 
 // Like `runIn`, but stderr is captured on success too: the warning under test

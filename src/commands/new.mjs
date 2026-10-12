@@ -3,7 +3,12 @@ import path from 'node:path';
 import { parseChange } from '../change.mjs';
 import { repoIsActivated, writeLedgerFiles } from '../change-store.mjs';
 import { checkRepo, newErrors } from '../check.mjs';
-import { findChangeledgerDir, loadConfig, resolveRepoPath } from '../config.mjs';
+import {
+  findChangeledgerDir,
+  loadConfig,
+  releaseBranchRequirementError,
+  resolveRepoPath,
+} from '../config.mjs';
 import { assertSupportedSchema } from '../config-migration.mjs';
 import { ownerHandle as defaultOwnerHandle } from '../git.mjs';
 import { loadRepo } from '../repo.mjs';
@@ -42,7 +47,7 @@ export function newChange(
 
   const config = loadConfig(changeledgerDir);
   assertSupportedSchema(config);
-  const typeDef = requireType(config, type);
+  const typeDef = requireCreatableType(config, type);
 
   // Born with an owner: an explicit --owner always wins; otherwise resolve the
   // local git identity. Tolerant — an unresolvable identity (ownerHandle
@@ -122,6 +127,18 @@ function requireType(config, type) {
   return typeDef;
 }
 
+// `requireType` plus the repo-level condition that makes a change of this type
+// loadable at all: a release type needs a declared `git.release_branch`, or the
+// change would be born stuck (20261012-174310). It runs before an id is reserved
+// or a byte is written. `--from` and `apply` reach the same refusal through the
+// candidate check in `prepareNewChange`, which words it as a document defect.
+function requireCreatableType(config, type) {
+  const typeDef = requireType(config, type);
+  const requirement = releaseBranchRequirementError(config, type);
+  if (requirement) throw new Error(requirement);
+  return typeDef;
+}
+
 // Renders the scaffold — id, frontmatter and the active stage headings — and
 // writes nothing anywhere. This is what `--print` emits so an author can
 // compose the whole document before it exists in either store, and what
@@ -136,7 +153,7 @@ export function scaffoldChange(
 ) {
   const repo = loadRepo(cwd);
   assertSupportedSchema(repo.config);
-  const typeDef = requireType(repo.config, type);
+  const typeDef = requireCreatableType(repo.config, type);
   let created = now;
   let id = idFromTimestamp(created);
   while (idTakenInRepo(repo, id)) {

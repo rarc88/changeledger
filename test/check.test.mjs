@@ -669,6 +669,79 @@ test('181346 CR2/CR4: valid roles pass, and an undeclared release branch is not 
   }
 });
 
+// 20261012-174310: a change of a release type is stuck while no release branch
+// is declared, so `check` reports it on the change itself.
+const REQUIREMENT =
+  'type "hotfix" integrates into git.release_branch, which is not declared — set git.release_branch in .changeledger/config.yml, for example "main"';
+const hotfixConfig = (git) => ({
+  ...config,
+  statuses: [...config.statuses, 'discarded'],
+  ...(git === undefined ? {} : { git }),
+  types: {
+    ...config.types,
+    hotfix: { stages: ['request', 'plan', 'log'], integrates_into: 'release' },
+  },
+});
+const hotfix = (status, { frontmatter, ...rest } = {}) =>
+  change({ frontmatter: { type: 'hotfix', status, ...frontmatter }, ...rest });
+
+test('174310 CR2: a non-terminal hotfix change without git.release_branch is one error on that change', () => {
+  const open = hotfixConfig().statuses.filter((s) => s !== 'done' && s !== 'discarded');
+  for (const git of [undefined, { release_branch: null }, { integration_branch: 'dev' }]) {
+    for (const status of open) {
+      const subject = hotfix(status);
+      const { errors } = checkRepo({ config: hotfixConfig(git), changes: [subject] });
+      assert.deepEqual(errors, [{ file: subject.name, message: REQUIREMENT }], `${status}`);
+    }
+  }
+});
+
+test('174310 CR3: done and discarded hotfix changes are not reported', () => {
+  const changes = [
+    hotfix('done', { name: '20260613-120001-a.md', frontmatter: { id: '20260613-120001' } }),
+    hotfix('discarded', { name: '20260613-120002-b.md', frontmatter: { id: '20260613-120002' } }),
+  ];
+  const { errors } = checkRepo({ config: hotfixConfig(), changes });
+  assert.equal(
+    errors.some((e) => e.message.includes('which is not declared')),
+    false,
+  );
+});
+
+test('174310 CR4: a declared release branch, a normal type or an integration role raise no error', () => {
+  const cases = [
+    [hotfixConfig({ release_branch: 'main' }), hotfix('draft')],
+    [
+      hotfixConfig(),
+      change({ frontmatter: { type: 'bug' }, stages: [{ key: 'request' }, { key: 'plan' }] }),
+    ],
+    [
+      {
+        ...hotfixConfig(),
+        types: {
+          ...config.types,
+          hotfix: { stages: ['request', 'plan', 'log'], integrates_into: 'integration' },
+        },
+      },
+      hotfix('draft'),
+    ],
+  ];
+  for (const [candidate, subject] of cases) {
+    const { errors } = checkRepo({ config: candidate, changes: [subject] });
+    assert.equal(
+      errors.some((e) => e.message.includes('which is not declared')),
+      false,
+      msgs(errors).join('; '),
+    );
+  }
+});
+
+test('174310 CR2: a malformed git.release_branch is reported once, not once more per change', () => {
+  const candidate = hotfixConfig({ release_branch: '' });
+  const { errors } = checkRepo({ config: candidate, changes: [hotfix('draft')] });
+  assert.deepEqual(msgs(errors), ['config "git.release_branch" must be a non-empty string']);
+});
+
 test('171002 CR1/CR5: every config with done requires in-validation before it', () => {
   const missing = {
     ...config,

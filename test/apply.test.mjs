@@ -199,6 +199,58 @@ test('CR2: one invalid entry keeps the whole batch off the ref', () => {
   assert.throws(() => stateDoc(root, 'changes/20260811-100000-alpha.md'));
 });
 
+// 20261012-174310 — a `new` entry for a release type inherits the refusal of
+// `new --from` while `git.release_branch` is undeclared, and nothing else in the
+// manifest lands.
+test('174310 CR6: a new entry of a release type without a release branch fails the whole batch', () => {
+  const { root, file, text, id } = inactiveRepo();
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  const setRelease = (value) =>
+    fs.writeFileSync(
+      configFile,
+      fs
+        .readFileSync(configFile, 'utf8')
+        .replace(/^ {2}release_branch:.*$/m, `  release_branch: ${value}`),
+    );
+  setRelease('main');
+  const hotfix = filled(
+    scaffoldChange(
+      { type: 'hotfix', slug: 'y', title: 'Y', owner: 'rarc88', now: '2026-08-11T10:00:00Z' },
+      root,
+    ).text,
+  );
+  setRelease('');
+  const a = draftFor(root, { slug: 'alpha', title: 'Alpha', now: '2026-08-11T11:00:00Z' });
+  const before = fs.readdirSync(path.join(root, '.changeledger', 'changes')).sort();
+
+  assert.throws(
+    () =>
+      apply(
+        {
+          from: manifest(root, [
+            { target: 'new', slug: 'alpha', content: a },
+            { target: 'new', slug: 'y', content: hotfix },
+            { target: `change:${id}`, content: text.replace('Cuerpo redactado', 'Otro') },
+          ]),
+        },
+        root,
+      ),
+    (e) => {
+      assert.match(e.message, /entry 2/);
+      assert.ok(
+        e.message.includes(
+          '20260811-100000-y.md: type "hotfix" integrates into git.release_branch, which is not declared — set git.release_branch in .changeledger/config.yml, for example "main"',
+        ),
+        e.message,
+      );
+      return true;
+    },
+  );
+
+  assert.deepEqual(fs.readdirSync(path.join(root, '.changeledger', 'changes')).sort(), before);
+  assert.equal(fs.readFileSync(file, 'utf8'), text);
+});
+
 test('CR3: agent events share the single entry and keep their own validations', () => {
   const { root, name, id } = activatedRepo({ status: 'approved' });
   const before = stateCommits(root);
