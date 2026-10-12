@@ -2,7 +2,7 @@
 id: "20261012-213243"
 title: "Los fixtures de usage anuncian la forma lógica del temporal y el CLI no los casa en macOS"
 type: bug
-status: in-review
+status: in-validation
 created: 2026-10-12T21:32:43Z
 depends_on: []
 branch: bug/20261012-213243
@@ -245,3 +245,4 @@ symlink a él; `<id>` es el id del change del fixture.
 - **2026-10-12T21:54:03Z** `[note]` Corrección tras la revisión (ronda 1): se acotan el comentario de repoWithChange (en macOS os.tmpdir() vive bajo /var, enlace a /private/var; en los runners de Windows puede llevar un nombre corto 8.3; getcwd y git en forma física se atribuyen a POSIX), el de CR4 («need not be») y el motivo del skip de CR4 («may need privileges»). Fe de erratas de la nota de implementación: donde dice una ruta absoluta como forma lógica debía decir la forma lógica de $PWD (la shell la expandió al registrarla), y agent.test.mjs tiene 183 tests, no 181 (181/181 era el estado antes de añadir los dos tests nuevos). Tras la corrección: pnpm verify 2002/2002 y agent.test.mjs 183/183 con TMPDIR por symlink. Corrección hecha en un worktree aparte porque el worktree principal está en la rama de #20261012-212527.
 - **2026-10-12T21:54:04Z** `[status]` in-progress → in-review
 - **2026-10-12T21:54:11Z** `[note]` Mandato de la revisión de confirmación: los defectos nombrados (prosa sin acotar en los comentarios de repoWithChange y CR4, motivo del skip, notas del Log) y regresiones de la corrección, sobre el diff sin commit encima de a991bfbb en el worktree aparte.
+- **2026-10-12T21:58:29Z** `[review]` in-review → in-validation (delegated subagent, clean context)
