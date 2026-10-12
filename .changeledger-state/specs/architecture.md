@@ -171,8 +171,8 @@ fuera de `documents` sin leer su contenido y la expone en `unknown`; el bin
 avisa una vez por proceso pidiendo actualizar la instalación y `check` repite
 el aviso como warning. `mutateState` rechaza borrar o reescribir sus entradas,
 el merge de `sync` rechaza perderlas y `cutover` se niega a comparar o deshacer
-sobre una ref que las contenga; el fast-forward de `sync` no lo comprueba. Una
-ruta mal formada sigue fallando con `invalid state path`.
+sobre una ref que las contenga. Una ruta mal formada sigue fallando con
+`invalid state path`.
 La activación es checkout-independiente — `refs/changeledger/activation`
 apunta a un commit cuya `authority.yml` nombra la ref de verdad y el ledger
 que la activación posee: `ledger_dir`, la ruta del `.changeledger` relativa
@@ -476,7 +476,14 @@ la ref de estado por git puro sobre el remoto configurado (`origin`, o el
 adaptadores por proveedor. Siempre compara antes de mover: fetch de la copia
 remote-tracking y clasificación en cuatro estados — idéntico (no-op), remoto
 delante (fast-forward local por CAS), local delante (push, nunca forzado: el
-chequeo fast-forward del remoto es su CAS), o divergencia. Una divergencia
+chequeo fast-forward del remoto es su CAS), o divergencia. Antes de adoptar por
+fast-forward o de aterrizar una reconciliación, comprueba por ruta que el árbol
+a adoptar conserva cada ruta del tip local y los bytes de cada registro de
+consumo; si no, falla con `state revision <oid> drops "<ruta>", present in the
+local state; sync adopted nothing` (o `merged state …`, o `rewrites usage
+record …`) sin mover la ref local ni publicar. En la fusión, una entrada de una
+colección desconocida perdida conserva su propio diagnóstico. Publicar un tip
+local que va por delante no ejecuta esa comprobación. Una divergencia
 cuyos lados tocan documentos disjuntos respecto del merge-base se reconcilia
 sola: árbol unido aterrizado como UN commit con ambos padres (los dos
 journals se preservan íntegros; un rebase reescribiría commits que otros
