@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-10-12T14:18:09Z
 depends_on: []
+reviewed: true
 branch: bug/20261012-141809
 related_to: ["20261012-125623", "20261002-161641", "20261012-125611"]
 owner: rarc88
@@ -120,3 +121,4 @@ la herramienta.
 - **2026-10-12T15:53:58Z** `[note]` Mandato de la revisión de confirmación: el hallazgo de la ronda 1 (frase obsoleta de docs/usage-capture.md) sobre el diff sin commit encima de 7fc8198b, y regresiones que introduzca.
 - **2026-10-12T15:55:21Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-10-12T16:39:43Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-10-12T16:40:33Z** `[graduation]` spec: `architecture.md`
