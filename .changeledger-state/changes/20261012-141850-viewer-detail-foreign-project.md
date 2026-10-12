@@ -78,3 +78,4 @@ Interfaces externas: ninguna.
 - **2026-10-12T16:09:30Z** `[note]` Mandato de revisión: la superficie que el change gobierna — el detalle de change al cambiar de proyecto (closeDetail en la selección, openDetail sobre selectedRepo, gotoChange y su toast) en src/viewer/public/app.js con sus tests, sobre dev..HEAD.
 - **2026-10-12T16:14:09Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-10-12T16:34:55Z** `[validation]` in-validation → in-progress (human rejected via conversation): Añadir la guarda de la carrera en gotoChange: si el proyecto seleccionado cambia mientras carga el del resultado, no abrir un change del otro proyecto con el mismo id.
+- **2026-10-12T16:35:08Z** `[note]` Por decisión del humano en la validación se añade CR3: la carrera que la revisión reprodujo (un resultado de B pulsado, C seleccionado mientras carga B, y C con un change del mismo id) abría el change de C.
