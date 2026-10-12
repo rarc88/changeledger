@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-10-07T17:23:11Z
 depends_on: []
+reviewed: true
 branch: bug/20261007-172311
 related_to: ["20261007-135148"]
 owner: rarc88
@@ -82,3 +83,4 @@ Interfaces externas: ninguna.
 - **2026-10-12T12:31:08Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-10-12T12:31:12Z** `[note]` Notas del review para la fusión y seguimiento: test/viewer-metadata.test.mjs chocará con 20261007-172305 porque las dos ramas declaran const NO_PROJECTS_TEXT en el nivel superior; al fusionar hay que dejar una sola declaración. renderGlobal no lleva revisión, así que una respuesta vieja puede pintar encima de una búsqueda más nueva, y el sondeo sin proyectos pasa a ser una fuente más de esa carrera (previa a este change).
 - **2026-10-12T12:51:48Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-10-12T12:52:12Z** `[graduation]` spec: `viewer.md`
