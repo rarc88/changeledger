@@ -2,9 +2,10 @@
 id: "20261012-174925"
 title: Recortar los guards de concepto de las entradas 16 a 22
 type: refactor
-status: approved
+status: in-progress
 created: 2026-10-12T17:49:25Z
 depends_on: []
+branch: refactor/20261012-174925
 related_to: ["20261007-135159", "20261007-172322", "20261012-174407", "20260730-002730", "20260730-214503", "20260729-143656", "20261002-113320", "20261002-113435", "20261002-152555", "20261002-181346", "20261002-181428"]
 owner: rarc88
 ---
@@ -118,3 +119,5 @@ Interfaces externas: ninguna. Superficie enteramente en `test/context.test.mjs`.
 ## Log
 - **2026-10-12T17:49:25Z** `[version]` 0.18.0-dev
 - **2026-10-12T17:58:17Z** `[status]` draft → approved (human via conversation)
+- **2026-10-12T17:58:42Z** `[status]` approved → in-progress
+- **2026-10-12T17:58:42Z** `[branch]` set: refactor/20261012-174925 (auto)
