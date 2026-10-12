@@ -57,10 +57,11 @@ Interfaces externas: ninguna.
   - **Verify:** `pnpm test`
   - **Criteria:** CR1, CR2
   - **Resolved:** `2026-10-12T13:57:31Z`
-- [ ] Fijar con un test el filtro de at del análisis
+- [x] Fijar con un test el filtro de at del análisis
   - **Target:** `test/usage-analysis.test.mjs`
   - **Verify:** `pnpm test`
   - **Criteria:** CR3
+  - **Resolved:** `2026-10-12T13:57:31Z`
 - [ ] Ejecutar el gate completo
   - **Verify:** `pnpm verify`
   - **Support:**
