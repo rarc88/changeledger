@@ -2,9 +2,10 @@
 id: "20261007-172316"
 title: Decidir el mensaje vacío de Usage sin un análisis por change
 type: refactor
-status: approved
+status: in-progress
 created: 2026-10-07T17:23:16Z
 depends_on: []
+branch: refactor/20261007-172316
 related_to: ["20261007-135142", "20261002-140242"]
 owner: rarc88
 ---
@@ -62,3 +63,5 @@ que cambiaría el esquema público para un detalle del viewer.
 ## Log
 - **2026-10-07T17:23:16Z** `[version]` 0.18.0-dev
 - **2026-10-12T11:14:36Z** `[status]` draft → approved (human via conversation)
+- **2026-10-12T12:31:21Z** `[status]` approved → in-progress
+- **2026-10-12T12:31:21Z** `[branch]` set: refactor/20261007-172316 (auto)
