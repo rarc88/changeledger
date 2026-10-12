@@ -2,7 +2,7 @@
 id: "20261007-172305"
 title: El viewer muestra el error de carga de un proyecto en la vista activa
 type: bug
-status: in-progress
+status: in-review
 created: 2026-10-07T17:23:05Z
 depends_on: []
 branch: bug/20261007-172305
@@ -97,3 +97,4 @@ Interfaces externas: ninguna; los errores llegan de `/api/repo` (por ejemplo
 - **2026-10-12T12:07:39Z** `[note]` El orquestador corrige el Given de CR5: al recorrerlo, un proyecto registrado cuya ruta ya no existe aparece como gone-project (missing), deshabilitado en el selector, y el viewer no lo selecciona al cargar; si la ruta desaparece con el proyecto ya cargado, state.repo sigue con el último payload y el error sólo se ve en Ledger, el caso que el implementador dejó fuera de CR1-CR4. El caso alcanzable de una primera carga fallida con proyecto seleccionado es un proyecto que existe y cuya carga falla, y CR5 pasa a describir ese.
 - **2026-10-12T12:07:39Z** `[note]` Implementación delegada (subagente, tier medio), tareas 1, 2 y 4: state.loadError en app-state.js, que selectProject limpia; el catch de la carga lo guarda y lo pinta salvo en projects; una carga correcta lo limpia y reaplica el payload aunque su texto coincida con el anterior; la guarda de render() pinta el error si hay proyecto seleccionado y error, y si no el mensaje de sin proyectos. Red de CR1-CR3 con No projects registered donde se esperaba boom; CR4 verde antes y después. Mutantes M1-M6 (no guardar el error, no limpiarlo, guarda que lo ignora, catch que no pinta, selectProject que lo conserva y sin reaplicar un payload idéntico); todos fallan. pnpm verify en verde con 1780/1780. Decisiones no especificadas: en projects un fallo no pinta nada; CR2 se prueba con setTextFilter y render porque oninput sólo se enlaza en bootstrap(); un fallo con el repo ya cargado sigue siendo pasajero. Residuos: mientras la primera carga está en vuelo, render() muestra No projects registered; el sondeo que devuelve la vista a Board es de 20261007-172311; renderGlobal no se toca.
 - **2026-10-12T12:07:40Z** `[note]` CR5 recorrido por el orquestador en el navegador del preview, con el registro guardado y restaurado después: proyecto temporal walk-proj con su config.yml roto (/api/repo responde 500); tras seleccionarlo, Board, Table, Graph, Ledger y Metrics muestran Internal server error, la búsqueda no lo tapa y la consola no registra ningún TypeError; al restaurar la config, el sondeo siguiente vuelve a pintar el board vacío del proyecto. También se quitaron del registro tres entradas ctx-* que había dejado la revisión de 20261007-135159 apuntando a carpetas ya borradas.
+- **2026-10-12T12:07:49Z** `[status]` in-progress → in-review
