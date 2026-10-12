@@ -88,10 +88,11 @@ la herramienta.
 
 ## Plan
 
-- [ ] Escribir pruebas fallidas del fast-forward y de la reconciliación que pierden identidades
+- [x] Escribir pruebas fallidas del fast-forward y de la reconciliación que pierden identidades
   - **Target:** `test/sync.test.mjs`
   - **Verify:** `pnpm test`
   - **Criteria:** CR1, CR2, CR3, CR4, CR5, CR6
+  - **Resolved:** `2026-10-12T15:43:50Z`
 - [ ] Comprobar la supervivencia por ruta con un helper común antes de adoptar
   - **Target:** `src/state-store.mjs, src/commands/sync.mjs`
   - **Verify:** `pnpm test`
