@@ -451,8 +451,13 @@ en nombres de spec.
 Para una spec nueva, `--new` llama a `scaffoldSpec()`: crea una semilla desde
 la fase que el tipo del change declara en `types.<tipo>.seed_stage` o, si no la
 declara, desde Specification y, a falta de ella, Proposal. `checkConfig` exige
-que `seed_stage` sea texto (`seed_stage must be a string`) y una de las stages
-activas del tipo (`seed_stage "<s>" is not an active stage`). La semilla lleva
+que `seed_stage` sea texto (`seed_stage must be a string`), una de las stages
+activas del tipo (`seed_stage "<s>" is not an active stage`) y una fase que
+pueda sembrar una spec: `investigation`, `proposal` o `specification`
+(`config type "<t>": seed_stage "<s>" cannot seed a spec; use one of:
+investigation, proposal, specification`); `request`, `plan` y `log` se
+rechazan. Cada tipo recibe a lo sumo uno de esos errores, en ese orden. La
+semilla lleva
 un marcador explícito de scaffold, pero no escribe el
 Log ni fija `reviewed`; el change continúa pendiente. El agente reemplaza la
 semilla por verdad actual durable y elimina el marcador. Después `--into`
