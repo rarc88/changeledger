@@ -91,10 +91,11 @@ desde la copia remota que se protege aquí viene de `20260811-163203`.
 
 ## Plan
 
-- [ ] Escribir pruebas fallidas de activate con mínimo superior e inferior
+- [x] Escribir pruebas fallidas de activate con mínimo superior e inferior
   - **Target:** `test/activate.test.mjs`
   - **Verify:** `node --test test/activate.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4
+  - **Resolved:** `2026-10-12T11:53:10Z`
 - [ ] Comparar el mínimo de la revisión a adoptar antes de sembrar o activar
   - **Target:** `src/commands/activate.mjs`
   - **Verify:** `node --test test/activate.test.mjs test/version-guard.test.mjs`
