@@ -2,7 +2,7 @@
 id: "20261012-174925"
 title: Recortar los guards de concepto de las entradas 16 a 22
 type: refactor
-status: in-review
+status: in-progress
 created: 2026-10-12T17:49:25Z
 depends_on: []
 branch: refactor/20261012-174925
@@ -132,3 +132,4 @@ Interfaces externas: ninguna. Superficie enteramente en `test/context.test.mjs`.
 - **2026-10-12T18:04:31Z** `[note]` Implementación cerrada: la entrada 17 se retira (duplica 113435 CR1/CR5) y las entradas 16 y 18-22 quedan en 14 asserts (eran 33 con la 17), juzgando solo contractFragment(<dueño>) aplanado; pnpm verify en verde (1940 tests). Pasan a descansar solo en review: el perímetro y las correcciones de spec del tipo documentation; el override types.<type>.tdd en readiness.md (lo publica la línea Effective policy:); las cuatro reglas de spec que repite la cápsula graduation-review (verdad actual, sin cronología, sin estructura CR, universales verificados) y los hallazgos con evidencia; el registro en el Log y la exención --skip del review de graduación; en implement.md, la rama de release reservada para releases, la base de check --commits y el registro en el Log del back-merge; en spec.md, «nunca inferir» y la rama sin release_types= que ni pregunta ni propone. Caveat: una reformulación que debilita una obligación sin borrarla sigue en verde, igual que bajo 20260730-002730. Residuos fuera de alcance: el bucle de CONCEPT_GUARDS sigue construyendo repo() y pack para entradas que ya no los usan; el helper de oración está repetido en las entradas 20-22; DELEGATION_OBLIGATIONS queda para decisión humana.
 - **2026-10-12T18:04:39Z** `[status]` in-progress → in-review
 - **2026-10-12T18:04:59Z** `[note]` Mandato de revisión: la superficie que gobierna el change — CONCEPT_GUARDS de test/context.test.mjs (entradas 16-22 y cabecera) contra los fragmentos dueños, rango 0e7a5cc9..9522ec58.
+- **2026-10-12T18:11:54Z** `[review]` in-review → in-progress (retry): El texto de obligación de la entrada 16 dice «every divergence» pero spec.md la limita a «every divergence from an existing spec»; alinear obligación y mensaje del assert, y completar en el Log el residuo no declarado (prohibición de mover/cambiar status en la cápsula graduation-review, paso a blocked con divergencia sin decidir, definición del tipo documentation).
