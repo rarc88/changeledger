@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-10-02T16:16:41Z
 depends_on: []
+reviewed: true
 branch: feature/20261002-161641
 related_to: ["20261002-133728", "20260808-151640", "20260808-142200", "20260925-130844", "20260924-184354"]
 owner: rarc88
@@ -147,3 +148,4 @@ que es justo el fallo observado.
 - **2026-10-12T11:43:42Z** `[status]` in-progress → in-review
 - **2026-10-12T11:48:51Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-10-12T12:02:57Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-10-12T12:03:30Z** `[graduation]` spec: `architecture.md`
