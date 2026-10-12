@@ -291,11 +291,12 @@ criterio consume de forma automática el texto del log del CI, que se lee a mano
   - **Verify:** `node --test test/run-tests.test.mjs`
   - **Criteria:** CR2
   - **Resolved:** `2026-10-12T21:55:48Z`
-- [ ] Comprobar en el CI de Windows que las cuatro pruebas se saltan con su motivo
+- [x] Comprobar en el CI de Windows que las cuatro pruebas se saltan con su motivo
   y no figuran entre los fallos
   - **Target:** `test/run-tests.test.mjs`
   - **Verify:** verify: manual — en los logs de `verify (node 24 / windows-latest)` y `verify (node 26 / windows-latest)`, las cuatro líneas `﹣ CR3: … # <motivo>` y ninguna de ellas bajo `failing tests`
   - **Criteria:** CR1
+  - **Resolved:** `2026-10-12T22:14:49Z`
 - [x] Nombrar en la cabecera de `scripts/run-tests.mjs` el alcance en Windows:
   sólo Ctrl+C (SIGINT) y cerrar la consola (SIGHUP) llegan a los manejadores;
   cualquier terminación forzosa deja la raíz como SIGKILL; Ctrl+C en Windows no
