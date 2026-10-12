@@ -98,8 +98,9 @@ la herramienta.
   - **Verify:** `pnpm test`
   - **Criteria:** CR1, CR2, CR3, CR4, CR5, CR6
   - **Resolved:** `2026-10-12T15:43:50Z`
-- [ ] Actualizar la cabecera de `src/commands/sync.mjs` y los comentarios de `src/state-store.mjs` que describen qué comprueba cada camino
+- [x] Actualizar la cabecera de `src/commands/sync.mjs` y los comentarios de `src/state-store.mjs` que describen qué comprueba cada camino
   - **Support:**
+  - **Resolved:** `2026-10-12T15:43:51Z`
 - [ ] Ejecutar el gate completo
   - **Verify:** `pnpm verify`
   - **Support:**
