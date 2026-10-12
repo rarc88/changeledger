@@ -88,10 +88,11 @@ Interfaces externas: ninguna. Superficie enteramente en `test/context.test.mjs`.
 
 ## Plan
 
-- [ ] Retirar la entrada 17 y ajustar la cabecera del bloque a 21 entradas
+- [x] Retirar la entrada 17 y ajustar la cabecera del bloque a 21 entradas
   - **Target:** `test/context.test.mjs`
   - **Verify:** `node --test --test-name-pattern "113435" test/graduate.test.mjs`
   - **Criteria:** CR1, CR2
+  - **Resolved:** `2026-10-12T18:04:31Z`
 - [ ] Reducir las entradas 16, 18, 19, 20, 21 y 22 a los patrones conservados, juzgando `contractFragment(<dueño>)` aplanado y sin fixtures de repo
   - **Target:** `test/context.test.mjs`
   - **Verify:** `node --test --test-name-pattern "concept guard" test/context.test.mjs`
