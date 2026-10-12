@@ -2,7 +2,7 @@
 id: "20261012-174925"
 title: Recortar los guards de concepto de las entradas 16 a 22
 type: refactor
-status: in-progress
+status: in-review
 created: 2026-10-12T17:49:25Z
 depends_on: []
 branch: refactor/20261012-174925
@@ -130,3 +130,4 @@ Interfaces externas: ninguna. Superficie enteramente en `test/context.test.mjs`.
 - **2026-10-12T17:58:42Z** `[branch]` set: refactor/20261012-174925 (auto)
 - **2026-10-12T18:04:31Z** `[note]` Mutantes de borrado (CR4): 16 de 16 caen solo en su entrada dueña, con el mensaje de la obligación perdida (16a-c, 18a/18a2/18a3 —ficheros, Git y ledger comparten un mensaje—, 18b-d, 19a-b, 20a-b, 21a-b, 22). Reformulaciones (CR5): 13 de 13 dejan las 21 entradas en verde. Mutante de graduate.mjs (CR2): `const declared = undefined;` hace fallar 113435 CR1 y CR5; restaurado, los tres pasan. Todo sobre una copia en el scratchpad; templates/, src/, bin/ y AGENTS.md sin cambios.
 - **2026-10-12T18:04:31Z** `[note]` Implementación cerrada: la entrada 17 se retira (duplica 113435 CR1/CR5) y las entradas 16 y 18-22 quedan en 14 asserts (eran 33 con la 17), juzgando solo contractFragment(<dueño>) aplanado; pnpm verify en verde (1940 tests). Pasan a descansar solo en review: el perímetro y las correcciones de spec del tipo documentation; el override types.<type>.tdd en readiness.md (lo publica la línea Effective policy:); las cuatro reglas de spec que repite la cápsula graduation-review (verdad actual, sin cronología, sin estructura CR, universales verificados) y los hallazgos con evidencia; el registro en el Log y la exención --skip del review de graduación; en implement.md, la rama de release reservada para releases, la base de check --commits y el registro en el Log del back-merge; en spec.md, «nunca inferir» y la rama sin release_types= que ni pregunta ni propone. Caveat: una reformulación que debilita una obligación sin borrarla sigue en verde, igual que bajo 20260730-002730. Residuos fuera de alcance: el bucle de CONCEPT_GUARDS sigue construyendo repo() y pack para entradas que ya no los usan; el helper de oración está repetido en las entradas 20-22; DELEGATION_OBLIGATIONS queda para decisión humana.
+- **2026-10-12T18:04:39Z** `[status]` in-progress → in-review
