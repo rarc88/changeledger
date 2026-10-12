@@ -87,7 +87,15 @@ function init(root) {
 }
 
 function repoWithChange({ configExtra = '' } = {}) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-agent-'));
+  // Native realpath at the seat, as in `initStateRepo` (20260812-022248 CR2):
+  // on macOS os.tmpdir() lives under /var, a symlink to /private/var, and on
+  // Windows runners it can carry an 8.3 short name. On POSIX a CLI spawned in
+  // the root reads it from getcwd and git answers in physical form, so on macOS
+  // CI a session announced with the raw temp path went unmatched
+  // (20261012-213243).
+  const root = fs.realpathSync.native(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-agent-')),
+  );
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
   init(root);
   if (configExtra) fs.appendFileSync(path.join(root, '.changeledger', 'config.yml'), configExtra);
@@ -3599,6 +3607,8 @@ test('20261002-133728 CR2: in the worktree layout the record lands in .changeled
   const at = instantOf(read(), 'approved → in-progress');
   const [record] = usageRecords(root, id).filter((r) => r.to === 'in-progress');
   assert.match(record.name, usageNamePattern(id, at));
+  assert.equal(record.sessions.length, 1);
+  assert.equal(out.err, '');
   assert.equal(record.recorded_by, parseChange(read()).frontmatter.owner);
   assert.equal(fs.existsSync(gitCommonUsageDir(root)), false);
 
@@ -3610,6 +3620,99 @@ test('20261002-133728 CR2: in the worktree layout the record lands in .changeled
     paths.split('\n').includes(`.changeledger/usage/${record.name}`),
     `the commit must carry the record:\n${paths}`,
   );
+});
+
+// A directory that is a symlink to a real one, made by the test itself so the
+// shape does not depend on os.tmpdir(): `<base>/link` -> `<base>/real`, with
+// `base` already in native realpath form.
+function symlinkedDir(t) {
+  const base = fs.realpathSync.native(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-symlink-')),
+  );
+  t.after(() => fs.rmSync(base, { recursive: true, force: true }));
+  const real = path.join(base, 'real');
+  const link = path.join(base, 'link');
+  fs.mkdirSync(real);
+  fs.symlinkSync(real, link, 'dir');
+  return { real, link };
+}
+
+test('20261012-213243 CR1: repoWithChange is born in native realpath when the temp dir is a symlink', {
+  skip: process.platform === 'win32' && 'os.tmpdir() ignores TMPDIR on win32',
+}, (t) => {
+  const { real, link } = symlinkedDir(t);
+  const saved = process.env.TMPDIR;
+  process.env.TMPDIR = link;
+  let root;
+  try {
+    assert.equal(os.tmpdir(), link, 'the fixture temp dir is the symlink');
+    ({ root } = repoWithChange());
+  } finally {
+    if (saved === undefined) delete process.env.TMPDIR;
+    else process.env.TMPDIR = saved;
+  }
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  assert.equal(root, fs.realpathSync.native(root));
+  assert.ok(root.startsWith(`${real}${path.sep}`), `${root} should live under ${real}`);
+});
+
+test('20261012-213243 CR4: a repo reached through a symlink records usage for the session getcwd announces', {
+  skip: process.platform === 'win32' && 'symlinks may need privileges on win32',
+}, (t) => {
+  const { real, link } = symlinkedDir(t);
+  const logical = path.join(link, 'demo');
+  const physical = path.join(real, 'demo');
+  fs.mkdirSync(physical);
+  assert.notEqual(logical, fs.realpathSync.native(logical), 'demo is reached through the symlink');
+  assert.equal(fs.realpathSync.native(logical), physical);
+  fs.writeFileSync(path.join(physical, 'AGENTS.md'), '# rules\n');
+  initializeRepo(logical);
+  initGitFixture(logical);
+  git(logical, ['config', 'changeledger.usage.collector', 'ccusage']);
+  seedCommit(logical);
+  const env = {
+    CHANGELEDGER_USAGE_COMMAND: FAKE_COMMAND,
+    FAKE_CCUSAGE_ROOT: encodeProjectPath(physical),
+  };
+
+  const created = runUsageBin(
+    ['new', 'quick', 'second-step', 'Segundo paso', '--owner', 't'],
+    logical,
+    env,
+  );
+  assert.equal(created.code, 0, created.err);
+  const [, id] = created.out.match(/changes\/(\d{8}-\d{6})-second-step\.md/) ?? [];
+  assert.ok(id, `the new change id in:\n${created.out}`);
+  const file = path.join(logical, '.changeledger', 'changes', `${id}-second-step.md`);
+  fs.writeFileSync(
+    file,
+    fs.readFileSync(file, 'utf8').replace('## Request\n', '## Request\n\nSegundo paso.\n'),
+  );
+
+  const approved = runUsageBin(['approve', id], logical, env);
+  git(logical, ['checkout', '-q', '-b', `quick/${id}`]);
+  const started = runUsageBin(['status', id, 'in-progress'], logical, env);
+  for (const out of [created, approved, started]) {
+    assert.equal(out.code, 0, out.err);
+    assert.doesNotMatch(out.err, /^usage:/m);
+  }
+  assert.match(approved.out, new RegExp(`#${id} → approved \\(human via conversation\\)`));
+  assert.match(started.out, new RegExp(`#${id} → in-progress`));
+  assert.equal(approved.err, '');
+  assert.equal(started.err, '');
+
+  const records = usageRecords(logical, id);
+  // Compared as a set: records written within one second share their instant,
+  // so the file-name order need not be the order of the transitions.
+  assert.deepEqual(records.map((r) => `${r.event} ${r.from} -> ${r.to}`).sort(), [
+    'created null -> draft',
+    'status approved -> in-progress',
+    'status draft -> approved',
+  ]);
+  for (const record of records) {
+    assert.equal(record.sessions.length, 1);
+    assert.equal(record.error, null);
+  }
 });
 
 // Another writer moves the state ref right before the collector's CAS
