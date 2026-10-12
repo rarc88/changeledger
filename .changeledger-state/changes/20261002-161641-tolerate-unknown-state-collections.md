@@ -149,3 +149,4 @@ que es justo el fallo observado.
 - **2026-10-12T11:48:51Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-10-12T12:02:57Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-10-12T12:03:30Z** `[graduation]` spec: `architecture.md`
+- **2026-10-12T12:03:30Z** `[graduation]` spec: `global-state-scope.md`
