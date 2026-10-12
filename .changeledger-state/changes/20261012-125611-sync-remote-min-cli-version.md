@@ -2,9 +2,10 @@
 id: "20261012-125611"
 title: sync no adopta una revisión remota cuyo mínimo supera la CLI instalada
 type: bug
-status: approved
+status: in-progress
 created: 2026-10-12T12:56:11Z
 depends_on: []
+branch: bug/20261012-125611
 related_to: ["20260925-130844", "20260924-184354"]
 owner: rarc88
 ---
@@ -69,3 +70,5 @@ la herramienta.
 ## Log
 - **2026-10-12T12:56:11Z** `[version]` 0.18.0-dev
 - **2026-10-12T12:58:40Z** `[status]` draft → approved (human via conversation)
+- **2026-10-12T13:31:53Z** `[status]` approved → in-progress
+- **2026-10-12T13:31:53Z** `[branch]` set: bug/20261012-125611 (auto)
