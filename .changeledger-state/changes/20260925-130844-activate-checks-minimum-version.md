@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-09-25T13:08:44Z
 depends_on: ["20260924-184354"]
+archived: true
 reviewed: true
 branch: bug/20260925-130844
 related_to: ["20260811-163203"]
@@ -119,3 +120,4 @@ desde la copia remota que se protege aquí viene de `20260811-163203`.
 - **2026-10-12T11:59:02Z** `[note]` Observaciones del review para la validación y seguimiento: activate sobre una ref de estado local cuya config no se puede leer (por ejemplo, sin config.yml) pasa de escribir la activación con exit 0 a fallar sin escribir nada, también en el no-op Already activated (fail-closed, no especificado en los CR); la costura installedVersion de activate() no tiene consumidores; sync podría adoptar una revisión remota con un mínimo mayor sin esta comprobación (no examinado).
 - **2026-10-12T12:03:01Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-10-12T12:03:30Z** `[graduation]` spec: `architecture.md`
+- **2026-10-12T12:03:31Z** `[archive]` archived
