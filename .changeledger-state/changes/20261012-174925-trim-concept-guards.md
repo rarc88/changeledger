@@ -103,10 +103,11 @@ Interfaces externas: ninguna. Superficie enteramente en `test/context.test.mjs`.
   - **Verify:** `node --test --test-name-pattern "concept guard" test/context.test.mjs`
   - **Criteria:** CR4
   - **Resolved:** `2026-10-12T18:04:32Z`
-- [ ] Ejecutar las 13 reformulaciones, una por patrón conservado, y comprobar que las 21 entradas pasan; registrar el resultado
+- [x] Ejecutar las 13 reformulaciones, una por patrón conservado, y comprobar que las 21 entradas pasan; registrar el resultado
   - **Target:** `test/context.test.mjs`
   - **Verify:** `node --test --test-name-pattern "concept guard" test/context.test.mjs`
   - **Criteria:** CR5
+  - **Resolved:** `2026-10-12T18:04:33Z`
 - [ ] Comprobar que ni prosa ni comportamiento cambian: diff vacío contra el baseline en `templates`, `src`, `bin` y `AGENTS.md`, y suite y lint en verde
   - **Target:** `test/context.test.mjs`
   - **Verify:** `pnpm test`
