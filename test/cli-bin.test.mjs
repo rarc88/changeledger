@@ -2050,3 +2050,104 @@ test('20261002-161641 CR5: check passes over an unknown collection and shows the
   assert.equal(occurrences(single.err, 'does not know'), 1, single.err);
   assert.equal(single.out, `✓ change ${id} valid\n`);
 });
+
+// 20261012-174340 CR9 — first use end to end: migrate a schema 3 config whose
+// effective tdd is off, then check the config against the seed_stage and
+// release_branch rules.
+const SCHEMA3_TDD_OFF = `\
+schema_version: 3
+language: en
+tdd: false
+changes_dir: .changeledger/changes
+specs_dir: .changeledger/specs
+git:
+  integration_branch: dev
+statuses: [draft, approved, in-progress, in-review, in-validation, blocked, done, discarded]
+stages: [request, investigation, proposal, specification, plan, log]
+types:
+  refactor:
+    stages: [request, proposal, log]
+    review_required: true
+  documentation:
+    stages: [request, investigation, specification, log]
+    review_required: true
+    seed_stage: investigation
+release:
+  impacts:
+    refactor: none
+    documentation: none
+project_id: "abc123"
+project_name: myrepo
+`;
+
+test('174340 CR9: migrate, check, then the seed_stage and release_branch rules over the CLI', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
+  assert.equal(runIn(root, env, 'init').code, 0);
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  fs.writeFileSync(configFile, SCHEMA3_TDD_OFF);
+
+  const migrated = runIn(root, env, 'config', 'migrate');
+  assert.equal(migrated.code, 0, migrated.err);
+  assert.ok(!migrated.out.includes('added stage plan'), migrated.out);
+  const migratedText = fs.readFileSync(configFile, 'utf8');
+  assert.match(migratedText, /^ {4}stages: \[request, proposal, specification, log\]$/m);
+  assert.equal(parseYaml(migratedText).types.refactor.stages.includes('plan'), false);
+  const first = runIn(root, env, 'check');
+  assert.equal(first.code, 0, `${first.out}${first.err}`);
+  assert.match(first.out, /0 change\(s\) valid/);
+
+  fs.writeFileSync(
+    configFile,
+    migratedText
+      .replace('seed_stage: investigation', 'seed_stage: log')
+      .replace(
+        /^ {2}integration_branch: dev$/m,
+        '  integration_branch: dev\n  release_branch: dev',
+      ),
+  );
+  const broken = runIn(root, env, 'check');
+  assert.notEqual(broken.code, 0);
+  const lines = `${broken.out}${broken.err}`.split('\n').filter((l) => l.includes('config'));
+  assert.equal(lines.length, 2, lines.join('\n'));
+  assert.ok(
+    lines.some((l) =>
+      l.endsWith(
+        'config type "documentation": seed_stage "log" cannot seed a spec; use one of: investigation, proposal, specification',
+      ),
+    ),
+    lines.join('\n'),
+  );
+  assert.ok(
+    lines.some((l) =>
+      l.endsWith(
+        'config "git.release_branch" must differ from "git.integration_branch" (both are "dev")',
+      ),
+    ),
+    lines.join('\n'),
+  );
+
+  fs.writeFileSync(
+    configFile,
+    fs
+      .readFileSync(configFile, 'utf8')
+      .replace('seed_stage: log', 'seed_stage: investigation')
+      .replace('release_branch: dev', 'release_branch: main'),
+  );
+  const fixed = runIn(root, env, 'check');
+  assert.equal(fixed.code, 0, `${fixed.out}${fixed.err}`);
+});
+
+test('174340 CR2: init declares documentation.seed_stage investigation and check is clean', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
+  assert.equal(runIn(root, env, 'init').code, 0);
+  const config = parseYaml(fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8'));
+  assert.equal(config.types.documentation.seed_stage, 'investigation');
+  const checked = runIn(root, env, 'check');
+  assert.equal(checked.code, 0, `${checked.out}${checked.err}`);
+});

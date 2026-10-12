@@ -3913,6 +3913,85 @@ test('113435 CR3: a seed_stage outside the type stages is rejected with its lite
   }
 });
 
+// --- 20261012-174340: seed_stage must be a stage that can seed a spec ---
+
+const seedDoc = (stages, seedStage) => {
+  const cfg = perTypeTddConfig();
+  cfg.types.documentation = { stages, review_required: true, tdd: false, seed_stage: seedStage };
+  return msgs(checkRepo({ config: cfg, changes: [] }).errors);
+};
+const WITH_PLAN = ['request', 'investigation', 'plan', 'specification', 'log'];
+const WITH_PROPOSAL = ['request', 'investigation', 'proposal', 'specification', 'log'];
+
+test('174340 CR1: a seed_stage that cannot seed a spec is one error with the allowed list', () => {
+  for (const s of ['request', 'plan', 'log']) {
+    assert.deepEqual(seedDoc(WITH_PLAN, s), [
+      `config type "documentation": seed_stage "${s}" cannot seed a spec; use one of: investigation, proposal, specification`,
+    ]);
+  }
+});
+
+test('174340 CR2: investigation, proposal and specification are valid seed stages', () => {
+  for (const s of ['investigation', 'proposal', 'specification']) {
+    assert.deepEqual(seedDoc(WITH_PROPOSAL, s), []);
+  }
+});
+
+test('174340 CR3: an inactive seed_stage is reported once, before the non-seed rule', () => {
+  assert.deepEqual(seedDoc(DOC_STAGES, 'plan'), [
+    'config type "documentation": seed_stage "plan" is not an active stage',
+  ]);
+  for (const value of [3, null, ['investigation']]) {
+    assert.deepEqual(seedDoc(DOC_STAGES, value), [
+      'config type "documentation": seed_stage must be a string',
+    ]);
+  }
+});
+
+// --- 20261012-174340: git.release_branch must differ from git.integration_branch ---
+
+const branchErrors = (git) => {
+  const cfg = perTypeTddConfig();
+  if (git !== undefined) cfg.git = git;
+  return msgs(checkRepo({ config: cfg, changes: [] }).errors);
+};
+const MUST_DIFFER =
+  'config "git.release_branch" must differ from "git.integration_branch" (both are "dev")';
+
+test('174340 CR4: release_branch equal to integration_branch is an error, trimmed', () => {
+  assert.deepEqual(branchErrors({ integration_branch: 'dev', release_branch: 'dev' }), [
+    MUST_DIFFER,
+  ]);
+  assert.deepEqual(branchErrors({ integration_branch: 'dev', release_branch: ' dev ' }), [
+    MUST_DIFFER,
+  ]);
+  assert.deepEqual(branchErrors({ integration_branch: ' dev', release_branch: 'dev ' }), [
+    MUST_DIFFER,
+  ]);
+});
+
+test('174340 CR5: distinct or undeclared branches never report must differ', () => {
+  for (const git of [
+    { integration_branch: 'dev', release_branch: 'main' },
+    { integration_branch: 'dev' },
+    { release_branch: 'main' },
+    { integration_branch: null, release_branch: null },
+    {},
+    undefined,
+  ]) {
+    assert.deepEqual(branchErrors(git), [], JSON.stringify(git));
+  }
+  // A malformed value keeps its own single error; the new rule adds nothing.
+  assert.deepEqual(branchErrors({ integration_branch: 'dev', release_branch: '' }), [
+    'config "git.release_branch" must be a non-empty string',
+  ]);
+  assert.deepEqual(branchErrors({ integration_branch: '', release_branch: '' }), [
+    'config "git.integration_branch" must be a non-empty string',
+    'config "git.release_branch" must be a non-empty string',
+  ]);
+  assert.deepEqual(branchErrors('main'), ['config "git" must be a mapping']);
+});
+
 // --- usage collector activation in git config (20261001-155612) ---
 
 function gitCheckRepo() {

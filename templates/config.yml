@@ -70,7 +70,8 @@ types:
     stages: [request, investigation, specification, plan, log]
     review_required: true
   # A fix to released code: it starts from and integrates into
-  # `git.release_branch`. Declare that branch before drafting one: until then
+  # `git.release_branch`, which must differ from `git.integration_branch`.
+  # Declare that branch before drafting one: until then
   # `new` refuses to create a change of this type, `check` reports an open one,
   # and `context <id>` and `agent-context` refuse to load it.
   hotfix:
@@ -92,8 +93,9 @@ types:
   # Persistent truth about a topic, checked against what the code does; it
   # changes no application code. With `tdd: false` it is reviewed on its
   # criteria alone, without a Plan — see `changeledger context spec`.
-  # `seed_stage` names the stage `graduate --new` seeds the spec from
-  # (default: specification, else proposal).
+  # `seed_stage` names the stage `graduate --new` seeds the spec from: one of
+  # investigation, proposal or specification, active in this type (default:
+  # specification, else proposal).
   documentation:
     stages: [request, investigation, specification, log]
     review_required: true

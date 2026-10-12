@@ -32,9 +32,13 @@ const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
 const ID_FORM = /^\d{8}-\d{6}$/;
 const SEMANTIC_STAGES = new Set(['request', 'investigation', 'proposal', 'specification', 'plan']);
 // Stages a `review_required` type must activate, in canonical order, when its
-// effective tdd is on; with tdd off `checkConfig` requires only `specification`.
-// Exported for the schema migration's stage repair.
-export const REVIEWABLE_STAGES = ['specification', 'plan'];
+// effective tdd is on; with tdd off only `specification` is required.
+const REVIEWABLE_STAGES = ['specification', 'plan'];
+
+// Stages that can seed a spec through `graduate --new`: the ones holding
+// persistent truth. `request` is the petition, `plan` is tasks with state
+// markers and `log` is events; none of them is a spec.
+const SEED_STAGES = ['investigation', 'proposal', 'specification'];
 
 // Effective tdd of a change type: `types.<type>.tdd` when it is a boolean, else
 // the global `tdd`, else on. Single authority — coverage, the review-stage rule,
@@ -46,6 +50,14 @@ export function effectiveTdd(config, type) {
   const own = isMapping(config?.types) ? config.types[type]?.tdd : undefined;
   if (typeof own === 'boolean') return own;
   return typeof config?.tdd === 'boolean' ? config.tdd : DEFAULT_TDD;
+}
+
+// The stages a `review_required` type must activate, given its effective tdd.
+// Single authority for the rule: `checkConfig` reports what is missing and the
+// schema migration inserts it, both asking here. `config` must be the live
+// config, never a stale snapshot.
+export function stagesRequiredByReview(config, type) {
+  return effectiveTdd(config, type) ? REVIEWABLE_STAGES : ['specification'];
 }
 
 // Frozen history: `archived` is one-way (there is no `unarchive`) and
@@ -917,12 +929,22 @@ function checkConfig(config, err) {
   if ('git' in c) {
     // A non-mapping `git` is one defect, reported once rather than per branch key.
     const resolvers = isMapping(c.git) ? [integrationBranch, releaseBranch] : [integrationBranch];
+    const resolved = [];
     for (const resolve of resolvers) {
       try {
-        resolve(c);
+        resolved.push(resolve(c));
       } catch (error) {
         err(null, error.message);
       }
+    }
+    // Equal branches leave a `release` type without its back-merge target and
+    // its start guard, so the pair is checked only once both resolve cleanly.
+    const [integration, release] = resolved;
+    if (resolved.length === 2 && integration !== undefined && integration === release) {
+      err(
+        null,
+        `config "git.release_branch" must differ from "git.integration_branch" (both are "${integration}")`,
+      );
     }
   }
   if ('readiness' in c) checkReadinessConfig(c.readiness, err);
@@ -953,6 +975,11 @@ function checkConfig(config, err) {
         err(null, `config type "${type}": seed_stage must be a string`);
       else if (!def.stages.includes(def.seed_stage))
         err(null, `config type "${type}": seed_stage "${def.seed_stage}" is not an active stage`);
+      else if (!SEED_STAGES.includes(def.seed_stage))
+        err(
+          null,
+          `config type "${type}": seed_stage "${def.seed_stage}" cannot seed a spec; use one of: ${SEED_STAGES.join(', ')}`,
+        );
     }
     // An independent reviewer needs something to verify: criteria live in
     // `## Specification` (the only stage `parseChange` reads `### CRn` from).
@@ -960,8 +987,7 @@ function checkConfig(config, err) {
     // them, so both are required; with tdd off no coverage applies and the
     // criteria alone are the reviewer's contract.
     if (def.review_required === true) {
-      const required = effectiveTdd(c, type) ? REVIEWABLE_STAGES : ['specification'];
-      const missing = required.filter((s) => !def.stages.includes(s));
+      const missing = stagesRequiredByReview(c, type).filter((s) => !def.stages.includes(s));
       if (missing.length) {
         err(
           null,
