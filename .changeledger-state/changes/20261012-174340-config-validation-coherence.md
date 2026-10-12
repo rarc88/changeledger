@@ -180,11 +180,12 @@ los CR1 y CR4 pasan a ser parte de ese contrato. No cambia ningún formato.
 
 ## Plan
 
-- [ ] Tests en rojo de CR1–CR5 en `checkConfig`, y regresión de los errores de
+- [x] Tests en rojo de CR1–CR5 en `checkConfig`, y regresión de los errores de
   #20261002-113435 y #20261002-181346
   - **Target:** `test/check.test.mjs`
   - **Verify:** `node --test test/check.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4, CR5
+  - **Resolved:** `2026-10-12T19:18:08Z`
 - [ ] `checkConfig` rechaza un `seed_stage` que no sea `investigation`,
   `proposal` ni `specification`, después de los errores de tipo y de fase
   inactiva, con el mensaje literal de CR1
