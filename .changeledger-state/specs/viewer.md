@@ -41,7 +41,12 @@ DOM); `app.js` queda como bootstrap y wiring de eventos. El graph muestra un est
 visibles, en vez de generar un SVG con dimensiones inválidas. Sin un repo
 cargado, las vistas board, table, graph, ledger y metrics muestran
 `No projects registered. Run changeledger init in a repo.` en su contenedor en
-vez de fallar, y la vista de proyectos conserva su propio estado vacío. La profundidad del
+vez de fallar, y la vista de proyectos conserva su propio estado vacío. El
+sondeo periódico sin proyectos repinta la vista activa sin cambiarla; sólo la
+carga de arranque cae en Board. Si la carga del proyecto seleccionado falla y
+no hay payload suyo cargado (ninguno, o el de otro proyecto), la vista activa
+muestra el error de carga en lugar de ese mensaje o de los changes del otro
+proyecto, y una carga correcta posterior o cambiar de proyecto lo limpia. La profundidad del
 grafo usa un set de visitados por rama para detectar ciclos solo en el camino
 actual: dependencias compartidas entre ramas no colapsan la capa del nodo
 dependiente, y los ciclos reales siguen terminando en un SVG finito.
