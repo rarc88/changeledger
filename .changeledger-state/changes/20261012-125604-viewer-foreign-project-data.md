@@ -2,7 +2,7 @@
 id: "20261012-125604"
 title: El viewer no presenta datos de otro proyecto mientras carga el seleccionado
 type: bug
-status: in-review
+status: in-progress
 created: 2026-10-12T12:56:04Z
 depends_on: []
 branch: bug/20261012-125604
@@ -103,3 +103,4 @@ Interfaces externas: ninguna.
 - **2026-10-12T13:15:17Z** `[note]` CR4: con `changeledger view` sobre alpha (bug con owner ana y un documento inválido) y beta (config rota), al seleccionar beta, buscar Alpha y pasar por board, table, graph, ledger y metrics, cada vista mostró «Internal server error» sin «Alpha change»; el filtro de tipo quedó vacío, el de owner sólo con Unassigned y no hubo aviso. Al volver a alpha se vieron su change, ana y el aviso de su documento inválido. La consola sólo registró los 500 de beta.
 - **2026-10-12T13:15:19Z** `[status]` in-progress → in-review
 - **2026-10-12T13:15:40Z** `[note]` Mandato de revisión: la superficie que el change gobierna — el estado del viewer al cambiar de proyecto (render, filtros, aviso de documentos inválidos, carga en vuelo y fallida) en src/viewer/public/app.js y app-state.js, con dev..HEAD (8a48d0d3) y sus tests.
+- **2026-10-12T13:19:10Z** `[review]` in-review → in-progress (retry): CR5 y CR6 fallan cuando el proyecto se selecciona por la restauración de ruta (Atrás/Adelante) o por gotoChange: con la carga en vuelo, los filtros ofrecen bug y ana y el aviso de documentos inválidos de alpha sigue visible. El comentario de dropForeignProjectShell y la nota de implementación del Log afirman lo contrario.
