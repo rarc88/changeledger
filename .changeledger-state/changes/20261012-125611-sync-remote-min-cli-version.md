@@ -55,10 +55,11 @@ la herramienta.
 
 ## Plan
 
-- [ ] Escribir pruebas fallidas de sync frente a un mínimo remoto superior e inferior
+- [x] Escribir pruebas fallidas de sync frente a un mínimo remoto superior e inferior
   - **Target:** `test/sync.test.mjs`
   - **Verify:** `pnpm test`
   - **Criteria:** CR1, CR2, CR3
+  - **Resolved:** `2026-10-12T13:45:50Z`
 - [ ] Comparar el mínimo de la revisión remota antes de avanzar o reconciliar
   - **Target:** `src/commands/sync.mjs, src/commands/activate.mjs`
   - **Verify:** `pnpm test`
