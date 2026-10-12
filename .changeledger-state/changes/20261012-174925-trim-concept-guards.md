@@ -98,10 +98,11 @@ Interfaces externas: ninguna. Superficie enteramente en `test/context.test.mjs`.
   - **Verify:** `node --test --test-name-pattern "concept guard" test/context.test.mjs`
   - **Criteria:** CR3, CR7
   - **Resolved:** `2026-10-12T18:04:32Z`
-- [ ] Ejecutar los 16 mutantes de borrado, uno por vez sobre una copia de `templates/contract/` (borrar la oración o cláusula de la obligación, comprobar que solo cae su entrada) y registrar cada resultado en el Log
+- [x] Ejecutar los 16 mutantes de borrado, uno por vez sobre una copia de `templates/contract/` (borrar la oración o cláusula de la obligación, comprobar que solo cae su entrada) y registrar cada resultado en el Log
   - **Target:** `test/context.test.mjs`
   - **Verify:** `node --test --test-name-pattern "concept guard" test/context.test.mjs`
   - **Criteria:** CR4
+  - **Resolved:** `2026-10-12T18:04:32Z`
 - [ ] Ejecutar las 13 reformulaciones, una por patrón conservado, y comprobar que las 21 entradas pasan; registrar el resultado
   - **Target:** `test/context.test.mjs`
   - **Verify:** `node --test --test-name-pattern "concept guard" test/context.test.mjs`
