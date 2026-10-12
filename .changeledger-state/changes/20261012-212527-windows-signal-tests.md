@@ -302,11 +302,12 @@ criterio consume de forma automática el texto del log del CI, que se lee a mano
   se ha ejecutado
   - **Support:** comentario, sin comportamiento observable
   - **Resolved:** `2026-10-12T21:55:48Z`
-- [ ] Escribir la prueba de barrido de CR4 en `test/usage-collector.test.mjs` y comprobar
+- [x] Escribir la prueba de barrido de CR4 en `test/usage-collector.test.mjs` y comprobar
   que falla con tres coincidencias antes de tocar los especificadores
   - **Target:** `test/usage-collector.test.mjs`
   - **Verify:** `node --test test/usage-collector.test.mjs`
   - **Criteria:** CR4
+  - **Resolved:** `2026-10-12T21:55:48Z`
 - [ ] Convertir con `pathToFileURL(path.resolve(…)).href` los tres especificadores de
   `the test helpers isolate a developer's global git config` y
   `an env override on (emulated) Windows reaches no shell and prints no DEP0190`, e importar
