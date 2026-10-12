@@ -353,7 +353,7 @@ program
   .option('--json', 'print JSON')
   .option(
     '--commits [base]',
-    'lint commit subjects on <base>..HEAD for the [#id] marker (base auto-detected if omitted)',
+    'lint commit subjects on <base>..HEAD for the [#id] marker (base defaults to the integration branch of the change on the current branch, else git.integration_branch, else auto-detected)',
   )
   .addHelpText(
     'after',
