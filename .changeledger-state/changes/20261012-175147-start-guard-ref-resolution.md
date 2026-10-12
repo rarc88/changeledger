@@ -354,10 +354,11 @@ sigue al tipo.
   - **Verify:** `node --test test/agent.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4, CR5, CR6, CR7, CR9, CR10, CR11, CR17, CR18
   - **Resolved:** `2026-10-12T19:46:48Z`
-- [ ] Gate completo: `biome check`, `node --test` y `changeledger check` (o
+- [x] Gate completo: `biome check`, `node --test` y `changeledger check` (o
   `pnpm verify` si la versión de pnpm lo permite)
   - **Support:**
   - **Verify:** `pnpm verify`
+  - **Resolved:** `2026-10-12T19:46:49Z`
 
 ## Log
 - **2026-10-12T17:51:47Z** `[version]` 0.18.0-dev
