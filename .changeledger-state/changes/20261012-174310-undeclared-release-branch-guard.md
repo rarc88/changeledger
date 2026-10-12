@@ -186,10 +186,11 @@ cualquier error de `check`; no se midió.
   - **Verify:** `node --test test/check.test.mjs`
   - **Criteria:** CR2, CR3, CR4
   - **Resolved:** `2026-10-12T18:28:30Z`
-- [ ] `newChange` y `scaffoldChange` lanzan el mensaje de CR2 tras `requireType` y antes de reservar id o escribir; `new --from` y `apply` lo heredan del gate de candidato de `prepareNewChange`, con test que lo fije
+- [x] `newChange` y `scaffoldChange` lanzan el mensaje de CR2 tras `requireType` y antes de reservar id o escribir; `new --from` y `apply` lo heredan del gate de candidato de `prepareNewChange`, con test que lo fije
   - **Target:** `src/commands/new.mjs`
   - **Verify:** `node --test test/cli.test.mjs test/apply.test.mjs`
   - **Criteria:** CR5, CR6
+  - **Resolved:** `2026-10-12T18:28:30Z`
 - [ ] Test de extremo a extremo junto a `181428 CR1` en `test/cli-bin.test.mjs`: init fresco, `new hotfix` rehusado, declarar `release_branch: main`, `new`, `check` y `context <id>`; el test existente de `init` limpio no se toca
   - **Target:** `test/cli-bin.test.mjs`
   - **Verify:** `node --test test/cli-bin.test.mjs`
