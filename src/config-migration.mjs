@@ -388,7 +388,7 @@ function setBlankGitSection(doc) {
   if (typeof gitPair.key === 'string') gitPair.key = doc.createNode(gitPair.key);
   gitPair.key.spaceBefore = true;
   gitPair.key.commentBefore =
-    ' Git integration: change branches start from and merge into this branch';
+    ' Git integration: change branches start from and merge into `integration_branch`; types with `integrates_into: release` use `release_branch` instead.';
 }
 
 // Apply migration to the effective config authority (or dry-run). Returns summary string.

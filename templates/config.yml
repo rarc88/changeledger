@@ -16,7 +16,8 @@ language: en
 
 # Definition of Ready policy. When true (default), changes are documented
 # test-grade and implemented via TDD; `changeledger check` warns on criteria ↔ task
-# coverage gaps. Set false for exploratory repos. See `changeledger context spec`.
+# coverage gaps. Set false for exploratory repos. A type's own `tdd` overrides
+# this value for its changes. See `changeledger context spec`.
 tdd: true
 
 # Default SemVer impact for a completed change. A change may override its type
@@ -25,10 +26,12 @@ release:
   impacts:
     feature: minor
     bug: patch
+    hotfix: patch
     audit: none
     refactor: none
     chore: none
     quick: patch
+    documentation: none
 
 # Definition of Ready path/command hints. Tasks that reference CRs must name at
 # least one target and one verification matching these patterns; a warning in
@@ -42,10 +45,11 @@ readiness:
 changes_dir: .changeledger/changes
 specs_dir: .changeledger/specs
 
-# Git integration: change branches start from and merge into this branch.
+# Git integration: change branches start from and merge into `integration_branch`; types with `integrates_into: release` use `release_branch` instead.
 # `change_branch_format` may use `{type}` and exactly one `{id}`; use null or remove it to opt out.
 git:
   integration_branch:
+  release_branch:
   change_branch_format: "{type}/{id}"
 
 # Valid lifecycle statuses (order = progress)
@@ -65,6 +69,13 @@ types:
   bug:
     stages: [request, investigation, specification, plan, log]
     review_required: true
+  # A fix to released code: it starts from and integrates into
+  # `git.release_branch`. Declare that branch before drafting one: until then
+  # `changeledger context <id>` and `agent-context` refuse a change of this type.
+  hotfix:
+    stages: [request, investigation, specification, plan, log]
+    review_required: true
+    integrates_into: release
   audit:
     stages: [request, investigation, log]
   refactor:
@@ -77,3 +88,13 @@ types:
   # the correct type — see `changeledger context spec`.
   quick:
     stages: [request, log]
+  # Persistent truth about a topic, checked against what the code does; it
+  # changes no application code. With `tdd: false` it is reviewed on its
+  # criteria alone, without a Plan — see `changeledger context spec`.
+  # `seed_stage` names the stage `graduate --new` seeds the spec from
+  # (default: specification, else proposal).
+  documentation:
+    stages: [request, investigation, specification, log]
+    review_required: true
+    tdd: false
+    seed_stage: investigation

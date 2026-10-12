@@ -6,11 +6,18 @@ import { contractTemplatesDir } from '../paths.mjs';
 import { loadRepo, resolveChangeInRepo } from '../repo.mjs';
 import { changeParseFailureMessage, transversalPolicy } from './context.mjs';
 
-export const AGENT_ROLES = ['investigation', 'implementation', 'review', 'post-review'];
+export const AGENT_ROLES = [
+  'investigation',
+  'implementation',
+  'review',
+  'post-review',
+  'graduation-review',
+];
 const ALLOWED_STATUSES = {
   implementation: ['approved', 'in-progress'],
   review: ['in-review'],
   'post-review': ['in-validation'],
+  'graduation-review': ['done'],
 };
 
 function requireRepo(cwd) {
@@ -47,13 +54,13 @@ function selectedChange(role, changeId, repo) {
     if (parseFailure) throw new Error(`Change "${changeId}" failed to parse: ${parseFailure}`);
     throw error;
   }
-  const { id, status } = resolved.frontmatter;
+  const { id, status, type } = resolved.frontmatter;
   const allowed = ALLOWED_STATUSES[role];
   if (allowed && !allowed.includes(status)) {
     const expected = allowed.join(' or ');
     throw new Error(`role ${role} requires change status ${expected}; got ${status}`);
   }
-  return { id, text: resolved.text };
+  return { id, type, text: resolved.text };
 }
 
 export function buildAgentContext(role, changeId, cwd = process.cwd()) {
@@ -69,7 +76,9 @@ export function buildAgentContext(role, changeId, cwd = process.cwd()) {
   const change = selected ? ` — change: #${selected.id}` : '';
   const sections = [
     beginSentinel('AGENT CONTEXT', `role: ${role}${change} — v${VERSION}`),
-    transversalPolicy(config),
+    // The delegate's capsule conditions its obligations on this line, so a
+    // selected change publishes its own type's tdd; no change, the global one.
+    transversalPolicy(config, { type: selected?.type }),
     capsule(role),
   ];
   if (selected) sections.push('---\n\n# Selected change', selected.text.trim());

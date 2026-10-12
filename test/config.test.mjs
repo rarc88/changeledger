@@ -5,8 +5,10 @@ import path from 'node:path';
 import test from 'node:test';
 import {
   changeBranchFormat,
+  changeIntegrationBranch,
   integrationBranch,
   loadEffectiveConfig,
+  releaseBranch,
   renderChangeBranch,
 } from '../src/config.mjs';
 import { STATE_REF, writeActivation } from '../src/state-store.mjs';
@@ -358,6 +360,65 @@ test('210115 CR1: integrationBranch fails fast on a non-string or empty value', 
       /config "git\.integration_branch" must be a non-empty string/,
     );
   }
+});
+
+// 20261002-181346: `git.release_branch` and the per-type `integrates_into` role.
+
+test('181346 CR1: releaseBranch resolves like integrationBranch', () => {
+  assert.equal(releaseBranch({ git: { release_branch: ' main ' } }), 'main');
+  for (const absent of [undefined, {}, { git: {} }, { git: { release_branch: null } }]) {
+    assert.equal(releaseBranch(absent), undefined);
+  }
+  for (const bad of ['', '   ', 7, true, ['main'], {}]) {
+    assert.throws(
+      () => releaseBranch({ git: { release_branch: bad } }),
+      /config "git\.release_branch" must be a non-empty string/,
+    );
+  }
+});
+
+const roleConfig = (git) => ({
+  git,
+  types: {
+    fix: { stages: ['request'], integrates_into: 'release' },
+    feature: { stages: ['request'] },
+    chore: { stages: ['request'], integrates_into: 'integration' },
+  },
+});
+
+test('181346 CR3/CR5: changeIntegrationBranch resolves the branch of the type role', () => {
+  const config = roleConfig({ integration_branch: 'dev', release_branch: 'main' });
+  assert.equal(changeIntegrationBranch(config, 'fix'), 'main');
+  assert.equal(changeIntegrationBranch(config, 'feature'), 'dev');
+  assert.equal(changeIntegrationBranch(config, 'chore'), 'dev');
+  // No type (a mode context) or an undeclared one keeps the repo value.
+  assert.equal(changeIntegrationBranch(config, undefined), 'dev');
+  assert.equal(changeIntegrationBranch(config, 'unknown'), 'dev');
+});
+
+test('181346 CR4: a release type without git.release_branch fails instead of falling back', () => {
+  for (const git of [{ integration_branch: 'dev' }, undefined]) {
+    assert.throws(
+      () => changeIntegrationBranch(roleConfig(git), 'fix'),
+      (error) =>
+        error.message === 'type "fix" integrates into git.release_branch, which is not declared',
+    );
+  }
+  // Undeclared stays a non-error for every type that does not need it.
+  assert.equal(
+    changeIntegrationBranch(roleConfig({ integration_branch: 'dev' }), 'feature'),
+    'dev',
+  );
+});
+
+test('181346 CR2: changeIntegrationBranch rejects an unknown integrates_into role', () => {
+  const config = roleConfig({ integration_branch: 'dev', release_branch: 'main' });
+  config.types.bug = { stages: ['request'], integrates_into: 'prod' };
+  assert.throws(
+    () => changeIntegrationBranch(config, 'bug'),
+    (error) =>
+      error.message === 'config type "bug": integrates_into must be "integration" or "release"',
+  );
 });
 
 test('161655 CR1: change branch rendering is deterministic from immutable fields', () => {

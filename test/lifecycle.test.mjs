@@ -1,5 +1,11 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { test } from 'node:test';
+import { fileURLToPath } from 'node:url';
+import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import {
   assertTransition,
   canTransition,
@@ -12,6 +18,7 @@ import {
   TASK_ACTIONS,
   VALIDATION_VERDICTS,
 } from '../src/lifecycle.mjs';
+import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 
 const LOG_AT = '- **2026-08-24T16:00:00Z**';
 const logLine = (type, payload) => `${LOG_AT} \`[${type}]\` ${payload}`;
@@ -425,4 +432,292 @@ test('124656 CR3: the in-review edges stay legal; readiness is not a graph rule'
   // 'in-progress')` is already pinned by `171002 CR1/CR3` above, and this repo
   // keeps one home per truth.
   assert.equal(canTransition('in-review', 'in-progress'), true);
+});
+
+// 20261002-113320 CR8 — first real use of the `documentation` type, through the
+// spawned CLI on a freshly initialised repo: a change with one criterion and no
+// Plan walks approve → in-progress → in-review → review pass. The review gate of
+// a tdd-off type is still honoured: `review` is what reaches validation.
+test('113320 CR8: a documentation change without a Plan reaches in-validation', () => {
+  const bin = fileURLToPath(new URL('../bin/changeledger.mjs', import.meta.url));
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-doc-e2e-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  initGitFixture(root);
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
+  const cli = (...args) => {
+    try {
+      return {
+        code: 0,
+        out: execFileSync('node', [bin, ...args], { cwd: root, env, encoding: 'utf8' }),
+      };
+    } catch (e) {
+      return { code: e.status ?? 1, out: `${e.stdout ?? ''}${e.stderr ?? ''}` };
+    }
+  };
+  const ok = (...args) => {
+    const result = cli(...args);
+    assert.equal(result.code, 0, `${args.join(' ')}: ${result.out}`);
+    return result.out;
+  };
+
+  ok('init');
+  ok('new', 'documentation', 'auth-truth', 'Auth truth', '--owner', 'Test User');
+  const dir = path.join(root, '.changeledger', 'changes');
+  const [name] = fs.readdirSync(dir);
+  const file = path.join(dir, name);
+  const id = name.slice(0, 15);
+  const text = fs.readFileSync(file, 'utf8');
+  assert.doesNotMatch(text, /## Plan/);
+  fs.writeFileSync(
+    file,
+    text
+      .replace('## Request\n', '## Request\n\nDocument authentication.\n')
+      .replace(
+        '## Investigation\n',
+        '## Investigation\n\n`src/auth.mjs` `login` is the entry point.\n',
+      )
+      .replace(
+        '## Specification\n',
+        '## Specification\n\n### CR1 — Login claim\n- **Given** `src/auth.mjs` `login`\n- **When** it is read\n- **Then** the spec states what it does\n',
+      ),
+  );
+
+  ok('approve', id);
+  execFileSync('git', ['checkout', '-q', '-b', `documentation/${id}`], {
+    cwd: root,
+    env: sanitizedEnv(),
+  });
+  ok('status', id, 'in-progress');
+  const skipped = cli('status', id, 'in-validation');
+  assert.notEqual(skipped.code, 0);
+  assert.match(skipped.out, /must be reviewed before validation — move to in-review first/);
+  ok('status', id, 'in-review');
+  ok('review', id, 'pass');
+  assert.match(fs.readFileSync(file, 'utf8'), /^status: in-validation$/m);
+});
+
+// 20261002-152555 CR8 — first use of `graduation-review`, through the spawned CLI
+// on a freshly initialised repo: a feature change reaches `done`, the orchestrator
+// corrects the body of an existing spec, takes the role's skeleton and capsule,
+// records the review outcome and only then links the spec with `--into`.
+test('152555 CR8: a graduation review is recorded before the first --into of a done feature', () => {
+  const bin = fileURLToPath(new URL('../bin/changeledger.mjs', import.meta.url));
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-gradrev-e2e-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  initGitFixture(root);
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
+  const ok = (...args) => {
+    try {
+      return execFileSync('node', [bin, ...args], { cwd: root, env, encoding: 'utf8' });
+    } catch (e) {
+      assert.fail(`${args.join(' ')} exited ${e.status}: ${e.stdout ?? ''}${e.stderr ?? ''}`);
+    }
+  };
+
+  ok('init');
+  const specFile = path.join(root, '.changeledger', 'specs', 'auth.md');
+  fs.mkdirSync(path.dirname(specFile), { recursive: true });
+  fs.writeFileSync(
+    specFile,
+    '---\ntitle: Authentication\nupdated: 2026-10-01T10:00:00Z\ntags: []\ngraduated_from: []\n---\n\n`src/auth.mjs` `login` returns a token.\n',
+  );
+  ok('new', 'feature', 'auth-session', 'Auth session', '--owner', 'Test User');
+  const dir = path.join(root, '.changeledger', 'changes');
+  const [name] = fs.readdirSync(dir);
+  const file = path.join(dir, name);
+  const id = name.slice(0, 15);
+  fs.writeFileSync(
+    file,
+    fs
+      .readFileSync(file, 'utf8')
+      .replace('## Request\n', '## Request\n\nLogin must return a session.\n')
+      .replace(
+        '## Investigation\n',
+        '## Investigation\n\n`src/auth.mjs` `login` returns a token.\n',
+      )
+      .replace('## Proposal\n', '## Proposal\n\nReturn a session.\n')
+      .replace(
+        '## Specification\n',
+        '## Specification\n\n### CR1 — Session\n- **Given** valid credentials\n- **When** `login` runs\n- **Then** it returns a session\n',
+      )
+      .replace(
+        '## Plan\n',
+        '## Plan\n\n- [ ] Return a session\n  - **Target:** `src/auth.mjs`\n  - **Verify:** `node --test test/auth.test.mjs`\n  - **Criteria:** CR1\n',
+      ),
+  );
+
+  ok('approve', id);
+  execFileSync('git', ['checkout', '-q', '-b', `feature/${id}`], {
+    cwd: root,
+    env: sanitizedEnv(),
+  });
+  ok('status', id, 'in-progress');
+  ok('task', id, 'done', '1');
+  ok('status', id, 'in-review');
+  ok('review', id, 'pass');
+  ok('validation', id, 'pass');
+  assert.match(fs.readFileSync(file, 'utf8'), /^status: done$/m);
+
+  // The closure corrects the existing spec's body, then has it reviewed.
+  fs.writeFileSync(
+    specFile,
+    fs.readFileSync(specFile, 'utf8').replace('returns a token', 'returns a session'),
+  );
+  assert.match(
+    ok('agent-prompt', 'graduation-review'),
+    /^===== CHANGELEDGER AGENT PROMPT BEGIN — role: graduation-review — v/,
+  );
+  assert.match(
+    ok('agent-context', 'graduation-review', id),
+    new RegExp(
+      `^===== CHANGELEDGER AGENT CONTEXT BEGIN — role: graduation-review — change: #${id} — v`,
+    ),
+  );
+  const outcome = 'graduation-review: apply — no findings';
+  ok('log', id, outcome);
+  ok('graduate', id, 'auth', '--into');
+
+  const events = fs
+    .readFileSync(file, 'utf8')
+    .split('\n')
+    .map((line) => parseLogEvent(line))
+    .filter(Boolean);
+  const note = events.findIndex((e) => e.type === 'note' && e.message === outcome);
+  const graduation = events.findIndex((e) => e.type === 'graduation' && e.spec === 'auth.md');
+  assert.notEqual(note, -1, 'the review outcome is not in the Log');
+  assert.notEqual(graduation, -1, 'the graduation event is not in the Log');
+  assert.ok(note < graduation, 'the review outcome is not logged before the graduation');
+  assert.match(fs.readFileSync(specFile, 'utf8'), /`login` returns a session\./);
+});
+
+// 20261002-181346 CR10 — first use of a type that integrates into the release
+// branch, through the spawned CLI on a freshly initialised repo. `dev` carries
+// a commit `main` lacks, so the change branch cut from `main` starts only when
+// the guard resolves the type's release branch rather than the integration one.
+test('181346 CR10: a release-type change starts from git.release_branch end to end', () => {
+  const bin = fileURLToPath(new URL('../bin/changeledger.mjs', import.meta.url));
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-release-e2e-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  initGitFixture(root, { args: ['-b', 'main'] });
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
+  const git = (...args) => execFileSync('git', args, { cwd: root, env: sanitizedEnv() });
+  const ok = (...args) => {
+    try {
+      return execFileSync('node', [bin, ...args], { cwd: root, env, encoding: 'utf8' });
+    } catch (e) {
+      assert.fail(`${args.join(' ')} exited ${e.status}: ${e.stdout ?? ''}${e.stderr ?? ''}`);
+    }
+  };
+
+  ok('init');
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  const config = parseYaml(fs.readFileSync(configFile, 'utf8'));
+  config.git = { ...config.git, integration_branch: 'dev', release_branch: 'main' };
+  config.types.fix = { ...config.types.bug, integrates_into: 'release' };
+  config.release.impacts.fix = 'patch';
+  fs.writeFileSync(configFile, stringifyYaml(config));
+  ok('check');
+  git('config', 'commit.gpgsign', 'false');
+  git('add', '.');
+  git('commit', '-q', '-m', 'chore: baseline');
+  git('checkout', '-q', '-b', 'dev');
+  fs.writeFileSync(path.join(root, 'UNRELEASED'), 'work\n');
+  git('add', 'UNRELEASED');
+  git('commit', '-q', '-m', 'feat: unreleased work');
+  git('checkout', '-q', 'main');
+
+  ok('new', 'fix', 'prod-outage', 'Prod outage', '--owner', 'Test User');
+  const dir = path.join(root, '.changeledger', 'changes');
+  const [name] = fs.readdirSync(dir);
+  const file = path.join(dir, name);
+  const id = name.slice(0, 15);
+  fs.writeFileSync(
+    file,
+    fs
+      .readFileSync(file, 'utf8')
+      .replace('## Request\n', '## Request\n\nProduction login fails.\n')
+      .replace('## Investigation\n', '## Investigation\n\n`src/auth.mjs` `login` throws.\n')
+      .replace(
+        '## Specification\n',
+        '## Specification\n\n### CR1 — Login\n- **Given** valid credentials\n- **When** `login` runs\n- **Then** it returns a session\n',
+      )
+      .replace(
+        '## Plan\n',
+        '## Plan\n\n- [ ] Fix login\n  - **Target:** `src/auth.mjs`\n  - **Verify:** `node --test test/auth.test.mjs`\n  - **Criteria:** CR1\n',
+      ),
+  );
+
+  ok('approve', id);
+  git('checkout', '-q', '-b', `fix/${id}`, 'main');
+  ok('status', id, 'in-progress');
+  assert.match(fs.readFileSync(file, 'utf8'), /^status: in-progress$/m);
+  const policy = ok('context', id)
+    .split('\n')
+    .find((line) => line.startsWith('Effective policy:'));
+  assert.match(policy, / — integration_branch=main /, policy);
+});
+
+// 20261002-181428 CR6 — first use of the shipped `hotfix` type, through the
+// spawned CLI on a freshly initialised repo whose template is left as generated
+// except for the two branches: the change starts from `main` and its context
+// names `dev` as the branch to bring the integrated result back to.
+test('181428 CR6: a hotfix change publishes its release branch and back_merge_branch end to end', () => {
+  const bin = fileURLToPath(new URL('../bin/changeledger.mjs', import.meta.url));
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-hotfix-e2e-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  initGitFixture(root, { args: ['-b', 'main'] });
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
+  const git = (...args) => execFileSync('git', args, { cwd: root, env: sanitizedEnv() });
+  const ok = (...args) => {
+    try {
+      return execFileSync('node', [bin, ...args], { cwd: root, env, encoding: 'utf8' });
+    } catch (e) {
+      assert.fail(`${args.join(' ')} exited ${e.status}: ${e.stdout ?? ''}${e.stderr ?? ''}`);
+    }
+  };
+
+  ok('init');
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  const config = parseYaml(fs.readFileSync(configFile, 'utf8'));
+  config.git = { ...config.git, integration_branch: 'dev', release_branch: 'main' };
+  fs.writeFileSync(configFile, stringifyYaml(config));
+  ok('check');
+  git('config', 'commit.gpgsign', 'false');
+  git('add', '.');
+  git('commit', '-q', '-m', 'chore: baseline');
+  git('branch', 'dev');
+
+  ok('new', 'hotfix', 'prod-outage', 'Prod outage', '--owner', 'Test User');
+  const dir = path.join(root, '.changeledger', 'changes');
+  const [name] = fs.readdirSync(dir);
+  const file = path.join(dir, name);
+  const id = name.slice(0, 15);
+  fs.writeFileSync(
+    file,
+    fs
+      .readFileSync(file, 'utf8')
+      .replace('## Request\n', '## Request\n\nProduction login fails.\n')
+      .replace('## Investigation\n', '## Investigation\n\n`src/auth.mjs` `login` throws.\n')
+      .replace(
+        '## Specification\n',
+        '## Specification\n\n### CR1 — Login\n- **Given** valid credentials\n- **When** `login` runs\n- **Then** it returns a session\n',
+      )
+      .replace(
+        '## Plan\n',
+        '## Plan\n\n- [ ] Fix login\n  - **Target:** `src/auth.mjs`\n  - **Verify:** `node --test test/auth.test.mjs`\n  - **Criteria:** CR1\n',
+      ),
+  );
+
+  ok('approve', id);
+  git('checkout', '-q', '-b', `hotfix/${id}`, 'main');
+  ok('status', id, 'in-progress');
+  assert.match(fs.readFileSync(file, 'utf8'), /^status: in-progress$/m);
+  const policy = ok('context', id)
+    .split('\n')
+    .find((line) => line.startsWith('Effective policy:'));
+  assert.match(policy, / — integration_branch=main — back_merge_branch=dev /, policy);
 });

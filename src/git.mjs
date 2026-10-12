@@ -141,6 +141,32 @@ export function isAncestor(cwd, ancestor, descendant = 'HEAD', run = defaultRun)
   }
 }
 
+// Every best common ancestor of two refs (`merge-base --all`): one commit
+// normally, several after criss-cross merges, where a single base picked by
+// commit date can hide the others. Empty when git finds none (unrelated
+// histories) or fails (a ref that does not resolve); `refExists` tells those
+// apart.
+export function mergeBases(cwd, a, b, run = defaultRun) {
+  try {
+    return String(run(['merge-base', '--all', a, b], cwd))
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+// Whether `ref` resolves to a commit in this repository.
+export function refExists(cwd, ref, run = defaultRun) {
+  try {
+    run(['rev-parse', '--verify', '--quiet', `${ref}^{commit}`], cwd);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // git's default `diff --name-only` output is a *presentation* surface: the
 // surrounding repo's configuration changes its format, so parsing it unpinned
 // makes every config axis a hole in `commit()`'s guard. Two review rounds found
