@@ -2,7 +2,7 @@
 id: "20261012-125611"
 title: sync no adopta una revisión remota cuyo mínimo supera la CLI instalada
 type: bug
-status: draft
+status: approved
 created: 2026-10-12T12:56:11Z
 depends_on: []
 related_to: ["20260925-130844", "20260924-184354"]
@@ -68,3 +68,4 @@ la herramienta.
 
 ## Log
 - **2026-10-12T12:56:11Z** `[version]` 0.18.0-dev
+- **2026-10-12T12:58:40Z** `[status]` draft → approved (human via conversation)
