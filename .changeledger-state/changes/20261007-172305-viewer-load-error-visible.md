@@ -69,10 +69,11 @@ Interfaces externas: ninguna; los errores llegan de `/api/repo` (por ejemplo
 
 ## Plan
 
-- [ ] Escribir pruebas fallidas de la carga fallida en cada vista, el re-render y la recuperación
+- [x] Escribir pruebas fallidas de la carga fallida en cada vista, el re-render y la recuperación
   - **Target:** `test/viewer-metadata.test.mjs`
   - **Verify:** `pnpm test`
   - **Criteria:** CR1, CR2, CR3, CR4
+  - **Resolved:** `2026-10-12T12:07:40Z`
 - [ ] Guardar el error de carga en el estado y pintarlo desde `render()`
   - **Target:** `src/viewer/public/app.js, src/viewer/public/app-state.js`
   - **Verify:** `pnpm test`
