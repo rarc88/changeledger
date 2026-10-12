@@ -2,7 +2,7 @@
 id: "20261012-141915"
 title: analyze avisa de los registros de consumo que no puede ubicar
 type: feature
-status: in-review
+status: in-progress
 created: 2026-10-12T14:19:15Z
 depends_on: []
 branch: feature/20261012-141915
@@ -86,3 +86,4 @@ inválido, que impediría analizar el resto, cuando `check` ya es el gate.
 - **2026-10-12T16:19:09Z** `[note]` Reproducido antes del cambio con analyzeUsage: un registro con at "ayer" se ubicaba y cerraba un tramo, uno con at 123 se descartaba, y ninguno producía aviso. Implementación: isPlaceable exige además isIsoUtc(record.at), reutilizado de src/lifecycle.mjs, que usage-analysis ya importaba; analyzeUsage cuenta sobre todo el ledger los registros que isPlaceable rechaza y añade al final la pista skipped:. Sobre el ledger de este repo, analyze --json no emite skipped:. Mutantes M1–M4 fallaron por la aserción esperada.
 - **2026-10-12T16:19:11Z** `[status]` in-progress → in-review
 - **2026-10-12T16:19:16Z** `[note]` Mandato de revisión: la superficie que el change gobierna — isPlaceable y la pista skipped: de analyzeUsage en src/usage-analysis.mjs, su salida por changeledger analyze y el efecto en los recuentos del viewer, con sus tests, sobre dev..HEAD.
+- **2026-10-12T16:24:16Z** `[review]` in-review → in-progress (retry): docs/usage-capture.md enumera las pistas de analyze (rework … failed … gap) y no incluye skipped, que este change añade.
