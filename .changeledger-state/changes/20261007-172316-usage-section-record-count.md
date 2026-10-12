@@ -58,9 +58,10 @@ que cambiaría el esquema público para un detalle del viewer.
   - **Verify:** `pnpm test`
   - **Criteria:** CR1, CR2
   - **Resolved:** `2026-10-12T12:37:21Z`
-- [ ] Ejecutar el gate completo
+- [x] Ejecutar el gate completo
   - **Verify:** `pnpm verify`
   - **Support:**
+  - **Resolved:** `2026-10-12T12:37:22Z`
 
 ## Log
 - **2026-10-07T17:23:16Z** `[version]` 0.18.0-dev
