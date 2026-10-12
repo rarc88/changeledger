@@ -2,7 +2,7 @@
 id: "20261012-174925"
 title: Recortar los guards de concepto de las entradas 16 a 22
 type: refactor
-status: in-validation
+status: done
 created: 2026-10-12T17:49:25Z
 depends_on: []
 branch: refactor/20261012-174925
@@ -138,3 +138,4 @@ Interfaces externas: ninguna. Superficie enteramente en `test/context.test.mjs`.
 - **2026-10-12T18:13:25Z** `[note]` Mandato de la revisión de confirmación: el defecto nombrado (texto de obligación y mensaje de la entrada 16) y regresiones de la corrección, sobre el diff sin commit encima de 9522ec58.
 - **2026-10-12T18:15:34Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-10-12T18:15:40Z** `[note]` Revisión de confirmación: pass. Seguimientos no bloqueantes: el calificador «from an existing spec» no está en el patrón de la entrada 16 (trade de patrón tolerante); la cápsula graduation-review también prohíbe añadir entradas al Log y delegar, sin guard.
+- **2026-10-12T18:36:47Z** `[validation]` in-validation → done (human accepted via conversation)
