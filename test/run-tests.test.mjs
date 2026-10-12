@@ -118,9 +118,10 @@ test('CR2: a failing run keeps the exit code of node --test and cleans up', (t) 
 
 // Node documents that on Windows `subprocess.kill()` with SIGINT, SIGTERM,
 // SIGHUP or SIGQUIT terminates the process abruptly, like SIGKILL. In the
-// Windows CI runs of 20261012-212527 the wrapper ended with that signal and no
-// exit code in all four cases, so none of its handlers ran. Ctrl+C and closing
-// the console, the signals Windows does deliver, cannot be sent from here.
+// Windows CI runs of 20261012-212527 the wrapper ended by a signal and with no
+// exit code in all four cases (SIGINT, SIGTERM and SIGQUIT reported as sent,
+// SIGHUP reported as SIGKILL), so none of its handlers ran. Node offers no way
+// to send Ctrl+C or a console close, the events Windows does deliver.
 const windowsKillSkip =
   process.platform === 'win32' &&
   'on Windows child.kill() terminates the wrapper forcibly and runs no signal handler';

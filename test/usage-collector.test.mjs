@@ -442,7 +442,7 @@ function testSources(dir) {
   });
 }
 
-test('no test embeds a raw filesystem path as an import specifier of a child script', () => {
+test('no test embeds JSON.stringify(path.resolve|join(...)) as an import specifier of a child script', () => {
   // Samples are assembled from parts for the same reason as the pattern.
   const dyn = (spec) => `await import(${'$'}{${spec}});`;
   const stat = (spec) => `import x from ${'$'}{${spec}};`;
