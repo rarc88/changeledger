@@ -121,3 +121,4 @@ Interfaces externas: ninguna. Superficie enteramente en `test/context.test.mjs`.
 - **2026-10-12T17:58:17Z** `[status]` draft → approved (human via conversation)
 - **2026-10-12T17:58:42Z** `[status]` approved → in-progress
 - **2026-10-12T17:58:42Z** `[branch]` set: refactor/20261012-174925 (auto)
+- **2026-10-12T18:04:31Z** `[note]` Mutantes de borrado (CR4): 16 de 16 caen solo en su entrada dueña, con el mensaje de la obligación perdida (16a-c, 18a/18a2/18a3 —ficheros, Git y ledger comparten un mensaje—, 18b-d, 19a-b, 20a-b, 21a-b, 22). Reformulaciones (CR5): 13 de 13 dejan las 21 entradas en verde. Mutante de graduate.mjs (CR2): `const declared = undefined;` hace fallar 113435 CR1 y CR5; restaurado, los tres pasan. Todo sobre una copia en el scratchpad; templates/, src/, bin/ y AGENTS.md sin cambios.
