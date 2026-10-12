@@ -5,6 +5,7 @@ type: refactor
 status: done
 created: 2026-10-07T17:23:16Z
 depends_on: []
+reviewed: true
 branch: refactor/20261007-172316
 related_to: ["20261007-135142", "20261002-140242"]
 owner: rarc88
@@ -74,3 +75,4 @@ que cambiaría el esquema público para un detalle del viewer.
 - **2026-10-12T12:43:58Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-10-12T12:44:03Z** `[note]` Observaciones del review para seguimiento (anteriores al change): ningún test detecta que se quite de isPlaceable el filtro de at no string; el comentario de usageSectionAnalyses dice whether any of changes has a usage record cuando cuentan sólo los registros que el análisis puede situar. El revisor comparó analyze --json de dev y de HEAD sobre el ledger real con y sin --by: idénticos byte a byte.
 - **2026-10-12T12:51:53Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-10-12T12:52:12Z** `[graduation]` skipped: refactor interno sin cambio observable: los mensajes de la sección Usage y el esquema de analyze --json no cambian
