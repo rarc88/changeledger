@@ -2,7 +2,7 @@
 id: "20260925-130844"
 title: activate adopta una ref de estado cuyo mínimo supera la CLI instalada
 type: bug
-status: in-progress
+status: in-review
 created: 2026-09-25T13:08:44Z
 depends_on: ["20260924-184354"]
 branch: bug/20260925-130844
@@ -112,3 +112,4 @@ desde la copia remota que se protege aquí viene de `20260811-163203`.
 - **2026-10-12T11:49:10Z** `[status]` approved → in-progress
 - **2026-10-12T11:49:10Z** `[branch]` set: bug/20260925-130844 (auto)
 - **2026-10-12T11:53:11Z** `[note]` Implementación delegada (subagente, tier medio), tareas 1 a 3: assertCliAdmitted en src/commands/activate.mjs lee con readStateConfigText la config de la revisión a adoptar y lanza el diagnóstico de cliVersionError antes de sembrar desde la copia remota y antes de escribir la activación (también en la reparación de una activación sin ledger_dir). Defecto reproducido: activate salía con 0 e imprimía Seeded/Activated o Repaired sobre una ref con mínimo 99.0.0. CR1-CR3 rojos y verdes, CR4 verde antes y después como guarda; los tests construyen el diagnóstico con la versión de package.json (hoy 0.18.0-dev) en vez del 0.17.0-dev de los CR. Mutantes: comprobación tras sembrar, sin comprobación en la ref existente y la reparación, leyendo la config del worktree, sin comprobación al sembrar y versión instalada fija; todos fallan. pnpm verify en verde con 1778/1778. El orquestador acotó el comentario de repoCliVersionError en src/version-guard.mjs, que decía que activate debe poder reparar una activación rota sin más: ahora dice que la alcanza y compara el mínimo de la revisión que adopta. Decisiones no especificadas: la comprobación corre en cada activate con ref local, también en el no-op Already activated; una config adoptada ilegible propaga su error; una declaración defectuosa falla cerrada con el texto de check; installedVersion es una costura de activate() que los tests no usan. Residuos: check --json y la migración a schema 6 de este repo (fuera de alcance); cutover, sync e import no se examinaron frente a la misma omisión.
+- **2026-10-12T11:53:12Z** `[status]` in-progress → in-review
