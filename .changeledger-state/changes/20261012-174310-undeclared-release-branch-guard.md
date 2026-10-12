@@ -181,10 +181,11 @@ cualquier error de `check`; no se midió.
   - **Verify:** `node --test test/config.test.mjs`
   - **Criteria:** CR4, CR8
   - **Resolved:** `2026-10-12T18:28:29Z`
-- [ ] `checkRepo` reporta el error por change no terminal de un tipo de release sin rama (mensaje de CR2), sin tocar `checkConfig`; un `git.release_branch` mal formado no lo duplica (ya lo reporta `checkConfig`)
+- [x] `checkRepo` reporta el error por change no terminal de un tipo de release sin rama (mensaje de CR2), sin tocar `checkConfig`; un `git.release_branch` mal formado no lo duplica (ya lo reporta `checkConfig`)
   - **Target:** `src/check.mjs`
   - **Verify:** `node --test test/check.test.mjs`
   - **Criteria:** CR2, CR3, CR4
+  - **Resolved:** `2026-10-12T18:28:30Z`
 - [ ] `newChange` y `scaffoldChange` lanzan el mensaje de CR2 tras `requireType` y antes de reservar id o escribir; `new --from` y `apply` lo heredan del gate de candidato de `prepareNewChange`, con test que lo fije
   - **Target:** `src/commands/new.mjs`
   - **Verify:** `node --test test/cli.test.mjs test/apply.test.mjs`
