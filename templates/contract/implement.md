@@ -14,12 +14,17 @@ scope. Keep status, tasks, owner and Log current throughout execution.
 
 ## Git protects traceability
 
-Never implement approved changes on `main`, `master`, or `dev`; create or switch
-to a work branch or ask the human before continuing. When the config declares
-`git.integration_branch`, create change branches from it and integrate the
-finished result into it; `main` stays reserved for releases. Inspect the worktree first. If
-unrelated changes exist, do not include them silently; ask the human whether to
-stash, commit, ignore or include them before changing the worktree.
+Never implement approved changes on the integration branch or the release branch
+(`git.integration_branch`, `git.release_branch`); while either is undeclared, the
+same holds for the default branch and any other long-lived shared branch. Create
+or switch to a work branch or ask the human before continuing. When the change
+context publishes `integration_branch`, create the change branch from it and
+integrate the finished result into it. The release branch is reserved for
+releases and for the types that integrate into it. When the change context also
+publishes `back_merge_branch`, bring the integrated result into that branch as
+well and record it in the Log with `changeledger log <id>`. Inspect the worktree
+first. If unrelated changes exist, do not include them silently; ask the human
+whether to stash, commit, ignore or include them before changing the worktree.
 
 When `git.change_branch_format` is declared, use the `change_branch` published
 by the change context exactly. The convention is opt-in: absent or null does
@@ -76,7 +81,7 @@ Every top-level Log entry has a strict ISO UTC timestamp and canonical type:
 - **2026-06-13T14:30:00Z** `[note]` arbitrary text — even `[status]` and `|`
 ```
 
-Types are `status`, `review`, `validation`, `owner`, `branch`, `graduation`, `archive`, `note`.
+Types are `status`, `review`, `validation`, `owner`, `branch`, `graduation`, `archive`, `note`, `version`.
 Each transition event (`status`, `review`, `validation`) records exactly one transition, with the payload form for its type:
 
 - status: <from> → <to> [(detail)] [: reason]
@@ -87,8 +92,9 @@ Each transition event (`status`, `review`, `validation`) records exactly one tra
 - graduation: spec: `<file>` [(detail)] | skipped [: reason]
 - archive: archived
 - note: <non-empty text>
+- version: <semver> | <semver> → <semver>
 
-Lifecycle commands write their type; `changeledger log` writes an opaque `note` that cannot simulate an operational event. Continuation prose is allowed, but every top-level `- ` line must be a valid typed event.
+Lifecycle commands write their type, and stamp `version` whenever the installed version differs from the last one stamped; `changeledger log` writes an opaque `note` that cannot simulate an operational event. Continuation prose is allowed, but every top-level `- ` line must be a valid typed event.
 
 When implementation and every task are complete, move to `in-review` if the type
 requires independent review by running this ordered gate — do not reconstruct it from memory:
@@ -150,4 +156,4 @@ Every prompt to an implementer or corrector also states these obligations:
 - Report any orchestrator instruction that contradicts this contract instead of silently obeying it.
 - Stop and report when the work turns out to need a different type or a wider scope.
 - Report the list of decisions the document did not specify.
-- Deliverable prose — test comments and Log notes — that quantifies universally (every, all, no, cannot, always) has the edge that would falsify it executed before it is written, or is narrowed to the incident actually observed.
+- Deliverable prose — documentation, code and test comments, and Log notes — that quantifies universally (every, all, no, never, only, cannot, always) has the edge that would falsify it executed before it is written, or is narrowed to the incident actually observed. Correcting a review finding on prose narrows the sentence to what was executed or deletes it, and never replaces it with another universal claim. Your report lists each universally quantified sentence you added or rewrote, with the command that executed its edge.

@@ -6,6 +6,7 @@ const VALID_SORT_KEYS = new Set(['id', 'title', 'type', 'status', 'progress', 'd
 const VALID_DETAIL_MODES = new Set(['side', 'floating']);
 const VALID_DETAIL_SIZES = new Set(['compact', 'wide', 'full']);
 let storage = null;
+let projectSelected = () => {};
 
 const emptyProjectFilters = () => ({
   types: [],
@@ -20,6 +21,7 @@ const emptyProjectFilters = () => ({
 export const state = {
   repo: null,
   lastJson: '',
+  loadError: null,
   filters: {
     text: '',
     type: 'all',
@@ -160,6 +162,12 @@ export function restoreViewerState(storageLike) {
   return true;
 }
 
+// Called after `selectProject`, and after `initializeProjects` when it changes
+// the selected project; app.js registers the shell update it needs.
+export function setProjectSelectedListener(listener) {
+  projectSelected = listener;
+}
+
 export function initializeProjects(projects, serverCurrent, { exact = false } = {}) {
   state.projectsList = projects;
   const alive = new Set(projects.filter((project) => project.alive).map((project) => project.id));
@@ -175,6 +183,7 @@ export function initializeProjects(projects, serverCurrent, { exact = false } = 
     saveCurrentProjectFilters();
     state.currentProject = selected;
     if (selected) applyProjectFilters(selected);
+    projectSelected();
   }
   if (!selected) state.globalMode = false;
   persistViewerState();
@@ -205,6 +214,14 @@ export function normalizeRepoState(repo) {
     [...state.boardSortColumns].filter((status) => statuses.has(status)),
   );
   persistViewerState();
+}
+
+// The loaded payload when it belongs to the selected project, else null:
+// `selectProject` keeps the previous project's payload in `state.repo`.
+export function selectedRepo() {
+  return state.repo && String(state.repo.project_id) === String(state.currentProject)
+    ? state.repo
+    : null;
 }
 
 export function setRepo(json) {
@@ -312,8 +329,10 @@ export function selectProject(id) {
   saveCurrentProjectFilters();
   state.currentProject = id;
   state.lastJson = '';
+  state.loadError = null;
   applyProjectFilters(id);
   persistViewerState();
+  projectSelected();
 }
 
 export function sortBoardColumnChanges(changes, descending = false) {

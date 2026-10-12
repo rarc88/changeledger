@@ -21,6 +21,7 @@ import {
 } from '../src/commands/agent.mjs';
 import { AGENT_ROLES, agentContext } from '../src/commands/agent-context.mjs';
 import { agentPrompt } from '../src/commands/agent-prompt.mjs';
+import { runAnalyze } from '../src/commands/analyze.mjs';
 import { apply } from '../src/commands/apply.mjs';
 import { check } from '../src/commands/check.mjs';
 import { commit } from '../src/commands/commit.mjs';
@@ -51,10 +52,27 @@ import {
 } from '../src/lifecycle.mjs';
 import { nowUtc } from '../src/paths.mjs';
 import { RELEASE_IMPACTS } from '../src/release.mjs';
-import { CAS_CONFLICT_MESSAGE, LedgerConflictError } from '../src/state-store.mjs';
+import {
+  CAS_CONFLICT_MESSAGE,
+  LedgerConflictError,
+  setUnknownCollectionsListener,
+  unknownCollectionsMessage,
+} from '../src/state-store.mjs';
+import { USAGE_GROUP_KEYS } from '../src/usage-analysis.mjs';
 import { repoCliVersionError } from '../src/version-guard.mjs';
 
 const { version } = createRequire(import.meta.url)('../package.json');
+
+// A state ref holding collections this CLI does not declare is read without
+// them (20261002-161641); one command may read the tree several times, so the
+// warning is written on the first read only. Installed before the first read
+// of this module, the configured-domains lookup below.
+let unknownCollectionsWarned = false;
+setUnknownCollectionsListener((collections) => {
+  if (unknownCollectionsWarned) return;
+  unknownCollectionsWarned = true;
+  console.error(`warning: ${unknownCollectionsMessage(collections, version)}`);
+});
 
 function configuredDomains(cwd = process.cwd()) {
   try {
@@ -107,6 +125,10 @@ const LOG_EVENT_PRODUCERS = Object.freeze({
   graduation: ['changeledger graduate'],
   archive: ['changeledger archive'],
   note: ['changeledger log'],
+  version: [
+    'changeledger new, changeledger apply (creation)',
+    'every command above that appends a Log event, when the Log has no stamp or its last one differs from the installed version (not edit or apply documents)',
+  ],
 });
 
 function logEventGrammarHelp() {
@@ -156,7 +178,7 @@ prompt identifies your role and tells you to run \`agent-context\` instead.
 
   changeledger init | register | new | edit | apply | view | check | fix | context | agent-context
   changeledger commit | status | approve | validation | discard | review | owner
-  changeledger archive | log | task | list | show | search | graduate | config | release
+  changeledger archive | log | task | list | show | search | analyze | graduate | config | release
   changeledger cutover | activate | import | sync
 
 Run \`changeledger <command> --help\` for that command's syntax, values and examples.`;
@@ -331,7 +353,7 @@ program
   .option('--json', 'print JSON')
   .option(
     '--commits [base]',
-    'lint commit subjects on <base>..HEAD for the [#id] marker (base auto-detected if omitted)',
+    'lint commit subjects on <base>..HEAD for the [#id] marker (base defaults to the integration branch of the change on the current branch, else git.integration_branch, else auto-detected)',
   )
   .addHelpText(
     'after',
@@ -689,11 +711,16 @@ program
       '`in-validation`, after review already passed; it never issues a verdict or',
       'moves the change.',
       '',
+      '`graduation-review` is a read-only check of the spec reconciliation drafted',
+      'for a change already `done`, before the first `--into`; it never moves the',
+      'change.',
+      '',
       'Examples:',
       '  changeledger agent-prompt investigation',
       '  changeledger agent-prompt implementation',
       '  changeledger agent-prompt review',
       '  changeledger agent-prompt post-review',
+      '  changeledger agent-prompt graduation-review',
     ].join('\n'),
   )
   .action(action((role) => agentPrompt(role)));
@@ -704,7 +731,7 @@ program
   .addArgument(closedArgument('<role>', AGENT_ROLES.join(' | '), AGENT_ROLES))
   .argument(
     '[change-id]',
-    'optional for investigation; required for implementation, review and post-review',
+    'optional for investigation; required for implementation, review, post-review and graduation-review',
   )
   .addHelpText(
     'after',
@@ -718,12 +745,16 @@ program
       'inspection after review already passed, and never issues a verdict or',
       'moves the change.',
       '',
+      '`graduation-review` requires a change in `done`; it is a read-only check of',
+      'the spec reconciliation before the first `--into`, and never moves the change.',
+      '',
       'Examples:',
       '  changeledger agent-context investigation',
       '  changeledger agent-context investigation <id>',
       '  changeledger agent-context implementation <id>',
       '  changeledger agent-context review <id>',
       '  changeledger agent-context post-review <id>',
+      '  changeledger agent-context graduation-review <id>',
     ].join('\n'),
   )
   .action(action((role, changeId) => agentContext(role, changeId)));
@@ -1094,6 +1125,27 @@ program
     ].join('\n'),
   )
   .action(action((queryParts, options) => runSearch(queryParts, options)));
+
+program
+  .command('analyze')
+  .description('token and cost figures from the ledger usage records (read-only)')
+  .argument('[id]', 'one change: its segments with tokens, cost, models and version')
+  .addOption(
+    closedOption('--by <key>', 'aggregate every measured change by this key', USAGE_GROUP_KEYS),
+  )
+  .option('--json', 'print JSON: { schema, changes, groups, hints }')
+  .addHelpText(
+    'after',
+    [
+      '',
+      'Examples:',
+      '  changeledger analyze',
+      '  changeledger analyze 20261002-140038',
+      '  changeledger analyze --by model',
+      '  changeledger analyze --json',
+    ].join('\n'),
+  )
+  .action(action((id, options) => runAnalyze(id, options)));
 
 program
   .command('graduate')

@@ -19,7 +19,7 @@ The review prompt adds the evidence standard the capsule does not carry:
 
 - Mark every claim as confirmed by running it or as reasoned from the code.
 - Trace every helper a suspect path calls before reporting a validation as missing.
-- Take the implementer's list of decisions the document did not specify as scrutiny points, not as settled.
+- Take the implementer's or corrector's reported lists — decisions the document did not specify, and universally quantified sentences it added or rewrote — as scrutiny points, not as settled.
 - Hold the orchestrator's own edits to the deliverable to the same standard as the implementer's.
 - Treat a universal quantifier in deliverable prose whose falsifying edge was not executed as a defect that fails the review, not as style.
 

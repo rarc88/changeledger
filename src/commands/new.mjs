@@ -3,11 +3,18 @@ import path from 'node:path';
 import { parseChange } from '../change.mjs';
 import { repoIsActivated, writeLedgerFiles } from '../change-store.mjs';
 import { checkRepo, newErrors } from '../check.mjs';
-import { findChangeledgerDir, loadConfig, resolveRepoPath } from '../config.mjs';
+import {
+  findChangeledgerDir,
+  loadConfig,
+  releaseBranchRequirementError,
+  resolveRepoPath,
+} from '../config.mjs';
 import { assertSupportedSchema } from '../config-migration.mjs';
 import { ownerHandle as defaultOwnerHandle } from '../git.mjs';
 import { loadRepo } from '../repo.mjs';
 import { slugify } from '../slug.mjs';
+import { snapshotUsage } from '../usage-collector.mjs';
+import { stampVersion } from '../writer.mjs';
 import { serializeScalar } from '../yaml.mjs';
 import { readSource } from './edit.mjs';
 
@@ -22,7 +29,7 @@ const LOCK_MTIME_STALE_MS = 30_000;
 export function newChange(
   { type, slug, title, owner, now },
   cwd = process.cwd(),
-  { ownerHandle = defaultOwnerHandle } = {},
+  { ownerHandle = defaultOwnerHandle, usage } = {},
 ) {
   const changeledgerDir = findChangeledgerDir(cwd);
   if (!changeledgerDir) throw new Error('Not a ChangeLedger repo. Run `changeledger init` first.');
@@ -40,7 +47,7 @@ export function newChange(
 
   const config = loadConfig(changeledgerDir);
   assertSupportedSchema(config);
-  const typeDef = requireType(config, type);
+  const typeDef = requireCreatableType(config, type);
 
   // Born with an owner: an explicit --owner always wins; otherwise resolve the
   // local git identity. Tolerant — an unresolvable identity (ownerHandle
@@ -81,15 +88,17 @@ export function newChange(
     }
 
     const file = path.join(changesDir, `${id}-${normalizedSlug}.md`);
+    let written = false;
     try {
       fs.writeFileSync(
         file,
-        render({ id, title, type, owner: resolvedOwner, stages: typeDef.stages, now: created }),
-        {
-          flag: 'wx',
-        },
+        stampVersion(
+          render({ id, title, type, owner: resolvedOwner, stages: typeDef.stages, now: created }),
+          created,
+        ),
+        { flag: 'wx' },
       );
-      return file;
+      written = true;
     } catch (e) {
       if (e.code !== 'EEXIST') throw e;
       created = bumpSecond(created);
@@ -97,7 +106,17 @@ export function newChange(
     } finally {
       releaseIdLock(lock);
     }
+    if (written) {
+      snapshotUsage({ repoRoot, events: [creationEvent(id, created)], usage });
+      return file;
+    }
   }
+}
+
+// The usage snapshot's view of a creation (20261001-155612): a new change has
+// no Log line yet, so its instant is the `created` field it was born with.
+export function creationEvent(id, created) {
+  return { change: String(id), event: 'created', from: null, to: 'draft', at: created };
 }
 
 function requireType(config, type) {
@@ -105,6 +124,18 @@ function requireType(config, type) {
   if (!typeDef) {
     throw new Error(`Unknown type "${type}". Valid: ${Object.keys(config.types ?? {}).join(', ')}`);
   }
+  return typeDef;
+}
+
+// `requireType` plus the repo-level condition that makes a change of this type
+// loadable at all: a release type needs a declared `git.release_branch`, or the
+// change would be born stuck (20261012-174310). It runs before an id is reserved
+// or a byte is written. `--from` and `apply` reach the same refusal through the
+// candidate check in `prepareNewChange`, which words it as a document defect.
+function requireCreatableType(config, type) {
+  const typeDef = requireType(config, type);
+  const requirement = releaseBranchRequirementError(config, type);
+  if (requirement) throw new Error(requirement);
   return typeDef;
 }
 
@@ -122,7 +153,7 @@ export function scaffoldChange(
 ) {
   const repo = loadRepo(cwd);
   assertSupportedSchema(repo.config);
-  const typeDef = requireType(repo.config, type);
+  const typeDef = requireCreatableType(repo.config, type);
   let created = now;
   let id = idFromTimestamp(created);
   while (idTakenInRepo(repo, id)) {
@@ -141,10 +172,12 @@ export function scaffoldChange(
 // write (one CAS commit when activated), never a scaffold followed by edits.
 // The document is the authority for its own frontmatter — `id` and `created`
 // included, so the text an author reviewed is the text that lands, byte for
-// byte — and the command line must agree with it rather than silently losing
-// to it. A CAS conflict propagates instead of retrying under a fresh id: the
-// id is the author's, not this function's, so re-running is the caller's call.
-export function newChangeFrom({ type, slug, title, from }, cwd = process.cwd()) {
+// byte, plus the `[version]` stamp creation records at `created`
+// (20261001-155216) — and the command line must agree with it rather than
+// silently losing to it. A CAS conflict propagates instead of retrying under a
+// fresh id: the id is the author's, not this function's, so re-running is the
+// caller's call.
+export function newChangeFrom({ type, slug, title, from }, cwd = process.cwd(), { usage } = {}) {
   const text = readSource(from);
   const repo = loadRepo(cwd);
   assertSupportedSchema(repo.config);
@@ -166,8 +199,17 @@ export function newChangeFrom({ type, slug, title, from }, cwd = process.cwd()) 
 
   const prepared = prepareNewChange(repo, text, { slug, parsed });
   if (prepared.file) fs.mkdirSync(path.dirname(prepared.file), { recursive: true });
-  writeLedgerFiles(repo, [{ relPath: prepared.relPath, file: prepared.file, text }], {
-    message: prepared.message,
+  writeLedgerFiles(
+    repo,
+    [{ relPath: prepared.relPath, file: prepared.file, text: prepared.text }],
+    {
+      message: prepared.message,
+    },
+  );
+  snapshotUsage({
+    repoRoot: repo.repoRoot,
+    events: [creationEvent(prepared.id, prepared.created)],
+    usage,
   });
   return repo.state ? prepared.relPath : prepared.file;
 }
@@ -177,7 +219,10 @@ export function newChangeFrom({ type, slug, title, from }, cwd = process.cwd()) 
 // by the one write; `apply` runs the same seat against its accumulated
 // candidate repo, so a batch inherits creation policy instead of copying it.
 // The document is the authority for its own frontmatter, so `slug` is the only
-// thing the caller still supplies — it names the file, not the content.
+// thing the caller still supplies — it names the file, not the content. The
+// returned `text` is the document to land: the incoming one with the running
+// CLI version stamped in its Log at `created`, since creation writes no event
+// that would stamp it.
 export function prepareNewChange(repo, text, { slug, parsed } = {}) {
   const document = parsed ?? parseChange(text);
   const fm = document.frontmatter ?? {};
@@ -196,12 +241,13 @@ export function prepareNewChange(repo, text, { slug, parsed } = {}) {
     throw new Error(`id "${id}" is already taken — re-run \`--print\` for a free one`);
   }
 
+  const stamped = stampVersion(text, created);
   const name = `${id}-${slugify(slug)}.md`;
   const relPath = `changes/${name}`;
   const file = repo.state
     ? null
     : path.join(resolveRepoPath(repo.repoRoot, repo.config.changes_dir, 'changes_dir'), name);
-  const candidate = { file, name, text, ...document };
+  const candidate = { file, name, ...parseChange(stamped), text: stamped };
   // Repo-wide, not just the new document's own scope — same seat and same
   // reasoning as `edit`'s candidate gate (20260811-122031): scoped to one id,
   // the old check stopped before every aggregate check (duplicate ids, the
@@ -221,7 +267,7 @@ export function prepareNewChange(repo, text, { slug, parsed } = {}) {
     );
   }
 
-  return { id, name, relPath, file, text, message: `new: ${id}` };
+  return { id, created, name, relPath, file, text: stamped, message: `new: ${id}` };
 }
 
 function idTakenInRepo(repo, id) {

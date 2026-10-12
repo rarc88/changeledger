@@ -8,7 +8,12 @@ import { mutateFileAtomic, withFileLock } from '../atomic-write.mjs';
 import { parseChange } from '../change.mjs';
 import { mutateLedgerFile, repoIsActivated, writeLedgerFiles } from '../change-store.mjs';
 import { assertChangeTextValid, assertStagesNotEmpty } from '../check.mjs';
-import { findChangeledgerDir, integrationBranch, renderChangeBranch } from '../config.mjs';
+import {
+  changeIntegrationBranch,
+  findChangeledgerDir,
+  integrationBranch,
+  renderChangeBranch,
+} from '../config.mjs';
 import { assertSupportedSchema } from '../config-migration.mjs';
 import {
   currentBranch,
@@ -16,11 +21,14 @@ import {
   defaultRun as defaultGitRun,
   ownerHandle as defaultOwnerHandle,
   isAncestor,
+  mergeBases,
+  refExists,
 } from '../git.mjs';
 import { assertTransition, parseLogEvent } from '../lifecycle.mjs';
 import { nowUtc } from '../paths.mjs';
 import { resolveReleasesDir } from '../release.mjs';
 import { loadRepo, resolveChange, resolveChangeInRepo } from '../repo.mjs';
+import { snapshotUsage } from '../usage-collector.mjs';
 import {
   appendLogEvent,
   setArchived,
@@ -29,6 +37,7 @@ import {
   setStatus,
   setTask,
 } from '../writer.mjs';
+import { resolveRemote } from './sync.mjs';
 
 // Locates a change and the ledger it lives in. Inactive: unchanged —
 // `resolveChange` scans the worktree, tolerant of unrelated unparseable
@@ -72,6 +81,15 @@ function locate(cwd, id) {
   };
 }
 
+// A configured branch name as the ref git reads. A short name follows the
+// lookup order of gitrevisions(7), where `refs/<name>` and `refs/tags/<name>`
+// come before `refs/heads/<name>`: `git tag dev main` made `dev` read as `main`
+// (20261012-175147). The full ref names the branch only while it exists: with
+// the branch absent git falls back to refs such as `refs/tags/refs/heads/<name>`
+// or `refs/heads/refs/heads/<name>`, so the guard checks that the branch exists
+// (`refExists`) before handing its full ref to git.
+const branchRef = (name) => `refs/heads/${name}`;
+
 function assertImplementationBranch(config, change, repoRoot, gitRun) {
   const expected = renderChangeBranch(config, change);
   if (expected === undefined) return;
@@ -83,10 +101,78 @@ function assertImplementationBranch(config, change, repoRoot, gitRun) {
     );
   }
 
-  const baseline = integrationBranch(config);
-  if (baseline && !isAncestor(repoRoot, baseline, 'HEAD', gitRun)) {
+  // The base follows the role of the change's type (`integrates_into`), so a
+  // release type descends from `git.release_branch` (20261002-181346). An
+  // absent base fails here too, before git can read its full ref through a ref
+  // such as `refs/tags/refs/heads/<name>`.
+  const baseline = changeIntegrationBranch(config, change.type);
+  if (
+    baseline &&
+    !(
+      refExists(repoRoot, branchRef(baseline), gitRun) &&
+      isAncestor(repoRoot, branchRef(baseline), 'HEAD', gitRun)
+    )
+  ) {
     throw new Error(`branch "${expected}" must descend from integration branch "${baseline}"`);
   }
+
+  // A change that integrates into another branch than `git.integration_branch`
+  // (a release type) must not carry integration work that branch does not have
+  // yet: when `dev` is ahead of `main`, a branch cut from `dev` still descends
+  // from `main` and passes the check above (20261002-204623). The commits
+  // reachable from both `HEAD` and a copy of the integration branch are exactly
+  // the ancestors of their merge bases, so requiring each merge base (criss-cross
+  // merges leave several) to be in `baseline` keeps the commits of that copy
+  // shared with `HEAD` inside `baseline`. It does not inspect commits that are
+  // only on `HEAD`, such as a cherry-picked copy of integration work. With no
+  // merge base it fails closed, like the ancestry check above, and says the
+  // branch shares no history with that copy: absent copies never reach it.
+  const integration = integrationBranch(config);
+  if (integration && integration !== baseline) {
+    for (const { ref, name } of integrationCopies(integration, expected, repoRoot, gitRun)) {
+      const bases = mergeBases(repoRoot, 'HEAD', ref, gitRun);
+      if (bases.length === 0) {
+        throw new Error(
+          `branch "${expected}" cannot start: it shares no history with integration branch "${name}"`,
+        );
+      }
+      if (!bases.every((base) => isAncestor(repoRoot, base, branchRef(baseline), gitRun))) {
+        throw new Error(
+          `branch "${expected}" contains commits of "${name}" that are not in "${baseline}"`,
+        );
+      }
+    }
+  }
+}
+
+// The copies of the integration branch the guard above compares, local first:
+// the branch and, when the repo has a remote, its remote-tracking copy there,
+// because a hotfix cut from `origin/dev` carried work the local `dev` lacked
+// (20261012-175147). The remote is the one `sync` resolves; several remotes and
+// none named `origin` fail closed rather than compare with the local copy
+// alone. A copy counts as present only when a ref of exactly its full name
+// exists, not when git resolves that name through another ref. A missing copy
+// is skipped, since a remote need not publish the branch; with neither copy
+// present it fails closed. It reads refs already in the repo and runs no fetch,
+// so work pushed after the last fetch is not seen.
+function integrationCopies(integration, expected, repoRoot, gitRun) {
+  let remote;
+  try {
+    remote = resolveRemote(repoRoot, gitRun, `integration branch "${integration}"`);
+  } catch (error) {
+    throw new Error(`branch "${expected}" cannot start: ${error.message}`);
+  }
+  const copies = [{ ref: branchRef(integration), name: integration }];
+  if (remote) {
+    copies.push({ ref: `refs/remotes/${remote}/${integration}`, name: `${remote}/${integration}` });
+  }
+  const present = copies.filter(({ ref }) => refExists(repoRoot, ref, gitRun));
+  if (present.length === 0) {
+    throw new Error(
+      `branch "${expected}" cannot start: integration branch "${integration}" does not exist locally — create it (e.g. from its remote-tracking copy) before starting`,
+    );
+  }
+  return present;
 }
 
 // The pre-text guards of `status`: which destinations this actor may ask for at
@@ -115,10 +201,11 @@ export function assertStatusDestinationAllowed(config, newStatus, actor) {
 // The whole text transform of `status`, lifted out of its `mutateLedgerFile`
 // call so `apply` can run it against an accumulated candidate instead of a
 // stored document. `warnings` is the caller's array — the branch-drift warning
-// is collected, never thrown.
+// is collected, never thrown. `events`, when given, receives the transition
+// this transform wrote, for the usage snapshot taken after the write lands.
 export function statusMutation(
   newStatus,
-  { config, repoRoot, gitCwd, name, warnings, actor = 'human', channel = 'viewer' },
+  { config, repoRoot, gitCwd, name, warnings, events, actor = 'human', channel = 'viewer' },
   {
     ownerHandle = defaultOwnerHandle,
     checkoutBranch = defaultCheckoutBranch,
@@ -185,8 +272,9 @@ export function statusMutation(
       newStatus === 'approved'
         ? 'human via conversation'
         : undefined;
+    const at = nowUtc();
     text = appendLogEvent(text, {
-      at: nowUtc(),
+      at,
       type: 'status',
       from: fm.status,
       to: newStatus,
@@ -225,8 +313,14 @@ export function statusMutation(
         });
       }
     }
+    events?.push(transitionEvent(fm, 'status', fm.status, newStatus, at));
     return text;
   };
+}
+
+// The usage snapshot's view of one written Log transition (20261001-155612).
+function transitionEvent(fm, event, from, to, at) {
+  return { change: String(fm.id), event, from, to, at };
 }
 
 export function status(
@@ -239,28 +333,31 @@ export function status(
     gitRun = defaultGitRun,
     actor = 'human',
     channel = 'viewer',
+    usage,
   } = {},
 ) {
   const { config, repo, target, repoRoot, gitCwd, name } = locate(cwd, id);
   const warnings = [];
+  const events = [];
   assertStatusDestinationAllowed(config, newStatus, actor);
   mutateLedgerFile(
     repo,
     target,
     statusMutation(
       newStatus,
-      { config, repoRoot, gitCwd, name, warnings, actor, channel },
+      { config, repoRoot, gitCwd, name, warnings, events, actor, channel },
       { ownerHandle, checkoutBranch, gitRun },
     ),
     { message: `status: ${id} → ${newStatus}` },
   );
+  snapshotUsage({ repoRoot, events, usage });
   return { file: target.file, warnings };
 }
 
 // Transmits an explicit human approval received through the host conversation.
 // The lifecycle guard remains owned by status(); this only selects attribution.
-export function approve(id, cwd = process.cwd()) {
-  return status(id, 'approved', cwd, { actor: 'human', channel: 'conversation' });
+export function approve(id, cwd = process.cwd(), { usage } = {}) {
+  return status(id, 'approved', cwd, { actor: 'human', channel: 'conversation', usage });
 }
 
 // Records the verdict of the independent review (run by a delegated subagent
@@ -268,8 +365,9 @@ export function approve(id, cwd = process.cwd()) {
 // `fail` routes it back: `retry` for a defect inside the contract (the
 // implementer fixes), `block` for one that escalates to a human. Requires the
 // change to be in-review.
-export function review(id, verdict, { mode, reason } = {}, cwd = process.cwd()) {
-  const { config, repo, target } = locate(cwd, id);
+export function review(id, verdict, { mode, reason } = {}, cwd = process.cwd(), { usage } = {}) {
+  const { config, repo, target, repoRoot } = locate(cwd, id);
+  const events = [];
   mutateLedgerFile(
     repo,
     target,
@@ -288,11 +386,14 @@ export function review(id, verdict, { mode, reason } = {}, cwd = process.cwd()) 
         reviewRequired: Boolean(config.types?.[fm.type]?.review_required),
       };
 
+      const at = nowUtc();
+      let to;
       if (verdict === 'pass') {
         assertTransition(current, 'in-validation', opts);
+        to = 'in-validation';
         text = setStatus(text, 'in-validation');
         text = appendLogEvent(text, {
-          at: nowUtc(),
+          at,
           type: 'review',
           from: 'in-review',
           to: 'in-validation',
@@ -306,9 +407,10 @@ export function review(id, verdict, { mode, reason } = {}, cwd = process.cwd()) 
         }
         if (mode === 'retry') {
           assertTransition(current, 'in-progress', opts);
+          to = 'in-progress';
           text = setStatus(text, 'in-progress');
           text = appendLogEvent(text, {
-            at: nowUtc(),
+            at,
             type: 'review',
             from: 'in-review',
             to: 'in-progress',
@@ -317,9 +419,10 @@ export function review(id, verdict, { mode, reason } = {}, cwd = process.cwd()) 
           });
         } else if (mode === 'block') {
           assertTransition(current, 'blocked', opts);
+          to = 'blocked';
           text = setStatus(text, 'blocked');
           text = appendLogEvent(text, {
-            at: nowUtc(),
+            at,
             type: 'review',
             from: 'in-review',
             to: 'blocked',
@@ -332,10 +435,12 @@ export function review(id, verdict, { mode, reason } = {}, cwd = process.cwd()) 
         throw new Error(`Unknown review verdict "${verdict}" (use pass|fail)`);
       }
 
+      events.push(transitionEvent(fm, 'review', 'in-review', to, at));
       return text;
     },
     { message: `review: ${id} ${verdict}` },
   );
+  snapshotUsage({ repoRoot, events, usage });
   return target.file;
 }
 
@@ -346,8 +451,10 @@ export function validation(
   verdict,
   { reason, actor = 'human', channel = 'viewer' } = {},
   cwd = process.cwd(),
+  { usage } = {},
 ) {
-  const { config, repo, target, name } = locate(cwd, id);
+  const { config, repo, target, name, repoRoot } = locate(cwd, id);
+  const events = [];
   mutateLedgerFile(
     repo,
     target,
@@ -379,8 +486,9 @@ export function validation(
           : channel === 'conversation' && actor === 'human'
             ? 'human rejected via conversation'
             : `${actor} rejected`;
+      const at = nowUtc();
       text = appendLogEvent(text, {
-        at: nowUtc(),
+        at,
         type: 'validation',
         from: 'in-validation',
         to,
@@ -388,16 +496,18 @@ export function validation(
         reason: verdict === 'fail' ? reason : undefined,
       });
       if (verdict === 'pass') assertChangeTextValid(config, name, text);
+      events.push(transitionEvent(fm, 'validation', 'in-validation', to, at));
       return text;
     },
     { message: `validation: ${id} ${verdict}` },
   );
+  snapshotUsage({ repoRoot, events, usage });
   return target.file;
 }
 
 // Correction path while `done` is still provisional. Graduation,
 // skip, archive and release membership are durable boundaries and fail closed.
-function reopenMutation({ config, actor, reason, released }) {
+function reopenMutation({ config, actor, reason, released, events }) {
   return (text) => {
     const change = { ...parseChange(text), text };
     const fm = change.frontmatter;
@@ -413,20 +523,24 @@ function reopenMutation({ config, actor, reason, released }) {
       reviewRequired: Boolean(config.types?.[fm.type]?.review_required),
     });
     text = setStatus(text, 'in-progress');
-    return appendLogEvent(text, {
-      at: nowUtc(),
+    const at = nowUtc();
+    text = appendLogEvent(text, {
+      at,
       type: 'status',
       from: 'done',
       to: 'in-progress',
       detail: `${actor} reopened`,
       reason,
     });
+    events.push(transitionEvent(fm, 'status', 'done', 'in-progress', at));
+    return text;
   };
 }
 
-export function reopen(id, reason, cwd = process.cwd(), { actor = 'human' } = {}) {
+export function reopen(id, reason, cwd = process.cwd(), { actor = 'human', usage } = {}) {
   if (!String(reason ?? '').trim()) throw new Error('reopen requires a reason');
   const { config, repo, target, repoRoot } = locate(cwd, id);
+  const events = [];
 
   // Active: the released-check/write pair needs no worktree lock — any
   // concurrent write (a release included) advances the state ref, so the
@@ -437,23 +551,27 @@ export function reopen(id, reason, cwd = process.cwd(), { actor = 'human' } = {}
     const released = loadRepo(cwd).releases.some((release) =>
       (release.changes ?? []).some((changeId) => String(changeId) === String(id)),
     );
-    mutateLedgerFile(repo, target, reopenMutation({ config, actor, reason, released }), {
+    mutateLedgerFile(repo, target, reopenMutation({ config, actor, reason, released, events }), {
       message: `reopen: ${id}`,
     });
+    snapshotUsage({ repoRoot, events, usage });
     return target.file;
   }
 
   const releasesDir = resolveReleasesDir(repoRoot);
   fs.mkdirSync(releasesDir, { recursive: true });
-  return withFileLock(path.join(releasesDir, '.history'), () => {
+  const file = withFileLock(path.join(releasesDir, '.history'), () => {
     const released = loadRepo(cwd).releases.some((release) =>
       (release.changes ?? []).some((changeId) => String(changeId) === String(id)),
     );
-    mutateLedgerFile(repo, target, reopenMutation({ config, actor, reason, released }), {
+    mutateLedgerFile(repo, target, reopenMutation({ config, actor, reason, released, events }), {
       message: `reopen: ${id}`,
     });
     return target.file;
   });
+  // Outside the release lock: the snapshot may take seconds and guards nothing.
+  snapshotUsage({ repoRoot, events, usage });
+  return file;
 }
 
 // Text transform of `owner`, lifted out for the same reason as
@@ -496,11 +614,12 @@ export function branch(id, name, cwd = process.cwd()) {
 // Discards a change: a terminal lifecycle move that keeps the file and its
 // reasoning instead of deleting it. The reason is mandatory and recorded in the
 // Log; the transition graph rejects discarding a done or in-review change.
-export function discard(id, reason, cwd = process.cwd()) {
+export function discard(id, reason, cwd = process.cwd(), { usage } = {}) {
   if (!reason) {
     throw new Error('discard requires a reason — changeledger discard <id> "<reason>"');
   }
-  const { config, repo, target } = locate(cwd, id);
+  const { config, repo, target, repoRoot } = locate(cwd, id);
+  const events = [];
   mutateLedgerFile(
     repo,
     target,
@@ -512,16 +631,20 @@ export function discard(id, reason, cwd = process.cwd()) {
         reviewRequired: Boolean(config.types?.[fm.type]?.review_required),
       });
       text = setStatus(text, 'discarded');
-      return appendLogEvent(text, {
-        at: nowUtc(),
+      const at = nowUtc();
+      text = appendLogEvent(text, {
+        at,
         type: 'status',
         from: fm.status,
         to: 'discarded',
         reason,
       });
+      events.push(transitionEvent(fm, 'status', fm.status, 'discarded', at));
+      return text;
     },
     { message: `discard: ${id}` },
   );
+  snapshotUsage({ repoRoot, events, usage });
   return target.file;
 }
 

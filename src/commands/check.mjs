@@ -1,19 +1,71 @@
 import path from 'node:path';
-import { checkRepo, frozenReason } from '../check.mjs';
-import { findChangeledgerDir, integrationBranch, loadEffectiveConfig } from '../config.mjs';
+import { checkRepo, checkUsageGitConfig, frozenReason } from '../check.mjs';
+import {
+  changeIntegrationBranch,
+  findChangeledgerDir,
+  integrationBranch,
+  loadEffectiveConfig,
+  renderChangeBranch,
+} from '../config.mjs';
 import { getSchemaVersion, SUPPORTED_SCHEMA_VERSION } from '../config-migration.mjs';
 import { checkContract } from '../contract.mjs';
-import { defaultBaseBranch, lintCommitRange } from '../git.mjs';
+import { VERSION } from '../framing.mjs';
+import { checkoutBranch, defaultBaseBranch, lintCommitRange } from '../git.mjs';
 import { loadRepo } from '../repo.mjs';
+import { STATE_ROOT, unknownCollectionsMessage } from '../state-store.mjs';
 
-// Declared integration branch, when a ChangeLedger repo (and the key) exists.
-// Outside a repo the lint still works on plain git, so absence is undefined,
-// not an error; a malformed declared value still fails fast in
-// `integrationBranch`.
-function configuredIntegrationBranch(cwd) {
+// Statuses whose changes do not decide a branch's base. Only `done` and
+// `discarded` are listed: a custom terminal-like status such as `cancelled`
+// still decides.
+const TERMINAL_STATUSES = ['done', 'discarded'];
+
+function hasReleaseType(config) {
+  return Object.values(config?.types ?? {}).some((t) => t?.integrates_into === 'release');
+}
+
+// Non-terminal changes whose branch is the checked out one: the recorded
+// `branch`, or, while none is recorded, the one `git.change_branch_format`
+// renders for the change.
+function changesOnBranch(repo, branch) {
+  return repo.changes.filter(({ frontmatter: fm }) => {
+    if (TERMINAL_STATUSES.includes(fm.status)) return false;
+    return (fm.branch ?? renderChangeBranch(repo.config, fm)) === branch;
+  });
+}
+
+// Base `check --commits` lints against when none is given: the effective
+// integration branch of the change on the current branch, else the declared
+// `git.integration_branch`, else the auto-detected default branch. Outside a
+// ChangeLedger repo the lint still works on plain git. A malformed declared
+// value fails fast in `integrationBranch`. The ledger is read only when some
+// type declares `integrates_into: release`. Without one, and with valid roles,
+// a change's base is `git.integration_branch` and reading the ledger would not
+// change the answer; `changeledger check` reports an invalid role as a config
+// error, but this lint does not detect it when no type integrates into release.
+function defaultCommitsBase(cwd) {
   const changeledgerDir = findChangeledgerDir(cwd);
-  if (!changeledgerDir) return undefined;
-  return integrationBranch(loadEffectiveConfig(path.dirname(changeledgerDir), changeledgerDir));
+  if (!changeledgerDir) return defaultBaseBranch(cwd);
+  const config = loadEffectiveConfig(path.dirname(changeledgerDir), changeledgerDir);
+  const fallback = () => integrationBranch(config) ?? defaultBaseBranch(cwd);
+  if (!hasReleaseType(config)) return fallback();
+
+  const branch = checkoutBranch(cwd);
+  if (!branch) return fallback();
+  const repo = loadRepo(cwd);
+  const decided = changesOnBranch(repo, branch).map((c) => ({
+    id: c.frontmatter.id,
+    base: changeIntegrationBranch(repo.config, c.frontmatter.type) ?? fallback(),
+  }));
+  if (decided.length === 0) return fallback();
+  const bases = new Set(decided.map((d) => d.base));
+  if (bases.size > 1) {
+    const listed = decided.map((d) => `#${d.id} (integrates into ${d.base})`);
+    const last = listed.pop();
+    throw new Error(
+      `branch "${branch}" is recorded by changes ${listed.join(', ')} and ${last}; pass <base> explicitly`,
+    );
+  }
+  return decided[0].base;
 }
 
 // Lints `base..HEAD` for the canonical `[#id]` commit marker (merges and
@@ -25,7 +77,7 @@ function checkCommits(args, commitsIdx, cwd, output, json) {
   let resolvedBase;
   let violations;
   try {
-    resolvedBase = base ?? configuredIntegrationBranch(cwd) ?? defaultBaseBranch(cwd);
+    resolvedBase = base ?? defaultCommitsBase(cwd);
     violations = lintCommitRange(cwd, `${resolvedBase}..HEAD`);
   } catch (e) {
     if (json)
@@ -88,12 +140,25 @@ export function check(args = [], cwd = process.cwd(), output = console) {
     });
   }
 
+  // Collections this CLI does not know are not validated (20261002-161641);
+  // the repo-wide report repeats the warning the bin prints on stderr.
+  const unknownCollections = repo.state?.unknownCollections ?? [];
+  if (!id && unknownCollections.length > 0) {
+    warnings.push({
+      file: STATE_ROOT,
+      message: unknownCollectionsMessage(unknownCollections, VERSION),
+    });
+  }
+
   // Discovery validation needs the filesystem (root contract bootstrap), so it
   // lives here, not in the pure validator. Repo-wide only.
   if (!id) {
     for (const message of checkContract(repo.repoRoot, repo.changeledgerDir)) {
       errors.push({ file: 'AGENTS.md', message });
     }
+    // The usage collector is switched on per clone in git config, not in the
+    // ledger, so its value comes from a `git config` process run here too.
+    errors.push(...checkUsageGitConfig(repo.repoRoot));
   }
 
   if (json) {

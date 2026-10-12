@@ -74,7 +74,7 @@ test('225637 CR1: schema 2 gains a documented blank integration branch at schema
   assert.match(result.yaml, /^schema_version: 6$/m);
   assert.match(
     result.yaml,
-    /project_name: myrepo\n\n# Git integration: change branches start from and merge into this branch\ngit:\n {2}integration_branch:\n {2}change_branch_format: "\{type\}\/\{id\}"\s*$/m,
+    /project_name: myrepo\n\n# Git integration: change branches start from and merge into `integration_branch`; types with `integrates_into: release` use `release_branch` instead\.\ngit:\n {2}integration_branch:\n {2}change_branch_format: "\{type\}\/\{id\}"\s*$/m,
   );
   assert.deepEqual(result.changes, [
     'updated schema_version: 2 → 6',
@@ -304,7 +304,7 @@ test('113219 CR1: init creates config with the current schema_version', () => {
   assert.equal(config.min_cli_version, '0.17.0');
   assert.match(
     configText,
-    /specs_dir: \.changeledger\/specs\n\n# Git integration: change branches start from and merge into this branch\.\n# `change_branch_format` may use `\{type\}` and exactly one `\{id\}`; use null or remove it to opt out\.\ngit:\n {2}integration_branch:\n {2}change_branch_format: "\{type\}\/\{id\}"\s*$/m,
+    /specs_dir: \.changeledger\/specs\n\n# Git integration: change branches start from and merge into `integration_branch`; types with `integrates_into: release` use `release_branch` instead\.\n# `change_branch_format` may use `\{type\}` and exactly one `\{id\}`; use null or remove it to opt out\.\ngit:\n {2}integration_branch:\n(?: {2}release_branch:\n)? {2}change_branch_format: "\{type\}\/\{id\}"\s*$/m,
   );
   assert.equal(config.git.integration_branch, null);
   assert.equal(config.git.change_branch_format, '{type}/{id}');
@@ -1140,7 +1140,7 @@ project_name: myrepo
     .replace(
       '    stages: [request, plan, log]',
       '    stages: [request, specification, plan, log]',
-    )}\n# Git integration: change branches start from and merge into this branch\ngit:\n  integration_branch:\n  change_branch_format: "{type}/{id}"\n`;
+    )}\n# Git integration: change branches start from and merge into \`integration_branch\`; types with \`integrates_into: release\` use \`release_branch\` instead.\ngit:\n  integration_branch:\n  change_branch_format: "{type}/{id}"\n`;
   assert.equal(
     withoutReadiness(migrated),
     expected,
@@ -1291,6 +1291,104 @@ test('141119 CR6: a light type demanding review gains both stages in canonical o
   assert.deepEqual(
     result.changes.filter((c) => c.includes('types.quick.stages')),
     ['added stage specification to types.quick.stages', 'added stage plan to types.quick.stages'],
+  );
+});
+
+// 20261012-174340 — the 3 → 4 stage repair asks the same rule as `checkConfig`:
+// with the type's effective tdd off only `specification` is required, so no
+// `plan` is inserted.
+
+const refactorSource = (globalTdd, typeLines = '') =>
+  SCHEMA3_REVIEW_WITHOUT_SPEC.replace('tdd: true\n', `tdd: ${globalTdd}\n`).replace(
+    '  refactor:\n    stages: [request, proposal, plan, log]\n    review_required: true\n',
+    `  refactor:\n    stages: [request, proposal, log]\n    review_required: true\n${typeLines}`,
+  );
+const refactorChanges = (result) => result.changes.filter((c) => c.includes('types.refactor'));
+
+test('174340 CR6: a global tdd off migrates a review_required type without plan', () => {
+  const result = buildMigration(refactorSource('false'), '0.17.0');
+  assert.ok(result);
+  assert.match(result.yaml, /^ {4}stages: \[request, proposal, specification, log\]$/m);
+  assert.deepEqual(refactorChanges(result), ['added stage specification to types.refactor.stages']);
+  assert.ok(!result.changes.some((c) => c.includes('added stage plan')), result.changes.join('\n'));
+});
+
+test('174340 CR7: the type tdd wins over the global one in the migration', () => {
+  const off = buildMigration(refactorSource('true', '    tdd: false\n'), '0.17.0');
+  assert.match(off.yaml, /^ {4}stages: \[request, proposal, specification, log\]$/m);
+  assert.deepEqual(refactorChanges(off), ['added stage specification to types.refactor.stages']);
+
+  const on = buildMigration(refactorSource('false', '    tdd: true\n'), '0.17.0');
+  assert.match(on.yaml, /^ {4}stages: \[request, proposal, specification, plan, log\]$/m);
+
+  // Already declares specification and not plan: byte for byte, no change line.
+  const kept = refactorSource('true', '    tdd: false\n').replace(
+    'stages: [request, proposal, log]',
+    'stages: [request, proposal, specification, log]',
+  );
+  const result = buildMigration(kept, '0.17.0');
+  assert.match(result.yaml, /^ {4}stages: \[request, proposal, specification, log\]$/m);
+  assert.deepEqual(refactorChanges(result), []);
+});
+
+test('174340 CR8: with effective tdd on the migration still adds specification and plan', () => {
+  const result = buildMigration(refactorSource('true'), '0.17.0');
+  assert.match(result.yaml, /^ {4}stages: \[request, proposal, specification, plan, log\]$/m);
+  assert.deepEqual(refactorChanges(result), [
+    'added stage specification to types.refactor.stages',
+    'added stage plan to types.refactor.stages',
+  ]);
+});
+
+test('174340 CR8: every migrated variant passes the stage coupling and is terminal', () => {
+  const variants = [
+    refactorSource('false'),
+    refactorSource('true', '    tdd: false\n'),
+    refactorSource('false', '    tdd: true\n'),
+    refactorSource('true'),
+  ];
+  for (const source of variants) {
+    const root = tmp();
+    init(root, '0.17.0');
+    const configFile = path.join(root, '.changeledger', 'config.yml');
+    fs.writeFileSync(configFile, source);
+    applyMigration(configFile, { repoRoot: root, runningVersion: '0.17.0' });
+
+    const after = silentOutput();
+    check([], root, after);
+    assert.ok(
+      !after.messages.error.some((m) => m.includes('requires active stages')),
+      `unexpected coupling error: ${JSON.stringify(after.messages.error)}`,
+    );
+    const migrated = fs.readFileSync(configFile, 'utf8');
+    assert.equal(buildMigration(migrated, '0.17.0'), null, 'migration must be terminal');
+  }
+});
+
+// Migrations chain: the `review_required` that 0 → 1 adds in the same run is
+// read from the live document, together with the tdd the type declares.
+test('174340: the stage repair sees the review_required a chained 0 → 1 migration wrote', () => {
+  const source = `\
+language: en
+changes_dir: .changeledger/changes
+statuses: [draft, approved, in-progress, in-review, in-validation, blocked, done, discarded]
+stages: [request, investigation, proposal, specification, plan, log]
+types:
+  feature:
+    stages: [request, proposal, log]
+    tdd: false
+  bug:
+    stages: [request, proposal, log]
+`;
+  const result = buildMigration(source, '0.17.0');
+  assert.ok(result);
+  assert.deepEqual(
+    result.changes.filter((c) => c.includes('added stage')),
+    [
+      'added stage specification to types.feature.stages',
+      'added stage specification to types.bug.stages',
+      'added stage plan to types.bug.stages',
+    ],
   );
 });
 

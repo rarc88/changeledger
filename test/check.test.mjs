@@ -6,20 +6,29 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { parse as parseYaml } from 'yaml';
 import { parseChange } from '../src/change.mjs';
-import { checkRepo } from '../src/check.mjs';
+import { checkRepo, checkUsageGitConfig } from '../src/check.mjs';
 import { check } from '../src/commands/check.mjs';
+import { init as initializeRepo } from '../src/commands/init.mjs';
 import {
   BRANCH_FORMAT_PLACEHOLDERS,
   integrationBranch,
   renderChangeBranch,
+  usageCollector,
 } from '../src/config.mjs';
 import { ensureReference } from '../src/contract.mjs';
+import { VERSION } from '../src/framing.mjs';
 import { LOG_EVENT_TYPES } from '../src/lifecycle.mjs';
 import { templatesDir } from '../src/paths.mjs';
 import { RELEASE_IMPACTS } from '../src/release.mjs';
+import { loadRepo } from '../src/repo.mjs';
 import { STATE_REF, writeActivation } from '../src/state-store.mjs';
+import { usageRecordText } from './helpers/ccusage.mjs';
 import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
+
+// Isolate the global registry: the usage CLI case below runs `init`, which
+// registers the repo it creates.
+process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
 
 const config = {
   changes_dir: '.changeledger/changes',
@@ -154,6 +163,64 @@ test('20260824-134716 CR6: an invalid Log entry gives the complete canonical gra
     msgs(errors).join('\n'),
   );
   assert.doesNotMatch([...msgs(errors), ...msgs(warnings)].join('\n'), /fix --structured-sections/);
+});
+
+function versionLogChange(status, logLines) {
+  const text = [
+    '---',
+    'id: "20260613-120000"',
+    'title: X',
+    'type: feature',
+    `status: ${status}`,
+    'created: 2026-06-13T12:00:00Z',
+    'depends_on: []',
+    '---',
+    '',
+    '## Log',
+    '',
+    ...logLines,
+    '',
+  ].join('\n');
+  return change({
+    text,
+    frontmatter: { status },
+    stages: [{ key: 'request' }, { key: 'plan' }, { key: 'log', heading: 'Log', body: '- log' }],
+  });
+}
+
+test('20261001-155216 CR8: SemVer version events are valid and leave the reconstructed status alone', () => {
+  const subject = versionLogChange('in-progress', [
+    '- **2026-06-13T12:00:00Z** `[version]` 0.18.0-dev',
+    '- **2026-06-13T12:01:00Z** `[status]` draft → approved',
+    '- **2026-06-13T12:02:00Z** `[version]` 0.17.0 → 0.18.0-dev+abc.1',
+    '- **2026-06-13T12:02:00Z** `[status]` approved → in-progress',
+  ]);
+  const { errors } = run([subject]);
+  assert.deepEqual(msgs(errors), []);
+  // The same Log without the stamps reconstructs the same status, so the
+  // frontmatter comparison is the proof the version lines were skipped.
+  const wrong = versionLogChange('approved', [
+    '- **2026-06-13T12:00:00Z** `[version]` 0.18.0-dev',
+    '- **2026-06-13T12:01:00Z** `[status]` draft → approved',
+    '- **2026-06-13T12:02:00Z** `[version]` 0.17.0 → 0.18.0-dev+abc.1',
+    '- **2026-06-13T12:02:00Z** `[status]` approved → in-progress',
+  ]);
+  assert.match(
+    msgs(run([wrong]).errors).join('\n'),
+    /Log reconstructs status "in-progress" but frontmatter says "approved"/,
+  );
+});
+
+test('20261001-155216 CR8: non-SemVer version payloads get the invalid-event error naming version', () => {
+  for (const payload of ['latest', '0.17 → 0.18.0']) {
+    const subject = versionLogChange('draft', [
+      `- **2026-06-13T12:00:00Z** \`[version]\` ${payload}`,
+    ]);
+    const errors = msgs(run([subject]).errors);
+    const expected = `Log line 12: invalid typed event; valid types: ${LOG_EVENT_TYPES.join(', ')}; expected: - **YYYY-MM-DDTHH:MM:SSZ** \`[type]\` payload`;
+    assert.ok(errors.includes(expected), `${payload}: ${errors.join('\n')}`);
+    assert.match(expected, /\bversion\b/);
+  }
 });
 
 // Confirm-only (20260726-124836 CR5): src/check.mjs never validated `owner`,
@@ -565,6 +632,114 @@ test('20260731-161654 CR3/CR4: optional and unknown git configuration stays unto
     assert.equal(integrationBranch(candidate), candidate.git?.integration_branch ?? undefined);
     assert.deepEqual(candidate, before);
   }
+});
+
+test('181346 CR1: check reports a malformed git.release_branch', () => {
+  for (const bad of ['', '  ', 7, false, []]) {
+    const candidate = { ...config, git: { integration_branch: 'dev', release_branch: bad } };
+    const { errors } = checkRepo({ config: candidate, changes: [] });
+    assert.deepEqual(msgs(errors), ['config "git.release_branch" must be a non-empty string']);
+  }
+  // A non-mapping `git` is reported once, not once per declared branch.
+  const { errors } = checkRepo({ config: { ...config, git: 'main' }, changes: [] });
+  assert.deepEqual(msgs(errors), ['config "git" must be a mapping']);
+});
+
+test('181346 CR2: check reports an integrates_into outside integration and release', () => {
+  for (const bad of ['prod', '', null, true, ['release']]) {
+    const candidate = {
+      ...config,
+      types: { ...config.types, bug: { stages: ['request', 'plan'], integrates_into: bad } },
+    };
+    const { errors } = checkRepo({ config: candidate, changes: [] });
+    assert.deepEqual(msgs(errors), [
+      'config type "bug": integrates_into must be "integration" or "release"',
+    ]);
+  }
+});
+
+test('181346 CR2/CR4: valid roles pass, and an undeclared release branch is not a config error', () => {
+  for (const role of ['integration', 'release']) {
+    const candidate = {
+      ...config,
+      git: { integration_branch: 'dev' },
+      types: { ...config.types, bug: { stages: ['request', 'plan'], integrates_into: role } },
+    };
+    assert.deepEqual(checkRepo({ config: candidate, changes: [] }).errors, []);
+  }
+});
+
+// 20261012-174310: a change of a release type is stuck while no release branch
+// is declared, so `check` reports it on the change itself.
+const REQUIREMENT =
+  'type "hotfix" integrates into git.release_branch, which is not declared — set git.release_branch in .changeledger/config.yml, for example "main"';
+const hotfixConfig = (git) => ({
+  ...config,
+  statuses: [...config.statuses, 'discarded'],
+  ...(git === undefined ? {} : { git }),
+  types: {
+    ...config.types,
+    hotfix: { stages: ['request', 'plan', 'log'], integrates_into: 'release' },
+  },
+});
+const hotfix = (status, { frontmatter, ...rest } = {}) =>
+  change({ frontmatter: { type: 'hotfix', status, ...frontmatter }, ...rest });
+
+test('174310 CR2: a non-terminal hotfix change without git.release_branch is one error on that change', () => {
+  const open = hotfixConfig().statuses.filter((s) => s !== 'done' && s !== 'discarded');
+  for (const git of [undefined, { release_branch: null }, { integration_branch: 'dev' }]) {
+    for (const status of open) {
+      const subject = hotfix(status);
+      const { errors } = checkRepo({ config: hotfixConfig(git), changes: [subject] });
+      assert.deepEqual(errors, [{ file: subject.name, message: REQUIREMENT }], `${status}`);
+    }
+  }
+});
+
+test('174310 CR3: done and discarded hotfix changes are not reported', () => {
+  const changes = [
+    hotfix('done', { name: '20260613-120001-a.md', frontmatter: { id: '20260613-120001' } }),
+    hotfix('discarded', { name: '20260613-120002-b.md', frontmatter: { id: '20260613-120002' } }),
+  ];
+  const { errors } = checkRepo({ config: hotfixConfig(), changes });
+  assert.equal(
+    errors.some((e) => e.message.includes('which is not declared')),
+    false,
+  );
+});
+
+test('174310 CR4: a declared release branch, a normal type or an integration role raise no error', () => {
+  const cases = [
+    [hotfixConfig({ release_branch: 'main' }), hotfix('draft')],
+    [
+      hotfixConfig(),
+      change({ frontmatter: { type: 'bug' }, stages: [{ key: 'request' }, { key: 'plan' }] }),
+    ],
+    [
+      {
+        ...hotfixConfig(),
+        types: {
+          ...config.types,
+          hotfix: { stages: ['request', 'plan', 'log'], integrates_into: 'integration' },
+        },
+      },
+      hotfix('draft'),
+    ],
+  ];
+  for (const [candidate, subject] of cases) {
+    const { errors } = checkRepo({ config: candidate, changes: [subject] });
+    assert.equal(
+      errors.some((e) => e.message.includes('which is not declared')),
+      false,
+      msgs(errors).join('; '),
+    );
+  }
+});
+
+test('174310 CR2: a malformed git.release_branch is reported once, not once more per change', () => {
+  const candidate = hotfixConfig({ release_branch: '' });
+  const { errors } = checkRepo({ config: candidate, changes: [hotfix('draft')] });
+  assert.deepEqual(msgs(errors), ['config "git.release_branch" must be a non-empty string']);
 });
 
 test('171002 CR1/CR5: every config with done requires in-validation before it', () => {
@@ -3609,4 +3784,730 @@ test('162616 CR7: a discarded change is still exempt from its own unclassified-m
     msgs(warnings).filter((m) => /mentions change/.test(m)),
     [],
   );
+});
+
+// --- 20261002-113320: per-type tdd and the documentation type ---
+
+const DOC_STAGES = ['request', 'investigation', 'specification', 'log'];
+const perTypeTddConfig = (over = {}) => ({
+  ...tddConfig,
+  stages: ['request', 'investigation', 'proposal', 'specification', 'plan', 'log'],
+  types: {
+    feature: { stages: ['request', 'specification', 'plan', 'log'] },
+    documentation: { stages: DOC_STAGES, review_required: true, tdd: false },
+  },
+  ...over,
+});
+
+// One `approved` change whose only criterion no Plan task covers. The type
+// decides whether `## Plan` exists at all.
+function uncoveredChange(id, type) {
+  const plan =
+    type === 'documentation' ? '' : '## Plan\n\n- [ ] Unrelated support\n  - **Support:**\n\n';
+  const investigation = type === 'documentation' ? '## Investigation\n\nI\n\n' : '';
+  const text = `---
+id: "${id}"
+title: X
+type: ${type}
+status: approved
+created: 2026-06-13T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+R
+
+${investigation}## Specification
+
+### CR1 — x
+- **Given** a
+- **When** b
+- **Then** c
+
+${plan}## Log
+`;
+  return { name: `${id}-x.md`, text, ...parseChange(text) };
+}
+
+const uncoveredBy = (errors, file) =>
+  errors.filter((e) => e.file === file && e.message === 'CR1 is not covered by any Plan task');
+
+test('113320 CR1: tdd: false on the type disables coverage only for that type', () => {
+  const doc = uncoveredChange('20260613-120001', 'documentation');
+  const feat = uncoveredChange('20260613-120002', 'feature');
+  const { errors } = checkRepo({ config: perTypeTddConfig({ tdd: true }), changes: [doc, feat] });
+  assert.deepEqual(uncoveredBy(errors, doc.name), [], msgs(errors).join('\n'));
+  assert.equal(uncoveredBy(errors, feat.name).length, 1, msgs(errors).join('\n'));
+});
+
+test('113320 CR2: tdd: true on the type overrides a global tdd: false', () => {
+  const cfg = perTypeTddConfig({ tdd: false });
+  cfg.types.feature = { ...cfg.types.feature, tdd: true };
+  const feat = uncoveredChange('20260613-120002', 'feature');
+  const { errors } = checkRepo({ config: cfg, changes: [feat] });
+  assert.equal(uncoveredBy(errors, feat.name).length, 1, msgs(errors).join('\n'));
+});
+
+test('113320 CR3: a non-boolean type tdd is rejected with its literal error', () => {
+  const cfg = perTypeTddConfig();
+  cfg.types.documentation = { ...cfg.types.documentation, tdd: 'no' };
+  const { errors } = checkRepo({ config: cfg, changes: [] });
+  assert.ok(
+    msgs(errors).includes('config type "documentation": tdd must be a boolean'),
+    msgs(errors).join('\n'),
+  );
+});
+
+test('113320 CR6: review_required asks only for specification when effective tdd is off', () => {
+  const stageErrors = (cfg) =>
+    msgs(checkRepo({ config: cfg, changes: [] }).errors).filter((m) =>
+      m.includes('requires active stages'),
+    );
+  const typed = (def, over = {}) => perTypeTddConfig({ ...over, types: { doc: def } });
+
+  assert.deepEqual(
+    stageErrors(typed({ stages: DOC_STAGES, review_required: true, tdd: false })),
+    [],
+  );
+  // Effective tdd on: through the type itself, and through the global default.
+  for (const cfg of [
+    typed({ stages: DOC_STAGES, review_required: true, tdd: true }, { tdd: false }),
+    typed({ stages: DOC_STAGES, review_required: true }, { tdd: true }),
+  ]) {
+    assert.deepEqual(stageErrors(cfg), [
+      'config type "doc": review_required: true requires active stages: plan',
+    ]);
+  }
+  // Effective tdd off through the global value alone, without specification.
+  assert.deepEqual(
+    stageErrors(typed({ stages: ['request', 'log'], review_required: true }, { tdd: false })),
+    ['config type "doc": review_required: true requires active stages: specification'],
+  );
+  assert.deepEqual(
+    stageErrors(typed({ stages: ['request', 'log'], review_required: true, tdd: false })),
+    ['config type "doc": review_required: true requires active stages: specification'],
+  );
+});
+
+// --- 20261002-113435: seed_stage must be one of the type's own active stages ---
+
+test('113435 CR3: a seed_stage outside the type stages is rejected with its literal error', () => {
+  const seedErrors = (seedStage) => {
+    const cfg = perTypeTddConfig();
+    cfg.types.documentation = { ...cfg.types.documentation, seed_stage: seedStage };
+    return msgs(checkRepo({ config: cfg, changes: [] }).errors).filter((m) =>
+      m.includes('seed_stage'),
+    );
+  };
+  // `plan` is canonical but not active for this type.
+  assert.deepEqual(seedErrors('plan'), [
+    'config type "documentation": seed_stage "plan" is not an active stage',
+  ]);
+  assert.deepEqual(seedErrors('investigation'), []);
+  // A non-string can never name a stage; it is reported as a type error.
+  for (const value of [3, null, ['investigation']]) {
+    assert.deepEqual(seedErrors(value), [
+      'config type "documentation": seed_stage must be a string',
+    ]);
+  }
+});
+
+// --- 20261012-174340: seed_stage must be a stage that can seed a spec ---
+
+const seedDoc = (stages, seedStage) => {
+  const cfg = perTypeTddConfig();
+  cfg.types.documentation = { stages, review_required: true, tdd: false, seed_stage: seedStage };
+  return msgs(checkRepo({ config: cfg, changes: [] }).errors);
+};
+const WITH_PLAN = ['request', 'investigation', 'plan', 'specification', 'log'];
+const WITH_PROPOSAL = ['request', 'investigation', 'proposal', 'specification', 'log'];
+
+test('174340 CR1: a seed_stage that cannot seed a spec is one error with the allowed list', () => {
+  for (const s of ['request', 'plan', 'log']) {
+    assert.deepEqual(seedDoc(WITH_PLAN, s), [
+      `config type "documentation": seed_stage "${s}" cannot seed a spec; use one of: investigation, proposal, specification`,
+    ]);
+  }
+});
+
+test('174340 CR2: investigation, proposal and specification are valid seed stages', () => {
+  for (const s of ['investigation', 'proposal', 'specification']) {
+    assert.deepEqual(seedDoc(WITH_PROPOSAL, s), []);
+  }
+});
+
+test('174340 CR3: an inactive seed_stage is reported once, before the non-seed rule', () => {
+  assert.deepEqual(seedDoc(DOC_STAGES, 'plan'), [
+    'config type "documentation": seed_stage "plan" is not an active stage',
+  ]);
+  for (const value of [3, null, ['investigation']]) {
+    assert.deepEqual(seedDoc(DOC_STAGES, value), [
+      'config type "documentation": seed_stage must be a string',
+    ]);
+  }
+});
+
+// --- 20261012-174340: git.release_branch must differ from git.integration_branch ---
+
+const branchErrors = (git) => {
+  const cfg = perTypeTddConfig();
+  if (git !== undefined) cfg.git = git;
+  return msgs(checkRepo({ config: cfg, changes: [] }).errors);
+};
+const MUST_DIFFER =
+  'config "git.release_branch" must differ from "git.integration_branch" (both are "dev")';
+
+test('174340 CR4: release_branch equal to integration_branch is an error, trimmed', () => {
+  assert.deepEqual(branchErrors({ integration_branch: 'dev', release_branch: 'dev' }), [
+    MUST_DIFFER,
+  ]);
+  assert.deepEqual(branchErrors({ integration_branch: 'dev', release_branch: ' dev ' }), [
+    MUST_DIFFER,
+  ]);
+  assert.deepEqual(branchErrors({ integration_branch: ' dev', release_branch: 'dev ' }), [
+    MUST_DIFFER,
+  ]);
+});
+
+test('174340 CR5: distinct or undeclared branches never report must differ', () => {
+  for (const git of [
+    { integration_branch: 'dev', release_branch: 'main' },
+    { integration_branch: 'dev' },
+    { release_branch: 'main' },
+    { integration_branch: null, release_branch: null },
+    {},
+    undefined,
+  ]) {
+    assert.deepEqual(branchErrors(git), [], JSON.stringify(git));
+  }
+  // A malformed value keeps its own single error; the new rule adds nothing.
+  assert.deepEqual(branchErrors({ integration_branch: 'dev', release_branch: '' }), [
+    'config "git.release_branch" must be a non-empty string',
+  ]);
+  assert.deepEqual(branchErrors({ integration_branch: '', release_branch: '' }), [
+    'config "git.integration_branch" must be a non-empty string',
+    'config "git.release_branch" must be a non-empty string',
+  ]);
+  assert.deepEqual(branchErrors('main'), ['config "git" must be a mapping']);
+});
+
+// --- usage collector activation in git config (20261001-155612) ---
+
+function gitCheckRepo() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-check-usage-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  initializeRepo(root);
+  initGitFixture(root);
+  return root;
+}
+
+const setCollector = (root, value) =>
+  execFileSync('git', ['config', 'changeledger.usage.collector', value], {
+    cwd: root,
+    env: sanitizedEnv(),
+  });
+
+test('20261001-155612 CR2: a git config collector other than ccusage is an error', () => {
+  const root = gitCheckRepo();
+  assert.deepEqual(checkUsageGitConfig(root), []);
+  for (const value of ['other', '', 'CCUSAGE']) {
+    setCollector(root, value);
+    assert.deepEqual(msgs(checkUsageGitConfig(root)), [
+      'git config "changeledger.usage.collector" must be "ccusage"',
+    ]);
+    assert.throws(() => usageCollector(root), {
+      message: 'git config "changeledger.usage.collector" must be "ccusage"',
+    });
+  }
+  setCollector(root, 'ccusage');
+  assert.deepEqual(checkUsageGitConfig(root), []);
+  assert.equal(usageCollector(root), 'ccusage');
+});
+
+test('20261001-155612 CR2: a usage key in config.yml is neither read nor validated', () => {
+  for (const usage of [{ collector: 'other' }, { collector: 'ccusage' }, 'x', [], null]) {
+    assert.deepEqual(checkRepo({ config: { ...config, usage }, changes: [] }).errors, []);
+  }
+  const root = gitCheckRepo();
+  fs.appendFileSync(
+    path.join(root, '.changeledger', 'config.yml'),
+    '\nusage:\n  collector: ccusage\n',
+  );
+  assert.equal(usageCollector(root), undefined);
+  const out = captureOutput();
+  assert.equal(check([], root, out), 0, out.diagnostics.join('\n'));
+
+  const template = fs.readFileSync(path.join(templatesDir, 'config.yml'), 'utf8');
+  assert.equal(parseYaml(template).usage, undefined);
+  assert.doesNotMatch(template, /usage/);
+});
+
+test('20261001-155612 CR2: `changeledger check` fails on an unknown git config collector', () => {
+  const root = gitCheckRepo();
+  setCollector(root, 'other');
+  const bad = captureOutput();
+  assert.equal(check([], root, bad), 1, bad.diagnostics.join('\n'));
+  assert.ok(
+    bad.diagnostics.some((line) =>
+      line.includes('git config "changeledger.usage.collector" must be "ccusage"'),
+    ),
+    bad.diagnostics.join('\n'),
+  );
+  setCollector(root, 'ccusage');
+  const good = captureOutput();
+  assert.equal(check([], root, good), 0, good.diagnostics.join('\n'));
+});
+
+// --- 20261002-133728 CR4: check validates every usage record ----------------
+
+const USAGE_CHECK_ID = '20261002-133728';
+const VALID_RECORD = [
+  `${USAGE_CHECK_ID}--20261002T153233Z-0a1b2c3d.json`,
+  usageRecordText(USAGE_CHECK_ID),
+];
+const INVALID_RECORDS = {
+  'invalid JSON': [`${USAGE_CHECK_ID}--20261002T153234Z-0a1b2c3e.json`, '{"schema": 1,'],
+  'no schema 1': [
+    `${USAGE_CHECK_ID}--20261002T153235Z-0a1b2c3f.json`,
+    usageRecordText(USAGE_CHECK_ID, undefined, { schema: 2 }),
+  ],
+  'a change other than its name': [
+    `${USAGE_CHECK_ID}--20261002T153236Z-0a1b2c40.json`,
+    usageRecordText('20261002-999999'),
+  ],
+  'no change field': [
+    `${USAGE_CHECK_ID}--20261002T153237Z-0a1b2c41.json`,
+    usageRecordText(USAGE_CHECK_ID, undefined, { change: undefined }),
+  ],
+  'a name outside the form': [
+    `${USAGE_CHECK_ID}--20261002T153233Z-1.json`,
+    usageRecordText(USAGE_CHECK_ID),
+  ],
+};
+
+// An initialized repo holding `records` (`[name, text]` pairs) in the usage
+// collection of `layout`: the worktree's `.changeledger/usage/`, or the
+// state ref of an activated repo whose config is the worktree's own.
+function usageCheckRepo(t, layout, records) {
+  const root = gitCheckRepo();
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  if (layout === 'legacy') {
+    const dir = path.join(root, '.changeledger', 'usage');
+    fs.mkdirSync(dir, { recursive: true });
+    for (const [name, text] of records) fs.writeFileSync(path.join(dir, name), text);
+    return root;
+  }
+  const files = {
+    '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
+    '.changeledger-state/config.yml': fs.readFileSync(
+      path.join(root, '.changeledger', 'config.yml'),
+      'utf8',
+    ),
+  };
+  for (const [name, text] of records) files[`.changeledger-state/usage/${name}`] = text;
+  updateRef(root, STATE_REF, commitTree(root, buildTree(root, files), { message: 'chore: state' }));
+  writeActivation(root, { stateRef: STATE_REF });
+  return root;
+}
+
+function checkJson(root) {
+  const out = captureOutput();
+  const code = check(['--json'], root, out);
+  return { code, ...JSON.parse(out.calls.join('\n')) };
+}
+
+for (const layout of ['legacy', 'state ref']) {
+  test(`20261002-133728 CR4 (${layout}): a valid usage record produces no diagnostic`, (t) => {
+    const root = usageCheckRepo(t, layout, [VALID_RECORD]);
+    const { code, errors, warnings } = checkJson(root);
+    assert.equal(code, 0, JSON.stringify(errors));
+    assert.deepEqual([...errors, ...warnings], []);
+  });
+
+  for (const [label, [name, text]] of Object.entries(INVALID_RECORDS)) {
+    test(`20261002-133728 CR4 (${layout}): a record with ${label} fails check, named`, (t) => {
+      const root = usageCheckRepo(t, layout, [VALID_RECORD, [name, text]]);
+      const { code, errors } = checkJson(root);
+      assert.notEqual(code, 0);
+      assert.equal(errors.length, 1, JSON.stringify(errors));
+      assert.ok(errors[0].message.startsWith(`usage record ${name}: `), JSON.stringify(errors[0]));
+    });
+  }
+}
+
+test('20261002-133728 CR4: a record missing change or schema names the missing field', (t) => {
+  const name = `${USAGE_CHECK_ID}--20261002T153238Z-0a1b2c42.json`;
+  for (const [field, expected] of [
+    ['change', `usage record ${name}: missing "change"`],
+    ['schema', `usage record ${name}: missing "schema"`],
+  ]) {
+    const root = usageCheckRepo(t, 'legacy', [
+      [name, usageRecordText(USAGE_CHECK_ID, undefined, { [field]: undefined })],
+    ]);
+    assert.deepEqual(
+      checkJson(root).errors.map((e) => e.message),
+      [expected],
+    );
+  }
+});
+
+// --- 20261012-125617 CR1/CR2: check validates the instant of a usage record ---
+
+const AT_CHECK_ID = USAGE_CHECK_ID;
+
+for (const layout of ['legacy', 'state ref']) {
+  test(`20261012-125617 CR1 (${layout}): a usage record without "at" fails check, named`, (t) => {
+    const name = `${AT_CHECK_ID}--20261002T153240Z-0a1b2c50.json`;
+    const root = usageCheckRepo(t, layout, [
+      VALID_RECORD,
+      [name, usageRecordText(AT_CHECK_ID, undefined, { at: undefined })],
+    ]);
+    const { code, errors } = checkJson(root);
+    assert.notEqual(code, 0);
+    assert.deepEqual(
+      errors.map((e) => e.message),
+      [`usage record ${name}: missing "at"`],
+    );
+  });
+
+  for (const [label, at] of [
+    ['a number', 123],
+    ['a word', 'ayer'],
+  ]) {
+    test(`20261012-125617 CR2 (${layout}): a usage record whose "at" is ${label} fails check, named`, (t) => {
+      const name = `${AT_CHECK_ID}--20261002T153241Z-0a1b2c51.json`;
+      const root = usageCheckRepo(t, layout, [
+        VALID_RECORD,
+        [name, usageRecordText(AT_CHECK_ID, undefined, { at })],
+      ]);
+      const { code, errors } = checkJson(root);
+      assert.notEqual(code, 0);
+      assert.deepEqual(
+        errors.map((e) => e.message),
+        [`usage record ${name}: at must be an ISO 8601 UTC instant, got ${JSON.stringify(at)}`],
+      );
+    });
+  }
+}
+
+test('20261012-125617 CR2: a usage record "at" is accepted in the form the collector writes', (t) => {
+  // The Log instant `YYYY-MM-DDTHH:MM:SSZ`, as the ledger's own records carry it.
+  const root = usageCheckRepo(t, 'legacy', [
+    [
+      `${AT_CHECK_ID}--20261002T153242Z-0a1b2c52.json`,
+      usageRecordText(AT_CHECK_ID, '2026-10-02T15:32:42Z'),
+    ],
+  ]);
+  assert.deepEqual(checkJson(root).errors, []);
+});
+
+// --- 20261002-161641: check over a collection this CLI does not know ---------
+
+function futureCheckRepo(t, extra) {
+  const root = gitCheckRepo();
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const files = {
+    '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
+    '.changeledger-state/config.yml': fs.readFileSync(
+      path.join(root, '.changeledger', 'config.yml'),
+      'utf8',
+    ),
+    ...extra,
+  };
+  updateRef(root, STATE_REF, commitTree(root, buildTree(root, files), { message: 'chore: state' }));
+  writeActivation(root, { stateRef: STATE_REF });
+  return root;
+}
+
+test('20261002-161641 CR5: check does not validate an unknown collection and repeats the warning', (t) => {
+  const root = futureCheckRepo(t, {
+    '.changeledger-state/future/a.json': 'not json, and not ours to judge\n',
+  });
+  const { code, errors, warnings } = checkJson(root);
+  assert.equal(code, 0, JSON.stringify(errors));
+  assert.deepEqual(errors, []);
+  assert.deepEqual(warnings, [
+    {
+      file: '.changeledger-state',
+      message: `the state ref holds collections ChangeLedger ${VERSION} does not know (future); update the installation to use them`,
+    },
+  ]);
+});
+
+test('20261002-161641 CR5: check adds no warning when every collection is known', (t) => {
+  const [usageName, usageText] = VALID_RECORD;
+  const root = futureCheckRepo(t, {
+    [`.changeledger-state/changes/${USAGE_CHECK_ID}-known.md`]: `---\nid: "${USAGE_CHECK_ID}"\ntitle: Known\ntype: quick\nstatus: draft\ncreated: 2026-10-02T13:37:28Z\ndepends_on: []\n---\n\n## Request\n\nKnown.\n\n## Log\n`,
+    [`.changeledger-state/usage/${usageName}`]: usageText,
+  });
+  const { code, errors, warnings } = checkJson(root);
+  assert.equal(code, 0, JSON.stringify(errors));
+  assert.deepEqual(warnings, []);
+  const repo = loadRepo(root);
+  assert.deepEqual(
+    [repo.changes.length, repo.usage.length],
+    [1, 1],
+    'the ref holds a change and a usage record',
+  );
+});
+
+// --- check --commits base from the change on the current branch (20261012-174407) ---
+
+const RELEASE_CONFIG = `changes_dir: .changeledger/changes
+git:
+  integration_branch: dev
+  release_branch: main
+  change_branch_format: "{type}/{id}"
+types:
+  bug:
+    stages: [request, plan]
+  hotfix:
+    stages: [request, plan]
+    integrates_into: release
+`;
+
+const HOTFIX_ID = '20261012-174140';
+const BUG_ID = '20261012-174141';
+const MAIN_ONLY_SUBJECT = 'fix(y): earlier hotfix shipped on main, no marker';
+
+function changeDocument(id, type, status, branch) {
+  const lines = [
+    '---',
+    `id: "${id}"`,
+    `title: "Change ${id}"`,
+    `type: ${type}`,
+    `status: ${status}`,
+  ];
+  lines.push('created: 2026-10-12T17:41:40Z', 'depends_on: []');
+  if (branch) lines.push(`branch: ${branch}`);
+  lines.push('related_to: []', 'owner: tester', '---', '', '## Request', '', 'x', '');
+  return lines.join('\n');
+}
+
+// `main` holds a marker-less commit that `dev` lacks, and `dev` holds another
+// one that `main` lacks, so the two possible bases give different verdicts.
+function releaseFixture({ config = RELEASE_CONFIG, changes = {} } = {}) {
+  const { root, git } = gitFixture();
+  const changesDir = path.join(root, '.changeledger', 'changes');
+  fs.mkdirSync(changesDir, { recursive: true });
+  fs.writeFileSync(path.join(root, '.changeledger', 'config.yml'), config);
+  for (const [name, text] of Object.entries(changes)) {
+    fs.writeFileSync(path.join(changesDir, name), text);
+  }
+  const commit = (file, subject) => {
+    fs.writeFileSync(path.join(root, file), `${file}\n`);
+    git(['add', file]);
+    git(['commit', '-q', '-m', subject]);
+  };
+  git(['branch', 'dev']);
+  commit('m.txt', MAIN_ONLY_SUBJECT);
+  const mainSha = git(['rev-parse', '--short', 'HEAD']).trim();
+  git(['checkout', '-q', 'dev']);
+  commit('d.txt', 'feat(x): unreleased dev work, no marker');
+  git(['checkout', '-q', 'main']);
+  return { root, git, commit, mainSha };
+}
+
+function branchFrom(fx, name, from, subject) {
+  fx.git(['checkout', '-q', '-b', name, from]);
+  fx.commit(`${name.replace(/\W/g, '_')}.txt`, subject);
+}
+
+const mainOnlyError = (sha) =>
+  `  error  (commits): ${sha} missing [#id] marker: "${MAIN_ONLY_SUBJECT}"`;
+const hotfixDoc = (branch = `hotfix/${HOTFIX_ID}`, status = 'in-progress') =>
+  changeDocument(HOTFIX_ID, 'hotfix', status, branch);
+const bugDoc = (branch = `bug/${BUG_ID}`, status = 'in-progress') =>
+  changeDocument(BUG_ID, 'bug', status, branch);
+
+test('174407 CR1: a hotfix branch created from release lints against the release branch', () => {
+  const fx = releaseFixture({ changes: { [`${HOTFIX_ID}-h.md`]: hotfixDoc() } });
+  branchFrom(fx, `hotfix/${HOTFIX_ID}`, 'main', `fix(x): hotfix work [#${HOTFIX_ID}]`);
+
+  const out = captureOutput();
+  assert.equal(check(['--commits'], fx.root, out), 0, out.diagnostics.join('\n'));
+  assert.deepEqual(out.calls, ['✓ commits main..HEAD valid']);
+  assert.deepEqual(out.diagnostics, []);
+});
+
+test('174407 CR2: a change of an integration type keeps git.integration_branch', () => {
+  const fx = releaseFixture({ changes: { [`${BUG_ID}-b.md`]: bugDoc() } });
+  branchFrom(fx, `bug/${BUG_ID}`, 'dev', `fix(x): bug work [#${BUG_ID}]`);
+
+  const out = captureOutput();
+  assert.equal(check(['--commits'], fx.root, out), 0, out.diagnostics.join('\n'));
+  assert.deepEqual(out.calls, ['✓ commits dev..HEAD valid']);
+});
+
+test('174407 CR3: without a resolved change the base is git.integration_branch', () => {
+  const fx = releaseFixture({ changes: { [`${HOTFIX_ID}-h.md`]: hotfixDoc() } });
+  const expected = ['\n1 error(s) — commits dev..HEAD'];
+
+  // on `main`: no change records or renders that branch
+  const onMain = captureOutput();
+  assert.equal(check(['--commits'], fx.root, onMain), 1);
+  assert.deepEqual(onMain.diagnostics, [mainOnlyError(fx.mainSha)]);
+  assert.deepEqual(onMain.calls, expected);
+
+  // detached HEAD on the hotfix branch name: `checkoutBranch` reads ''
+  branchFrom(fx, `hotfix/${HOTFIX_ID}`, 'main', `fix(x): hotfix work [#${HOTFIX_ID}]`);
+  fx.git(['checkout', '-q', '--detach']);
+  const detached = captureOutput();
+  assert.equal(check(['--commits'], fx.root, detached), 1);
+  assert.deepEqual(detached.diagnostics, [mainOnlyError(fx.mainSha)]);
+  assert.deepEqual(detached.calls, expected);
+});
+
+test('174407 CR3: detached HEAD keeps the fallback chain without reading the ledger', () => {
+  const fx = releaseFixture({
+    changes: {
+      [`${HOTFIX_ID}-h.md`]: hotfixDoc(),
+      '20261012-999999-bad.md': 'not a change',
+    },
+  });
+  branchFrom(fx, `hotfix/${HOTFIX_ID}`, 'main', `fix(x): hotfix work [#${HOTFIX_ID}]`);
+  fx.git(['checkout', '-q', '--detach']);
+
+  // a release type exists, so only the detached-HEAD guard keeps the malformed
+  // document from being loaded
+  const out = captureOutput();
+  assert.equal(check(['--commits'], fx.root, out), 1);
+  assert.deepEqual(out.diagnostics, [mainOnlyError(fx.mainSha)]);
+  assert.deepEqual(out.calls, ['\n1 error(s) — commits dev..HEAD']);
+});
+
+test('174407 CR4: an explicit base wins and the ledger is not read', () => {
+  const fx = releaseFixture({
+    changes: {
+      [`${HOTFIX_ID}-h.md`]: hotfixDoc(),
+      '20261012-999999-bad.md': 'not a change',
+    },
+  });
+  branchFrom(fx, `hotfix/${HOTFIX_ID}`, 'main', `fix(x): hotfix work [#${HOTFIX_ID}]`);
+
+  const out = captureOutput();
+  assert.equal(check(['--commits', 'dev'], fx.root, out), 1);
+  assert.deepEqual(out.diagnostics, [mainOnlyError(fx.mainSha)]);
+  assert.deepEqual(out.calls, ['\n1 error(s) — commits dev..HEAD']);
+});
+
+test('174407 CR5: a change with no recorded branch is matched by its rendered branch', () => {
+  const fx = releaseFixture({
+    changes: { [`${HOTFIX_ID}-h.md`]: hotfixDoc(null, 'approved') },
+  });
+  branchFrom(fx, `hotfix/${HOTFIX_ID}`, 'main', `fix(x): hotfix work [#${HOTFIX_ID}]`);
+
+  const out = captureOutput();
+  assert.equal(check(['--commits'], fx.root, out), 0, out.diagnostics.join('\n'));
+  assert.deepEqual(out.calls, ['✓ commits main..HEAD valid']);
+});
+
+test('174407 CR6: terminal changes do not decide the base', () => {
+  for (const status of ['done', 'discarded']) {
+    const fx = releaseFixture({
+      changes: { [`${HOTFIX_ID}-h.md`]: hotfixDoc('shared/work', status) },
+    });
+    branchFrom(fx, 'shared/work', 'main', `fix(x): shared work [#${HOTFIX_ID}]`);
+
+    const out = captureOutput();
+    assert.equal(check(['--commits'], fx.root, out), 1, status);
+    const text = [...out.diagnostics, ...out.calls].join('\n');
+    assert.match(text, /commits dev\.\.HEAD/, status);
+    assert.doesNotMatch(text, /commits main\.\.HEAD/, status);
+  }
+});
+
+const AMBIGUOUS_MESSAGE = `branch "shared/work" is recorded by changes #${HOTFIX_ID} (integrates into main) and #${BUG_ID} (integrates into dev); pass <base> explicitly`;
+
+test('174407 CR7: two bases on one branch fail instead of choosing one', () => {
+  const fx = releaseFixture({
+    changes: {
+      [`${HOTFIX_ID}-h.md`]: hotfixDoc('shared/work'),
+      [`${BUG_ID}-b.md`]: bugDoc('shared/work'),
+    },
+  });
+  branchFrom(fx, 'shared/work', 'main', `fix(x): shared work [#${HOTFIX_ID}]`);
+
+  const out = captureOutput();
+  assert.equal(check(['--commits'], fx.root, out), 1);
+  assert.deepEqual(out.diagnostics, [`  error  (commits): ${AMBIGUOUS_MESSAGE}`]);
+  assert.deepEqual(out.calls, []);
+
+  const json = captureOutput();
+  assert.equal(check(['--commits', '--json'], fx.root, json), 1);
+  assert.equal(
+    json.calls.at(-1),
+    JSON.stringify(
+      { errors: [{ file: '(commits)', message: AMBIGUOUS_MESSAGE }], warnings: [] },
+      null,
+      2,
+    ),
+  );
+});
+
+test('174407 CR7: two changes with the same base on one branch use it', () => {
+  const other = changeDocument('20261012-174142', 'bug', 'in-progress', 'shared/work');
+  const fx = releaseFixture({
+    changes: { [`${BUG_ID}-b.md`]: bugDoc('shared/work'), '20261012-174142-o.md': other },
+  });
+  branchFrom(fx, 'shared/work', 'dev', `fix(x): shared work [#${BUG_ID}]`);
+
+  const out = captureOutput();
+  assert.equal(check(['--commits'], fx.root, out), 0, out.diagnostics.join('\n'));
+  assert.deepEqual(out.calls, ['✓ commits dev..HEAD valid']);
+});
+
+test('174407 CR8: a release type without git.release_branch fails instead of using dev', () => {
+  const fx = releaseFixture({
+    config: RELEASE_CONFIG.replace('  release_branch: main\n', ''),
+    changes: { [`${HOTFIX_ID}-h.md`]: hotfixDoc() },
+  });
+
+  // no change resolved on `main`: the CR3 fallback, no error from the type
+  const onMain = captureOutput();
+  assert.equal(check(['--commits'], fx.root, onMain), 1);
+  assert.deepEqual(onMain.diagnostics, [mainOnlyError(fx.mainSha)]);
+  assert.deepEqual(onMain.calls, ['\n1 error(s) — commits dev..HEAD']);
+
+  branchFrom(fx, `hotfix/${HOTFIX_ID}`, 'main', `fix(x): hotfix work [#${HOTFIX_ID}]`);
+  const out = captureOutput();
+  assert.equal(check(['--commits'], fx.root, out), 1);
+  assert.deepEqual(out.diagnostics, [
+    '  error  (commits): type "hotfix" integrates into git.release_branch, which is not declared',
+  ]);
+  assert.deepEqual(out.calls, []);
+});
+
+test('174407 CR9: the ledger is read only when a type integrates into release', () => {
+  const bad = { '20261012-999999-bad.md': 'not a change' };
+  const withoutRelease = RELEASE_CONFIG.replace('    integrates_into: release\n', '');
+  const plain = releaseFixture({ config: withoutRelease, changes: bad });
+  branchFrom(plain, `hotfix/${HOTFIX_ID}`, 'main', `fix(x): hotfix work [#${HOTFIX_ID}]`);
+  const ok = captureOutput();
+  assert.equal(check(['--commits'], plain.root, ok), 1);
+  assert.match(ok.calls.join('\n'), /commits dev\.\.HEAD/);
+  assert.deepEqual(ok.diagnostics, [mainOnlyError(plain.mainSha)]);
+
+  const released = releaseFixture({ changes: bad });
+  branchFrom(released, `hotfix/${HOTFIX_ID}`, 'main', `fix(x): hotfix work [#${HOTFIX_ID}]`);
+  const out = captureOutput();
+  assert.equal(check(['--commits'], released.root, out), 1);
+  const file = path.join(released.root, '.changeledger', 'changes', '20261012-999999-bad.md');
+  assert.deepEqual(out.diagnostics, [
+    `  error  (commits): ${file}: Change is missing its frontmatter block`,
+  ]);
+  assert.deepEqual(out.calls, []);
+});
+
+test('174407 CR11: without git.integration_branch the auto-detected base remains', () => {
+  const fx = releaseFixture({
+    config: RELEASE_CONFIG.replace('  integration_branch: dev\n', ''),
+    changes: { [`${BUG_ID}-b.md`]: bugDoc() },
+  });
+  branchFrom(fx, `bug/${BUG_ID}`, 'main', `fix(x): bug work [#${BUG_ID}]`);
+
+  const out = captureOutput();
+  assert.equal(check(['--commits'], fx.root, out), 0, out.diagnostics.join('\n'));
+  assert.deepEqual(out.calls, ['✓ commits main..HEAD valid']);
 });

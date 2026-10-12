@@ -29,6 +29,11 @@ First decide whether accepted work changed persistent truth:
   do not archive until every affected spec is linked.
 - Use `--skip` only when no persistent truth changed.
 
+In a type with `review_required`, when closure creates, corrects or extends specs,
+delegate `graduation-review` once the reconciliation is drafted and before the
+first `--into`. On findings, correct the draft and delegate again to a fresh reviewer;
+record the outcome with `changeledger log <id>`. `--skip` needs no such review.
+
 CR identifiers and headings are local traceability for a change; they must not
 remain as structure in specs. Rewrite their substance as concise durable truth.
 Both `--into` and `changeledger check` reject CR headings outside code fences.
@@ -39,9 +44,10 @@ an error, so words such as `skip` or `skip-*` can never silently become specs.
 
 For a new spec, follow this ordered recipe — `--new` alone does not finish it:
 
-1. `changeledger graduate <id> <spec-slug> --new` creates a seed from the
-   change's Specification or Proposal but leaves graduation pending; it does not
-   set `reviewed: true`.
+1. `changeledger graduate <id> <spec-slug> --new` creates a seed from the stage
+   the change's type declares as `seed_stage`, else from its Specification or,
+   lacking one, its Proposal, but leaves graduation pending; it does not set
+   `reviewed: true`.
 2. Rewrite the seed as concise durable current truth and remove the explicit
    scaffold marker.
 3. `changeledger graduate <id> <spec-slug> --into` finalizes it; `--into`

@@ -67,6 +67,34 @@ function unicodeForms(value) {
   return [...new Set([value, value.normalize('NFC'), value.normalize('NFD')])];
 }
 
+// Stages `paths` (relative to `repoRoot`) except those git ignores while
+// untracked. A tracked record is not ignored for git, but a plain `git add`
+// still refuses its path under an ignore rule, hence `-f`: the ignored
+// untracked records are already filtered out, so the force reaches only
+// tracked ones.
+function stageUsageRecords(repoRoot, paths, { run, log, warn }) {
+  try {
+    const ignored = new Set(
+      run(
+        ['ls-files', '-z', '--others', '--ignored', '--exclude-standard', '--', ...paths],
+        repoRoot,
+      )
+        .split('\0')
+        .filter(Boolean),
+    );
+    const stageable = paths.filter((p) => !ignored.has(p));
+    if (ignored.size) {
+      warn(`usage: records ignored by git were not staged: ${[...ignored].join(', ')}`);
+    }
+    if (stageable.length) {
+      run(['add', '-f', '--', ...stageable], repoRoot);
+      log(`Staged usage records: ${stageable.join(', ')}`);
+    }
+  } catch (e) {
+    warn(`usage: records not staged: ${e.message.split('\n')[0]}`);
+  }
+}
+
 // Validates the subject, resolves the change id(s) to append, and creates the
 // commit. Never invokes git unless the subject and id resolution both succeed
 // — no partial/incorrect commit is ever created. Returns the final subject.
@@ -75,6 +103,7 @@ export function commit(
   cwd = process.cwd(),
   run = mutatingRun,
   log = console.log,
+  warn = (line) => process.stderr.write(`${line}\n`),
 ) {
   if (noChange !== undefined && ids.length > 0) {
     throw new Error('--no-change and --id are mutually exclusive');
@@ -183,6 +212,28 @@ export function commit(
     throw new Error(
       `Staged path(s) under the changes directory not declared for this commit: ${undeclared.join(', ')}${declared}`,
     );
+  }
+
+  // Usage records (20261002-133728) travel with their change like its Log: in
+  // the worktree layout the collector leaves them unstaged under
+  // `.changeledger/usage/`, so a commit that carries a change id stages that
+  // change's records — identified by the id in their file name — and never
+  // another change's. Staged only once the guard above has passed, so an
+  // aborted commit leaves the index as it found it. An activated repo keeps
+  // them in the state ref and stages nothing here. Staging records does not
+  // block the commit: records git ignores are left out and named in one
+  // `usage: ` warning, and a staging failure is a warning too. (Loading the
+  // ledger, records included, can still fail the command, as it always could.)
+  if (!repo.state && noChange === undefined) {
+    const carried = new Set(resolvedIds.map(String));
+    const records = (repo.usage ?? []).filter((entry) => carried.has(entry.change));
+    if (records.length) {
+      stageUsageRecords(
+        repo.repoRoot,
+        records.map((entry) => path.relative(repo.repoRoot, entry.file).split(path.sep).join('/')),
+        { run, log, warn },
+      );
+    }
   }
 
   let subject;

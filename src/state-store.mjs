@@ -29,7 +29,17 @@ const STATE_COLLECTION_EXTENSIONS = new Map([
   ['changes', '.md'],
   ['specs', '.md'],
   ['releases', '.yml'],
+  // Token-usage records (20261002-133728): one flat `<id>--<instant>-<hex>.json`
+  // per snapshot, so the three-part rule holds and two clones never write the
+  // same path.
+  ['usage', '.json'],
 ]);
+// The append-only collection: `mutateState` refuses a candidate that drops or
+// changes the bytes of a usage record of its parent, even through an explicit
+// `stage.remove`; `advanceStateRef` and `commitMergedState` refuse a tree that
+// drops or changes the bytes of a usage record of the local tip
+// (`assertLocalStateSurvives`).
+const USAGE_PREFIX = `${STATE_ROOT}/usage/`;
 const ACTIVATION_AUTHORITY_PATH = 'authority.yml';
 const LEDGER_DIR_NAME = '.changeledger';
 
@@ -40,19 +50,56 @@ export class LedgerConflictError extends Error {
   }
 }
 
-// The exclusive layout of the state tree: exactly the manifest, the config,
-// or `<collection>/<name><ext>` under STATE_ROOT. Anything else — a path
-// outside STATE_ROOT, an unknown collection, a wrong extension — is rejected
-// on both the read path (a foreign entry in the tree) and the write path (a
-// mutator trying to stage one).
-export function statePathIsValid(file) {
-  if (typeof file !== 'string' || file === '' || file.includes('\0')) return false;
-  if (file === MANIFEST || file === CONFIG) return true;
+// The shape a collection name must have for a path under STATE_ROOT to be a
+// collection entry at all (20261002-161641).
+const COLLECTION_NAME = /^[a-z][a-z0-9-]*$/;
+
+// Classifies a full tree path of the state layout:
+//
+// - `known`: the manifest, the config, or `<collection>/<name><ext>` of a
+//   collection this CLI declares in STATE_COLLECTION_EXTENSIONS;
+// - `unknown`: `<collection>/<name>` of a well-formed collection name this CLI
+//   does not declare — what a later ChangeLedger adds (20261002-161641). The
+//   snapshot and config readers skip its content, a mutator cannot stage it,
+//   and `mutateState` keeps its blob;
+// - `malformed`: anything else — a path outside STATE_ROOT, a depth other than
+//   three, a collection name outside COLLECTION_NAME, a loose file under the
+//   root, or a known collection's entry with the wrong extension.
+function classifyStatePath(file) {
+  if (typeof file !== 'string' || file === '' || file.includes('\0')) return 'malformed';
+  if (file === MANIFEST || file === CONFIG) return 'known';
   const parts = file.split('/');
-  if (parts.length !== 3 || parts[0] !== STATE_ROOT) return false;
-  const extension = STATE_COLLECTION_EXTENSIONS.get(parts[1]);
-  const name = parts[2];
-  return Boolean(extension && name.length > extension.length && name.endsWith(extension));
+  if (parts.length !== 3 || parts[0] !== STATE_ROOT || parts[2] === '') return 'malformed';
+  const [, collection, name] = parts;
+  const extension = STATE_COLLECTION_EXTENSIONS.get(collection);
+  if (extension === undefined) return COLLECTION_NAME.test(collection) ? 'unknown' : 'malformed';
+  return name.length > extension.length && name.endsWith(extension) ? 'known' : 'malformed';
+}
+
+function unknownCollectionOf(file) {
+  return file.split('/')[1];
+}
+
+// Whether a mutator may stage `file`: a `known` path. An unknown collection's
+// entry is refused on the write path like a foreign one, since
+// STATE_COLLECTION_EXTENSIONS declares nothing about it.
+export function statePathIsValid(file) {
+  return classifyStatePath(file) === 'known';
+}
+
+// The warning body for a tree holding collections `version` does not declare.
+// The bin prints it on stderr and `check` repeats it among its warnings.
+export function unknownCollectionsMessage(collections, version) {
+  return `the state ref holds collections ChangeLedger ${version} does not know (${collections.join(', ')}); update the installation to use them`;
+}
+
+// Receives the sorted unknown collection names each time `readSnapshot` or
+// `readStateConfigText` inspects a tree that holds some. A later call replaces
+// the listener and `null` clears it; the bin installs the one that warns once
+// per command.
+let unknownCollectionsListener = null;
+export function setUnknownCollectionsListener(listener) {
+  unknownCollectionsListener = listener;
 }
 
 // --- subprocess plumbing -----------------------------------------------
@@ -268,18 +315,30 @@ function inspectStateTree(repoRoot, { revision } = {}, run = capturedRun) {
   }
   for (const entry of entries) assertRegularBlobEntry(entry.mode, entry.path, entry.type);
 
-  const names = entries.map((entry) => entry.path).sort();
-  for (const name of names) {
-    if (!statePathIsValid(name)) throw new Error(`invalid state path: ${name}`);
+  const names = [];
+  const unknown = [];
+  for (const name of entries.map((entry) => entry.path).sort()) {
+    const kind = classifyStatePath(name);
+    if (kind === 'malformed') throw new Error(`invalid state path: ${name}`);
+    if (kind === 'unknown') unknown.push(name);
+    else names.push(name);
   }
   if (!names.includes(MANIFEST)) throw new Error(`state revision ${rev} is missing ${MANIFEST}`);
   if (!names.includes(CONFIG)) throw new Error(`state revision ${rev} is missing ${CONFIG}`);
 
+  const unknownCollections = [...new Set(unknown.map(unknownCollectionOf))].sort();
+  if (unknownCollections.length > 0) unknownCollectionsListener?.(unknownCollections);
+
+  // `names` and `entries` hold the known paths alone, so `readSnapshot` and
+  // `readStateConfigText` do not request an unknown entry's blob.
+  const known = entries.filter((entry) => classifyStatePath(entry.path) === 'known');
   return {
     revision: rev,
-    entries,
+    entries: known,
     names,
-    byPath: new Map(entries.map((entry) => [entry.path, entry])),
+    byPath: new Map(known.map((entry) => [entry.path, entry])),
+    unknown,
+    unknownCollections,
   };
 }
 
@@ -314,9 +373,11 @@ export function readStateConfigText(repoRoot, { revision } = {}, run = capturedR
 // Reads `revision` (defaulting to the current state ref tip) via git-batch,
 // with no checkout: enumerates the tree once, validates every entry is a
 // regular blob at a layout-valid path, and returns manifest/config parsed
-// plus every other document as `{ [relPathUnderStateRoot]: text }`, byte
+// plus every other known document as `{ [relPathUnderStateRoot]: text }`, byte
 // identical to what is stored (a non-UTF-8 blob throws naming its path,
-// never silently transcoding to U+FFFD).
+// never silently transcoding to U+FFFD). Entries of unknown collections are
+// left out of `documents` and listed, unread, in `unknown` (paths relative to
+// STATE_ROOT) and `unknownCollections` (their sorted collection names).
 export function readSnapshot(repoRoot, { revision } = {}, run = capturedRun) {
   const tree = inspectStateTree(repoRoot, { revision }, run);
   const { entries, names, byPath } = tree;
@@ -334,7 +395,14 @@ export function readSnapshot(repoRoot, { revision } = {}, run = capturedRun) {
     documents[name.slice(STATE_ROOT.length + 1)] = readPath(name);
   }
 
-  return { revision: tree.revision, manifest, config, documents };
+  return {
+    revision: tree.revision,
+    manifest,
+    config,
+    documents,
+    unknown: tree.unknown.map((name) => name.slice(STATE_ROOT.length + 1)),
+    unknownCollections: tree.unknownCollections,
+  };
 }
 
 // Compare-and-swap mutation over `expectedRevision`. `mutator({ write, remove
@@ -344,7 +412,10 @@ export function readSnapshot(repoRoot, { revision } = {}, run = capturedRun) {
 // mutation with no net diff creates no commit but still passes through the
 // ref's CAS lock, so a concurrent mover is still detected. Any parent path
 // that disappears from the candidate without a matching explicit `remove` is
-// an integrity violation and aborts before any ref is touched.
+// an integrity violation and aborts before any ref is touched; a usage record
+// that disappears aborts even with one. An entry of an unknown collection
+// cannot be staged at all, and a candidate that drops it or changes its blob
+// aborts too (20261002-161641).
 export function mutateState(
   repoRoot,
   { expectedRevision, message } = {},
@@ -396,10 +467,33 @@ export function mutateState(
     return readSnapshot(repoRoot, { revision: expectedRevision }, run);
   }
 
-  const parentNames = new Set(treeEntries(repoRoot, expectedRevision, run).map((e) => e.path));
-  const candidateNames = new Set(treeEntries(repoRoot, candidateTree, run).map((e) => e.path));
-  for (const name of parentNames) {
-    if (!candidateNames.has(name) && !removals.has(name)) {
+  const parentOids = new Map(
+    treeEntries(repoRoot, expectedRevision, run).map((e) => [e.path, e.oid]),
+  );
+  const candidateOids = new Map(
+    treeEntries(repoRoot, candidateTree, run).map((e) => [e.path, e.oid]),
+  );
+  for (const [name, oid] of parentOids) {
+    if (classifyStatePath(name) === 'unknown' && candidateOids.get(name) !== oid) {
+      const verb = candidateOids.has(name) ? 'rewrites' : 'removes';
+      throw new Error(
+        `state mutation ${verb} "${name}", an entry of a collection this ChangeLedger does not know (${unknownCollectionOf(name)}); update the installation`,
+      );
+    }
+    if (candidateOids.has(name)) {
+      if (name.startsWith(USAGE_PREFIX) && candidateOids.get(name) !== oid) {
+        throw new Error(
+          `state mutation rewrites usage record "${name}"; mutateState never rewrites one`,
+        );
+      }
+      continue;
+    }
+    if (name.startsWith(USAGE_PREFIX)) {
+      throw new Error(
+        `state mutation removes usage record "${name}"; mutateState never removes one`,
+      );
+    }
+    if (!removals.has(name)) {
       throw new Error(`state mutation removes "${name}" without an explicit stage.remove`);
     }
   }
@@ -414,18 +508,44 @@ export function mutateState(
   return snapshot;
 }
 
+// The survival check both of `sync`'s adoption paths share (20261012-141809):
+// walks the paths of the local tip's tree in sorted order and throws on the
+// first one that `adoptedOids` (path -> blob oid of the tree about to be
+// adopted) lacks, or that is a usage record whose blob oid differs. `subject`
+// names that tree in the message. Ancestry alone does not establish survival:
+// a descendant made with raw git can delete a path its ancestor held.
+function assertLocalStateSurvives(repoRoot, localRevision, adoptedOids, subject, run) {
+  const local = treeEntries(repoRoot, localRevision, run).sort((one, other) =>
+    one.path < other.path ? -1 : one.path > other.path ? 1 : 0,
+  );
+  for (const { path: name, oid } of local) {
+    const verb = !adoptedOids.has(name)
+      ? 'drops'
+      : name.startsWith(USAGE_PREFIX) && adoptedOids.get(name) !== oid
+        ? 'rewrites usage record'
+        : null;
+    if (verb !== null) {
+      throw new Error(
+        `${subject} ${verb} "${name}", present in the local state; sync adopted nothing`,
+      );
+    }
+  }
+}
+
 // Fast-forwards the state ref from `expectedRevision` onto `revision` — the
 // move `sync` needs when another clone's journal already contains this one's.
 // No commit is created: the local journal adopts a history it is fully
-// contained in. Three guards, all before any ref moves, keep that claim true
-// instead of trusting the caller's classification:
+// contained in. Four guards, in this order and all before the ref moves, keep
+// that claim true instead of trusting the caller's classification:
 //
 // - `revision` must be a commit OBJECT (never an annotated tag peeled to one);
 // - `expectedRevision` must be an ancestor of it, so a "fast-forward" that
 //   would actually drop local journal entries is refused rather than performed;
 // - its tree must be a valid state layout, read in full — a ref fetched from a
 //   remote is untrusted input, and adopting a foreign or non-UTF-8 tree would
-//   only fail later, on the next read, with the ledger already moved.
+//   only fail later, on the next read, with the ledger already moved;
+// - every path of `expectedRevision`'s tree must be in it, and every usage
+//   record with the same blob (`assertLocalStateSurvives`).
 export function advanceStateRef(repoRoot, { expectedRevision, revision } = {}, run = capturedRun) {
   if (typeof expectedRevision !== 'string' || expectedRevision === '') {
     throw new Error('advanceStateRef requires expectedRevision');
@@ -440,6 +560,13 @@ export function advanceStateRef(repoRoot, { expectedRevision, revision } = {}, r
     );
   }
   const snapshot = readSnapshot(repoRoot, { revision }, run);
+  assertLocalStateSurvives(
+    repoRoot,
+    expectedRevision,
+    new Map(treeEntries(repoRoot, revision, run).map((entry) => [entry.path, entry.oid])),
+    `state revision ${revision}`,
+    run,
+  );
   casUpdateStateRef(repoRoot, revision, expectedRevision, run);
   return snapshot;
 }
@@ -469,7 +596,13 @@ export function seedStateRef(repoRoot, { revision } = {}, run = capturedRun) {
 // side wins, and this primitive refuses to guess. It validates that decision
 // before anything is written — every entry a regular blob at a layout-valid
 // path, and the manifest and config both present — because a tree assembled
-// from a remote's objects is untrusted input.
+// from a remote's objects is untrusted input. An entry of an unknown collection
+// that either parent holds must be among `entries` by path (20261002-161641):
+// this CLI has no rule to judge whether dropping it is legitimate, so it
+// refuses the drop with a diagnostic of its own. Then every path of
+// `expectedRevision`'s tree must be among `entries`, and every usage record
+// with the same blob (`assertLocalStateSurvives`, 20261012-141809). Both run
+// before the merge commit is created.
 export function commitMergedState(
   repoRoot,
   { expectedRevision, otherRevision, entries, message } = {},
@@ -490,16 +623,28 @@ export function commitMergedState(
   assertCommitObject(repoRoot, expectedRevision, run);
   assertCommitObject(repoRoot, otherRevision, run);
 
-  const names = new Set();
+  const names = new Map();
   for (const entry of entries) {
     assertRegularBlobEntry(entry.mode, entry.path, entry.type);
-    if (!statePathIsValid(entry.path)) throw new Error(`invalid state path: ${entry.path}`);
+    if (classifyStatePath(entry.path) === 'malformed') {
+      throw new Error(`invalid state path: ${entry.path}`);
+    }
     if (names.has(entry.path)) throw new Error(`duplicate state path: ${entry.path}`);
-    names.add(entry.path);
+    names.set(entry.path, entry.oid);
   }
   for (const required of [MANIFEST, CONFIG]) {
     if (!names.has(required)) throw new Error(`merged state is missing ${required}`);
   }
+  for (const parent of [expectedRevision, otherRevision]) {
+    for (const { path: name } of treeEntries(repoRoot, parent, run)) {
+      if (classifyStatePath(name) === 'unknown' && !names.has(name)) {
+        throw new Error(
+          `merged state drops "${name}", an entry of a collection this ChangeLedger does not know (${unknownCollectionOf(name)}); update the installation before syncing`,
+        );
+      }
+    }
+  }
+  assertLocalStateSurvives(repoRoot, expectedRevision, names, 'merged state', run);
 
   const tree = buildTreeFromEntries(repoRoot, entries);
   const commit = commitTree(

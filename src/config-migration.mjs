@@ -3,7 +3,7 @@ import path from 'node:path';
 import { isMap, isPair, isScalar, isSeq, parseDocument } from 'yaml';
 import { writeFileAtomic } from './atomic-write.mjs';
 import { repoIsActivated } from './change-store.mjs';
-import { REVIEWABLE_STAGES } from './check.mjs';
+import { stagesRequiredByReview } from './check.mjs';
 import { VERSION } from './framing.mjs';
 import { templatesDir } from './paths.mjs';
 import { mutateState, readStateConfigText, readStateRef } from './state-store.mjs';
@@ -339,10 +339,12 @@ function templateSection(key) {
 
 // A type that demands independent review must activate the stages that
 // make review possible — `specification` holds the criteria and `plan` the tasks
-// that cite them — the coupling `checkConfig` now enforces. Additive: only types
-// already declaring `review_required: true` are touched, and only to insert the
-// stages they lack. Reads the live doc, not the pre-migration snapshot, so a
-// `review_required` added by migrateToV1 in the same run is seen here too.
+// that cite them when its effective tdd is on — the coupling `checkConfig`
+// enforces, asked through the same `stagesRequiredByReview`. Additive: only
+// types already declaring `review_required: true` are touched, and only to
+// insert the stages they lack. Reads the live doc, not the pre-migration
+// snapshot, so a `review_required` or `tdd` added by migrateToV1 in the same
+// run is seen here too.
 // A config with no canonical `stages` list is left alone: without it there is no
 // order to insert into, and `check` already reports the missing key.
 function activateReviewableStages(doc, changes) {
@@ -350,6 +352,7 @@ function activateReviewableStages(doc, changes) {
   const typesNode = doc.get('types', true);
   if (!canonicalNode?.items || !typesNode?.items) return;
   const canonical = canonicalNode.items.map((n) => String(n.value));
+  const live = doc.toJS();
 
   for (const pair of typesNode.items) {
     const typeName = pair.key?.value ?? pair.key;
@@ -357,7 +360,7 @@ function activateReviewableStages(doc, changes) {
     const stagesNode = doc.getIn(['types', typeName, 'stages'], true);
     if (!stagesNode?.items) continue;
     const stages = stagesNode.items.map((n) => String(n.value));
-    for (const stage of REVIEWABLE_STAGES) {
+    for (const stage of stagesRequiredByReview(live, typeName)) {
       if (stages.includes(stage)) continue;
       // A stage absent from the canonical `stages` list cannot be inserted into
       // a type: there is no canonical position for it, and `checkConfig` already
@@ -388,7 +391,7 @@ function setBlankGitSection(doc) {
   if (typeof gitPair.key === 'string') gitPair.key = doc.createNode(gitPair.key);
   gitPair.key.spaceBefore = true;
   gitPair.key.commentBefore =
-    ' Git integration: change branches start from and merge into this branch';
+    ' Git integration: change branches start from and merge into `integration_branch`; types with `integrates_into: release` use `release_branch` instead.';
 }
 
 // Apply migration to the effective config authority (or dry-run). Returns summary string.

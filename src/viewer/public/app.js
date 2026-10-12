@@ -23,9 +23,11 @@ import {
   invalidateCache,
   normalizeRepoState,
   restoreViewerState,
+  selectedRepo,
   selectProject,
   setDetailPresentation,
   setLedgerCategory,
+  setProjectSelectedListener,
   setRepo,
   setSortKey,
   setTextFilter,
@@ -59,7 +61,14 @@ import {
   tableRow,
   validationPanel,
 } from './view-parts.js';
-import { graphSvg, ledgerViewHtml, metricsHtml, sortSpecsByUpdated } from './view-renderers.js';
+import {
+  changeUsageHtml,
+  graphSvg,
+  ledgerViewHtml,
+  metricsHtml,
+  sortSpecsByUpdated,
+  USAGE_UNAVAILABLE,
+} from './view-renderers.js';
 import { createLedgerNavigation, readLedgerRoute } from './viewer-routing.js';
 
 export { cssIdent, esc, makeMermaidExpandable, safeHtml } from './security.js';
@@ -162,7 +171,7 @@ async function loadProjects(initialRoute = { kind: 'absent' }) {
   }
 }
 
-export function load(requestRepo = getRepo, applyRepo = applyLoadedRepo) {
+export function load(requestRepo = getRepo, applyRepo = applyLoadedRepo, { polling = false } = {}) {
   const revision = ++repoRequestRevision;
   const project = state.currentProject;
   const target = captureProjectTarget(project);
@@ -183,6 +192,10 @@ export function load(requestRepo = getRepo, applyRepo = applyLoadedRepo) {
         syncViewerShell();
         return true;
       }
+      if (polling) {
+        syncViewerShell();
+        return false;
+      }
       showNoProjects();
       return false;
     }
@@ -191,15 +204,17 @@ export function load(requestRepo = getRepo, applyRepo = applyLoadedRepo) {
       if (stale()) return supersedingLoad();
       const payload = JSON.parse(text);
       if (!matchesProjectProvenance(payload, target)) return false;
-      if (text === state.lastJson) return true;
+      const recovering = state.loadError !== null;
+      state.loadError = null;
+      if (text === state.lastJson && !recovering) return true;
       applyRepo(text);
       return true;
     } catch (e) {
       if (stale()) return supersedingLoad();
       if (hasProjectProvenance(e.payload) && !matchesProjectProvenance(e.payload, target))
         return false;
-      if (state.currentView === 'ledger') renderLedgerRouteError($('#ledger'), e.message);
-      else litRender(html`<p style="color:var(--bug);padding:20px">${e.message}</p>`, $('#board'));
+      state.loadError = e.message;
+      if (state.currentView !== 'projects') paintLoadError();
       return false;
     }
   })();
@@ -214,12 +229,37 @@ function applyLoadedRepo(text) {
   syncViewerShell();
 }
 
+const noProjectsMessage = () =>
+  html`<p class="empty" style="padding:20px">No projects registered. Run <code>changeledger init</code> in a repo.</p>`;
+
+const loadingProjectMessage = () =>
+  html`<p class="empty" style="padding:20px">Loading project…</p>`;
+
+function paintLoadError(message = state.loadError) {
+  const root = $(`#${state.currentView}`);
+  if (state.currentView === 'ledger') renderLedgerRouteError(root, message);
+  else litRender(html`<p style="color:var(--bug);padding:20px">${message}</p>`, root);
+}
+
+// app-state calls this after `selectProject`, and after `initializeProjects`
+// changes the selection (see `setProjectSelectedListener`). `selectProject`
+// keeps the previous project's payload, so the filter menus and the
+// invalid-documents warning are rebuilt from `selectedRepo()`: empty while that
+// payload is another project's. The detail overlay shows a document of the
+// previous selection, so it closes first. Without the filter hosts in the
+// document (tests that import this module) it returns after that.
+const FILTER_HOSTS = ['#lang', '#type-filter', '#owner-filter', '#status-filter'];
+function syncSelectedProjectShell() {
+  closeDetail();
+  if (!FILTER_HOSTS.every((selector) => $(selector))) return;
+  hydrateFilters();
+  renderChangeErrors(selectedRepo()?.change_errors ?? []);
+}
+setProjectSelectedListener(syncSelectedProjectShell);
+
 export function showNoProjects(root = document) {
   setView('board');
-  litRender(
-    html`<p class="empty" style="padding:20px">No projects registered. Run <code>changeledger init</code> in a repo.</p>`,
-    root.querySelector('#board'),
-  );
+  litRender(noProjectsMessage(), root.querySelector('#board'));
   syncViewerShell(root, false);
   renderChangeErrors([], root);
 }
@@ -250,14 +290,16 @@ function renderChangeErrors(errors = [], root = document) {
   );
 }
 
-// Rebuilt on each project load (types/statuses can differ per project).
+// Rebuilt when a project payload is applied (types/statuses can differ per
+// project), and by `syncSelectedProjectShell` after a project selection.
 function hydrateFilters() {
-  $('#lang').textContent = state.repo.language;
-  const owners = [...new Set(state.repo.changes.map((c) => c.owner).filter(Boolean))].sort();
+  const repo = selectedRepo();
+  $('#lang').textContent = repo?.language ?? '';
+  const owners = [...new Set((repo?.changes ?? []).map((c) => c.owner).filter(Boolean))].sort();
   renderChoiceFilter(
     $('#type-filter'),
     'Type',
-    state.repo.types,
+    repo?.types ?? [],
     state.filters.types,
     toggleTypeFilter,
     clearTypeFilters,
@@ -271,7 +313,7 @@ function hydrateFilters() {
     clearOwnerFilters,
     true,
   );
-  renderStatusFilter();
+  renderStatusFilter(repo?.statuses ?? []);
 }
 
 export function choiceFilterSummary(label, selected, includeUnassigned = false) {
@@ -325,8 +367,9 @@ export function renderChoiceFilter(host, label, choices, selected, toggle, clear
   };
 }
 
-export function renderStatusFilter() {
+export function renderStatusFilter(statuses = state.repo.statuses) {
   const sf = $('#status-filter');
+  const rerender = () => renderStatusFilter(statuses);
   const summary = state.filters.pendingGraduation
     ? state.filters.statuses.size
       ? `${state.filters.statuses.size + 1} selected`
@@ -344,7 +387,7 @@ export function renderStatusFilter() {
       <div class="filter-popover">
         <div class="filter-heading"><span>Status</span><button type="button" data-clear-status>Clear</button></div>
         <div class="filter-options">
-          ${boardStatuses(state.repo.statuses).map(
+          ${boardStatuses(statuses).map(
             (status) => html`<label class="check-option">
               <input type="checkbox" data-status=${status} .checked=${state.filters.statuses.has(status)} />
               <span class="check-box" aria-hidden="true"></span>
@@ -375,28 +418,28 @@ export function renderStatusFilter() {
   sf.querySelectorAll('[data-status]').forEach((input) => {
     input.onchange = () => {
       toggleStatusFilter(input.dataset.status);
-      renderStatusFilter();
+      rerender();
       render();
     };
   });
   sf.querySelector('[data-pending-graduation]').onchange = () => {
     togglePendingGraduation();
-    renderStatusFilter();
+    rerender();
     render();
   };
   sf.querySelector('[data-clear-status]').onclick = () => {
     clearStatusFilters();
-    renderStatusFilter();
+    rerender();
     render();
   };
   sf.querySelector('[data-visibility="archived"]').onchange = () => {
     toggleShowArchived();
-    renderStatusFilter();
+    rerender();
     render();
   };
   sf.querySelector('[data-visibility="discarded"]').onchange = () => {
     toggleShowDiscarded();
-    renderStatusFilter();
+    rerender();
     render();
   };
 }
@@ -406,6 +449,12 @@ function visibleChanges() {
 }
 
 function render() {
+  if (state.currentView !== 'projects' && !selectedRepo()) {
+    if (!state.currentProject) litRender(noProjectsMessage(), $(`#${state.currentView}`));
+    else if (state.loadError) paintLoadError();
+    else litRender(loadingProjectMessage(), $(`#${state.currentView}`));
+    return;
+  }
   if (state.currentView === 'graph') renderGraph();
   else if (state.currentView === 'table') renderTable();
   else if (state.currentView === 'ledger') renderLedger();
@@ -756,8 +805,11 @@ function renderOpenedDetail(content) {
   resetDetailScroll(detail);
 }
 
+// Looks the change up in `selectedRepo()`: after a failed load `state.repo` can
+// still hold another project's payload, and change ids can repeat across projects.
 function openDetail(id) {
-  const c = state.repo.changes.find((x) => String(x.id) === String(id));
+  const repo = selectedRepo();
+  const c = repo?.changes.find((x) => String(x.id) === String(id));
   if (!c) return;
   const projectTarget = captureProjectTarget(state.currentProject);
   const detailTarget = Object.freeze({
@@ -766,7 +818,7 @@ function openDetail(id) {
     revision: ++gitRefsRequestRevision,
   });
   openedChangeTarget = detailTarget;
-  const changes = state.repo.changes || [];
+  const changes = repo.changes || [];
   const outgoing = (c.related_to || []).map((related) => ({ id: related, direction: 'outgoing' }));
   const incoming = changes
     .filter(
@@ -795,6 +847,7 @@ function openDetail(id) {
     ${c.status === 'in-validation' ? validationPanel() : nothing}
     ${reopenPanel(c.status)}
     ${stages}
+    <div id="usage-section"></div>
     <div id="git-section"></div>`,
   );
 
@@ -859,7 +912,34 @@ function openDetail(id) {
       };
     });
   renderExpandableMermaid($('#detail'));
+  loadChangeUsage(detailTarget);
   loadGitRefs(detailTarget);
+}
+
+// One change's Usage block; an error line when the usage module fails to
+// load or the analysis throws.
+export async function changeUsageTemplate(repo, id, loadUsage = loadUsageModule) {
+  try {
+    const { analyzeUsage } = await loadUsage();
+    return changeUsageHtml(changeUsageAnalysis(analyzeUsage, repo, id));
+  } catch {
+    return changeUsageHtml(USAGE_UNAVAILABLE);
+  }
+}
+
+// Renders the opened change's usage segments once the shared module loads.
+async function loadChangeUsage(target) {
+  const repo = state.repo;
+  if (!repo) return;
+  const template = await changeUsageTemplate(repo, target.changeId);
+  if (
+    openedChangeTarget !== target ||
+    !sameProjectTarget(target, captureProjectTarget(state.currentProject))
+  ) {
+    return;
+  }
+  const sec = $('#usage-section');
+  if (sec) litRender(template, sec);
 }
 
 // Fetch and render the git refs (commits/branches) that reference this change.
@@ -969,6 +1049,14 @@ async function gotoChange(proj, changeId) {
     selectProject(match.id);
     $('#project').value = match.id;
     await load();
+  }
+  // Another project selected while this one loaded owns the view now; its
+  // payload can hold a change with the same id.
+  if (state.currentProject !== match.id) return;
+  // Global search hides the view where the load error is painted, so a toast
+  // carries it there.
+  if (state.globalMode && state.loadError) {
+    showToast(`Could not load project "${match.name}": ${state.loadError}`);
   }
   openDetail(changeId);
 }
@@ -1246,22 +1334,92 @@ function loadMetricsModule() {
   return sharedMetricsModule;
 }
 
-// `computeMetrics` speaks the CLI's native change shape (`{ frontmatter,
-// stages }`); `state.repo.changes` is already flattened for board/table
-// rendering. Adapt back rather than reshaping the shared module's contract,
-// which the server also relies on unchanged.
+// The shared usage-analysis module (20261002-140242), loaded the same way.
+let sharedUsageModule;
+function loadUsageModule() {
+  sharedUsageModule ??= import('/shared/usage-analysis.mjs');
+  return sharedUsageModule;
+}
+
+// `computeMetrics` and `analyzeUsage` speak the CLI's native change shape
+// (`{ frontmatter, stages }`); `state.repo.changes` is already flattened for
+// board/table rendering. Adapt back rather than reshaping the shared modules'
+// contracts, which the CLI also relies on unchanged.
 function toMetricsChange(c) {
   return {
-    frontmatter: { id: c.id, type: c.type, status: c.status, owner: c.owner, created: c.created },
+    frontmatter: {
+      id: c.id,
+      title: c.title,
+      type: c.type,
+      status: c.status,
+      owner: c.owner,
+      created: c.created,
+    },
     stages: c.stages,
   };
 }
 
+const usageInput = (repo) => ({
+  changes: (repo?.changes ?? []).map(toMetricsChange),
+  usage: repo?.usage ?? [],
+});
+
+// The Usage section's analyses, one per grouping, plus `recorded`: whether any
+// of `changes` has a usage record, which tells an empty section apart as
+// records without attributed usage or no records. The whole project is
+// analysed and the result restricted to `changes` (the visible ones), so each
+// record is attributed as `changeledger analyze` attributes it. `recorded`
+// reads the module's own per-change record count (`usageRecordCounts`, the
+// `records` figure of `changeledger analyze <id>`) once, instead of analysing
+// the project again for each change.
+export function usageSectionAnalyses(analyzeUsage, repo, changes, usageRecordCounts) {
+  const input = usageInput(repo);
+  const ids = changes.map((c) => String(c.id));
+  const analyses = Object.fromEntries(
+    ['segment', 'model', 'version'].map((by) => [by, analyzeUsage(input, { ids, by })]),
+  );
+  const counts = usageRecordCounts(input.usage);
+  const recorded = ids.some((id) => (counts.get(id) ?? 0) > 0);
+  return { ...analyses, recorded };
+}
+
+// One change's analysis, as `changeledger analyze <id>` computes it.
+export function changeUsageAnalysis(analyzeUsage, repo, id) {
+  return analyzeUsage(usageInput(repo), { id: String(id) });
+}
+
+// The metrics view for `changes`. A usage module that fails to load, or an
+// analysis that throws, turns the Usage section into an error line and leaves
+// the other metrics as they are.
+export async function metricsViewTemplate(
+  repo,
+  changes,
+  {
+    loadMetrics = loadMetricsModule,
+    loadUsage = loadUsageModule,
+    now = new Date().toISOString(),
+  } = {},
+) {
+  const usageModule = changes.length ? loadUsage() : null;
+  usageModule?.catch(() => {});
+  const { computeMetrics } = await loadMetrics();
+  const metrics = computeMetrics(changes.map(toMetricsChange), { now });
+  let usage;
+  if (usageModule) {
+    try {
+      const { analyzeUsage, usageRecordCounts } = await usageModule;
+      usage = usageSectionAnalyses(analyzeUsage, repo, changes, usageRecordCounts);
+    } catch {
+      usage = USAGE_UNAVAILABLE;
+    }
+  }
+  return metricsHtml(metrics, changes.length, usage);
+}
+
 async function renderMetrics() {
+  const repo = state.repo;
   const changes = visibleChanges();
-  const { computeMetrics } = await loadMetricsModule();
-  const metrics = computeMetrics(changes.map(toMetricsChange), { now: new Date().toISOString() });
-  litRender(metricsHtml(metrics, changes.length), $('#metrics'));
+  litRender(await metricsViewTemplate(repo, changes), $('#metrics'));
 }
 
 export function syncViewerShell(root = document, renderContent = true) {
@@ -2390,7 +2548,7 @@ function bootstrap() {
 
   window.onpopstate = (event) => void restoreViewerLocation(event);
   void loadProjects(initialRoute);
-  setInterval(load, 5000);
+  setInterval(() => load(getRepo, applyLoadedRepo, { polling: true }), 5000);
 
   // The topbar wraps to multiple rows at content-dependent widths, so the
   // CSS fallback constant cannot bound the projects panels; track the real

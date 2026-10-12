@@ -7,19 +7,58 @@
 
 import { marked } from 'marked';
 import { parseChange } from './change.mjs';
-import { changeBranchFormat, integrationBranch, renderChangeBranch } from './config.mjs';
+import {
+  changeBranchFormat,
+  integrationBranch,
+  integrationRoleError,
+  releaseBranch,
+  releaseBranchRequirementError,
+  renderChangeBranch,
+  USAGE_COLLECTOR_GIT_KEY,
+  usageCollector,
+} from './config.mjs';
 import { hasFixableDefects } from './fix.mjs';
 import { CANONICAL_STATUSES, canTransition, LOG_EVENT_TYPES, parseLogEvent } from './lifecycle.mjs';
 import { compareVersions, parseVersion, RELEASE_IMPACTS } from './release.mjs';
+import {
+  parseUsageRecordName,
+  USAGE_RECORD_NAME_FORM,
+  USAGE_RECORD_SCHEMA,
+} from './usage-collector.mjs';
 import { minCliVersionDeclarationError } from './version-guard.mjs';
 
 const REQUIRED = ['id', 'title', 'type', 'status', 'created', 'depends_on'];
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
 const ID_FORM = /^\d{8}-\d{6}$/;
 const SEMANTIC_STAGES = new Set(['request', 'investigation', 'proposal', 'specification', 'plan']);
-// Stages a `review_required` type must activate, in canonical order. Exported so
-// the schema migration repairs exactly the coupling `checkConfig` enforces.
-export const REVIEWABLE_STAGES = ['specification', 'plan'];
+// Stages a `review_required` type must activate, in canonical order, when its
+// effective tdd is on; with tdd off only `specification` is required.
+const REVIEWABLE_STAGES = ['specification', 'plan'];
+
+// Stages that can seed a spec through `graduate --new`: the ones holding
+// persistent truth. `request` is the petition, `plan` is tasks with state
+// markers and `log` is events; none of them is a spec.
+const SEED_STAGES = ['investigation', 'proposal', 'specification'];
+
+// Effective tdd of a change type: `types.<type>.tdd` when it is a boolean, else
+// the global `tdd`, else on. Single authority — coverage, the review-stage rule,
+// context policy lines and fragment selection all ask here, never re-derive. An
+// undefined `type` resolves the global value.
+export const DEFAULT_TDD = true;
+
+export function effectiveTdd(config, type) {
+  const own = isMapping(config?.types) ? config.types[type]?.tdd : undefined;
+  if (typeof own === 'boolean') return own;
+  return typeof config?.tdd === 'boolean' ? config.tdd : DEFAULT_TDD;
+}
+
+// The stages a `review_required` type must activate, given its effective tdd.
+// Single authority for the rule: `checkConfig` reports what is missing and the
+// schema migration inserts it, both asking here. `config` must be the live
+// config, never a stale snapshot.
+export function stagesRequiredByReview(config, type) {
+  return effectiveTdd(config, type) ? REVIEWABLE_STAGES : ['specification'];
+}
 
 // Frozen history: `archived` is one-way (there is no `unarchive`) and
 // `discarded` is a tombstone the contract forbids reopening, so a diagnostic
@@ -38,7 +77,32 @@ export function frozenReason(change) {
   return null;
 }
 
-export function checkRepo({ config, changes, specs = [], releases = [] }, opts = {}) {
+// The usage collector is activated in git config, not in `config.yml`
+// (20261001-155612), so validating it needs IO and stays out of the pure
+// `checkRepo`: the `check` command adds these findings for the repo it loaded.
+// A `usage` key in `config.yml` is neither read nor validated.
+export function checkUsageGitConfig(repoRoot, run) {
+  try {
+    usageCollector(repoRoot, run);
+    return [];
+  } catch (error) {
+    return [{ file: `(git config ${USAGE_COLLECTOR_GIT_KEY})`, message: error.message }];
+  }
+}
+
+const TERMINAL_STATUSES = ['done', 'discarded'];
+
+// `checkConfig` already reports a malformed `git.release_branch`, so it reads
+// here as "nothing to add" rather than as a second error on every change.
+function releaseRequirementError(config, type) {
+  try {
+    return releaseBranchRequirementError(config, type);
+  } catch {
+    return undefined;
+  }
+}
+
+export function checkRepo({ config, changes, specs = [], releases = [], usage = [] }, opts = {}) {
   const errors = [];
   const warnings = [];
   const err = (c, message) => errors.push({ file: c?.name ?? '(repo)', message });
@@ -99,6 +163,13 @@ export function checkRepo({ config, changes, specs = [], releases = [] }, opts =
     }
     if (fm.status && !statuses.includes(fm.status)) {
       err(c, `unknown status "${fm.status}"; valid statuses: ${statuses.join(', ')}`);
+    }
+    // A change of a release type that no declared branch can host is stuck: its
+    // context and its branch cannot load. Terminal changes are history, so
+    // retiring `git.release_branch` later never turns them red (20261012-174310).
+    if (statuses.includes(fm.status) && !TERMINAL_STATUSES.includes(fm.status)) {
+      const requirement = releaseRequirementError(config, fm.type);
+      if (requirement) err(c, requirement);
     }
     if ('depends_on' in fm && !Array.isArray(fm.depends_on)) err(c, 'depends_on must be a list');
     if ('related_to' in fm && !Array.isArray(fm.related_to)) err(c, 'related_to must be a list');
@@ -208,8 +279,43 @@ export function checkRepo({ config, changes, specs = [], releases = [] }, opts =
 
   checkSpecs(changes, specs, ids, err, warn);
   checkReleases(releases, new Map(changes.map((c) => [String(c.frontmatter?.id), c])), err);
+  checkUsageRecords(usage, errors);
 
   return { errors, warnings, ...counts };
+}
+
+// Usage records (20261002-133728), as the loaders expose them: `{ name,
+// change, record, error }`. Repo-wide only, like the other collections'
+// aggregate checks. One finding per record, the first defect found, every
+// message prefixed `usage record <name>: ` so it names the file in either
+// layout.
+function checkUsageRecords(usage, errors) {
+  for (const entry of usage) {
+    const issue = usageRecordIssue(entry);
+    if (issue) {
+      errors.push({ file: `usage/${entry.name}`, message: `usage record ${entry.name}: ${issue}` });
+    }
+  }
+}
+
+function usageRecordIssue({ name, record, error }) {
+  const parsed = parseUsageRecordName(name);
+  if (!parsed) return `name must follow ${USAGE_RECORD_NAME_FORM}`;
+  if (error) return error;
+  if (!isMapping(record)) return 'must be a JSON object';
+  for (const field of ['schema', 'change', 'at']) {
+    if (record[field] === undefined || record[field] === null) return `missing "${field}"`;
+  }
+  if (record.schema !== USAGE_RECORD_SCHEMA) {
+    return `schema must be ${USAGE_RECORD_SCHEMA}, got ${JSON.stringify(record.schema)}`;
+  }
+  if (String(record.change) !== parsed.change) {
+    return `change "${record.change}" does not match the id "${parsed.change}" in its name`;
+  }
+  if (typeof record.at !== 'string' || !ISO_UTC.test(record.at)) {
+    return `at must be an ISO 8601 UTC instant, got ${JSON.stringify(record.at)}`;
+  }
+  return null;
 }
 
 function relatedBacklinks(changes) {
@@ -631,7 +737,7 @@ function checkLifecycleSequence(c, fm, err) {
   }
 }
 
-// Definition-of-Ready coverage: when `tdd` is on (default), a change whose type
+// Definition-of-Ready coverage: when the type's effective tdd is on, a change whose type
 // activates `## Specification` is checked in draft, approved and in-progress.
 // Draft reports everything as warnings, because a draft is still being written.
 // From `approved` onward every diagnostic here is an error — readiness defects
@@ -644,7 +750,7 @@ function checkLifecycleSequence(c, fm, err) {
 // before flipping it. Only the Given/When/Then structure is machine-checkable;
 // semantic test-grade quality remains the documenting agent's judgment.
 function checkCoverage(c, fm, active, config, { warn, err, asStatus }) {
-  if (config?.tdd === false) return;
+  if (!effectiveTdd(config, fm.type)) return;
   const judged = asStatus ?? fm.status;
   if (!['draft', 'approved', 'in-progress'].includes(judged)) return;
   const report = judged === 'draft' ? warn : err;
@@ -821,10 +927,24 @@ function checkConfig(config, err) {
   if ('stages' in c && !Array.isArray(c.stages)) err(null, 'config "stages" must be a list');
   if ('types' in c && !isMapping(c.types)) err(null, 'config "types" must be a mapping');
   if ('git' in c) {
-    try {
-      integrationBranch(c);
-    } catch (error) {
-      err(null, error.message);
+    // A non-mapping `git` is one defect, reported once rather than per branch key.
+    const resolvers = isMapping(c.git) ? [integrationBranch, releaseBranch] : [integrationBranch];
+    const resolved = [];
+    for (const resolve of resolvers) {
+      try {
+        resolved.push(resolve(c));
+      } catch (error) {
+        err(null, error.message);
+      }
+    }
+    // Equal branches leave a `release` type without its back-merge target and
+    // its start guard, so the pair is checked only once both resolve cleanly.
+    const [integration, release] = resolved;
+    if (resolved.length === 2 && integration !== undefined && integration === release) {
+      err(
+        null,
+        `config "git.release_branch" must differ from "git.integration_branch" (both are "${integration}")`,
+      );
     }
   }
   if ('readiness' in c) checkReadinessConfig(c.readiness, err);
@@ -846,12 +966,28 @@ function checkConfig(config, err) {
     }
     if (def && 'review_required' in def && typeof def.review_required !== 'boolean')
       err(null, `config type "${type}": review_required must be a boolean`);
+    if ('tdd' in def && typeof def.tdd !== 'boolean')
+      err(null, `config type "${type}": tdd must be a boolean`);
+    const roleError = integrationRoleError(type, def);
+    if (roleError) err(null, roleError);
+    if ('seed_stage' in def) {
+      if (typeof def.seed_stage !== 'string')
+        err(null, `config type "${type}": seed_stage must be a string`);
+      else if (!def.stages.includes(def.seed_stage))
+        err(null, `config type "${type}": seed_stage "${def.seed_stage}" is not an active stage`);
+      else if (!SEED_STAGES.includes(def.seed_stage))
+        err(
+          null,
+          `config type "${type}": seed_stage "${def.seed_stage}" cannot seed a spec; use one of: ${SEED_STAGES.join(', ')}`,
+        );
+    }
     // An independent reviewer needs something to verify: criteria live in
-    // `## Specification` (the only stage `parseChange` reads `### CRn` from) and
-    // the tasks that cite them live in `## Plan`. A type that demands review
-    // without both stages hands the reviewer an empty contract.
+    // `## Specification` (the only stage `parseChange` reads `### CRn` from).
+    // With tdd on, the tasks that cite them live in `## Plan` and coverage binds
+    // them, so both are required; with tdd off no coverage applies and the
+    // criteria alone are the reviewer's contract.
     if (def.review_required === true) {
-      const missing = REVIEWABLE_STAGES.filter((s) => !def.stages.includes(s));
+      const missing = stagesRequiredByReview(c, type).filter((s) => !def.stages.includes(s));
       if (missing.length) {
         err(
           null,

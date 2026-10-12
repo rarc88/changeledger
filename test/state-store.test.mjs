@@ -6,6 +6,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { capturedRun } from '../src/git.mjs';
 import { treeEntries } from '../src/git-batch.mjs';
+import * as stateStore from '../src/state-store.mjs';
 import {
   ACTIVATION_REF,
   advanceStateRef,
@@ -22,6 +23,7 @@ import {
   STATE_SCHEMA_VERSION,
   writeActivation,
 } from '../src/state-store.mjs';
+import { usageRecordText } from './helpers/ccusage.mjs';
 import { sanitizedEnv } from './helpers/git-env.mjs';
 import {
   buildTreeEntries,
@@ -816,4 +818,371 @@ test('20260811-163205: a mutation whose result is unreadable leaves the ref wher
     /format_version/,
   );
   assert.equal(git(root, ['rev-parse', STATE_REF]), before, 'the ref must not move');
+});
+
+// --- 20261002-133728: the `usage` collection ---------------------------------
+
+const USAGE_NAME = '20261002-133728--20261002T153233Z-0a1b2c3d.json';
+
+function usageSeed(t, files = {}) {
+  const seeded = seedStateRepo({
+    files: { ...defaultStateFiles(), ...files },
+  });
+  t.after(() => fs.rmSync(seeded.root, { recursive: true, force: true }));
+  return seeded;
+}
+
+test('20261002-133728 CR1: a flat usage record is a valid state path, written and read back', (t) => {
+  const { root, revision } = usageSeed(t);
+  const text = usageRecordText('20261002-133728');
+  const snapshot = mutateState(
+    root,
+    { expectedRevision: revision, message: 'usage: 20261002-133728 status' },
+    (stage) => stage.write(`usage/${USAGE_NAME}`, text),
+  );
+  assert.equal(snapshot.documents[`usage/${USAGE_NAME}`], text);
+  assert.equal(readSnapshot(root).documents[`usage/${USAGE_NAME}`], text);
+});
+
+test('20261002-133728 CR1: the usage collection keeps the three-part rule and its .json extension', (t) => {
+  const { root, revision } = usageSeed(t);
+  for (const bad of [`usage/x/${USAGE_NAME}`, 'usage/record.md', 'usage/.json']) {
+    assert.throws(
+      () =>
+        mutateState(root, { expectedRevision: revision, message: 'x' }, (stage) =>
+          stage.write(bad, '{}\n'),
+        ),
+      /invalid state path/,
+      bad,
+    );
+  }
+  assert.equal(git(root, ['rev-parse', STATE_REF]), revision);
+});
+
+test('20261002-133728 CR5: an explicit stage.remove of a usage record is rejected, ref unmoved', (t) => {
+  const { root, revision } = usageSeed(t, {
+    [`${STATE_ROOT}/usage/${USAGE_NAME}`]: usageRecordText('20261002-133728'),
+  });
+  assert.throws(
+    () =>
+      mutateState(root, { expectedRevision: revision, message: 'chore: drop' }, (stage) =>
+        stage.remove(`usage/${USAGE_NAME}`),
+      ),
+    /removes usage record ".*0a1b2c3d\.json"/,
+  );
+  assert.equal(git(root, ['rev-parse', STATE_REF]), revision);
+  assert.ok(`usage/${USAGE_NAME}` in readSnapshot(root).documents);
+});
+
+test('20261002-133728 CR5: a usage record silently lost by a mutation is rejected, ref unmoved', (t) => {
+  const { root, revision } = usageSeed(t, {
+    [`${STATE_ROOT}/usage/${USAGE_NAME}`]: usageRecordText('20261002-133728'),
+  });
+  let lsTreeCalls = 0;
+  const faultyRun = (args, cwd, options) => {
+    const out = capturedRun(args, cwd, options);
+    if (args[0] === 'ls-tree' && ++lsTreeCalls === 2) {
+      return out
+        .split('\0')
+        .filter((record) => record !== '' && !record.includes(USAGE_NAME))
+        .map((record) => `${record}\0`)
+        .join('');
+    }
+    return out;
+  };
+  assert.throws(
+    () =>
+      mutateState(
+        root,
+        { expectedRevision: revision, message: 'feat: unrelated' },
+        (stage) => stage.write('changes/other.md', 'otro\n'),
+        faultyRun,
+      ),
+    /removes usage record ".*0a1b2c3d\.json"/,
+  );
+  assert.equal(git(root, ['rev-parse', STATE_REF]), revision);
+});
+
+test('20261002-133728 CR5: a write that rewrites an existing usage record is rejected, ref unmoved', (t) => {
+  const original = usageRecordText('20261002-133728');
+  const { root, revision } = usageSeed(t, { [`${STATE_ROOT}/usage/${USAGE_NAME}`]: original });
+  assert.throws(
+    () =>
+      mutateState(root, { expectedRevision: revision, message: 'chore: rewrite' }, (stage) =>
+        stage.write(`usage/${USAGE_NAME}`, usageRecordText('20261002-133728', undefined, { x: 1 })),
+      ),
+    /rewrites usage record ".*0a1b2c3d\.json"/,
+  );
+  assert.equal(git(root, ['rev-parse', STATE_REF]), revision);
+  assert.equal(readSnapshot(root).documents[`usage/${USAGE_NAME}`], original);
+});
+
+// --- 20261002-161641: collections this CLI does not know ---------------------
+
+const FUTURE_PATH = `${STATE_ROOT}/future/a.json`;
+const FUTURE_TEXT = '{"from":"a later ChangeLedger"}\n';
+
+function futureSeed(t, files = {}) {
+  const seeded = seedStateRepo({
+    files: { ...defaultStateFiles(), [FUTURE_PATH]: FUTURE_TEXT, ...files },
+  });
+  t.after(() => fs.rmSync(seeded.root, { recursive: true, force: true }));
+  return seeded;
+}
+
+function blobAt(root, revision, full) {
+  return git(root, ['rev-parse', `${revision}:${full}`]);
+}
+
+// Replaces the SECOND ls-tree read (the candidate tree `mutateState` judges)
+// with `rewrite(records)`: the public write/remove API cannot build a candidate
+// that touches an unknown entry, so this stands in for a construction bug.
+function candidateLsTreeFault(rewrite) {
+  let lsTreeCalls = 0;
+  return (args, cwd, options) => {
+    const out = capturedRun(args, cwd, options);
+    if (args[0] !== 'ls-tree' || ++lsTreeCalls !== 2) return out;
+    const records = out.split('\0').filter((record) => record !== '');
+    return rewrite(records)
+      .map((record) => `${record}\0`)
+      .join('');
+  };
+}
+
+test('20261002-161641 CR1: a snapshot skips an unknown collection and lists it as unknown', (t) => {
+  const { root, revision } = futureSeed(t);
+  const snapshot = readSnapshot(root);
+  assert.equal(snapshot.revision, revision);
+  assert.equal(Object.hasOwn(snapshot.documents, 'future/a.json'), false);
+  assert.ok(Object.hasOwn(snapshot.documents, 'changes/20260808-000001-change.md'));
+  assert.deepEqual(snapshot.unknown, ['future/a.json']);
+  assert.deepEqual(snapshot.unknownCollections, ['future']);
+  assert.equal(readStateConfigText(root), 'project_id: demo\n');
+});
+
+test('20261002-161641 CR1: the content of an unknown entry is not read', (t) => {
+  const { root, binary } = initRepoWithBinaryFuture(t);
+  // Every batch request's stdin, so "not read" is measured on what was asked of git.
+  const requested = [];
+  const spyRun = (args, cwd, options) => {
+    if (args[0] === 'cat-file' && options?.input !== undefined) requested.push(options.input);
+    return capturedRun(args, cwd, options);
+  };
+  assert.deepEqual(readSnapshot(root, {}, spyRun).unknownCollections, ['future']);
+  readStateConfigText(root, {}, spyRun);
+  assert.ok(requested.length > 0, 'the known documents were read through git-batch');
+  assert.equal(requested.filter((input) => input.includes(binary)).length, 0);
+});
+
+function initRepoWithBinaryFuture(t) {
+  const root = initStateRepo();
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const binary = execFileSync('git', ['hash-object', '-w', '--stdin'], {
+    cwd: root,
+    env: sanitizedEnv(),
+    input: Buffer.from([0xff, 0xfe, 0x00, 0x80]),
+    encoding: 'utf8',
+  }).trim();
+  const entries = Object.entries(defaultStateFiles()).map(([p, text]) => ({ path: p, text }));
+  entries.push({ path: `${STATE_ROOT}/future/a.bin`, oid: binary });
+  const revision = commitTree(root, buildTreeEntries(root, entries));
+  updateRef(root, STATE_REF, revision);
+  return { root, revision, binary };
+}
+
+test('20261002-161641 CR1: a snapshot read and a config read of a tree with unknown collections each notify the listener', (t) => {
+  const { root } = futureSeed(t, { [`${STATE_ROOT}/later/b.yml`]: 'x: 1\n' });
+  const calls = [];
+  stateStore.setUnknownCollectionsListener((collections) => calls.push(collections));
+  t.after(() => stateStore.setUnknownCollectionsListener(null));
+  readSnapshot(root);
+  readStateConfigText(root);
+  assert.deepEqual(calls, [
+    ['future', 'later'],
+    ['future', 'later'],
+  ]);
+});
+
+test('20261002-161641 CR1: a snapshot read of a tree without unknown collections does not notify the listener', (t) => {
+  const { root } = seedStateRepo();
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const calls = [];
+  stateStore.setUnknownCollectionsListener((collections) => calls.push(collections));
+  t.after(() => stateStore.setUnknownCollectionsListener(null));
+  assert.deepEqual(readSnapshot(root).unknownCollections, []);
+  assert.deepEqual(calls, []);
+});
+
+test('20261002-161641 CR1: the warning names the version and every unknown collection', () => {
+  assert.equal(
+    stateStore.unknownCollectionsMessage(['future', 'later'], '1.2.3'),
+    'the state ref holds collections ChangeLedger 1.2.3 does not know (future, later); update the installation to use them',
+  );
+});
+
+test('20261002-161641 CR2: a mutation keeps an unknown entry with the same blob', (t) => {
+  const { root, revision } = futureSeed(t);
+  const { revision: next } = mutateState(
+    root,
+    { expectedRevision: revision, message: 'feat: unrelated' },
+    (stage) => stage.write('changes/other.md', 'otro\n'),
+  );
+  assert.notEqual(next, revision);
+  assert.equal(blobAt(root, next, FUTURE_PATH), blobAt(root, revision, FUTURE_PATH));
+});
+
+test('20261002-161641 CR2: a mutator can neither write nor remove an unknown entry', (t) => {
+  const { root, revision } = futureSeed(t);
+  assert.throws(
+    () =>
+      mutateState(root, { expectedRevision: revision, message: 'x' }, (stage) =>
+        stage.write('future/a.json', '{}\n'),
+      ),
+    /invalid state path: future\/a\.json/,
+  );
+  assert.throws(
+    () =>
+      mutateState(root, { expectedRevision: revision, message: 'x' }, (stage) =>
+        stage.remove('future/a.json'),
+      ),
+    /cannot remove required or invalid state path: future\/a\.json/,
+  );
+  assert.equal(git(root, ['rev-parse', STATE_REF]), revision);
+});
+
+test('20261002-161641 CR3: a mutation whose candidate loses an unknown entry is rejected, ref unmoved', (t) => {
+  const { root, revision } = futureSeed(t);
+  const faultyRun = candidateLsTreeFault((records) =>
+    records.filter((record) => !record.endsWith(FUTURE_PATH)),
+  );
+  assert.throws(
+    () =>
+      mutateState(
+        root,
+        { expectedRevision: revision, message: 'feat: unrelated' },
+        (stage) => stage.write('changes/other.md', 'otro\n'),
+        faultyRun,
+      ),
+    /removes ".*future\/a\.json", an entry of a collection this ChangeLedger does not know/,
+  );
+  assert.equal(git(root, ['rev-parse', STATE_REF]), revision);
+});
+
+test('20261002-161641 CR3: a mutation whose candidate rewrites an unknown entry is rejected, ref unmoved', (t) => {
+  const { root, revision } = futureSeed(t);
+  const other = git(root, ['hash-object', '-w', '--stdin'], { input: '{"rewritten":true}\n' });
+  const original = blobAt(root, revision, FUTURE_PATH);
+  const faultyRun = candidateLsTreeFault((records) =>
+    records.map((record) =>
+      record.endsWith(FUTURE_PATH) ? record.replace(original, other) : record,
+    ),
+  );
+  assert.throws(
+    () =>
+      mutateState(
+        root,
+        { expectedRevision: revision, message: 'feat: unrelated' },
+        (stage) => stage.write('changes/other.md', 'otro\n'),
+        faultyRun,
+      ),
+    /rewrites ".*future\/a\.json", an entry of a collection this ChangeLedger does not know/,
+  );
+  assert.equal(git(root, ['rev-parse', STATE_REF]), revision);
+});
+
+function otherSide(root, revision, files) {
+  return commitTree(
+    root,
+    buildTreeEntries(
+      root,
+      Object.entries(files).map(([p, text]) => ({ path: p, text })),
+    ),
+    {
+      parents: [revision],
+      message: 'chore: other side',
+    },
+  );
+}
+
+test('20261002-161641 CR3: a merge that keeps the unknown entries of both parents lands', (t) => {
+  const { root, revision } = futureSeed(t);
+  const other = otherSide(root, revision, {
+    ...defaultStateFiles(),
+    [FUTURE_PATH]: FUTURE_TEXT,
+    [`${STATE_ROOT}/future/b.json`]: '{}\n',
+  });
+  const merged = commitMergedState(root, {
+    expectedRevision: revision,
+    otherRevision: other,
+    entries: treeEntries(root, other, capturedRun),
+    message: 'chore: reconcile',
+  });
+  assert.equal(readStateRef(root), merged.revision);
+  assert.deepEqual(merged.unknown, ['future/a.json', 'future/b.json']);
+});
+
+for (const [label, dropped] of [
+  ['the local parent', FUTURE_PATH],
+  ['the other parent', `${STATE_ROOT}/future/b.json`],
+]) {
+  test(`20261002-161641 CR3: a merge that drops an unknown entry of ${label} is rejected, ref unmoved`, (t) => {
+    const { root, revision } = futureSeed(t);
+    const other = otherSide(root, revision, {
+      ...defaultStateFiles(),
+      [FUTURE_PATH]: FUTURE_TEXT,
+      [`${STATE_ROOT}/future/b.json`]: '{}\n',
+    });
+    const entries = treeEntries(root, other, capturedRun).filter((entry) => entry.path !== dropped);
+    assert.throws(
+      () =>
+        commitMergedState(root, {
+          expectedRevision: revision,
+          otherRevision: other,
+          entries,
+          message: 'chore: reconcile',
+        }),
+      new RegExp(
+        `merged state drops "${dropped.replace(/[.]/g, '\\.')}", an entry of a collection this ChangeLedger does not know`,
+      ),
+    );
+    assert.equal(readStateRef(root), revision, 'the ref must not move');
+  });
+}
+
+for (const malformed of [
+  `${STATE_ROOT}/future/sub/a.json`,
+  `${STATE_ROOT}/Future/a.json`,
+  `${STATE_ROOT}/9future/a.json`,
+  `${STATE_ROOT}/fu_ture/a.json`,
+  `${STATE_ROOT}/loose.yml`,
+  'other/a.json',
+  `${STATE_ROOT}/changes/x.yml`,
+]) {
+  test(`20261002-161641 CR4: ${malformed} stays an invalid state path`, (t) => {
+    const seeded = seedStateRepo({ files: { ...defaultStateFiles(), [malformed]: 'x\n' } });
+    t.after(() => fs.rmSync(seeded.root, { recursive: true, force: true }));
+    const message = `invalid state path: ${malformed}`;
+    assert.throws(() => readSnapshot(seeded.root), { message });
+    assert.throws(() => readStateConfigText(seeded.root), { message });
+  });
+}
+
+test('20261002-161641 CR4: a merge that carries a malformed path is still refused', (t) => {
+  const { root, revision } = futureSeed(t);
+  const blob = git(root, ['hash-object', '-w', '--stdin'], { input: 'x\n' });
+  const entries = [
+    ...treeEntries(root, revision, capturedRun),
+    { path: `${STATE_ROOT}/Future/a.json`, mode: '100644', type: 'blob', oid: blob },
+  ];
+  assert.throws(
+    () =>
+      commitMergedState(root, {
+        expectedRevision: revision,
+        otherRevision: revision,
+        entries,
+        message: 'chore: reconcile',
+      }),
+    { message: `invalid state path: ${STATE_ROOT}/Future/a.json` },
+  );
+  assert.equal(readStateRef(root), revision);
 });

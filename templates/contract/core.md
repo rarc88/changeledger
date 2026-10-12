@@ -38,7 +38,8 @@ only when trivially small.
 
 Every delegation is one level deep: a subagent never delegates further. One owner per write
 surface; concurrent subagents must not share files. Get the prompt skeleton from
-`changeledger agent-prompt <role>` (investigation | implementation | review | post-review);
+`changeledger agent-prompt <role>`
+(investigation | implementation | review | post-review | graduation-review);
 the stage context owns what the prompt must contain. A subagent returns findings or a diff
 receipt, not narrative. `post-review` is a read-only inspection of a change already in
 `in-validation`; it never issues a verdict or moves the change.
@@ -205,8 +206,8 @@ closure (graduation or archive) and at every handoff. Sync never blocks the
 local flow: without a remote every point is a no-op, a network failure is a
 warning, and no other command waits for it. `sync --status` reports freshness
 offline at any time. The activation never travels — each clone runs
-`changeledger activate` once; `sync` reminds when the ref is present but the
-repo inactive.
+`changeledger activate` once; `sync` reminds when the repo is inactive but the
+ref or the remote's fetched copy is present.
 
 ## Operational discovery
 
@@ -216,6 +217,7 @@ Prefer structured CLI queries before scanning files:
 - `changeledger list --pending graduation`: find unresolved graduation decisions; add `--owner NAME` or `--unowned` to scope the query, then graduate every id individually.
 - `changeledger list --pending archive`: preview graduated or skipped changes; use the same optional owner filter on `archive --graduated` for an equivalent action.
 - `changeledger search <terms...>`: find related changes (incl. archived) and specs by content before investigating from scratch.
+- `changeledger analyze [id]`: query recorded consumption and cost per change, segment, model or version instead of reading the usage records.
 
 Run `changeledger help` or `changeledger <command> --help` for exact CLI syntax.
 Structure is always English. Each context delivers the effective policy that

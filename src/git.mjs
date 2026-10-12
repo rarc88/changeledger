@@ -44,6 +44,18 @@ export function defaultRun(args, cwd) {
   });
 }
 
+// One value from git config as git itself resolves it (local, then global,
+// then system scope; worktrees share the repo's local config). `undefined`
+// when the key is unset (git exits 1); any other failure is thrown.
+export function gitConfigGet(cwd, key, run = defaultRun) {
+  try {
+    return String(run(['config', '--get', key], cwd)).replace(/\r?\n$/, '');
+  } catch (e) {
+    if (e?.status === 1) return undefined;
+    throw e;
+  }
+}
+
 // Run variant for mutating git commands (e.g. `commit`), where git's stderr is
 // the only clue to a failure (failed hook, nothing staged, missing identity,
 // lock). Pipes stderr and, on failure, throws an Error whose message includes
@@ -123,6 +135,41 @@ export function currentBranch(cwd, run = defaultRun) {
 export function isAncestor(cwd, ancestor, descendant = 'HEAD', run = defaultRun) {
   try {
     run(['merge-base', '--is-ancestor', ancestor, descendant], cwd);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// The best common ancestors of two revisions (`merge-base --all`): one commit
+// normally, several after criss-cross merges, where a single base picked by
+// commit date can hide the others. Empty when git finds none (unrelated
+// histories) or fails (a revision that does not resolve to a commit). Both
+// revisions go through git's revision lookup (gitrevisions(7)), where the full
+// ref of an absent branch still resolves through a ref such as
+// `refs/tags/refs/heads/<name>`: a caller that needs the branch itself checks
+// it with `refExists` first, which also tells an absent ref apart from
+// unrelated histories.
+export function mergeBases(cwd, a, b, run = defaultRun) {
+  try {
+    return String(run(['merge-base', '--all', a, b], cwd))
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+// Whether a ref of exactly the full name `ref` exists (`show-ref --verify`),
+// read from the local repo. It skips the revision lookup of gitrevisions(7):
+// through it, `refs/heads/dev` with the branch absent resolved to
+// `refs/tags/refs/heads/dev` or `refs/heads/refs/heads/dev`, which porcelain
+// (`git tag refs/heads/dev`, `git branch refs/heads/dev`) or a tag fetch can
+// create (20261012-175147). It checks presence, not the object type.
+export function refExists(cwd, ref, run = defaultRun) {
+  try {
+    run(['show-ref', '--verify', '--quiet', ref], cwd);
     return true;
   } catch {
     return false;

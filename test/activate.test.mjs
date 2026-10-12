@@ -5,6 +5,7 @@
 
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -17,6 +18,7 @@ import {
   ledgerSpecText,
   seedLedgerRepo,
   updateRef,
+  writeLedgerFiles,
   writeLooseRef,
 } from './helpers/state-repo.mjs';
 
@@ -217,4 +219,99 @@ test('20260811-163203: an invalid remote-tracking tree refuses the seed and crea
   assert.match(result.err, /format_version/);
   assert.throws(() => git(root, ['rev-parse', '--verify', STATE_REF]));
   assert.throws(() => git(root, ['rev-parse', '--verify', ACTIVATION_REF]));
+});
+
+// --- 20260925-130844: activate compares the minimum of the revision it adopts --
+//
+// The installed version is the distributed package's own (the bin reads the
+// same `package.json`), so the literal diagnostic is built from it rather than
+// from a hardcoded number that goes stale at the next release.
+const { version: pkgVersion } = createRequire(import.meta.url)('../package.json');
+const belowMinimum = (required) =>
+  `ChangeLedger CLI ${pkgVersion} is below this repository's minimum ${required}; update the global installation.`;
+
+// The state tree of a schema-6 ledger declaring `min`. `ledgerSpecText` swaps in
+// the valid spec that the fixture's plumbing-shaped one is not, so CR4's `list` can succeed.
+function stateFilesWithMin(min) {
+  return defaultStateFiles({
+    projectId: 'fixture01',
+    extra: {
+      '.changeledger-state/config.yml': `project_id: fixture01\nschema_version: 6\nmin_cli_version: ${min}\n`,
+      '.changeledger-state/specs/demo-spec.md': ledgerSpecText(),
+    },
+  });
+}
+
+const allRefs = (root) => git(root, ['for-each-ref']);
+
+// A fresh clone of a cut-over repo: no local state ref, no activation, the state
+// only as `refs/remotes/origin/changeledger/state`, and a worktree marker whose
+// own minimum the installed CLI satisfies (the guard in `preAction` reads it).
+function freshClone(min) {
+  const { root, revision } = clonedRepoWithState({ files: stateFilesWithMin(min) });
+  git(root, ['update-ref', '-d', STATE_REF]);
+  git(root, ['remote', 'add', 'origin', root]);
+  git(root, ['update-ref', 'refs/remotes/origin/changeledger/state', revision]);
+  writeLedgerFiles(root, {
+    '.changeledger/config.yml': `schema_version: 6\nmin_cli_version: ${pkgVersion}\n`,
+  });
+  return { root, revision };
+}
+
+test('20260925-130844 CR1: a fresh clone does not adopt a state ref whose minimum is above the CLI', () => {
+  const { root } = freshClone('99.0.0');
+  const before = allRefs(root);
+
+  const { code, out, err } = cli(root, 'activate');
+
+  assert.notEqual(code, 0, `activate exited 0 over a higher minimum: ${out}`);
+  assert.ok(err.includes(belowMinimum('99.0.0')), err);
+  assert.equal(allRefs(root), before, 'activate left refs behind');
+});
+
+test('20260925-130844 CR2: a local state ref above the CLI is not activated', () => {
+  const { root, revision } = clonedRepoWithState({ files: stateFilesWithMin('99.0.0') });
+  const before = allRefs(root);
+
+  const { code, out, err } = cli(root, 'activate');
+
+  assert.notEqual(code, 0, `activate exited 0 over a higher minimum: ${out}`);
+  assert.ok(err.includes(belowMinimum('99.0.0')), err);
+  assert.throws(() => refOid(root, ACTIVATION_REF));
+  assert.equal(refOid(root, STATE_REF), revision);
+  assert.equal(allRefs(root), before);
+});
+
+test('20260925-130844 CR3: repairing an activation without the anchor respects the minimum', () => {
+  const { root } = clonedRepoWithState({ files: stateFilesWithMin('99.0.0') });
+  const legacyTree = buildTree(root, {
+    'authority.yml': `format_version: 1\nstate_ref: ${STATE_REF}\n`,
+  });
+  const legacy = commitTree(root, legacyTree, { message: 'chore: activation' });
+  updateRef(root, ACTIVATION_REF, legacy);
+  assert.throws(() => readActivation(root), /ledger_dir/);
+
+  const { code, out, err } = cli(root, 'activate');
+
+  assert.notEqual(code, 0, `activate exited 0 over a higher minimum: ${out}`);
+  assert.ok(err.includes(belowMinimum('99.0.0')), err);
+  assert.equal(refOid(root, ACTIVATION_REF), legacy);
+});
+
+test('20260925-130844 CR4: a fresh clone whose state ref admits the CLI activates and then lists', () => {
+  const { root, revision } = freshClone('0.1.0');
+
+  const result = cli(root, 'activate');
+
+  assert.equal(result.code, 0, result.err);
+  assert.ok(
+    result.out.includes(`Seeded ${STATE_REF} from refs/remotes/origin at ${revision}`),
+    result.out,
+  );
+  assert.ok(
+    result.out.includes(`Activated ${ACTIVATION_REF} → ${STATE_REF} at ${revision}`),
+    result.out,
+  );
+  const listed = cli(root, 'list');
+  assert.equal(listed.code, 0, listed.err);
 });

@@ -7,6 +7,7 @@ import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
+import { JSDOM } from 'jsdom';
 import { parseChange } from '../src/change.mjs';
 import { writeLedgerFiles } from '../src/change-store.mjs';
 import { review, status, task, validation } from '../src/commands/agent.mjs';
@@ -35,12 +36,36 @@ import { publicDir } from '../src/paths.mjs';
 import { readRegistry, register, registryPath } from '../src/registry.mjs';
 import { loadRepo, loadRepoAsync } from '../src/repo.mjs';
 import { STATE_REF, writeActivation } from '../src/state-store.mjs';
+import { analyzeUsage, usageRecordCounts } from '../src/usage-analysis.mjs';
+import { encodeProjectPath } from '../src/usage-collector.mjs';
 import { cleanMissingProjects, readLedgerDocument, serialize } from '../src/viewer/domain.mjs';
-import { setBranch } from '../src/writer.mjs';
+import { SHARED_MODULES } from '../src/viewer/server/router.mjs';
+import { setBranch, stampVersion } from '../src/writer.mjs';
+import { claudeRunner, ledgerUsageRecords } from './helpers/ccusage.mjs';
 import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
+import {
+  changeDoc as usageChangeDoc,
+  changeText as usageChangeText,
+  usageEntryOf,
+  usageRecord,
+  usageRecordFileName,
+  usageSession,
+} from './helpers/usage-analysis.mjs';
+import {
+  BUG,
+  FEATURE,
+  QUIET,
+  usageChanges,
+  usageRecords,
+} from './helpers/usage-viewer-fixture.mjs';
+import { eventsAdded, PREVIOUS_VERSION, versionEvents } from './helpers/version-stamp.mjs';
 
 const TOKEN = 'test-token';
+
+// lit-html reads `document` once, when it is first imported; the Usage
+// rendering tests (20261002-140242) need a DOM installed before that import.
+globalThis.document ??= new JSDOM('<!DOCTYPE html><body></body>').window.document;
 
 // Boots the real request listener on an ephemeral loopback port.
 async function startServer(cwd, localOnly = true) {
@@ -1388,6 +1413,63 @@ test('CR1: changeStatus moves the lifecycle and logs it', () => {
   assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'approved');
 });
 
+// 20261001-155216 CR6 — the viewer's transitions reuse the lifecycle commands,
+// so a move it makes is stamped like any command's, in both layouts.
+for (const layout of ['legacy', 'state ref']) {
+  test(`20261001-155216 CR6 (${layout}): a viewer approval is preceded by the version stamp`, () => {
+    isolatedHome();
+    const root = newRepo();
+    disableChangeBranchFormat(root);
+    const { file, id } = draftChange(root);
+    const name = path.basename(file);
+    const seeded = stampVersion(
+      fs.readFileSync(file, 'utf8'),
+      '2026-06-13T12:30:00Z',
+      PREVIOUS_VERSION,
+    );
+    let read = () => fs.readFileSync(file, 'utf8');
+    if (layout === 'legacy') {
+      fs.writeFileSync(file, seeded);
+    } else {
+      const configText = fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8');
+      fs.rmSync(file);
+      initGitFixture(root);
+      const tree = buildTree(root, {
+        '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
+        '.changeledger-state/config.yml': configText,
+        [`.changeledger-state/changes/${name}`]: seeded,
+      });
+      updateRef(root, STATE_REF, commitTree(root, tree, { message: 'chore: state' }));
+      writeActivation(root, { stateRef: STATE_REF });
+      read = () =>
+        execFileSync(
+          'git',
+          ['cat-file', 'blob', `${STATE_REF}:.changeledger-state/changes/${name}`],
+          {
+            cwd: root,
+            env: sanitizedEnv(),
+            encoding: 'utf8',
+          },
+        );
+    }
+    const before = read();
+    const { projects, current } = resolveProjects(root, true);
+
+    const res = changeStatus(projects, { project: current, id, status: 'approved' });
+
+    assert.equal(res.code, 200, JSON.stringify(res.body));
+    const added = eventsAdded(before, read());
+    assert.deepEqual(added[0], {
+      at: added[1].at,
+      type: 'version',
+      previous: PREVIOUS_VERSION,
+      version: VERSION,
+    });
+    assert.equal(added[1].type, 'status');
+    assert.equal(versionEvents(added).length, 1);
+  });
+}
+
 test('171002 CR2/CR3: viewer accepts or rejects only a change in validation', () => {
   isolatedHome();
   const root = newRepo();
@@ -1594,6 +1676,29 @@ test("155721 CR2: the shared module's own relative import is reachable at the sa
   const res = await memoryRequest(root, { path: '/shared/lifecycle.mjs' });
   assert.equal(res.status, 200);
   assert.match(res.body, /export function parseLogEvent/);
+});
+
+test('140038 CR16: every relative import reachable from a shared module is served and none imports node:*', async () => {
+  isolatedHome();
+  const root = newRepo();
+  const specifier = /(?:\bfrom\s*|\bimport\s*\(?\s*)['"]([^'"]+)['"]/g;
+  const queue = [...SHARED_MODULES];
+  const seen = new Set();
+  let imports = 0;
+  while (queue.length > 0) {
+    const name = queue.shift();
+    if (seen.has(name)) continue;
+    seen.add(name);
+    const res = await memoryRequest(root, { path: `/shared/${name}` });
+    assert.equal(res.status, 200, `/shared/${name} must be served`);
+    for (const [, target] of res.body.matchAll(specifier)) {
+      assert.ok(!target.startsWith('node:'), `${name} imports ${target}`);
+      assert.match(target, /^\.\/[^/]+\.mjs$/, `${name} imports ${target}`);
+      imports++;
+      queue.push(target.slice(2));
+    }
+  }
+  assert.ok(imports > 0, 'the walk found relative imports to follow');
 });
 
 test('155721 CR2: only the allowlisted shared modules are served, no arbitrary src/ file', async () => {
@@ -2264,13 +2369,14 @@ test('161655 CR6: changing or clearing git.change_branch_format preserves git si
   const { projects, current } = resolveProjects(root, false);
   const configFile = path.join(root, '.changeledger', 'config.yml');
   const original = fs.readFileSync(configFile, 'utf8');
-  fs.writeFileSync(
-    configFile,
-    original.replace(
-      '  integration_branch:\n  change_branch_format: "{type}/{id}"',
-      '  # release baseline\n  integration_branch: dev\n  change_branch_format: work/{id}\n  custom: keep',
-    ),
+  // The template may declare `release_branch:` between the two keys (20261002-181346).
+  const seeded = original.replace(
+    /^ {2}integration_branch:\n( {2}release_branch:\n)? {2}change_branch_format: "\{type\}\/\{id\}"$/m,
+    (_, release = '') =>
+      `  # release baseline\n  integration_branch: dev\n${release}  change_branch_format: work/{id}\n  custom: keep`,
   );
+  assert.match(seeded, /# release baseline/, 'the fixture comment was not inserted');
+  fs.writeFileSync(configFile, seeded);
 
   let { body } = readProjectConfigStructured(projects, current);
   let result = patchProjectConfig(projects, {
@@ -3158,4 +3264,521 @@ test('184354 CR7: two registered projects in one viewer over HTTP — the incomp
     });
     assert.equal(ledgerRead.status, 200);
   }
+});
+
+// --- usage snapshots (20261001-155612) ---
+
+// The records the ledger holds for `id`, in either layout (20261002-133728).
+function viewerUsageRecords(root, id) {
+  return ledgerUsageRecords(root, id);
+}
+
+test('20261001-155612 CR4: viewer transitions snapshot once each, in both layouts', () => {
+  // Any snapshot that bypassed the injected runner would fall back to this
+  // missing command: offline, and visible as a record carrying an error.
+  const saved = process.env.CHANGELEDGER_USAGE_COMMAND;
+  process.env.CHANGELEDGER_USAGE_COMMAND = JSON.stringify(['changeledger-no-such-ccusage-xyz']);
+  try {
+    viewerTransitionsSnapshot();
+  } finally {
+    if (saved === undefined) delete process.env.CHANGELEDGER_USAGE_COMMAND;
+    else process.env.CHANGELEDGER_USAGE_COMMAND = saved;
+  }
+});
+
+function viewerTransitionsSnapshot() {
+  for (const activated of [false, true]) {
+    isolatedHome();
+    const root = newRepo();
+    disableChangeBranchFormat(root);
+    const { file, id } = draftChange(root);
+    initGitFixture(root);
+    execFileSync('git', ['config', 'changeledger.usage.collector', 'ccusage'], {
+      cwd: root,
+      env: sanitizedEnv(),
+    });
+    if (activated) {
+      const name = path.basename(file);
+      const tree = buildTree(root, {
+        '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
+        '.changeledger-state/config.yml': fs.readFileSync(
+          path.join(root, '.changeledger', 'config.yml'),
+          'utf8',
+        ),
+        [`.changeledger-state/changes/${name}`]: fs.readFileSync(file, 'utf8'),
+      });
+      fs.rmSync(file);
+      updateRef(root, STATE_REF, commitTree(root, tree, { message: 'chore: state' }));
+      writeActivation(root, { stateRef: STATE_REF });
+    }
+    const runner = claudeRunner(encodeProjectPath(root));
+    const usage = { runner, warn: () => {}, ownerHandle: () => 'Test User' };
+    const { projects, current } = resolveProjects(root, false);
+    const move = (to, reason) => {
+      const before = viewerUsageRecords(root, id).length;
+      const calls = runner.calls.length;
+      const res = changeStatus(projects, { project: current, id, status: to, reason }, { usage });
+      assert.equal(res.code, 200, JSON.stringify(res.body));
+      assert.equal(viewerUsageRecords(root, id).length, before + 1, `viewer → ${to}`);
+      assert.ok(runner.calls.length > calls, `viewer → ${to} must use the injected runner`);
+    };
+
+    move('approved');
+    task(id, 'done', 1, '', root);
+    status(id, 'in-progress', root, { ownerHandle: () => '', usage });
+    status(id, 'in-review', root, { usage });
+    review(id, 'pass', {}, root, { usage });
+    move('in-progress', 'needs more');
+    status(id, 'in-review', root, { usage });
+    review(id, 'pass', {}, root, { usage });
+    move('done');
+    move('in-progress', 'reopened from the viewer');
+    assert.deepEqual(
+      viewerUsageRecords(root, id)
+        .filter((r) => r.event !== 'review' && !['in-review'].includes(r.to))
+        .map((r) => `${r.event}:${r.from}→${r.to}`)
+        .sort(),
+      [
+        'status:approved→in-progress',
+        'status:done→in-progress',
+        'status:draft→approved',
+        'validation:in-validation→done',
+        'validation:in-validation→in-progress',
+      ],
+    );
+    assert.ok(viewerUsageRecords(root, id).every((r) => r.error === null));
+  }
+}
+
+// --- usage analysis in the viewer (20261002-140242) ---
+
+// Writes the fixture's changes and usage records into `root` as the worktree
+// layout, or into a state ref as the activated layout.
+function writeUsageLedger(root, { activated = false, quiet = false } = {}) {
+  const files = {};
+  for (const [id, options] of Object.entries(usageChanges({ quiet }))) {
+    files[`changes/${id}-demo.md`] = usageChangeText(id, options);
+  }
+  for (const record of usageRecords()) {
+    files[`usage/${usageRecordFileName(record)}`] = `${JSON.stringify(record, null, 2)}\n`;
+  }
+  if (!activated) {
+    for (const [name, text] of Object.entries(files)) {
+      const file = path.join(root, '.changeledger', name);
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      fs.writeFileSync(file, text);
+    }
+    return;
+  }
+  initGitFixture(root);
+  const tree = buildTree(root, {
+    '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
+    '.changeledger-state/config.yml': fs.readFileSync(
+      path.join(root, '.changeledger', 'config.yml'),
+      'utf8',
+    ),
+    ...Object.fromEntries(
+      Object.entries(files).map(([name, text]) => [`.changeledger-state/${name}`, text]),
+    ),
+  });
+  updateRef(root, STATE_REF, commitTree(root, tree, { message: 'chore: state' }));
+  writeActivation(root, { stateRef: STATE_REF });
+}
+
+async function repoPayload(root) {
+  const { current } = resolveProjects(root, true);
+  const res = await memoryRequest(root, { path: `/api/repo?project=${current}` });
+  assert.equal(res.status, 200, res.body);
+  return JSON.parse(res.body);
+}
+
+test('140242 CR1: /api/repo carries the usage records by change in both layouts, and none as []', async () => {
+  const expected = usageRecords()
+    .map((record) => ({
+      name: usageRecordFileName(record),
+      change: record.change,
+      record,
+      error: null,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  for (const activated of [false, true]) {
+    isolatedHome();
+    const root = newRepo();
+    writeUsageLedger(root, { activated });
+    const body = await repoPayload(root);
+    assert.deepEqual(body.usage, expected, activated ? 'activated' : 'worktree');
+  }
+  isolatedHome();
+  const empty = await repoPayload(newRepo());
+  assert.deepEqual(empty.usage, []);
+});
+
+test('140242 CR2: usage-analysis.mjs is served read-only as JavaScript; an unlisted src/ module is not', async () => {
+  isolatedHome();
+  const root = newRepo();
+  const res = await memoryRequest(root, { path: '/shared/usage-analysis.mjs' });
+  assert.equal(res.status, 200);
+  assert.equal(res.headers['content-type'], 'text/javascript; charset=utf-8');
+  const onDisk = fs.readFileSync(path.join(publicDir, '..', '..', 'usage-analysis.mjs'), 'utf8');
+  assert.equal(res.body, onDisk);
+  const unlisted = await memoryRequest(root, { path: '/shared/usage-collector.mjs' });
+  assert.deepEqual([unlisted.status, unlisted.body], [404, 'Not found']);
+});
+
+// `changeledger analyze ... --json` run by the real CLI in `root`: the oracle
+// the viewer's figures are compared with.
+const cliBin = path.join(publicDir, '..', '..', '..', 'bin', 'changeledger.mjs');
+function cliAnalyze(root, ...args) {
+  return JSON.parse(
+    execFileSync(process.execPath, [cliBin, 'analyze', ...args, '--json'], {
+      cwd: root,
+      env: sanitizedEnv(),
+      encoding: 'utf8',
+    }),
+  );
+}
+
+const typeFilters = (types = []) => ({
+  types: new Set(types),
+  owners: new Set(),
+  statuses: new Set(),
+  text: '',
+  showArchived: false,
+  showDiscarded: false,
+  includeUnassigned: false,
+  pendingGraduation: false,
+});
+
+const USAGE_GROUPS = ['segment', 'model', 'version'];
+
+// What the metrics view computes from `/api/repo` with the given type filter:
+// the visible changes and the section's analyses.
+async function viewerUsage(root, types) {
+  const repo = await repoPayload(root);
+  const { isVisible, usageSectionAnalyses } = await import('../src/viewer/public/app.js');
+  const visible = repo.changes.filter((c) => isVisible(c, typeFilters(types)));
+  return {
+    repo,
+    visible,
+    usage: usageSectionAnalyses(analyzeUsage, repo, visible, usageRecordCounts),
+  };
+}
+
+async function renderHost(template) {
+  const { render } = await import('../src/viewer/public/templates.js');
+  const host = document.createElement('div');
+  render(template, host);
+  return host;
+}
+
+const money = (cost) => (cost === null ? 'n/a' : `$${cost.toFixed(2)}`);
+const texts = (root, selector) =>
+  [...root.querySelectorAll(selector)].map((n) => n.textContent.trim());
+
+// The section's totals, bars and hints as rendered text.
+function renderedUsage(section) {
+  return {
+    totals: Object.fromEntries(
+      [...section.querySelectorAll('[data-usage-total]')].map((card) => [
+        card.dataset.usageTotal,
+        card.querySelector('.metric-val').textContent.trim(),
+      ]),
+    ),
+    groups: Object.fromEntries(
+      USAGE_GROUPS.map((by) => [
+        by,
+        [...section.querySelectorAll(`[data-usage-group="${by}"] .bar-row`)].map((row) => [
+          row.querySelector('.bar-date').textContent.trim(),
+          row.querySelector('.mono').textContent.trim(),
+        ]),
+      ]),
+    ),
+    hints: texts(section, '.usage-hints li'),
+  };
+}
+
+// The same figures as `renderedUsage` reads them, built from CLI output.
+function expectedUsage(plain, grouped) {
+  const sum = (field) => plain.changes.reduce((n, c) => n + c[field], 0);
+  const priced = plain.changes.filter((c) => c.cost_usd !== null);
+  return {
+    totals: {
+      tokens: String(sum('total_tokens')),
+      cost: money(priced.length ? priced.reduce((n, c) => n + c.cost_usd, 0) : null),
+      unpriced: String(sum('unpriced_tokens')),
+    },
+    groups: Object.fromEntries(
+      USAGE_GROUPS.map((by) => [
+        by,
+        grouped[by].groups.map((g) => [
+          g.key,
+          `${g.total_tokens} tokens · ${money(g.cost_usd)}${g.unpriced_tokens ? ` · ${g.unpriced_tokens} unpriced` : ''}`,
+        ]),
+      ]),
+    ),
+    hints: plain.hints,
+  };
+}
+
+test('140242 CR3: unfiltered, the Usage section shows what changeledger analyze reports', async () => {
+  isolatedHome();
+  const root = newRepo();
+  writeUsageLedger(root, { quiet: true });
+  const { visible, usage } = await viewerUsage(root);
+  const plain = cliAnalyze(root);
+  const grouped = Object.fromEntries(USAGE_GROUPS.map((by) => [by, cliAnalyze(root, '--by', by)]));
+  for (const by of USAGE_GROUPS) assert.deepEqual(usage[by], grouped[by], `--by ${by}`);
+  assert.deepEqual(usage.segment.changes, plain.changes);
+
+  const { metricsHtml } = await import('../src/viewer/public/view-renderers.js');
+  const host = await renderHost(metricsHtml({}, visible.length, usage));
+  const section = host.querySelector('[data-usage]');
+  assert.equal(section.querySelector('h3').textContent.trim(), 'Usage');
+  const rendered = renderedUsage(section);
+  assert.deepEqual(rendered, expectedUsage(plain, grouped));
+  assert.deepEqual(rendered.totals, { tokens: '940', cost: '$9.00', unpriced: '40' });
+  assert.equal(rendered.hints.length, 4);
+});
+
+test('140242 CR4: filtered by type bug, the section has the bug alone, as analyze restricted to it', async () => {
+  isolatedHome();
+  const root = newRepo();
+  writeUsageLedger(root, { quiet: true });
+  const { visible, usage } = await viewerUsage(root, ['bug']);
+  assert.deepEqual(
+    visible.map((c) => c.id),
+    [BUG],
+  );
+  const plain = cliAnalyze(root, BUG);
+  const grouped = Object.fromEntries(
+    USAGE_GROUPS.map((by) => [by, cliAnalyze(root, BUG, '--by', by)]),
+  );
+  for (const by of USAGE_GROUPS) assert.deepEqual(usage[by], grouped[by], `--by ${by}`);
+  assert.deepEqual(
+    usage.segment.changes,
+    cliAnalyze(root).changes.filter((c) => c.id === BUG),
+  );
+
+  const { metricsHtml } = await import('../src/viewer/public/view-renderers.js');
+  const host = await renderHost(metricsHtml({}, visible.length, usage));
+  const rendered = renderedUsage(host.querySelector('[data-usage]'));
+  assert.deepEqual(rendered, expectedUsage(plain, grouped));
+  // 740 and no gap would be the bug's records analysed apart from the feature's.
+  assert.deepEqual(rendered.totals, { tokens: '890', cost: '$8.50', unpriced: '40' });
+  assert.ok(
+    rendered.hints.some((h) => h.startsWith('gap: 1 transition(s)')),
+    rendered.hints,
+  );
+});
+
+test('140242 CR5: a change detail lists its segments as analyze <id>, or says it has no records', async () => {
+  isolatedHome();
+  const root = newRepo();
+  writeUsageLedger(root, { quiet: true });
+  const repo = await repoPayload(root);
+  const { changeUsageAnalysis } = await import('../src/viewer/public/app.js');
+  const { changeUsageHtml } = await import('../src/viewer/public/view-renderers.js');
+
+  const analysis = changeUsageAnalysis(analyzeUsage, repo, BUG);
+  const cli = cliAnalyze(root, BUG);
+  assert.deepEqual(analysis, cli);
+  const bug = await renderHost(changeUsageHtml(analysis));
+  assert.deepEqual(texts(bug, '[data-usage-detail] thead th'), [
+    'Segment',
+    'Closed at',
+    'Version',
+    'Recorder',
+    'Tokens',
+    'Cost',
+    'Models',
+  ]);
+  assert.deepEqual(
+    [...bug.querySelectorAll('[data-usage-detail] tbody tr')].map((row) => texts(row, 'td')),
+    cli.changes[0].segments.map((s) => [
+      s.segment,
+      s.at,
+      s.version,
+      s.recorded_by,
+      String(s.total_tokens),
+      money(s.cost_usd),
+      s.models.map((m) => m.model).join(', '),
+    ]),
+  );
+  assert.equal(bug.querySelectorAll('[data-usage-detail] tbody tr').length, 2);
+  assert.equal(bug.textContent.includes('No usage records for this change.'), false);
+
+  const quiet = await renderHost(changeUsageHtml(changeUsageAnalysis(analyzeUsage, repo, QUIET)));
+  assert.deepEqual(texts(quiet, '[data-usage-detail] .empty'), [
+    'No usage records for this change.',
+  ]);
+  assert.equal(quiet.querySelector('[data-usage-detail] table'), null);
+});
+
+test('140242 CR6: with no records among the filtered changes the section says so; metrics stay as they were', async () => {
+  isolatedHome();
+  const root = newRepo();
+  writeUsageLedger(root, { quiet: true });
+  const { visible, usage } = await viewerUsage(root, ['chore']);
+  assert.deepEqual(
+    visible.map((c) => c.id),
+    [QUIET],
+  );
+  const { computeMetrics } = await import('../src/metrics.mjs');
+  const metrics = computeMetrics(
+    visible.map((c) => ({ frontmatter: c, stages: c.stages })),
+    { now: '2026-10-02T00:00:00Z' },
+  );
+  const { metricsHtml } = await import('../src/viewer/public/view-renderers.js');
+  const host = await renderHost(metricsHtml(metrics, visible.length, usage));
+  const section = host.querySelector('[data-usage]');
+  assert.deepEqual(texts(section, '.empty'), ['No usage records for the current filters.']);
+  assert.equal(section.querySelectorAll('[data-usage-total], .bar-row').length, 0);
+
+  const before = await renderHost(metricsHtml(metrics, visible.length));
+  for (const selector of [':scope > .metrics-cards', ':scope > .metrics-grid']) {
+    assert.equal(host.querySelector(selector).outerHTML, before.querySelector(selector).outerHTML);
+  }
+});
+
+test('20261007-172316 CR2: with 400 filtered changes and none measured, the section runs analyzeUsage three times', async () => {
+  const { usageSectionAnalyses } = await import('../src/viewer/public/app.js');
+  const filtered = Array.from(
+    { length: 400 },
+    (_, i) => `20261001-${String(i + 1).padStart(6, '0')}`,
+  );
+  const OTHER = '20261001-999999';
+  const record = (change) =>
+    usageRecord({
+      change,
+      at: '2026-10-01T00:01:00Z',
+      event: 'created',
+      to: 'draft',
+      sessions: [usageSession('s1', { opus: { tokens: 1 } })],
+    });
+  const repoWith = (recordedChange) => ({
+    changes: filtered.map((id) => {
+      const doc = usageChangeDoc(id, {});
+      return { ...doc.frontmatter, stages: doc.stages };
+    }),
+    usage: [usageEntryOf(record(recordedChange))],
+  });
+  const calls = [];
+  const spy = (...args) => {
+    calls.push(args[1]);
+    return analyzeUsage(...args);
+  };
+  const repo = repoWith(OTHER);
+  const noneRecorded = usageSectionAnalyses(spy, repo, repo.changes, usageRecordCounts);
+  assert.equal(noneRecorded.recorded, false);
+  assert.equal(calls.length, 3);
+  assert.deepEqual(calls.map((options) => options.by).sort(), ['model', 'segment', 'version']);
+
+  calls.length = 0;
+  const withRecord = repoWith(filtered[399]);
+  const recorded = usageSectionAnalyses(spy, withRecord, withRecord.changes, usageRecordCounts);
+  assert.equal(recorded.recorded, true);
+  assert.equal(calls.length, 3);
+});
+
+// The viewer's metrics view over the given type filter, with the shared usage
+// module loaded from the repo instead of the browser path.
+async function metricsViewFor(repo, types) {
+  const { isVisible, metricsViewTemplate } = await import('../src/viewer/public/app.js');
+  const metricsModule = await import('../src/metrics.mjs');
+  const visible = repo.changes.filter((c) => isVisible(c, typeFilters(types)));
+  return renderHost(
+    await metricsViewTemplate(repo, visible, {
+      loadMetrics: async () => metricsModule,
+      loadUsage: async () => ({ analyzeUsage, usageRecordCounts }),
+      now: '2026-10-02T00:00:00Z',
+    }),
+  );
+}
+
+// The usage ledger reduced to the feature's first record, which is its
+// recorder's baseline: the feature has a record and no attributed segment, the
+// bug and the quiet chore have no record.
+function writeBaselineOnlyLedger(root) {
+  writeUsageLedger(root, { quiet: true });
+  const [baseline] = usageRecords();
+  const keep = usageRecordFileName(baseline);
+  const dir = path.join(root, '.changeledger', 'usage');
+  for (const name of fs.readdirSync(dir)) if (name !== keep) fs.rmSync(path.join(dir, name));
+}
+
+test('20261007-135142 CR2: filtered changes with records but no attributed segment say no usage data', async () => {
+  isolatedHome();
+  const root = newRepo();
+  writeBaselineOnlyLedger(root);
+  const repo = await repoPayload(root);
+  const host = await metricsViewFor(repo, ['feature']);
+  const section = host.querySelector('[data-usage]');
+  assert.equal(section.querySelector('h3').textContent.trim(), 'Usage');
+  assert.deepEqual(texts(section, '.empty'), ['No usage data for the current filters.']);
+  assert.equal(section.querySelectorAll('[data-usage-total], .bar-row').length, 0);
+});
+
+test('20261007-135142 CR3: filtered changes without any record keep saying no usage records', async () => {
+  isolatedHome();
+  const root = newRepo();
+  writeBaselineOnlyLedger(root);
+  const repo = await repoPayload(root);
+  // The ledger holds a record, but none of the filtered changes (the bug and
+  // the chore) does.
+  for (const types of [['bug'], ['chore'], ['bug', 'chore']]) {
+    const host = await metricsViewFor(repo, types);
+    assert.deepEqual(
+      texts(host.querySelector('[data-usage]'), '.empty'),
+      ['No usage records for the current filters.'],
+      types.join(),
+    );
+  }
+});
+
+test('140242: a change whose only record is its recorder baseline has records but no usage data', async () => {
+  const { changeUsageHtml } = await import('../src/viewer/public/view-renderers.js');
+  const [baseline] = usageRecords();
+  const analysis = analyzeUsage(
+    {
+      changes: [usageChangeDoc(FEATURE, usageChanges()[FEATURE])],
+      usage: [usageEntryOf(baseline)],
+    },
+    { id: FEATURE },
+  );
+  assert.equal(analysis.changes[0].records, 1);
+  const host = await renderHost(changeUsageHtml(analysis));
+  assert.deepEqual(texts(host, '[data-usage-detail] .empty'), ['No usage data for this change.']);
+  assert.deepEqual(texts(host, '.usage-hints li'), analysis.hints);
+});
+
+test('140242: a usage module that fails to load leaves the existing metrics and says so in Usage', async () => {
+  isolatedHome();
+  const root = newRepo();
+  writeUsageLedger(root, { quiet: true });
+  const repo = await repoPayload(root);
+  const { metricsViewTemplate, changeUsageTemplate } = await import('../src/viewer/public/app.js');
+  const { metricsHtml } = await import('../src/viewer/public/view-renderers.js');
+  const metricsModule = await import('../src/metrics.mjs');
+  const now = '2026-10-02T00:00:00Z';
+  const failing = () => Promise.reject(new Error('module failed to load'));
+
+  const host = await renderHost(
+    await metricsViewTemplate(repo, repo.changes, {
+      loadMetrics: async () => metricsModule,
+      loadUsage: failing,
+      now,
+    }),
+  );
+  const metrics = metricsModule.computeMetrics(
+    repo.changes.map((c) => ({ frontmatter: c, stages: c.stages })),
+    { now },
+  );
+  const before = await renderHost(metricsHtml(metrics, repo.changes.length));
+  for (const selector of [':scope > .metrics-cards', ':scope > .metrics-grid']) {
+    assert.equal(host.querySelector(selector).outerHTML, before.querySelector(selector).outerHTML);
+  }
+  assert.deepEqual(texts(host, '[data-usage] .empty'), ['Usage analysis is unavailable.']);
+
+  const detail = await renderHost(await changeUsageTemplate(repo, BUG, failing));
+  assert.deepEqual(texts(detail, '[data-usage-detail] .empty'), ['Usage analysis is unavailable.']);
 });

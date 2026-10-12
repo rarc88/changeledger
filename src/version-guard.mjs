@@ -3,59 +3,15 @@
 // No package manager output or network is consulted: the package version is the
 // one stable fact about what is installed.
 
+import { compareCliVersions, isValidCliVersion } from './cli-version.mjs';
 import { loadEffectiveConfig } from './config.mjs';
-
-// Full SemVer syntax (semver.org), prereleases included: the running CLI can
-// itself be a prerelease (e.g. "0.17.0-dev"), so a declaration it writes must
-// be accepted. `release.mjs`'s `parseVersion` stays stricter on purpose:
-// release manifests never carry a prerelease tag.
-const FULL_SEMVER =
-  /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
+import { readStateConfigText } from './state-store.mjs';
+import { parseYaml } from './yaml.mjs';
 
 // The key only exists from schema 6 on; older schemas keep their behavior.
 const GUARDED_SCHEMA = 6;
 
-export function isValidCliVersion(value) {
-  return typeof value === 'string' && FULL_SEMVER.test(value);
-}
-
-function parseCliVersion(value) {
-  const match = typeof value === 'string' ? value.match(FULL_SEMVER) : null;
-  if (!match) throw new Error(`not a SemVer version: ${JSON.stringify(value)}`);
-  return {
-    core: [match[1], match[2], match[3]].map(Number),
-    prerelease: match[4] === undefined ? [] : match[4].split('.'),
-  };
-}
-
-const NUMERIC = /^\d+$/;
-
-function compareIdentifiers(a, b) {
-  const aNumeric = NUMERIC.test(a);
-  const bNumeric = NUMERIC.test(b);
-  if (aNumeric && bNumeric) return Math.sign(Number(a) - Number(b));
-  if (aNumeric !== bNumeric) return aNumeric ? -1 : 1;
-  return a < b ? -1 : a > b ? 1 : 0;
-}
-
-// SemVer precedence (semver.org §11): -1, 0 or 1. Build metadata is ignored and
-// a prerelease sorts below its release, so "0.17.0-dev" < "0.17.0".
-export function compareCliVersions(a, b) {
-  const left = parseCliVersion(a);
-  const right = parseCliVersion(b);
-  for (let i = 0; i < 3; i++) {
-    if (left.core[i] !== right.core[i]) return Math.sign(left.core[i] - right.core[i]);
-  }
-  if (left.prerelease.length === 0 || right.prerelease.length === 0) {
-    return Math.sign(right.prerelease.length - left.prerelease.length);
-  }
-  const length = Math.min(left.prerelease.length, right.prerelease.length);
-  for (let i = 0; i < length; i++) {
-    const order = compareIdentifiers(left.prerelease[i], right.prerelease[i]);
-    if (order !== 0) return order;
-  }
-  return Math.sign(left.prerelease.length - right.prerelease.length);
-}
+export { compareCliVersions, isValidCliVersion };
 
 // The declaration's own defect, or null. Shared with `check` so the command
 // that validates a repo and the guard that refuses to work on it say the same.
@@ -86,8 +42,9 @@ export function cliVersionError(config, installedVersion) {
 // when it may. Reads the effective config (the state ref once activated, never
 // the worktree marker). An unreadable effective config declares no minimum to
 // compare, so the guard stands aside: commands that actually need that config
-// still fail when they load it themselves, and `activate` must stay able to
-// repair a broken activation regardless.
+// still fail when they load it themselves. `activate` can still reach a broken
+// activation to repair it; it and `sync` compare the minimum of the revision
+// they adopt themselves (`assertCliAdmitted` below).
 export function repoCliVersionError(repoRoot, changeledgerDir, installedVersion) {
   let config;
   try {
@@ -96,4 +53,16 @@ export function repoCliVersionError(repoRoot, changeledgerDir, installedVersion)
     return null;
   }
   return cliVersionError(config, installedVersion);
+}
+
+// Throws the guard's diagnostic when `installedVersion` may not work on the
+// state `revision` declares. The `preAction` guard compares the effective config
+// of the checkout as it is; a command about to make another revision
+// authoritative (`activate` seeding or activating it, `sync` adopting a remote
+// one) repeats the comparison on that revision before writing the ref that
+// adopts it.
+export function assertCliAdmitted(repoRoot, revision, installedVersion, run) {
+  const config = parseYaml(readStateConfigText(repoRoot, { revision }, run));
+  const message = cliVersionError(config, installedVersion);
+  if (message) throw new Error(message);
 }

@@ -4,16 +4,21 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
+import { fileURLToPath } from 'node:url';
+import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import { withFileLock } from '../src/atomic-write.mjs';
 import { parseChange } from '../src/change.mjs';
 import { graduate, scaffoldSpec, skipGraduation } from '../src/commands/graduate.mjs';
 import { init } from '../src/commands/init.mjs';
 import { newChange } from '../src/commands/new.mjs';
+import { VERSION } from '../src/framing.mjs';
 import { loadRepo } from '../src/repo.mjs';
 import { parseSpec } from '../src/spec.mjs';
 import { STATE_REF, STATE_ROOT, writeActivation } from '../src/state-store.mjs';
+import { stampVersion } from '../src/writer.mjs';
 import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
+import { eventsAdded, PREVIOUS_VERSION, versionEvents } from './helpers/version-stamp.mjs';
 
 // Isolate the global registry so init() doesn't touch the real home.
 process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
@@ -75,10 +80,10 @@ function seedSpec(root, name, body) {
 // Activated variant: the change document (from `repo()`) and, optionally, a
 // pre-existing spec both live only in the state ref's snapshot — nothing on
 // disk backs either, so a fallback to the worktree would fail outright.
-function activatedRepo({ specName, specBody } = {}) {
+function activatedRepo({ specName, specBody, prepare = (text) => text } = {}) {
   const { root, file, id } = repo();
   const changeName = path.basename(file);
-  const changeText = fs.readFileSync(file, 'utf8');
+  const changeText = prepare(fs.readFileSync(file, 'utf8'));
   fs.rmSync(file);
 
   const files = {
@@ -747,3 +752,189 @@ test('skipGraduation on an active repo marks reviewed and logs the reason, one c
   assert.match(stateDocText(root, tip, `changes/${changeName}`), /no durable truth/);
   assert.equal(fs.existsSync(path.join(root, STATE_ROOT)), false);
 });
+
+// --- 20261002-113435: the graduation seed stage is configurable per type ---
+
+const SEED_ID = '20261002-120000';
+
+// A template-initialized repo whose config declares one extra type, `notes`,
+// exactly as given, plus one `done` change of that type with the given stages.
+function seedRepo(typeDef, stages) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-seed-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  init(root);
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  const config = parseYaml(fs.readFileSync(configFile, 'utf8'));
+  config.types.notes = typeDef;
+  fs.writeFileSync(configFile, stringifyYaml(config));
+  const body = Object.entries(stages)
+    .map(([heading, text]) => `## ${heading}\n\n${text}\n`)
+    .join('\n');
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'changes', `${SEED_ID}-notes.md`),
+    `---\nid: "${SEED_ID}"\ntitle: Notes\ntype: notes\nstatus: done\ncreated: 2026-10-02T12:00:00Z\ndepends_on: []\n---\n\n${body}\n## Log\n\n- **2026-10-02T12:00:00Z** \`[note]\` created\n`,
+  );
+  return root;
+}
+
+const CRITERION = '### CR1 — x\n- **Given** a\n- **When** b\n- **Then** c';
+
+test('113435 CR1: the seed comes from the stage the type declares as seed_stage', () => {
+  const root = seedRepo(
+    {
+      stages: ['request', 'investigation', 'specification', 'log'],
+      tdd: false,
+      seed_stage: 'investigation',
+    },
+    { Request: 'R.', Investigation: 'Texto observado.', Specification: CRITERION },
+  );
+  const spec = fs.readFileSync(scaffoldSpec(SEED_ID, 'mi-spec', root), 'utf8');
+  assert.match(spec, /Texto observado/);
+  assert.doesNotMatch(spec, /### CR1/);
+});
+
+test('113435 CR2: without seed_stage the seed is the Specification, else the Proposal', () => {
+  const withSpecification = seedRepo(
+    { stages: ['request', 'investigation', 'proposal', 'specification', 'log'], tdd: false },
+    {
+      Request: 'R.',
+      Investigation: 'Texto observado.',
+      Proposal: 'Texto propuesto.',
+      Specification: 'Texto especificado.',
+    },
+  );
+  const fromSpecification = fs.readFileSync(
+    scaffoldSpec(SEED_ID, 'mi-spec', withSpecification),
+    'utf8',
+  );
+  assert.match(fromSpecification, /Texto especificado/);
+  assert.doesNotMatch(fromSpecification, /Texto propuesto|Texto observado/);
+
+  const withoutSpecification = seedRepo(
+    { stages: ['request', 'proposal', 'log'], tdd: false },
+    { Request: 'R.', Proposal: 'Texto propuesto.' },
+  );
+  const fromProposal = fs.readFileSync(
+    scaffoldSpec(SEED_ID, 'mi-spec', withoutSpecification),
+    'utf8',
+  );
+  assert.match(fromProposal, /Texto propuesto/);
+});
+
+// End to end through the real binary and the shipped template: no config edit,
+// so the `documentation` seed comes from `templates/config.yml` itself.
+test('113435 CR5: a documentation change graduates from its refined Investigation', () => {
+  const bin = fileURLToPath(new URL('../bin/changeledger.mjs', import.meta.url));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-seed-e2e-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = sanitizedEnv({
+    CHANGELEDGER_HOME: fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-')),
+    CHANGELEDGER_NO_GH: '1',
+  });
+  const run = (...args) =>
+    execFileSync('node', [bin, ...args], { cwd: root, env, encoding: 'utf8' });
+  run('init');
+  const observed = 'El endpoint devuelve 404 cuando falta el recurso.';
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'changes', `${SEED_ID}-endpoint.md`),
+    `---
+id: "${SEED_ID}"
+title: Comportamiento del endpoint
+type: documentation
+status: done
+created: 2026-10-02T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+Documentar el endpoint.
+
+## Investigation
+
+${observed}
+
+## Specification
+
+${CRITERION}
+
+## Log
+
+- **2026-10-02T12:00:00Z** \`[note]\` created
+`,
+  );
+
+  run('graduate', SEED_ID, 'mi-spec', '--new');
+  const specFile = path.join(root, '.changeledger', 'specs', 'mi-spec.md');
+  const refined = 'El endpoint responde 404 cuando el recurso no existe.';
+  const seeded = fs.readFileSync(specFile, 'utf8');
+  assert.ok(seeded.includes(observed), seeded);
+  fs.writeFileSync(
+    specFile,
+    seeded
+      .replace(/<!-- changeledger:spec-scaffold -->\n\n> Scaffold from change [^\n]*\n\n/, '')
+      .replace(observed, refined),
+  );
+
+  run('graduate', SEED_ID, 'mi-spec', '--into');
+  const spec = parseSpec(fs.readFileSync(specFile, 'utf8'));
+  assert.ok(spec.body.includes(refined), spec.body);
+  assert.deepEqual(spec.frontmatter.graduated_from, [SEED_ID]);
+});
+
+// 20261001-155216 CR6 — graduation events are stamped like any other Log event,
+// in both layouts. The done change was last written by a PREVIOUS_VERSION CLI.
+const seedStamp = (text) => stampVersion(text, '2026-06-13T12:30:00Z', PREVIOUS_VERSION);
+
+const graduationLayouts = {
+  legacy: () => {
+    const fixture = repo();
+    fs.writeFileSync(fixture.file, seedStamp(fs.readFileSync(fixture.file, 'utf8')));
+    seedSpec(fixture.root, 'architecture.md', '\n# Arch\n\nCuerpo intacto.\n');
+    return { ...fixture, read: () => fs.readFileSync(fixture.file, 'utf8') };
+  },
+  'state ref': () => {
+    const { root, id, changeName } = activatedRepo({
+      specName: 'architecture.md',
+      specBody: '\n# Arch\n\nCuerpo intacto.\n',
+      prepare: seedStamp,
+    });
+    return {
+      root,
+      id,
+      read: () => stateDocText(root, stateRefTip(root), `changes/${changeName}`),
+    };
+  },
+};
+
+for (const [layout, build] of Object.entries(graduationLayouts)) {
+  test(`20261001-155216 CR6 (${layout}): graduate --into stamps the version before the graduation event`, () => {
+    const { root, id, read } = build();
+    const before = read();
+    graduate(id, 'architecture', root, { into: true });
+    const added = eventsAdded(before, read());
+    assert.deepEqual(added[0], {
+      at: added[1].at,
+      type: 'version',
+      previous: PREVIOUS_VERSION,
+      version: VERSION,
+    });
+    assert.equal(added[1].type, 'graduation');
+    assert.equal(versionEvents(added).length, 1);
+  });
+
+  test(`20261001-155216 CR6 (${layout}): graduate --skip stamps the version before the graduation event`, () => {
+    const { root, id, read } = build();
+    const before = read();
+    skipGraduation(id, 'no durable truth', root);
+    const added = eventsAdded(before, read());
+    assert.deepEqual(added[0], {
+      at: added[1].at,
+      type: 'version',
+      previous: PREVIOUS_VERSION,
+      version: VERSION,
+    });
+    assert.equal(added[1].type, 'graduation');
+    assert.equal(versionEvents(added).length, 1);
+  });
+}

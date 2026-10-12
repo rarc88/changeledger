@@ -5,7 +5,8 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { buildAgentContext } from '../src/commands/agent-context.mjs';
+import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
+import { AGENT_ROLES, buildAgentContext } from '../src/commands/agent-context.mjs';
 import {
   buildContext,
   emittedLines as contextEmittedLines,
@@ -892,6 +893,185 @@ test('161655 CR7: change context omits change_branch when the format is absent o
   }
 });
 
+// --- 20261002-181346: the policy line publishes the change's own integration branch ---
+
+// `fix` integrates into `git.release_branch`; `feature` declares no role.
+// `releaseBranch: null` leaves the release branch undeclared.
+function releaseTypeRepo({ releaseBranch = 'main' } = {}) {
+  const root = repo();
+  const file = path.join(root, '.changeledger', 'config.yml');
+  const config = parseYaml(fs.readFileSync(file, 'utf8'));
+  config.git = { ...config.git, integration_branch: 'dev' };
+  if (releaseBranch) config.git.release_branch = releaseBranch;
+  config.types.fix = { ...config.types.bug, integrates_into: 'release' };
+  fs.writeFileSync(file, stringifyYaml(config));
+  const fix = writeRawChange(root, { id: '20261002-181401', status: 'in-progress', type: 'fix' });
+  const feature = writeRawChange(root, {
+    id: '20261002-181402',
+    status: 'in-progress',
+    type: 'feature',
+  });
+  return { root, fix, feature };
+}
+
+const policyLineOf = (output) =>
+  output.split('\n').find((line) => line.startsWith('Effective policy:'));
+
+test('181346 CR6: change and delegate contexts publish the integration branch of the type', () => {
+  const { root, fix, feature } = releaseTypeRepo();
+  for (const [id, branch] of [
+    [fix, 'main'],
+    [feature, 'dev'],
+  ]) {
+    const change = policyLineOf(buildContext(id, root));
+    assert.match(change, new RegExp(` — integration_branch=${branch}( |$)`), change);
+    const delegate = policyLineOf(buildAgentContext('implementation', id, root));
+    assert.match(delegate, new RegExp(` — integration_branch=${branch}( |$)`), delegate);
+  }
+});
+
+test('181346 CR6: mode contexts keep publishing the repo integration branch', () => {
+  const { root } = releaseTypeRepo();
+  for (const mode of [undefined, 'implement', 'spec']) {
+    assert.match(policyLineOf(buildContext(mode, root)), / — integration_branch=dev$/);
+  }
+  assert.match(
+    policyLineOf(buildAgentContext('investigation', undefined, root)),
+    / — integration_branch=dev$/,
+  );
+});
+
+test('181346 CR6: a release type without git.release_branch never publishes the integration branch', () => {
+  const { root, fix, feature } = releaseTypeRepo({ releaseBranch: null });
+  const undeclared = (error) =>
+    error.message === 'type "fix" integrates into git.release_branch, which is not declared';
+  assert.throws(() => buildContext(fix, root), undeclared);
+  assert.throws(() => buildAgentContext('implementation', fix, root), undeclared);
+  // The other types and the mode contexts are unaffected by it.
+  assert.match(policyLineOf(buildContext(feature, root)), / — integration_branch=dev /);
+  assert.match(policyLineOf(buildContext('implement', root)), / — integration_branch=dev$/);
+});
+
+// --- 20261002-181428: the policy line names the branch to bring the result back to ---
+
+// `hotfix` integrates into `git.release_branch`; `bug` declares no role. The
+// types are declared here, so the capture is judged on the resolver, not on the
+// template's content. `integrationBranch: null` leaves `git.integration_branch`
+// undeclared.
+function hotfixRepo({ integrationBranch = 'dev' } = {}) {
+  const root = repo();
+  const file = path.join(root, '.changeledger', 'config.yml');
+  const config = parseYaml(fs.readFileSync(file, 'utf8'));
+  config.git = { ...config.git, integration_branch: integrationBranch, release_branch: 'main' };
+  config.types.hotfix = { ...config.types.bug, integrates_into: 'release' };
+  fs.writeFileSync(file, stringifyYaml(config));
+  const hotfix = writeRawChange(root, {
+    id: '20261002-181501',
+    status: 'approved',
+    type: 'hotfix',
+  });
+  const bug = writeRawChange(root, { id: '20261002-181502', status: 'approved', type: 'bug' });
+  return { root, hotfix, bug };
+}
+
+test('181428 CR2: a change integrating outside git.integration_branch publishes back_merge_branch', () => {
+  const { root, hotfix, bug } = hotfixRepo();
+  for (const policy of [
+    policyLineOf(buildContext(hotfix, root)),
+    policyLineOf(buildAgentContext('implementation', hotfix, root)),
+  ]) {
+    assert.match(policy, / — integration_branch=main — back_merge_branch=dev( |$)/, policy);
+  }
+  for (const policy of [
+    policyLineOf(buildContext(bug, root)),
+    policyLineOf(buildAgentContext('implementation', bug, root)),
+  ]) {
+    assert.match(policy, / — integration_branch=dev( |$)/, policy);
+    assert.doesNotMatch(policy, /back_merge_branch=/, policy);
+  }
+});
+
+// 20261002-181428 CR7: `release_types=` names the types that integrate into
+// `git.release_branch`, only while that branch is declared. `types` replaces
+// the template's types; `releaseBranch: 'absent'` removes the key.
+function releaseTypesRepo({ releaseBranch = 'main', types } = {}) {
+  const root = repo();
+  const file = path.join(root, '.changeledger', 'config.yml');
+  const config = parseYaml(fs.readFileSync(file, 'utf8'));
+  config.git = { ...config.git, integration_branch: 'dev', release_branch: releaseBranch };
+  if (releaseBranch === 'absent') delete config.git.release_branch;
+  const bug = config.types.bug;
+  config.types = types ?? {
+    feature: config.types.feature,
+    bug,
+    hotfix: { ...bug, integrates_into: 'release' },
+  };
+  fs.writeFileSync(file, stringifyYaml(config));
+  return root;
+}
+
+const releaseTypeCaptures = (root, ids = []) => [
+  buildContext(undefined, root),
+  buildContext('spec', root),
+  buildContext('implement', root),
+  buildAgentContext('investigation', undefined, root),
+  ...ids.flatMap((id) => [buildContext(id, root), buildAgentContext('implementation', id, root)]),
+];
+
+test('181428 CR7: core, mode, change and delegate contexts publish release_types with a declared release branch', () => {
+  const root = releaseTypesRepo();
+  const ids = [
+    writeRawChange(root, { id: '20261002-181601', status: 'approved', type: 'hotfix' }),
+    writeRawChange(root, { id: '20261002-181602', status: 'approved', type: 'bug' }),
+  ];
+  for (const capture of releaseTypeCaptures(root, ids)) {
+    const policy = policyLineOf(capture);
+    assert.match(policy, / — release_types=hotfix( |$)/, policy);
+  }
+  // Several release types follow the key order of `config.types` as JavaScript
+  // enumerates it: integer-like names first, then insertion order — not sorted.
+  const several = releaseTypesRepo({
+    types: {
+      zfix: { stages: ['request', 'log'], integrates_into: 'release' },
+      bug: { stages: ['request', 'log'] },
+      hotfix: { stages: ['request', 'log'], integrates_into: 'release' },
+      2024: { stages: ['request', 'log'], integrates_into: 'release' },
+    },
+  });
+  assert.match(
+    policyLineOf(buildContext('spec', several)),
+    / — release_types=2024,zfix,hotfix( |$)/,
+  );
+});
+
+test('181428 CR7: no release_types without a declared release branch or a release type', () => {
+  for (const root of [
+    releaseTypesRepo({ releaseBranch: null }),
+    releaseTypesRepo({ releaseBranch: 'absent' }),
+    releaseTypesRepo({ types: { bug: { stages: ['request', 'log'] } } }),
+  ]) {
+    for (const capture of releaseTypeCaptures(root)) {
+      assert.doesNotMatch(policyLineOf(capture), /release_types=/, policyLineOf(capture));
+    }
+  }
+});
+
+test('181428 CR2: mode contexts and an undeclared git.integration_branch publish no back_merge_branch', () => {
+  const { root } = hotfixRepo();
+  for (const mode of [undefined, 'implement', 'spec']) {
+    assert.doesNotMatch(policyLineOf(buildContext(mode, root)), /back_merge_branch=/);
+  }
+  assert.doesNotMatch(
+    policyLineOf(buildAgentContext('investigation', undefined, root)),
+    /back_merge_branch=/,
+  );
+  // With no declared integration branch there is no branch to name.
+  const undeclared = hotfixRepo({ integrationBranch: null });
+  const policy = policyLineOf(buildContext(undeclared.hotfix, undeclared.root));
+  assert.match(policy, / — integration_branch=main /, policy);
+  assert.doesNotMatch(policy, /back_merge_branch=/, policy);
+});
+
 test('225213 CR2: change-id context shows type-specific effective policy', () => {
   const root = repo();
   setConfig(root, [[/^language: en$/m, 'language: es']]);
@@ -1202,10 +1382,14 @@ test('144327 CR5: core discovers agent-prompt before a draft exists, within budg
   const root = repo();
   const core = buildContext(undefined, root);
   const norm = core.replace(/\s+/g, ' ');
-  // The pointer's four roles are a command's argument set, not prose, so they stay;
-  // 20260730-002730 retired the sentence that introduced them.
+  // The pointer's roles are a command's argument set, not prose, so they stay;
+  // 20260730-002730 retired the sentence that introduced them. Since 20261002-152555
+  // CR6 the set is the command's own, so a new role cannot go unannounced.
   assert.match(norm, /`changeledger agent-prompt <role>`/);
-  assert.match(norm, /investigation \| implementation \| review \| post-review/);
+  assert.ok(
+    norm.includes(`(${AGENT_ROLES.join(' | ')})`),
+    `core does not announce the agent-prompt roles ${AGENT_ROLES.join(' | ')}`,
+  );
   // The skeleton bodies are NOT inlined into the core, and the pointer is not
   // duplicated into the delegation fragment.
   assert.doesNotMatch(core, /Delegation skeleton — role:/);
@@ -1635,7 +1819,7 @@ const DELEGATION_OBLIGATIONS = [
     ],
   ],
   [
-    'deliverable prose executes the edge of a universal quantifier or narrows to what was observed',
+    'deliverable prose — docs, code and test comments, Log notes — executes the edge of a universal quantifier or narrows to what was observed (20261007-135159 CR1)',
     'implement.md',
     'implement',
     [
@@ -1644,10 +1828,48 @@ const DELEGATION_OBLIGATIONS = [
       // turned this guard red; `[^.;]` is what still holds the match to one
       // sentence, and the count is only a second fence.
       /\b(test comments?|Log notes?)\b[^.;]{0,140}\bquantif\w+|\bquantif\w+[^.;]{0,140}\b(test comments?|Log notes?)\b/i,
+      // 20261007-135159 CR1: the audience named test comments and Log notes only;
+      // docs and code comments join it. Each is its own half, so dropping one
+      // names the one that went.
+      /\b(documentation|docs?)\b[^.;]{0,140}\bquantif\w+|\bquantif\w+[^.;]{0,140}\b(documentation|docs?)\b/i,
+      /\b(code\b[^.;]{0,25}\bcomments?|comments?\b[^.;]{0,20}\bcode)\b[^.;]{0,140}\bquantif\w+|\bquantif\w+[^.;]{0,140}\b(code\b[^.;]{0,25}\bcomments?|comments?\b[^.;]{0,20}\bcode)\b/i,
       // The edge is executed, and executed BEFORE the sentence exists: the ordering
       // is the obligation, so it stays inside the same bounded window.
       /\b(edge|falsif\w+)\b[^.;]{0,100}\b(execut\w+|run|ran)\b[^.;]{0,100}\bbefore\b|\bbefore\b[^.;]{0,100}\b(execut\w+|run|ran)\b[^.;]{0,100}\b(edge|falsif\w+)\b/i,
       /\bnarrow\w*\b[^.;]{0,60}\b(observed|incident|measured)\b|\b(observed|incident|measured)\b[^.;]{0,60}\bnarrow\w*/i,
+    ],
+  ],
+  [
+    'the examples of universal quantifiers name never and only (20261007-172322 CR1)',
+    'implement.md',
+    'implement',
+    [
+      // Each example is its own half, held to the sentence that names quantifiers.
+      /\bquantif\w+[^.;]{0,80}\bnever\b|\bnever\b[^.;]{0,80}\bquantif\w+/i,
+      /\bquantif\w+[^.;]{0,80}\bonly\b|\bonly\b[^.;]{0,80}\bquantif\w+/i,
+    ],
+  ],
+  // 20261007-135159 CR2/CR3 — what a prose correction does, and what the report
+  // carries. Rows here rather than in the curated `CONCEPT_GUARDS`: the bullet's own
+  // guard lives in this table, and the obligations ride the same bullet.
+  [
+    'a correction of a prose finding narrows or deletes the sentence and never replaces it with another universal claim (20261007-135159 CR2)',
+    'implement.md',
+    'implement',
+    [
+      // Narrow and delete are separate halves, so dropping either one fails its own.
+      /\b(correct\w*|fix\w*)\b[^.;]{0,120}\bnarrow\w*|\bnarrow\w*[^.;]{0,120}\b(correct\w*|fix\w*)\b/i,
+      /\b(correct\w*|fix\w*)\b[^.;]{0,140}\b(delet\w*|remov\w*|drop\w*|strik\w*)|\b(delet\w*|remov\w*|drop\w*|strik\w*)[^.;]{0,140}\b(correct\w*|fix\w*)\b/i,
+      /\b(never|not|without|no)\b[^.;]{0,40}\b(replac\w+|substitut\w+|introduc\w+|add\w*|swap\w*)\b[^.;]{0,60}\b(universal\w*|quantif\w+)|\b(universal\w*|quantif\w+)\b[^.;]{0,40}\b(claims?|assertions?|sentences?)\b[^.;]{0,40}\b(never|not)\b[^.;]{0,20}\b(replac\w+|substitut\w+)/i,
+    ],
+  ],
+  [
+    'the report lists each universally quantified sentence added or rewritten, with the command that executed its edge (20261007-135159 CR3)',
+    'implement.md',
+    'implement',
+    [
+      /\breports?\b[^.;]{0,80}\b(universal\w*|quantif\w+)|\b(universal\w*|quantif\w+)\b[^.;]{0,100}\breports?\b/i,
+      /\bcommands?\b[^.;]{0,60}\b(edge|falsif\w+)\b|\b(edge|falsif\w+)\b[^.;]{0,60}\bcommands?\b/i,
     ],
   ],
   [
@@ -1675,6 +1897,17 @@ const DELEGATION_OBLIGATIONS = [
       // authorized contract") instead of this clause: a half that a pre-existing
       // sentence already satisfies guards nothing.
       /\bdefect\b[^.;]{0,90}\b(not|never)\b[^.;]{0,40}\bstyle\b|\bstyle\b[^.;]{0,40}\bdefect\b/i,
+    ],
+  ],
+  // 20261007-135159 CR6 — the implement pack's report lists the quantified sentences
+  // it wrote; the review prompt carries that list to the reviewer to scrutinize.
+  [
+    "the review prompt carries the implementer's or corrector's list of universally quantified sentences as scrutiny points (20261007-135159 CR6)",
+    'review.md',
+    'review',
+    [
+      /\b(implement\w*|correct\w*)\b[^.;]{0,120}\b(universal\w*|quantif\w+)|\b(universal\w*|quantif\w+)\b[^.;]{0,120}\b(implement\w*|correct\w*)\b/i,
+      /\b(universal\w*|quantif\w+)\b[^.;]{0,120}\b(scrutin\w*|examin\w*|challeng\w*)|\b(scrutin\w*|examin\w*|challeng\w*)[^.;]{0,120}\b(universal\w*|quantif\w+)/i,
     ],
   ],
   // 20260730-214503 CR2 — the first guard of the new regime `DELEGATION_OBLIGATIONS`
@@ -2983,6 +3216,7 @@ test('143656 CR4: retired phrases stay retired recursively and the fragment inve
   // Same guard for the two composed capsule subdirectories.
   const agentContexts = inventory('agent-contexts/');
   assert.deepEqual(agentContexts, [
+    'graduation-review.md',
     'implementation.md',
     'investigation.md',
     'post-review.md',
@@ -2990,6 +3224,7 @@ test('143656 CR4: retired phrases stay retired recursively and the fragment inve
   ]);
   const agentPrompts = inventory('agent-prompts/');
   assert.deepEqual(agentPrompts, [
+    'graduation-review.md',
     'implementation.md',
     'investigation.md',
     'post-review.md',
@@ -3025,7 +3260,7 @@ test('162015 CR3/CR4: delegation.md points at the unit instead of redefining it'
 //
 // The phrase-level pins over `templates/contract/` prose are retired: every one of
 // them charged a retarget, a mutant and review scrutiny to each rewrite of a
-// sentence, and that cost is what the decision removes. Fifteen carrier obligations
+// sentence, and that cost is what the decision removes. Twenty-one carrier obligations
 // keep a guard anyway, because losing one in silence is a different failure class
 // from rewording one (finding 38: normative prose lost with nothing noticing, three
 // times, exploit proven live).
@@ -3348,6 +3583,187 @@ const CONCEPT_GUARDS = [
       );
     },
   },
+  {
+    entry: 16,
+    obligation:
+      'the documentation type writes its execution rules as its own CRs, citing path and symbol, and the human decides every divergence from an existing spec before in-review',
+    verify: () => {
+      const spec = flattened(contractFragment('spec.md'));
+      assert.match(
+        spec,
+        /\b(execution rules|obligations)\b[^.;]{0,60}\b(own|its)\b[^.;]{0,10}\b(CRs?|criteria)\b/i,
+        "spec no longer has the documentation rules written as the change's own CRs",
+      );
+      assert.match(
+        spec,
+        /\b(claims?|statements?)\b[^.;]{0,40}\bcit\w*\b[^.;]{0,30}\bpaths?\b[^.;]{0,20}\bsymbols?\b|\bpaths?\b[^.;]{0,20}\bsymbols?\b[^.;]{0,40}\b(each|every)\b[^.;]{0,20}\b(claims?|statements?)\b/i,
+        'spec no longer obliges every documentation claim to cite path and symbol',
+      );
+      // Human, divergence and `in-review` in one clause, in any order.
+      assert.match(
+        spec,
+        /(?=[^.;]{0,200}\bhuman\b)(?=[^.;]{0,200}\bdivergen)(?=[^.;]{0,200}`in-review`)/i,
+        'spec no longer has the human decide every divergence from an existing spec before in-review',
+      );
+    },
+  },
+  {
+    entry: 18,
+    obligation:
+      'the graduation-review delegate is read-only, contrasts each affected spec diff with the code and the change, and recommends apply or correct',
+    verify: () => {
+      const capsule = flattened(contractFragment('agent-contexts/graduation-review.md'));
+      // Files, Git and the ledger forbidden in one sentence, in any order.
+      const window = '[^.]{0,250}';
+      const deny = '\\b(do not|never|must not|may not)\\b[^.;]{0,15}';
+      assert.match(
+        capsule,
+        new RegExp(
+          [
+            `${deny}\\b(modify|edit|write)\\b[^.;]{0,15}\\bfiles?\\b`,
+            `${deny}\\b(change|modify|touch)\\b[^.;]{0,15}\\bGit\\b`,
+            `${deny}\\b(mutate|modify|write)\\b[^.;]{0,15}\\bledger\\b`,
+          ]
+            .map((term) => `(?=${window}${term})`)
+            .join(''),
+          'i',
+        ),
+        'the graduation-review capsule no longer forbids touching files, Git and the ledger',
+      );
+      assert.doesNotMatch(
+        capsule,
+        /changeledger (status|task|log|review|validation|graduate|archive|approve|reopen|discard)\b/,
+        'the graduation-review capsule names a lifecycle command',
+      );
+      // Spec, diff, code and change in one sentence, in any order.
+      assert.match(
+        capsule,
+        new RegExp(
+          [
+            '\\b(each|every|all)\\b[^.;]{0,20}\\bspecs?\\b',
+            '\\bdiff\\b',
+            '\\b(contrast|compar|check|verif)\\w*',
+            '\\bcode\\b',
+            '\\bchange\\b',
+          ]
+            .map((term) => `(?=${window}${term})`)
+            .join(''),
+          'i',
+        ),
+        'the graduation-review capsule no longer contrasts each spec diff with the code and the change',
+      );
+      assert.match(
+        capsule,
+        /\brecommend\w*\b[^.]{0,80}\bapply\b[^.]{0,80}\bcorrect\b/i,
+        'the graduation-review capsule no longer recommends apply or correct',
+      );
+    },
+  },
+  {
+    entry: 19,
+    obligation:
+      'a review_required closure that touches specs is checked by graduation-review before the first --into, and findings go to a fresh reviewer after the correction',
+    verify: () => {
+      const close = flattened(contractFragment('close.md'));
+      // review_required, the delegated role and the first `--into` in one sentence.
+      const window = '[^.]{0,250}';
+      assert.match(
+        close,
+        new RegExp(
+          [
+            '\\breview_required\\b',
+            '`graduation-review`',
+            '\\bbefore\\b[^.;]{0,30}\\b(first|any)\\b[^.;]{0,10}`--into`',
+          ]
+            .map((term) => `(?=${window}${term})`)
+            .join(''),
+          'i',
+        ),
+        'close no longer delegates graduation-review before the first --into',
+      );
+      assert.match(
+        close,
+        /\bfindings?\b[^.;]{0,80}\b(correct|fix)\w*\b[^.;]{0,100}\b(fresh|new|another)\b[^.;]{0,20}\b(reviewer|delegate|subagent)\b/i,
+        'close no longer re-delegates to a fresh reviewer after correcting findings',
+      );
+    },
+  },
+  {
+    entry: 20,
+    obligation:
+      'change branches start from and integrate into the integration_branch of the change context, never implemented on the integration or release branch',
+    // A sentence ends at a period followed by whitespace, so a dotted key such as
+    // `git.release_branch` does not cut the window.
+    verify: () => {
+      const implement = flattened(contractFragment('implement.md'));
+      const sentence = (terms) =>
+        new RegExp(terms.map((term) => `(?=(?:[^.]|\\.(?=\\S)){0,300}${term})`).join(''), 'i');
+      assert.match(
+        implement,
+        sentence([
+          '(\\b(never|not|no)\\b[^.;]{0,30}\\bimplement\\w*|\\bimplement\\w*[^.;]{0,40}\\b(never|not|no)\\b)',
+          '\\bintegration\\b',
+          '\\brelease\\b',
+          '\\bbranch\\w*',
+        ]),
+        'implement no longer forbids implementing on the integration and the release branch',
+      );
+      assert.match(
+        implement,
+        sentence([
+          '\\bchange\\s+branch',
+          '\\b(creat|start|cut|branch)\\w*\\b[^.;]{0,40}\\bfrom\\b',
+          '`integration_branch`',
+          '\\bintegrat\\w*\\b[^.;]{0,60}\\binto\\b',
+        ]),
+        'implement no longer starts and integrates change branches on the published integration_branch',
+      );
+    },
+  },
+  {
+    entry: 21,
+    obligation:
+      'a defect makes the agent ask the human between a normal fix and the published release_types, and draft nothing until answered',
+    // Bound to the published `release_types=` field, not to reading `config.yml`.
+    // A sentence ends at a period followed by whitespace.
+    verify: () => {
+      const spec = flattened(contractFragment('spec.md'));
+      const sentence = (terms) =>
+        new RegExp(terms.map((term) => `(?=(?:[^.]|\\.(?=\\S)){0,300}${term})`).join(''), 'i');
+      assert.match(
+        spec,
+        sentence([
+          '\\bdefects?\\b',
+          '`release_types=`',
+          '\\bask\\w*\\b[^.;]{0,30}\\bhuman\\b',
+          '(\\bnormal\\b[^.;]{0,15}\\bfix\\b|`bug`)',
+        ]),
+        'spec no longer has a defect make the agent ask the human between a normal fix and the published release types',
+      );
+      assert.match(
+        spec,
+        /\b(no|not|never)\b[^.;]{0,30}\bdrafts?\b[^.;]{0,40}\b(until|before)\b[^.;]{0,40}\b(answer\w*|repl\w*|decid\w*|respon\w*)\b|\bdrafts?\b[^.;]{0,40}\bonly\s+after\b[^.;]{0,40}\b(answer\w*|repl\w*|decid\w*|respon\w*)\b/i,
+        'spec no longer withholds the draft until the human answers',
+      );
+    },
+  },
+  {
+    entry: 22,
+    obligation:
+      'when the change context publishes back_merge_branch, the integrated result is also brought to it',
+    verify: () => {
+      const sentence = (terms) =>
+        new RegExp(terms.map((term) => `(?=(?:[^.]|\\.(?=\\S)){0,300}${term})`).join(''), 'i');
+      assert.match(
+        flattened(contractFragment('implement.md')),
+        sentence([
+          '`back_merge_branch`',
+          '(\\b(bring|merge|integrate|carry|port)\\b[^.;]{0,50}\\bresult\\b|\\bresult\\b[^.;]{0,50}\\b(brought|merged|integrated|carried|ported)\\b)',
+        ]),
+        'implement no longer brings the integrated result to the published back_merge_branch',
+      );
+    },
+  },
 ];
 
 for (const { entry, obligation, verify } of CONCEPT_GUARDS) {
@@ -3363,3 +3779,63 @@ for (const { entry, obligation, verify } of CONCEPT_GUARDS) {
     verify(pack);
   });
 }
+
+// --- 20261002-113320: per-type tdd in change-id captures ---
+
+// Declares the `documentation` type of 113320 CR1 whatever the template ships,
+// so the capture is judged on the resolver, not on the template's content.
+function declareDocumentationType(root, globalTdd = true) {
+  const file = path.join(root, '.changeledger', 'config.yml');
+  const config = parseYaml(fs.readFileSync(file, 'utf8'));
+  config.tdd = globalTdd;
+  config.types.documentation = {
+    stages: ['request', 'investigation', 'specification', 'log'],
+    review_required: true,
+    tdd: false,
+  };
+  fs.writeFileSync(file, stringifyYaml(config));
+}
+
+function writeDocumentationChange(root, id, status) {
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'changes', `${id}-doc-fixture.md`),
+    `---
+id: "${id}"
+title: Doc fixture
+type: documentation
+status: ${status}
+created: 2026-10-02T11:33:20Z
+depends_on: []
+---
+
+## Request
+
+Document the topic.
+
+## Investigation
+
+Evidence.
+
+## Specification
+
+### CR1 — Claim
+- **Given** the code
+- **When** read
+- **Then** it matches
+
+## Log
+`,
+  );
+}
+
+test('113320 CR4: a tdd-off change publishes tdd=off and composes no readiness', () => {
+  const root = repo();
+  declareDocumentationType(root);
+  const id = '20261002-113321';
+  writeDocumentationChange(root, id, 'draft');
+  const output = buildContext(id, root);
+  const policy = output.split('\n').find((line) => line.startsWith('Effective policy:'));
+  assert.match(policy, /tdd=off/);
+  assert.doesNotMatch(output, /# Definition of Ready/);
+  assert.match(output, /# Authoring a Change/);
+});

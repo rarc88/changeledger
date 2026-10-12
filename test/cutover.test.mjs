@@ -21,6 +21,7 @@ import {
   writeActivation,
 } from '../src/state-store.mjs';
 import { parseYaml } from '../src/yaml.mjs';
+import { usageRecordText } from './helpers/ccusage.mjs';
 import { sanitizedEnv } from './helpers/git-env.mjs';
 import {
   buildTree,
@@ -1549,4 +1550,181 @@ test('20260812-022248 CR1: a symlinked cwd still cuts over with correct pathspec
     encoding: 'utf8',
   }).trim();
   assert.equal(subject, 'chore(state): cut the ledger over to the state ref');
+});
+
+// --- 20261002-133728 CR6: cutover carries the usage collection ---------------
+
+const USAGE_RECORDS = {
+  '20260808-000001--20260808T010000Z-0a1b2c3d.json': usageRecordText(
+    '20260808-000001',
+    '2026-08-08T01:00:00Z',
+  ),
+  '20260808-000001--20260808T020000Z-ffee0011.json': usageRecordText(
+    '20260808-000001',
+    '2026-08-08T02:00:00Z',
+  ),
+};
+
+function usageLedgerFiles(records = USAGE_RECORDS) {
+  const files = defaultLedgerFiles();
+  for (const [name, text] of Object.entries(records)) files[`.changeledger/usage/${name}`] = text;
+  return files;
+}
+
+test('20261002-133728 CR6: cutover publishes every usage record under its own name, and undo restores them', (t) => {
+  const { root } = seedLedgerRepo({ files: usageLedgerFiles() });
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+
+  const cut = cli(root, 'cutover');
+  assert.equal(cut.code, 0, cut.err || cut.out);
+
+  const { documents } = readSnapshot(root);
+  for (const [name, text] of Object.entries(USAGE_RECORDS)) {
+    assert.equal(documents[`usage/${name}`], text, name);
+  }
+  assert.equal(exists(root, '.changeledger/usage'), false);
+  assert.equal(git(root, ['status', '--porcelain']), '');
+  assert.equal(loadRepo(root).usage.length, 2);
+
+  const undone = cliCaptured(root, 'cutover', '--undo');
+  assert.equal(undone.code, 0, undone.err || undone.out);
+  for (const [name, text] of Object.entries(USAGE_RECORDS)) {
+    assert.equal(fs.readFileSync(path.join(root, '.changeledger', 'usage', name), 'utf8'), text);
+  }
+});
+
+test('20261002-133728 CR4: an invalid usage record aborts the cutover naming it, writing nothing', (t) => {
+  const bad = '20260808-000001--20260808T030000Z-deadbeef.json';
+  const { root } = seedLedgerRepo({
+    files: usageLedgerFiles({ ...USAGE_RECORDS, [bad]: '{"schema": 1,' }),
+  });
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const before = head(root);
+
+  const { code, err } = cli(root, 'cutover');
+
+  assert.notEqual(code, 0);
+  assert.match(err, new RegExp(`usage record ${bad.replace(/\./g, '\\.')}: invalid JSON`));
+  assert.equal(refExists(root, STATE_REF), false);
+  assert.equal(head(root), before);
+});
+
+// --- 20261002-161641: a state ref holding a collection this CLI does not know -
+
+const FUTURE_ENTRY = '.changeledger-state/future/a.json';
+const unknownRefusal = (version) =>
+  `the state ref holds collections ChangeLedger ${version} does not know (future); update the installation to use them`;
+const PACKAGE_VERSION = JSON.parse(
+  fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
+).version;
+
+// A child of `revision` whose tree adds FUTURE_ENTRY, built with raw plumbing:
+// this CLI's own mutator refuses to stage it.
+function withFutureEntry(root, revision) {
+  const entries = git(root, ['ls-tree', '-r', revision])
+    .split('\n')
+    .map((line) => {
+      const [meta, entryPath] = line.split('\t');
+      const [mode, , oid] = meta.split(' ');
+      return { path: entryPath, mode, oid };
+    });
+  entries.push({ path: FUTURE_ENTRY, text: '{"later":true}\n' });
+  return commitTree(root, buildTreeEntries(root, entries), {
+    parents: [revision],
+    message: 'chore: a later ChangeLedger writes its collection',
+  });
+}
+
+function assertRefusedUntouched(root, result, { stateRef, activated, headBefore, statusBefore }) {
+  assert.notEqual(result.code, 0, result.out);
+  assert.equal(git(root, ['status', '--porcelain']), statusBefore, 'index and worktree unchanged');
+  assert.ok(result.err.includes(unknownRefusal(PACKAGE_VERSION)), result.err);
+  assert.equal(git(root, ['rev-parse', STATE_REF]), stateRef);
+  assert.equal(refExists(root, ACTIVATION_REF), activated);
+  assert.equal(head(root), headBefore);
+}
+
+test('20261002-161641: a resumed cutover refuses a published ledger holding an unknown collection', () => {
+  const { root } = seedLedgerRepo();
+  const tip = withFutureEntry(root, publishLedgerState(root));
+  updateRef(root, STATE_REF, tip);
+  writeActivation(root, { stateRef: STATE_REF });
+  const headBefore = head(root);
+  const statusBefore = git(root, ['status', '--porcelain']);
+
+  const result = cliCaptured(root, 'cutover');
+
+  assert.match(result.err, /cutover cannot compare/);
+  assertRefusedUntouched(root, result, {
+    stateRef: tip,
+    activated: true,
+    headBefore,
+    statusBefore,
+  });
+  assert.equal(exists(root, '.changeledger/changes'), true, 'the worktree ledger stays');
+});
+
+test('20261002-161641: a first cutover refuses an existing state ref holding an unknown collection', () => {
+  const { root } = seedLedgerRepo();
+  const tip = withFutureEntry(root, publishLedgerState(root));
+  updateRef(root, STATE_REF, tip);
+  const headBefore = head(root);
+  const statusBefore = git(root, ['status', '--porcelain']);
+
+  const result = cliCaptured(root, 'cutover');
+
+  assertRefusedUntouched(root, result, {
+    stateRef: tip,
+    activated: false,
+    headBefore,
+    statusBefore,
+  });
+  assert.equal(exists(root, '.changeledger/changes'), true, 'the worktree ledger stays');
+});
+
+test('20261002-161641: an initialized-only state ref holding an unknown collection is not diagnosed as half-published', () => {
+  const { root } = seedLedgerRepo();
+  const config = parseYaml(ledgerConfigText);
+  const initialized = initState(root, { projectId: config.project_id, config }).revision;
+  const tip = withFutureEntry(root, initialized);
+  updateRef(root, STATE_REF, tip);
+  const headBefore = head(root);
+  const statusBefore = git(root, ['status', '--porcelain']);
+
+  const result = cliCaptured(root, 'cutover');
+
+  assert.doesNotMatch(result.err, /half-published|update-ref -d/);
+  assertRefusedUntouched(root, result, {
+    stateRef: tip,
+    activated: false,
+    headBefore,
+    statusBefore,
+  });
+});
+
+test('20261002-161641: undo refuses a baseline holding an unknown collection and keeps both refs', () => {
+  const { root } = seedLedgerRepo();
+  assert.equal(cli(root, 'cutover').code, 0);
+  // The record a CLI that read past the unknown entry would have left: the
+  // cut's baseline trailer names a revision that holds it.
+  const baseline = withFutureEntry(root, git(root, ['rev-parse', STATE_REF]));
+  updateRef(root, STATE_REF, baseline);
+  const message = git(root, ['log', '-1', '--format=%B', 'HEAD']).replace(
+    /^(Changeledger-Cutover-Baseline: )[0-9a-f]+$/m,
+    `$1${baseline}`,
+  );
+  git(root, ['commit', '--amend', '--no-verify', '-q', '-m', message]);
+  const headBefore = head(root);
+  const statusBefore = git(root, ['status', '--porcelain']);
+
+  const result = cliCaptured(root, 'cutover', '--undo');
+
+  assert.match(result.err, /cannot be undone/);
+  assertRefusedUntouched(root, result, {
+    stateRef: baseline,
+    activated: true,
+    headBefore,
+    statusBefore,
+  });
+  assert.equal(exists(root, '.changeledger/changes'), false, 'no revert was applied');
 });

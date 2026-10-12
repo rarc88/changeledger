@@ -11,6 +11,17 @@
 // CAS), local ahead (push), diverged (both moved). Only after that comparison
 // does anything get written.
 //
+// Before it adopts the remote revision it checks, in this order: the minimum
+// CLI version that revision declares (`assertCliAdmitted`); for a divergence,
+// that no document changed differently on both sides (`reconcile`); then the
+// store primitive that moves the ref validates the tree it would adopt —
+// `advanceStateRef` for a fast-forward, `commitMergedState` for a
+// reconciliation, each documenting its own guards. Among them, from
+// 20261012-141809, the tree must keep each path of the local tip and the
+// blob of each of its usage records; that check runs before a merge commit is
+// created. Each of these checks throws before the local ref moves or anything
+// is pushed. Publishing a local tip that is ahead runs none of them.
+//
 // It is never blocking. No remote, no remote ref, an unreachable remote or a
 // checkout that is not activated are informative no-ops with exit 0: no other
 // command consults `sync`, waits for it, or changes behavior when it has never
@@ -20,6 +31,7 @@
 
 import path from 'node:path';
 import { findChangeledgerDir } from '../config.mjs';
+import { VERSION } from '../framing.mjs';
 import { capturedRun, isAncestor } from '../git.mjs';
 import { treeEntries } from '../git-batch.mjs';
 import {
@@ -31,6 +43,7 @@ import {
   STATE_REF,
   STATE_ROOT,
 } from '../state-store.mjs';
+import { assertCliAdmitted } from '../version-guard.mjs';
 
 // The branch name the state ref carries inside `refs/heads/`, and therefore the
 // suffix of its remote-tracking copy under `refs/remotes/<remote>/`.
@@ -39,8 +52,9 @@ const STATE_BRANCH = STATE_REF.slice('refs/heads/'.length);
 // Which remote the state ref travels over. `origin` when it exists — the name
 // every clone gets by default — otherwise the single configured remote. Several
 // remotes and no `origin` is a genuine ambiguity: picking one for the human
-// would publish the journal somewhere they never named.
-export function resolveRemote(repoRoot, run) {
+// would publish the journal somewhere they never named. `subject` names what is
+// looked up in that error; the start guard passes its integration branch.
+export function resolveRemote(repoRoot, run, subject = 'the state ref') {
   const remotes = run(['remote'], repoRoot)
     .split('\n')
     .map((name) => name.trim())
@@ -49,7 +63,7 @@ export function resolveRemote(repoRoot, run) {
   if (remotes.includes('origin')) return 'origin';
   if (remotes.length === 1) return remotes[0];
   throw new Error(
-    `cannot decide which remote holds the state ref: this repo configures ${remotes.join(', ')} and none is "origin"`,
+    `cannot decide which remote holds ${subject}: this repo configures ${remotes.join(', ')} and none is "origin"`,
   );
 }
 
@@ -107,6 +121,7 @@ const COLLECTION_CLASSES = new Map([
   ['changes', 'change'],
   ['specs', 'spec'],
   ['releases', 'release'],
+  ['usage', 'usage record'],
 ]);
 
 // The class of a state path, for a human reading the report: the collection it
@@ -252,11 +267,28 @@ function reportStatus(repoRoot, { local }, output, run) {
   return 0;
 }
 
+// The remote-tracking copy an earlier fetch left behind, read the way `activate`
+// reads it and never refreshed: an unactivated checkout does no network I/O. An
+// ambiguous remote set is not a reason to fail here — the checkout is inactive,
+// so it falls back to the plain message like having no remote at all.
+function publishedTrackingRef(repoRoot, run) {
+  let remote;
+  try {
+    remote = resolveRemote(repoRoot, run);
+  } catch {
+    return null;
+  }
+  if (remote === null) return null;
+  const ref = `refs/remotes/${remote}/${STATE_BRANCH}`;
+  return optionalRefOid(repoRoot, ref, run) === null ? null : { remote, ref };
+}
+
 export function sync(
   { status = false } = {},
   cwd = process.cwd(),
   output = console,
   run = capturedRun,
+  installedVersion = VERSION,
 ) {
   const changeledgerDir = findChangeledgerDir(cwd);
   if (!changeledgerDir) {
@@ -271,10 +303,17 @@ export function sync(
   // unactivated checkout is told what the manual step is and nothing else.
   const local = readStateRef(repoRoot, run);
   if (resolveOwnedActivation(repoRoot, run) === null) {
+    if (local !== null) {
+      output.log(
+        `${STATE_REF} is present but this checkout is not activated — run \`changeledger activate\` to adopt it. sync changed nothing.`,
+      );
+      return 0;
+    }
+    const published = publishedTrackingRef(repoRoot, run);
     output.log(
-      local === null
+      published === null
         ? `Nothing to sync: this repo is not activated and ${STATE_REF} does not exist here.`
-        : `${STATE_REF} is present but this checkout is not activated — run \`changeledger activate\` to adopt it. sync changed nothing.`,
+        : `${published.ref} exists: the remote "${published.remote}" publishes global state, but this checkout is not activated — run \`changeledger activate\` to adopt it. sync changed nothing.`,
     );
     return 0;
   }
@@ -306,6 +345,12 @@ export function sync(
   if (relation === 'identical') {
     output.log(`Already in sync with "${remote}" at ${local}.`);
     return 0;
+  }
+  // The `preAction` guard compared the local config. A fast-forward or a
+  // reconciliation makes the remote revision part of the ledger, so its own
+  // minimum is compared before the local ref moves or a merge commit exists.
+  if (relation === 'behind' || relation === 'diverged') {
+    assertCliAdmitted(repoRoot, tracked, installedVersion, run);
   }
   if (relation === 'behind') {
     advanceStateRef(repoRoot, { expectedRevision: local, revision: tracked }, run);

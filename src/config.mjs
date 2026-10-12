@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { repoIsActivated } from './change-store.mjs';
-import { isValidBranchName } from './git.mjs';
+import { gitConfigGet, isValidBranchName } from './git.mjs';
 import { readStateConfigText } from './state-store.mjs';
 import { parseYaml } from './yaml.mjs';
 
@@ -91,19 +91,100 @@ function isInside(root, target) {
 // (`defaultBaseBranch`); a present but malformed value fails fast instead of
 // silently falling back.
 export function integrationBranch(config) {
+  return declaredGitBranch(config, 'integration_branch');
+}
+
+// Optional declared release (production) branch, under the same contract as
+// `integrationBranch`. Its absence is not a config defect: it matters only to a
+// type that integrates into it, and `changeIntegrationBranch` reports it there.
+export function releaseBranch(config) {
+  return declaredGitBranch(config, 'release_branch');
+}
+
+function declaredGitBranch(config, key) {
   const git = config?.git;
   if (git === undefined || git === null) return undefined;
   if (!isMapping(git)) throw new Error('config "git" must be a mapping');
-  const value = git.integration_branch;
+  const value = git[key];
   if (value === undefined || value === null) return undefined;
   if (typeof value !== 'string' || value.trim() === '') {
-    throw new Error('config "git.integration_branch" must be a non-empty string');
+    throw new Error(`config "git.${key}" must be a non-empty string`);
   }
   return value.trim();
 }
 
+// `types.<type>.integrates_into` names the role of the branch a change of that
+// type starts from and integrates into. `check` reports a value outside the
+// roles through this same message, so the resolver and the checker never drift.
+const INTEGRATION_ROLES = ['integration', 'release'];
+
+export function integrationRoleError(type, typeConfig) {
+  if (!isMapping(typeConfig) || !('integrates_into' in typeConfig)) return undefined;
+  if (INTEGRATION_ROLES.includes(typeConfig.integrates_into)) return undefined;
+  return `config type "${type}": integrates_into must be "integration" or "release"`;
+}
+
+// The branch a change of `type` starts from and integrates into. No role (or no
+// type, as in a mode context) means `integration`: the repo's
+// `git.integration_branch`. A release type never falls back to the integration
+// branch when `git.release_branch` is undeclared — that would silently start a
+// release fix from unreleased work (20261002-181346).
+export function changeIntegrationBranch(config, type) {
+  const typeConfig = type === undefined ? undefined : config?.types?.[type];
+  const roleError = integrationRoleError(type, typeConfig);
+  if (roleError) throw new Error(roleError);
+  if (typeConfig?.integrates_into !== 'release') return integrationBranch(config);
+  const branch = releaseBranch(config);
+  if (branch === undefined) throw new Error(undeclaredReleaseBranchMessage(type));
+  return branch;
+}
+
+// The common stretch of both refusals: `changeIntegrationBranch` throws it as
+// is, and `releaseBranchRequirementError` extends it with the action to take,
+// so the two messages cannot drift apart.
+function undeclaredReleaseBranchMessage(type) {
+  return `type "${type}" integrates into git.release_branch, which is not declared`;
+}
+
+// The defect a change of `type` carries when the repo declares no release
+// branch for a type that integrates into it, or `undefined` when it carries
+// none. `new` refuses to create such a change with it and `check` reports it on
+// one that already exists (20261012-174310). A malformed `git.release_branch`
+// throws from `releaseBranch`, as it does for `changeIntegrationBranch`.
+export function releaseBranchRequirementError(config, type) {
+  if (config?.types?.[type]?.integrates_into !== 'release') return undefined;
+  if (releaseBranch(config) !== undefined) return undefined;
+  return `${undeclaredReleaseBranchMessage(type)} — set git.release_branch in .changeledger/config.yml, for example "main"`;
+}
+
 function isMapping(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+// Optional usage capture (20261001-155612), activated per clone in git config
+// rather than in `config.yml`: it measures the local machine, and an activated
+// repo's `config.yml` is not editable from the worktree. Unset means off; any
+// value other than `ccusage` (empty included) is an error rather than a
+// silent no-op. Without a git binary there is no git config, so it reads as
+// unset.
+export const USAGE_COLLECTOR_GIT_KEY = 'changeledger.usage.collector';
+export const USAGE_COLLECTORS = ['ccusage'];
+
+export function usageCollector(repoRoot, run) {
+  let value;
+  try {
+    value = gitConfigGet(repoRoot, USAGE_COLLECTOR_GIT_KEY, run);
+  } catch (e) {
+    if (e?.code === 'ENOENT') return undefined;
+    throw new Error(`could not read git config "${USAGE_COLLECTOR_GIT_KEY}": ${e.message}`);
+  }
+  if (value === undefined) return undefined;
+  if (!USAGE_COLLECTORS.includes(value)) {
+    throw new Error(
+      `git config "${USAGE_COLLECTOR_GIT_KEY}" must be ${USAGE_COLLECTORS.map((c) => `"${c}"`).join(' or ')}`,
+    );
+  }
+  return value;
 }
 
 // Opt-in convention for implementation branches. Only immutable change fields

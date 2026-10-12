@@ -10,10 +10,11 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { sync as syncCommand } from '../src/commands/sync.mjs';
 import { capturedRun } from '../src/git.mjs';
 import { ACTIVATION_REF, mutateState, readSnapshot, STATE_REF } from '../src/state-store.mjs';
+import { encodeProjectPath } from '../src/usage-collector.mjs';
 import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 import {
   buildTree,
@@ -22,6 +23,7 @@ import {
   defaultStateFiles,
   git,
   ledgerChangeText,
+  ledgerConfigText,
   ledgerSpecText,
   seedLedgerRepo,
   updateRef,
@@ -102,10 +104,10 @@ function activatedRepo({ files = listableStateFiles() } = {}) {
 // `refs/heads/changeledger/state` to `refs/remotes/origin/...` and creates no
 // local branch for it, and `sync` deliberately never takes that decision for a
 // checkout that is not activated yet.
-function syncFixture() {
+function syncFixture({ files } = {}) {
   const remote = tmpdir('changeledger-sync-remote-');
   initGitFixture(remote, { args: ['--bare', '-b', 'main'] });
-  const { root: a, revision } = activatedRepo();
+  const { root: a, revision } = activatedRepo({ files });
   git(a, ['remote', 'add', 'origin', remote]);
   git(a, ['push', '-q', 'origin', 'main', STATE_REF]);
 
@@ -488,4 +490,572 @@ test('20260811-151426 CR3: a reconciliation whose merged tree is invalid leaves 
   assert.equal(cli(a, 'check').code, checkBefore, 'the ledger must still validate as it did');
   assert.notEqual(cli(a, 'sync').code, 0, 'the failure is idempotent — no half-written state');
   assert.equal(refOid(a, STATE_REF), localTip);
+});
+
+// --- 20261002-152923: an unactivated clone is told the remote publishes state --
+
+const PUBLISHES_MESSAGE =
+  'refs/remotes/origin/changeledger/state exists: the remote "origin" publishes global state, but this checkout is not activated — run `changeledger activate` to adopt it. sync changed nothing.';
+const NOTHING_MESSAGE = `Nothing to sync: this repo is not activated and ${STATE_REF} does not exist here.`;
+
+// A real `git clone` of a remote that carries a published state ref: the clone
+// holds the remote-tracking copy and, exactly as after a fresh clone, neither
+// the local state ref nor the activation.
+function unactivatedClone() {
+  const remote = tmpdir('changeledger-sync-remote-');
+  initGitFixture(remote, { args: ['--bare', '-b', 'main'] });
+  const { root: source, revision } = activatedRepo();
+  git(source, ['remote', 'add', 'origin', remote]);
+  git(source, ['push', '-q', 'origin', 'main', STATE_REF]);
+  const parent = tmpdir('changeledger-sync-clone-');
+  const clone = path.join(parent, 'clone');
+  git(parent, ['clone', '-q', remote, clone]);
+  git(clone, ['config', 'user.name', 'Test User']);
+  git(clone, ['config', 'user.email', 'test@example.com']);
+  return { remote, source, clone, revision };
+}
+
+function worktreeSnapshot(root) {
+  return git(root, ['status', '--porcelain', '--untracked-files=all']);
+}
+
+test('20261002-152923 CR1: sync in an unactivated clone says the remote publishes state and changes nothing', () => {
+  const { clone, revision } = unactivatedClone();
+  assert.equal(optionalOid(clone, STATE_REF), null);
+  assert.equal(refOid(clone, TRACKING_REF), revision);
+  const before = worktreeSnapshot(clone);
+
+  const { code, out, err } = cli(clone, 'sync');
+
+  assert.equal(code, 0, err);
+  assert.equal(out.trim(), PUBLISHES_MESSAGE);
+  assert.equal(optionalOid(clone, STATE_REF), null, 'sync must not create the local state ref');
+  assert.equal(optionalOid(clone, ACTIVATION_REF), null, 'sync must not activate anything');
+  assert.equal(worktreeSnapshot(clone), before, 'sync must not touch the worktree');
+});
+
+test('20261002-152923 CR2: sync --status in the same clone says the same thing', () => {
+  const { clone } = unactivatedClone();
+
+  const { code, out, err } = cli(clone, 'sync', '--status');
+
+  assert.equal(code, 0, err);
+  assert.equal(out.trim(), PUBLISHES_MESSAGE);
+});
+
+test('20261002-152923 CR3: without a remote-tracking copy the current message stands, with and without a remote', () => {
+  const { root } = seedLedgerRepo();
+  const withoutRemote = cli(root, 'sync');
+  assert.equal(withoutRemote.code, 0, withoutRemote.err);
+  assert.equal(withoutRemote.out.trim(), NOTHING_MESSAGE);
+
+  git(root, ['remote', 'add', 'origin', path.join(os.tmpdir(), 'changeledger-absent-remote.git')]);
+  const withRemote = cli(root, 'sync');
+  assert.equal(withRemote.code, 0, withRemote.err);
+  assert.equal(withRemote.out.trim(), NOTHING_MESSAGE);
+});
+
+test('20261002-152923: an ambiguous remote set in an unactivated clone keeps the current message instead of failing', () => {
+  const { root } = seedLedgerRepo();
+  git(root, ['remote', 'add', 'alpha', path.join(os.tmpdir(), 'changeledger-absent-alpha.git')]);
+  git(root, ['remote', 'add', 'beta', path.join(os.tmpdir(), 'changeledger-absent-beta.git')]);
+
+  const { code, out, err } = cli(root, 'sync');
+
+  assert.equal(code, 0, err);
+  assert.equal(out.trim(), NOTHING_MESSAGE);
+});
+
+test('20261002-152923 CR4: the notice needs no network — an unreachable origin and no network subprocess', () => {
+  const { clone } = unactivatedClone();
+  git(clone, ['remote', 'set-url', 'origin', path.join(os.tmpdir(), 'changeledger-absent.git')]);
+  const { run, argv } = spyRun();
+  const output = capturingOutput();
+
+  const code = syncCommand({}, clone, output, run);
+
+  assert.equal(code, 0);
+  assert.deepEqual(output.lines, [PUBLISHES_MESSAGE]);
+  assert.ok(argv.length > 0, 'the notice path must really have run git');
+  assert.deepEqual(networkCalls(argv), []);
+  const real = cli(clone, 'sync');
+  assert.equal(real.code, 0, real.err);
+  assert.equal(real.out.trim(), PUBLISHES_MESSAGE);
+});
+
+test('20261002-152923 CR5: list in the unactivated clone serves the worktree exactly as without the tracking copy', () => {
+  const { clone } = unactivatedClone();
+  const withCopy = cli(clone, 'list', '--all', '--json');
+  assert.equal(withCopy.code, 0, withCopy.err);
+
+  git(clone, ['update-ref', '-d', TRACKING_REF]);
+  const withoutCopy = cli(clone, 'list', '--all', '--json');
+
+  assert.equal(withoutCopy.code, 0, withoutCopy.err);
+  assert.equal(withCopy.out, withoutCopy.out);
+});
+
+test('20261002-152923 CR6: clone, sync, activate and sync --status walk from the notice to an agreeing journal', () => {
+  const { clone, revision } = unactivatedClone();
+
+  const first = cli(clone, 'sync');
+  assert.equal(first.code, 0, first.err);
+  assert.equal(first.out.trim(), PUBLISHES_MESSAGE);
+
+  const activate = cli(clone, 'activate');
+  assert.equal(activate.code, 0, activate.err);
+  assert.match(activate.out, /Seeded .* from refs\/remotes\/origin at /);
+  assert.equal(refOid(clone, STATE_REF), revision);
+
+  const status = cli(clone, 'sync', '--status');
+  assert.equal(status.code, 0, status.err);
+  assert.match(status.out, /Relation: identical — the last fetch and the local journal agree/);
+});
+
+// --- 20261002-133728 CR3: two clones' records merge without a conflict ------
+
+const FAKE_CCUSAGE = fileURLToPath(new URL('fixtures/ccusage/fake-ccusage.mjs', import.meta.url));
+const COLLECTOR = fileURLToPath(new URL('../src/usage-collector.mjs', import.meta.url));
+
+// One clone's snapshot, taken in its own process as on its own machine: a
+// process-wide counter could not tell two clones apart in a single test
+// process. The local fake answers for ccusage; `who` is `recorded_by`.
+function snapshotInOwnProcess(root, event, who) {
+  const script = `
+    const { snapshotUsage } = await import(${JSON.stringify(pathToFileURL(COLLECTOR).href)});
+    const warnings = [];
+    snapshotUsage({
+      repoRoot: ${JSON.stringify(root)},
+      events: [${JSON.stringify(event)}],
+      usage: { ownerHandle: () => ${JSON.stringify(who)}, warn: (l) => warnings.push(l) },
+    });
+    process.stdout.write(JSON.stringify(warnings));
+  `;
+  const result = spawnSync(process.execPath, ['--input-type=module', '-e', script], {
+    cwd: root,
+    env: sanitizedEnv({
+      CHANGELEDGER_USAGE_COMMAND: JSON.stringify([process.execPath, FAKE_CCUSAGE]),
+      FAKE_CCUSAGE_ROOT: encodeProjectPath(root),
+    }),
+    encoding: 'utf8',
+  });
+  assert.equal(result.status, 0, result.stderr);
+  return JSON.parse(result.stdout);
+}
+
+test('20261002-133728 CR3: two clones recording the same change in the same second sync without conflict', (t) => {
+  const { remote, a, b } = syncFixture();
+  for (const dir of [remote, a, path.dirname(b)]) {
+    t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  }
+  const event = {
+    change: '20260808-000001',
+    event: 'status',
+    from: 'approved',
+    to: 'in-progress',
+    at: '2026-10-02T15:32:33Z',
+  };
+  for (const [root, who] of [
+    [a, 'alice'],
+    [b, 'bob'],
+  ]) {
+    git(root, ['config', 'changeledger.usage.collector', 'ccusage']);
+    assert.deepEqual(snapshotInOwnProcess(root, event, who), []);
+  }
+
+  assert.equal(cli(b, 'sync').code, 0, 'the other clone publishes first');
+  const merged = cli(a, 'sync');
+  assert.equal(merged.code, 0, `${merged.out}${merged.err}`);
+
+  const records = Object.entries(readSnapshot(a).documents)
+    .filter(([name]) => name.startsWith('usage/20260808-000001--20261002T153233Z-'))
+    .map(([, text]) => JSON.parse(text).recorded_by)
+    .sort();
+  assert.deepEqual(records, ['alice', 'bob']);
+
+  assert.equal(cli(b, 'sync').code, 0);
+  assert.equal(refOid(b, STATE_REF), refOid(a, STATE_REF));
+});
+
+test('20261002-133728: a colliding usage path is reported as a usage record', (t) => {
+  const { remote, a, b } = syncFixture();
+  for (const dir of [remote, a, path.dirname(b)]) {
+    t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  }
+  const name = 'usage/20260808-000001--20261002T153233Z-0a1b2c3d.json';
+  writeDocument(a, name, '{"schema": 1, "side": "a"}\n');
+  writeDocument(b, name, '{"schema": 1, "side": "b"}\n');
+  assert.equal(cli(b, 'sync').code, 0);
+
+  const { code, err } = cli(a, 'sync');
+
+  assert.notEqual(code, 0);
+  assert.match(err, /- usage record usage\/20260808-000001--20261002T153233Z-0a1b2c3d\.json: /);
+});
+
+// --- 20261002-161641: a collection this CLI does not know travels intact -----
+
+const FUTURE_PATH = '.changeledger-state/future/a.json';
+const FUTURE_ID = '20260808-000001';
+const unknownWarning = (version) =>
+  `warning: the state ref holds collections ChangeLedger ${version} does not know (future); update the installation to use them`;
+const PACKAGE_VERSION = JSON.parse(
+  fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
+).version;
+
+// A ledger a later ChangeLedger wrote: the full fixture config, one `approved`
+// change, and an entry in a collection this checkout's STATE_COLLECTION_EXTENSIONS
+// does not declare.
+function futureStateFiles() {
+  return {
+    ...listableStateFiles(),
+    '.changeledger-state/config.yml': ledgerConfigText,
+    [`.changeledger-state/changes/${FUTURE_ID}-change.md`]: ledgerChangeText({
+      id: FUTURE_ID,
+    }).replace('status: draft', 'status: approved'),
+    [FUTURE_PATH]: '{"written_by":"a later ChangeLedger"}\n',
+  };
+}
+
+function futureSyncFixture(t) {
+  const fixture = syncFixture({ files: futureStateFiles() });
+  for (const dir of [fixture.remote, fixture.a, path.dirname(fixture.b)]) {
+    t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  }
+  return fixture;
+}
+
+function blobAt(root, revision, full) {
+  return git(root, ['rev-parse', `${revision}:${full}`]);
+}
+
+test('20261002-161641 CR6: the usual flow works over an unknown collection, and sync keeps it on both refs', (t) => {
+  const { remote, a, b, revision } = futureSyncFixture(t);
+  const original = blobAt(a, revision, FUTURE_PATH);
+  const steps = [
+    ['context'],
+    ['list', '--status', 'approved'],
+    ['status', FUTURE_ID, 'in-progress'],
+  ];
+  for (const args of steps) {
+    const { code, out, err } = cli(b, ...args);
+    const label = args.join(' ');
+    assert.equal(code, 0, `${label}: ${out}${err}`);
+    assert.equal(err.split(unknownWarning(PACKAGE_VERSION)).length - 1, 1, `${label}: ${err}`);
+    if (args[0] === 'list') assert.match(out, new RegExp(FUTURE_ID));
+  }
+  // The other clone moves too, so b's sync has to reconcile, not fast-forward.
+  addChange(a, '20261002-000002');
+  assert.equal(cli(a, 'sync').code, 0, 'the other clone publishes first');
+
+  const synced = cli(b, 'sync');
+  assert.equal(synced.code, 0, `${synced.out}${synced.err}`);
+  assert.match(synced.out, /Reconciled disjoint journals/);
+  assert.equal(synced.err.split(unknownWarning(PACKAGE_VERSION)).length - 1, 1, synced.err);
+
+  const local = refOid(b, STATE_REF);
+  assert.equal(refOid(remote, STATE_REF), local, 'the reconciliation is published');
+  assert.equal(blobAt(b, local, FUTURE_PATH), original, 'the local ref keeps the entry');
+  assert.equal(blobAt(remote, local, FUTURE_PATH), original, 'the remote ref keeps the entry');
+  const listed = JSON.parse(cli(b, 'list', '--all', '--json').out);
+  assert.deepEqual(
+    listed.map((change) => [change.id, change.status]),
+    [
+      [FUTURE_ID, 'in-progress'],
+      ['20261002-000002', 'draft'],
+    ],
+  );
+});
+
+test('20261002-161641 CR3: a sync whose merge would drop an unknown entry is refused, both refs unmoved', (t) => {
+  const { remote, a, b } = futureSyncFixture(t);
+  // The remote's side drops the entry with raw plumbing — what a foreign
+  // writer, or a later CLI that knows the collection, could publish.
+  const { [FUTURE_PATH]: _dropped, ...withoutFuture } = futureStateFiles();
+  const dropped = commitTree(b, buildTree(b, withoutFuture), {
+    parents: [refOid(b, STATE_REF)],
+    message: 'chore: drop the future entry',
+  });
+  updateRef(b, STATE_REF, dropped);
+  git(b, ['push', '-q', 'origin', STATE_REF]);
+  const localTip = addChange(a, '20261002-000003');
+
+  const { code, err } = cli(a, 'sync');
+
+  assert.notEqual(code, 0, err);
+  assert.match(
+    err,
+    /merged state drops "\.changeledger-state\/future\/a\.json", an entry of a collection this ChangeLedger does not know/,
+  );
+  assert.equal(refOid(a, STATE_REF), localTip, 'the local ref must not move');
+  assert.equal(refOid(remote, STATE_REF), dropped, 'nothing was published');
+});
+
+// --- 20261012-125611: sync does not adopt a remote minimum above the CLI -----
+
+const belowMinimum = (required) =>
+  `ChangeLedger CLI ${PACKAGE_VERSION} is below this repository's minimum ${required}; update the global installation.`;
+
+const minConfigText = (min) =>
+  `project_id: fixture01\nschema_version: 6\nmin_cli_version: ${min}\n`;
+
+// Two activated clones of one remote whose shared state declares a minimum the
+// installed CLI satisfies (0.0.1); `b` then publishes a revision raising it to
+// `min`. The publish is raw git: once `b`'s own config declares a minimum above
+// the CLI, the `preAction` guard stops `b`'s `changeledger sync`.
+function raisedMinimumFixture(t, min) {
+  const fixture = syncFixture({
+    files: {
+      ...listableStateFiles(),
+      '.changeledger-state/config.yml': minConfigText('0.0.1'),
+    },
+  });
+  for (const dir of [fixture.remote, fixture.a, path.dirname(fixture.b)]) {
+    t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  }
+  writeDocument(fixture.b, 'config.yml', minConfigText(min));
+  git(fixture.b, ['push', '-q', 'origin', STATE_REF]);
+  return fixture;
+}
+
+// Commit objects in `root` whose parents are exactly `parents`, reachable or
+// not: a merge commit written and then left unreferenced still counts.
+function commitsWithParents(root, parents) {
+  return git(root, ['cat-file', '--batch-all-objects', '--batch-check=%(objectname) %(objecttype)'])
+    .split('\n')
+    .filter((line) => line.endsWith(' commit'))
+    .map((line) => line.split(' ')[0])
+    .filter((oid) => git(root, ['show', '-s', '--format=%P', oid]) === parents.join(' '));
+}
+
+test('20261012-125611 CR1: a fast-forward does not adopt a remote minimum above the CLI', (t) => {
+  const { remote, a } = raisedMinimumFixture(t, '99.0.0');
+  const localBefore = refOid(a, STATE_REF);
+  const remoteBefore = refOid(remote, STATE_REF);
+
+  const { code, out, err } = cli(a, 'sync');
+
+  assert.notEqual(code, 0, `sync exited 0 over a higher remote minimum: ${out}`);
+  assert.ok(err.includes(belowMinimum('99.0.0')), err);
+  assert.equal(refOid(a, STATE_REF), localBefore, 'the local state ref must keep its oid');
+  assert.equal(refOid(remote, STATE_REF), remoteBefore, 'the remote must not change');
+});
+
+test('20261012-125611 CR2: a reconciliation does not adopt a remote minimum above the CLI', (t) => {
+  const { remote, a } = raisedMinimumFixture(t, '99.0.0');
+  const localTip = addChange(a, '20261012-000001');
+  const remoteBefore = refOid(remote, STATE_REF);
+
+  const { code, out, err } = cli(a, 'sync');
+
+  assert.notEqual(code, 0, `sync exited 0 over a higher remote minimum: ${out}`);
+  assert.ok(err.includes(belowMinimum('99.0.0')), err);
+  assert.equal(refOid(a, STATE_REF), localTip, 'the local state ref must keep its oid');
+  assert.deepEqual(commitsWithParents(a, [localTip, remoteBefore]), [], 'no merge commit');
+  assert.equal(refOid(remote, STATE_REF), remoteBefore, 'nothing was published');
+});
+
+test('20261012-125611 CR3: a remote minimum the CLI satisfies fast-forwards as before', (t) => {
+  const { remote, a } = raisedMinimumFixture(t, '0.1.0');
+  const published = refOid(remote, STATE_REF);
+  assert.notEqual(refOid(a, STATE_REF), published, 'the remote really is ahead');
+
+  const { code, out, err } = cli(a, 'sync');
+
+  assert.equal(code, 0, `${out}${err}`);
+  assert.equal(refOid(a, STATE_REF), published, 'the local ref advances to the remote revision');
+});
+
+// --- 20261012-141809: sync refuses a revision that drops a local path ---------
+
+const STATE = '.changeledger-state';
+const BETA_PATH = `${STATE}/changes/20261012-000002-beta.md`;
+const SPEC_PATH = `${STATE}/specs/demo-spec.md`;
+const RELEASE_PATH = `${STATE}/releases/0.1.0.yml`;
+const USAGE_PATH = `${STATE}/usage/20261012-000002--20261012T000000Z-0a1b2c3d.json`;
+const UNKNOWN_PATH = `${STATE}/future/a.json`;
+
+// Changes `alpha` (20260808-000001) and `beta`, a spec, a release, a usage
+// record and an entry of the unknown collection `future`.
+function identityStateFiles() {
+  return {
+    ...listableStateFiles(),
+    [BETA_PATH]: ledgerChangeText({ id: '20261012-000002' }),
+    [USAGE_PATH]: '{"schema":1,"recorded_by":"alice"}\n',
+    [UNKNOWN_PATH]: '{"written_by":"a later ChangeLedger"}\n',
+  };
+}
+
+function identityFixture(t) {
+  const fixture = syncFixture({ files: identityStateFiles() });
+  for (const dir of [fixture.remote, fixture.a, path.dirname(fixture.b)]) {
+    t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  }
+  return fixture;
+}
+
+// Publishes from `b`, with raw git, a descendant of its state tip whose tree is
+// exactly `files`: what a foreign writer could push.
+function publishRaw(b, files, message) {
+  const revision = commitTree(b, buildTree(b, files), {
+    parents: [refOid(b, STATE_REF)],
+    message,
+  });
+  updateRef(b, STATE_REF, revision);
+  git(b, ['push', '-q', 'origin', STATE_REF]);
+  return revision;
+}
+
+function without(files, dropped) {
+  const { [dropped]: _dropped, ...rest } = files;
+  return rest;
+}
+
+const adoptedNothing = (subject, verb, dropped) =>
+  `Error: ${subject} ${verb} "${dropped}", present in the local state; sync adopted nothing`;
+
+test('20261012-141809 CR1: a fast-forward does not adopt a revision that drops a change', (t) => {
+  const { remote, a, b } = identityFixture(t);
+  const dropped = publishRaw(b, without(identityStateFiles(), BETA_PATH), 'chore: drop beta');
+  const localBefore = refOid(a, STATE_REF);
+
+  const { code, out, err } = cli(a, 'sync');
+
+  assert.notEqual(code, 0, `sync exited 0 over a dropped change: ${out}`);
+  assert.ok(err.includes(adoptedNothing(`state revision ${dropped}`, 'drops', BETA_PATH)), err);
+  assert.equal(refOid(a, STATE_REF), localBefore, 'the local state ref must keep its oid');
+  assert.ok(listedIds(a).includes('20261012-000002'), 'list --all must still show beta');
+  assert.equal(refOid(remote, STATE_REF), dropped, 'the remote must not change');
+});
+
+for (const [label, droppedPath] of [
+  ['a spec', SPEC_PATH],
+  ['a release', RELEASE_PATH],
+  ['a usage record', USAGE_PATH],
+  ['an unknown collection entry', UNKNOWN_PATH],
+]) {
+  test(`20261012-141809 CR2: a fast-forward does not adopt a revision that drops ${label}`, (t) => {
+    const { a, b } = identityFixture(t);
+    const dropped = publishRaw(b, without(identityStateFiles(), droppedPath), 'chore: drop one');
+    const localBefore = refOid(a, STATE_REF);
+
+    const { code, out, err } = cli(a, 'sync');
+
+    assert.notEqual(code, 0, `sync exited 0 over a dropped path: ${out}`);
+    assert.ok(err.includes(adoptedNothing(`state revision ${dropped}`, 'drops', droppedPath)), err);
+    assert.equal(refOid(a, STATE_REF), localBefore, 'the local state ref must keep its oid');
+  });
+}
+
+test('20261012-141809 CR3: a reconciliation does not publish a tree that drops identities', (t) => {
+  const { remote, a, b } = identityFixture(t);
+  const localTip = writeDocument(
+    a,
+    'changes/20260808-000001-change.md',
+    `${changeText()}\nEdit.\n`,
+  );
+  const dropped = publishRaw(
+    b,
+    without(without(identityStateFiles(), BETA_PATH), USAGE_PATH),
+    'chore: drop beta and a usage record',
+  );
+
+  const { code, out, err } = cli(a, 'sync');
+
+  assert.notEqual(code, 0, `sync exited 0 over a lossy merge: ${out}`);
+  // `changes/` sorts before `usage/`: the first lost path is beta.
+  assert.ok(err.includes(adoptedNothing('merged state', 'drops', BETA_PATH)), err);
+  assert.deepEqual(commitsWithParents(a, [localTip, dropped]), [], 'no merge commit');
+  assert.equal(refOid(a, STATE_REF), localTip, 'the local state ref must keep its oid');
+  assert.equal(refOid(remote, STATE_REF), dropped, 'the remote must not change');
+});
+
+for (const [label, droppedPath] of [
+  ['a spec', SPEC_PATH],
+  ['a release', RELEASE_PATH],
+  ['a usage record', USAGE_PATH],
+]) {
+  test(`20261012-141809 CR3: a reconciliation does not publish a tree that drops ${label}`, (t) => {
+    const { remote, a, b } = identityFixture(t);
+    const localTip = addChange(a, '20261012-000006');
+    const dropped = publishRaw(b, without(identityStateFiles(), droppedPath), 'chore: drop one');
+
+    const { code, out, err } = cli(a, 'sync');
+
+    assert.notEqual(code, 0, `sync exited 0 over a lossy merge: ${out}`);
+    assert.ok(err.includes(adoptedNothing('merged state', 'drops', droppedPath)), err);
+    assert.deepEqual(commitsWithParents(a, [localTip, dropped]), [], 'no merge commit');
+    assert.equal(refOid(a, STATE_REF), localTip, 'the local state ref must keep its oid');
+    assert.equal(refOid(remote, STATE_REF), dropped, 'the remote must not change');
+  });
+}
+
+test('20261012-141809 CR4: a remote that adds a change and edits another fast-forwards', (t) => {
+  const { remote, a, b } = identityFixture(t);
+  addChange(b, '20261012-000003');
+  writeDocument(b, 'changes/20260808-000001-change.md', `${changeText()}\nEdit.\n`);
+  assert.equal(cli(b, 'sync').code, 0, 'the other clone publishes first');
+  const published = refOid(remote, STATE_REF);
+  assert.notEqual(refOid(a, STATE_REF), published, 'the remote really is ahead');
+
+  const { code, out, err } = cli(a, 'sync');
+
+  assert.equal(code, 0, `${out}${err}`);
+  assert.equal(refOid(a, STATE_REF), published, 'the local ref advances to the remote revision');
+});
+
+test('20261012-141809 CR5: a merge that drops an unknown entry keeps its own diagnostic', (t) => {
+  const { remote, a, b } = identityFixture(t);
+  const dropped = publishRaw(b, without(identityStateFiles(), UNKNOWN_PATH), 'chore: drop');
+  const localTip = addChange(a, '20261012-000004');
+
+  const { code, err } = cli(a, 'sync');
+
+  assert.notEqual(code, 0, err);
+  assert.ok(
+    err.includes(
+      `Error: merged state drops "${UNKNOWN_PATH}", an entry of a collection this ChangeLedger does not know (future); update the installation before syncing`,
+    ),
+    err,
+  );
+  assert.deepEqual(commitsWithParents(a, [localTip, dropped]), [], 'no merge commit');
+  assert.equal(refOid(a, STATE_REF), localTip, 'the local ref must not move');
+  assert.equal(refOid(remote, STATE_REF), dropped, 'nothing was published');
+});
+
+const rewrittenUsage = () => ({
+  ...identityStateFiles(),
+  [USAGE_PATH]: '{"schema":1,"recorded_by":"mallory"}\n',
+});
+
+test('20261012-141809 CR6: a fast-forward does not adopt a rewritten usage record', (t) => {
+  const { remote, a, b } = identityFixture(t);
+  const rewritten = publishRaw(b, rewrittenUsage(), 'chore: rewrite a usage record');
+  const localBefore = refOid(a, STATE_REF);
+
+  const { code, out, err } = cli(a, 'sync');
+
+  assert.notEqual(code, 0, `sync exited 0 over a rewritten usage record: ${out}`);
+  assert.ok(
+    err.includes(
+      adoptedNothing(`state revision ${rewritten}`, 'rewrites usage record', USAGE_PATH),
+    ),
+    err,
+  );
+  assert.equal(refOid(a, STATE_REF), localBefore, 'the local state ref must keep its oid');
+  assert.equal(refOid(remote, STATE_REF), rewritten, 'the remote must not change');
+});
+
+test('20261012-141809 CR6: a reconciliation does not publish a rewritten usage record', (t) => {
+  const { remote, a, b } = identityFixture(t);
+  const localTip = addChange(a, '20261012-000005');
+  const rewritten = publishRaw(b, rewrittenUsage(), 'chore: rewrite a usage record');
+
+  const { code, out, err } = cli(a, 'sync');
+
+  assert.notEqual(code, 0, `sync exited 0 over a rewritten usage record: ${out}`);
+  assert.ok(err.includes(adoptedNothing('merged state', 'rewrites usage record', USAGE_PATH)), err);
+  assert.deepEqual(commitsWithParents(a, [localTip, rewritten]), [], 'no merge commit');
+  assert.equal(refOid(a, STATE_REF), localTip, 'the local state ref must keep its oid');
+  assert.equal(refOid(remote, STATE_REF), rewritten, 'the remote must not change');
 });

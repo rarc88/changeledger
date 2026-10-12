@@ -29,6 +29,7 @@ import {
   resolveRepoPath,
   resolveSpecsDir,
 } from '../config.mjs';
+import { VERSION } from '../framing.mjs';
 import { capturedRun, defaultBaseBranch, gitTopLevel, isAncestor, mutatingRun } from '../git.mjs';
 import { assertRegularBlobEntry, treeEntries } from '../git-batch.mjs';
 import { resolveReleasesDir } from '../release.mjs';
@@ -42,8 +43,10 @@ import {
   readStateRef,
   STATE_REF,
   STATE_ROOT,
+  unknownCollectionsMessage,
   writeActivation,
 } from '../state-store.mjs';
+import { USAGE_COLLECTION, usageEntry, usageRecordsDir } from '../usage-collector.mjs';
 import { parseYaml } from '../yaml.mjs';
 import { readLedgerAt, toPosix } from './ledger-tree.mjs';
 
@@ -100,6 +103,11 @@ function ledgerLayout(repoRoot, changeledgerDir, config, run) {
         extension: '.yml',
         prefix: `${rel(resolveReleasesDir(realRoot))}/`,
       },
+      {
+        name: USAGE_COLLECTION,
+        extension: '.json',
+        prefix: `${rel(usageRecordsDir(realRoot))}/`,
+      },
     ],
   };
 }
@@ -113,12 +121,14 @@ function validateLedger(source) {
   const changes = [];
   const specs = [];
   const releases = [];
+  const usage = [];
 
   for (const [name, text] of source.documents) {
     const base = name.slice(name.indexOf('/') + 1);
     try {
       if (name.startsWith('changes/')) changes.push({ name: base, text, ...parseChange(text) });
       else if (name.startsWith('specs/')) specs.push({ name: base, ...parseSpec(text) });
+      else if (name.startsWith(`${USAGE_COLLECTION}/`)) usage.push(usageEntry(base, text));
       else releases.push({ name: base, ...parseYaml(text) });
     } catch (e) {
       throw new Error(`the ledger cannot be cut over — ${name}: ${e.message}`);
@@ -126,7 +136,7 @@ function validateLedger(source) {
   }
   changes.sort((a, b) => String(a.frontmatter?.id).localeCompare(String(b.frontmatter?.id)));
 
-  const { errors } = checkRepo({ config, changes, specs, releases });
+  const { errors } = checkRepo({ config, changes, specs, releases, usage });
   if (errors.length) {
     const detail = errors.map((e) => `  ${e.file}: ${e.message}`).join('\n');
     throw new Error(
@@ -136,13 +146,31 @@ function validateLedger(source) {
   return config;
 }
 
+// `readSnapshot` leaves the entries of collections this CLI does not know out
+// of `documents` (20261002-161641). `publishedMatches`,
+// `initializedPublicationMatches` and `assertRevertRestoresSnapshot` read
+// `documents` as the published ledger, so each refuses a snapshot that holds
+// such entries instead of comparing past them.
+function snapshotWithoutUnknown(repoRoot, tip, run, refusal) {
+  const snapshot = readSnapshot(repoRoot, { revision: tip }, run);
+  if (snapshot.unknown.length > 0) {
+    throw new Error(
+      `${refusal} — ${unknownCollectionsMessage(snapshot.unknownCollections, VERSION)}`,
+    );
+  }
+  return snapshot;
+}
+
+const compareRefusal = (tip) =>
+  `cutover cannot compare ${STATE_REF} at ${tip} with this ledger, nothing was written`;
+
 // Content equality against what is already published. `readSnapshot` exposes
 // documents as text and the manifest parsed, so the config blob is read
-// directly to compare the bytes the cutover would publish. Over this exclusive
-// layout (every entry a 100644 blob at a layout-valid path) identical paths and
-// identical contents mean an identical tree.
+// directly to compare the bytes the cutover would publish. With unknown
+// entries refused above, the comparison covers the manifest's project_id, the
+// config bytes, and the path and text of each published document.
 function publishedMatches(repoRoot, tip, source, projectId, run) {
-  const snapshot = readSnapshot(repoRoot, { revision: tip }, run);
+  const snapshot = snapshotWithoutUnknown(repoRoot, tip, run, compareRefusal(tip));
   if (String(snapshot.manifest.project_id) !== String(projectId)) return false;
   if (
     run(['cat-file', 'blob', `${tip}:${STATE_ROOT}/config.yml`], repoRoot) !== source.configText
@@ -501,7 +529,7 @@ function runCutover(ctx, output, run) {
 }
 
 function initializedPublicationMatches(repoRoot, tip, config, projectId, run) {
-  const snapshot = readSnapshot(repoRoot, { revision: tip }, run);
+  const snapshot = snapshotWithoutUnknown(repoRoot, tip, run, compareRefusal(tip));
   return (
     String(snapshot.manifest.project_id) === String(projectId) &&
     Object.keys(snapshot.documents).length === 0 &&
@@ -620,7 +648,12 @@ function assertRevertRestoresSnapshot(repoRoot, cutoverCommit, tip, layout, run)
     });
   }
 
-  const snapshot = readSnapshot(repoRoot, { revision: tip }, run);
+  const snapshot = snapshotWithoutUnknown(
+    repoRoot,
+    tip,
+    run,
+    `the cutover ${cutoverCommit} cannot be undone, nothing was written`,
+  );
   const published = new Map(treeEntries(repoRoot, tip, run).map((entry) => [entry.path, entry]));
   const names = [...new Set([...restored.keys(), ...Object.keys(snapshot.documents)])].sort();
   for (const name of names) {
