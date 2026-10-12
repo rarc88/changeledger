@@ -2,7 +2,7 @@
 id: "20261012-141850"
 title: "El detalle de un change no sobrevive ni se abre desde el payload de otro proyecto"
 type: bug
-status: in-progress
+status: in-review
 created: 2026-10-12T14:18:50Z
 depends_on: []
 branch: bug/20261012-141850
@@ -80,3 +80,4 @@ Interfaces externas: ninguna.
 - **2026-10-12T16:34:55Z** `[validation]` in-validation → in-progress (human rejected via conversation): Añadir la guarda de la carrera en gotoChange: si el proyecto seleccionado cambia mientras carga el del resultado, no abrir un change del otro proyecto con el mismo id.
 - **2026-10-12T16:35:08Z** `[note]` Por decisión del humano en la validación se añade CR3: la carrera que la revisión reprodujo (un resultado de B pulsado, C seleccionado mientras carga B, y C con un change del mismo id) abría el change de C.
 - **2026-10-12T16:38:21Z** `[note]` Corrección de CR3: gotoChange vuelve sin abrir el detalle si el proyecto seleccionado ya no es el del resultado; el toast deja de comprobar el proyecto porque la guarda va antes. Rojo literal: «no gamma change opens for the beta hit», actual '#20261012-130000'. pnpm verify: 1854/1854.
+- **2026-10-12T16:38:21Z** `[status]` in-progress → in-review
