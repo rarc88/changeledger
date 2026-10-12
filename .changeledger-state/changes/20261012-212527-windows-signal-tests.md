@@ -308,13 +308,14 @@ criterio consume de forma automática el texto del log del CI, que se lee a mano
   - **Verify:** `node --test test/usage-collector.test.mjs`
   - **Criteria:** CR4
   - **Resolved:** `2026-10-12T21:55:48Z`
-- [ ] Convertir con `pathToFileURL(path.resolve(…)).href` los tres especificadores de
+- [x] Convertir con `pathToFileURL(path.resolve(…)).href` los tres especificadores de
   `the test helpers isolate a developer's global git config` y
   `an env override on (emulated) Windows reaches no shell and prints no DEP0190`, e importar
   `pathToFileURL` de `node:url`; el barrido pasa y las dos pruebas conservan sus aserciones
   - **Target:** `test/usage-collector.test.mjs`
   - **Verify:** `node --test test/usage-collector.test.mjs`
   - **Criteria:** CR3, CR4, CR6
+  - **Resolved:** `2026-10-12T21:55:49Z`
 - [ ] Comprobar en el CI de Windows que las dos pruebas pasan y que el log no contiene
   `ERR_UNSUPPORTED_ESM_URL_SCHEME`
   - **Target:** `test/usage-collector.test.mjs`
