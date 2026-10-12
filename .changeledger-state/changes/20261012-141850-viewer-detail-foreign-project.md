@@ -47,10 +47,11 @@ Interfaces externas: ninguna.
 
 ## Plan
 
-- [ ] Reproducir los dos casos con pruebas fallidas
+- [x] Reproducir los dos casos con pruebas fallidas
   - **Target:** `test/viewer-metadata.test.mjs`
   - **Verify:** `pnpm test`
   - **Criteria:** CR1, CR2
+  - **Resolved:** `2026-10-12T16:09:23Z`
 - [ ] Cerrar el detalle al seleccionar proyecto y abrirlo sólo desde el payload del seleccionado
   - **Target:** `src/viewer/public/app.js`
   - **Verify:** `pnpm test`
