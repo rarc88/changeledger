@@ -87,7 +87,10 @@ una lista cerrada: la ayuda, `--version`, `config migrate --dry-run`, `init` y
 aparta y los comandos que necesitan esa config fallan al cargarla. `activate`,
 que sí alcanza una activación rota para repararla, compara antes de sembrar o
 de escribir la activación el mínimo de la revisión que adopta y, por debajo,
-falla sin escribir ninguna ref. El guard no consulta gestores de
+falla sin escribir ninguna ref. `sync`, cuando avanzaría la ref local por
+fast-forward o reconciliaría, compara antes el mínimo de la revisión remota y,
+por debajo, falla sin mover la ref local ni publicar; el fetch previo sí
+actualiza la ref de seguimiento del remoto. El guard no consulta gestores de
 paquetes ni la red, y las versiones publicadas antes de él no leen la clave.
 
 `.changeledger/config.yml` declara un `schema_version` entero. La ausencia se
