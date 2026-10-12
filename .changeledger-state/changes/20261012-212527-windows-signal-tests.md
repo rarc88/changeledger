@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-10-12T21:25:27Z
 depends_on: []
+archived: true
 reviewed: true
 branch: bug/20261012-212527
 related_to: ["20261002-133728", "20261007-135154", "20260812-025623", "20261001-155612", "20260730-220857"]
@@ -383,3 +384,4 @@ los dos separadores (`[\\/]`) en esa expresión.
 - **2026-10-12T22:48:02Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-10-12T22:50:54Z** `[note]` graduation-review de la reconciliación de lifecycle (envoltorio de la suite): primera ronda pidió decir que tampoco se ha probado la limpieza tras cerrar la consola en Windows y, opcionalmente, no nombrar archivos de test y enumerar las cuatro señales; corregido. Segunda ronda con revisor nuevo: apply, cada afirmación confirmada con el código, los logs del CI de Windows y la documentación de Node. Matiz opcional no aplicado: «no se ha ejecutado» podría leerse como «no corrió» en vez de «no se ha probado»; coincide con la cabecera de scripts/run-tests.mjs. Los especificadores de import y la expresión de 174310 CR7 son internos de pruebas y no requieren spec.
 - **2026-10-12T22:50:55Z** `[graduation]` spec: `lifecycle.md`
+- **2026-10-12T22:51:11Z** `[archive]` archived
