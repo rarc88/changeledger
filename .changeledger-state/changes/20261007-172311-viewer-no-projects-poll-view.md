@@ -2,9 +2,10 @@
 id: "20261007-172311"
 title: El sondeo del viewer sin proyectos no cambia la vista elegida
 type: bug
-status: approved
+status: in-progress
 created: 2026-10-07T17:23:11Z
 depends_on: []
+branch: bug/20261007-172311
 related_to: ["20261007-135148"]
 owner: rarc88
 ---
@@ -68,3 +69,5 @@ Interfaces externas: ninguna.
 ## Log
 - **2026-10-07T17:23:11Z** `[version]` 0.18.0-dev
 - **2026-10-12T11:14:30Z** `[status]` draft → approved (human via conversation)
+- **2026-10-12T12:21:58Z** `[status]` approved → in-progress
+- **2026-10-12T12:21:58Z** `[branch]` set: bug/20261007-172311 (auto)
