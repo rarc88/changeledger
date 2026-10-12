@@ -2,7 +2,7 @@
 id: "20261007-172322"
 title: Incluir never y only entre los cuantificadores de la obligación de prosa
 type: bug
-status: in-progress
+status: in-review
 created: 2026-10-07T17:23:22Z
 depends_on: []
 branch: bug/20261007-172322
@@ -59,3 +59,4 @@ Interfaces externas: ninguna.
 - **2026-10-12T12:44:13Z** `[status]` approved → in-progress
 - **2026-10-12T12:44:13Z** `[branch]` set: bug/20261007-172322 (auto)
 - **2026-10-12T12:46:13Z** `[note]` Implementado por el orquestador sin delegar, por ser trivialmente pequeño: la lista de ejemplos de la viñeta de prosa entregable de templates/contract/implement.md pasa a (every, all, no, never, only, cannot, always), y una fila nueva de DELEGATION_OBLIGATIONS en test/context.test.mjs la guarda con una mitad para never y otra para only, cada una en ambos órdenes y acotada a la frase por [^.;]. Rojo: implement.md no longer states the obligation con la mitad de never. Mutantes: quitar never y quitar only fallan cada uno su mitad; una reformulación (that uses never, only, every, all, no, cannot or always as a universal quantifier) pasa; el archivo se restauró y se comprobó por sha256 tras cada uno. pnpm verify en verde con 1815/1815; el contexto implement sigue en 227 de 300 líneas y los tests de presupuesto pasan. Frases cuantificadas añadidas: el comentario «Each example is its own half, held to the sentence that names quantifiers», cuyo borde son los mutantes M1 y M2 (cada uno falla sólo su mitad); los ejemplos del contrato son normativos.
+- **2026-10-12T12:46:14Z** `[status]` in-progress → in-review
