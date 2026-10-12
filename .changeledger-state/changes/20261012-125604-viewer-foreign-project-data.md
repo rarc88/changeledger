@@ -2,7 +2,7 @@
 id: "20261012-125604"
 title: El viewer no presenta datos de otro proyecto mientras carga el seleccionado
 type: bug
-status: in-progress
+status: in-review
 created: 2026-10-12T12:56:04Z
 depends_on: []
 branch: bug/20261012-125604
@@ -106,3 +106,4 @@ Interfaces externas: ninguna.
 - **2026-10-12T13:19:10Z** `[review]` in-review → in-progress (retry): CR5 y CR6 fallan cuando el proyecto se selecciona por la restauración de ruta (Atrás/Adelante) o por gotoChange: con la carga en vuelo, los filtros ofrecen bug y ana y el aviso de documentos inválidos de alpha sigue visible. El comentario de dropForeignProjectShell y la nota de implementación del Log afirman lo contrario.
 - **2026-10-12T13:19:17Z** `[note]` Corrige la nota de implementación anterior: dropForeignProjectShell() rehace los filtros y retira el aviso cuando la selección pasa por el selector de proyectos (selectViewerProject) y cuando la carga falla; la revisión confirmó que la restauración de ruta no lo hacía mientras la carga está en vuelo.
 - **2026-10-12T13:27:03Z** `[note]` Corrección de la ronda 1: un listener de app-state (setProjectSelectedListener) llama a syncSelectedProjectShell tras selectProject y cuando initializeProjects cambia la selección; tests en vuelo y tras fallo por el selector, la restauración de ruta, un resultado de búsqueda global y el refresco del registro. Mutantes P1–P8 fallaron por la aserción esperada. pnpm verify: 1836/1836.
+- **2026-10-12T13:27:03Z** `[status]` in-progress → in-review
