@@ -2,9 +2,10 @@
 id: "20261012-213243"
 title: "Los fixtures de usage anuncian la forma lógica del temporal y el CLI no los casa en macOS"
 type: bug
-status: approved
+status: in-progress
 created: 2026-10-12T21:32:43Z
 depends_on: []
+branch: bug/20261012-213243
 related_to: ["20261002-133728", "20261001-155612", "20260812-022248"]
 owner: rarc88
 ---
@@ -231,3 +232,5 @@ symlink a él; `<id>` es el id del change del fixture.
 ## Log
 - **2026-10-12T21:32:43Z** `[version]` 0.18.0-dev
 - **2026-10-12T21:35:32Z** `[status]` draft → approved (human via conversation)
+- **2026-10-12T21:35:37Z** `[status]` approved → in-progress
+- **2026-10-12T21:35:37Z** `[branch]` set: bug/20261012-213243 (auto)
