@@ -176,10 +176,11 @@ cualquier error de `check`; no se midió.
 
 ## Plan
 
-- [ ] Helper `releaseBranchRequirementError(config, type)` en `src/config.mjs`: devuelve el mensaje de CR2 si `config.types[type].integrates_into === 'release'` y `releaseBranch(config)` es `undefined`, si no `undefined`; `changeIntegrationBranch` conserva su mensaje y ambos construyen el tramo común con una función compartida
+- [x] Helper `releaseBranchRequirementError(config, type)` en `src/config.mjs`: devuelve el mensaje de CR2 si `config.types[type].integrates_into === 'release'` y `releaseBranch(config)` es `undefined`, si no `undefined`; `changeIntegrationBranch` conserva su mensaje y ambos construyen el tramo común con una función compartida
   - **Target:** `src/config.mjs`
   - **Verify:** `node --test test/config.test.mjs`
   - **Criteria:** CR4, CR8
+  - **Resolved:** `2026-10-12T18:28:29Z`
 - [ ] `checkRepo` reporta el error por change no terminal de un tipo de release sin rama (mensaje de CR2), sin tocar `checkConfig`; un `git.release_branch` mal formado no lo duplica (ya lo reporta `checkConfig`)
   - **Target:** `src/check.mjs`
   - **Verify:** `node --test test/check.test.mjs`
