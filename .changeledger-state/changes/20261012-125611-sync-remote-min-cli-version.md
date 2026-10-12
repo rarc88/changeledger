@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-10-12T12:56:11Z
 depends_on: []
+archived: true
 reviewed: true
 branch: bug/20261012-125611
 related_to: ["20260925-130844", "20260924-184354"]
@@ -82,3 +83,4 @@ la herramienta.
 - **2026-10-12T13:51:34Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-10-12T14:14:44Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-10-12T14:15:50Z** `[graduation]` spec: `architecture.md`
+- **2026-10-12T14:15:59Z** `[archive]` archived
