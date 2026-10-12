@@ -50,10 +50,11 @@ Interfaces externas: ninguna.
 
 ## Plan
 
-- [ ] Escribir pruebas fallidas del sondeo sin proyectos y del arranque
+- [x] Escribir pruebas fallidas del sondeo sin proyectos y del arranque
   - **Target:** `test/viewer-metadata.test.mjs`
   - **Verify:** `pnpm test`
   - **Criteria:** CR1, CR2
+  - **Resolved:** `2026-10-12T12:25:45Z`
 - [ ] Dejar que el sondeo sin proyectos repinte la vista activa sin cambiarla
   - **Target:** `src/viewer/public/app.js`
   - **Verify:** `pnpm test`
