@@ -87,3 +87,4 @@ inválido, que impediría analizar el resto, cuando `check` ya es el gate.
 - **2026-10-12T16:19:11Z** `[status]` in-progress → in-review
 - **2026-10-12T16:19:16Z** `[note]` Mandato de revisión: la superficie que el change gobierna — isPlaceable y la pista skipped: de analyzeUsage en src/usage-analysis.mjs, su salida por changeledger analyze y el efecto en los recuentos del viewer, con sus tests, sobre dev..HEAD.
 - **2026-10-12T16:24:16Z** `[review]` in-review → in-progress (retry): docs/usage-capture.md enumera las pistas de analyze (rework … failed … gap) y no incluye skipped, que este change añade.
+- **2026-10-12T16:25:40Z** `[note]` Corrección de la ronda 1 (del orquestador): docs/usage-capture.md añade skipped a la lista de pistas y describe qué cuenta, con la lista de condiciones de isPlaceable. La spec usage se corrige al graduar.
