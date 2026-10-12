@@ -284,12 +284,13 @@ criterio consume de forma automática el texto del log del CI, que se lee a mano
 
 ## Plan
 
-- [ ] Acotar a plataformas distintas de `win32` el bucle de pruebas de señales
+- [x] Acotar a plataformas distintas de `win32` el bucle de pruebas de señales
   de `test/run-tests.test.mjs` con `skip: process.platform === 'win32' && '<motivo>'`
   y un comentario que cite la semántica documentada de `subprocess.kill` en Windows
   - **Target:** `test/run-tests.test.mjs`
   - **Verify:** `node --test test/run-tests.test.mjs`
   - **Criteria:** CR2
+  - **Resolved:** `2026-10-12T21:55:48Z`
 - [ ] Comprobar en el CI de Windows que las cuatro pruebas se saltan con su motivo
   y no figuran entre los fallos
   - **Target:** `test/run-tests.test.mjs`
