@@ -2,7 +2,7 @@
 id: "20261012-213243"
 title: "Los fixtures de usage anuncian la forma lógica del temporal y el CLI no los casa en macOS"
 type: bug
-status: in-validation
+status: done
 created: 2026-10-12T21:32:43Z
 depends_on: []
 branch: bug/20261012-213243
@@ -247,3 +247,4 @@ symlink a él; `<id>` es el id del change del fixture.
 - **2026-10-12T21:54:11Z** `[note]` Mandato de la revisión de confirmación: los defectos nombrados (prosa sin acotar en los comentarios de repoWithChange y CR4, motivo del skip, notas del Log) y regresiones de la corrección, sobre el diff sin commit encima de a991bfbb en el worktree aparte.
 - **2026-10-12T21:58:29Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-10-12T22:16:46Z** `[note]` CI del PR rarc88/changeledger#10: verify (node 24 / macos-latest) y verify (node 26 / macos-latest) en verde, con 20261002-133728 CR1 y CR2 pasando; los fallos de windows-latest de ese PR son los que corrige #20261012-212527.
+- **2026-10-12T22:17:37Z** `[validation]` in-validation → done (human accepted via conversation)
