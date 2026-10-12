@@ -320,11 +320,12 @@ sigue al tipo.
 
 ## Plan
 
-- [ ] Tests en rojo de la resolución de refs (etiquetas y refs que tapan a
+- [x] Tests en rojo de la resolución de refs (etiquetas y refs que tapan a
   `refs/heads/<rama>` y a la copia remota)
   - **Target:** `test/agent.test.mjs`
   - **Verify:** `node --test test/agent.test.mjs`
   - **Criteria:** CR12, CR13, CR14, CR15, CR16, CR17
+  - **Resolved:** `2026-10-12T19:46:47Z`
 - [ ] Cualificar como `refs/heads/<nombre>` toda rama configurada que
   `assertImplementationBranch` pasa a `isAncestor`, `mergeBases` y `refExists`,
   manteniendo el nombre corto en los mensajes
