@@ -73,10 +73,11 @@ Interfaces externas: ninguna.
 
 ## Plan
 
-- [ ] Escribir pruebas fallidas de la carga en vuelo y de los filtros tras un fallo
+- [x] Escribir pruebas fallidas de la carga en vuelo y de los filtros tras un fallo
   - **Target:** `test/viewer-metadata.test.mjs`
   - **Verify:** `pnpm test`
   - **Criteria:** CR1, CR2, CR3, CR5, CR6
+  - **Resolved:** `2026-10-12T13:15:17Z`
 - [ ] Pintar el estado de carga y no reutilizar el payload ni los filtros de otro proyecto
   - **Target:** `src/viewer/public/app.js, src/viewer/public/app-state.js`
   - **Verify:** `pnpm test`
