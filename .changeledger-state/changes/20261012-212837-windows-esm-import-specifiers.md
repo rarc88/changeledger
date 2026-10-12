@@ -2,7 +2,7 @@
 id: "20261012-212837"
 title: "Dos pruebas del colector de consumo importan rutas absolutas y fallan en Windows"
 type: bug
-status: draft
+status: discarded
 created: 2026-10-12T21:28:37Z
 depends_on: []
 related_to: ["20261002-133728", "20261001-155612", "20261012-212527", "20260730-220857"]
@@ -178,3 +178,4 @@ criterio consume de forma automática el texto del log del CI, que se lee a mano
 
 ## Log
 - **2026-10-12T21:28:37Z** `[version]` 0.18.0-dev
+- **2026-10-12T21:34:37Z** `[status]` draft → discarded: Fusionado en 20261012-212527 a petición del humano: un único change para los fallos de Windows.
