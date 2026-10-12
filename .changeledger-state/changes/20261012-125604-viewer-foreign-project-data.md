@@ -94,3 +94,4 @@ Interfaces externas: ninguna.
 - **2026-10-12T12:58:36Z** `[status]` draft → approved (human via conversation)
 - **2026-10-12T12:59:00Z** `[status]` approved → in-progress
 - **2026-10-12T12:59:00Z** `[branch]` set: bug/20261012-125604 (auto)
+- **2026-10-12T13:08:18Z** `[note]` La implementación de CR1–CR3 mostró dos casos más del mismo pedido: los menús de filtros listan los valores de A mientras la carga de C está en vuelo, y el aviso de documentos inválidos de A sigue visible con B seleccionado. Se añaden CR5 y CR6 porque el Request pide que el viewer no presente datos de otro proyecto como del seleccionado.
