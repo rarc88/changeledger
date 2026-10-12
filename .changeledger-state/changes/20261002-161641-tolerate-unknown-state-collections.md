@@ -114,10 +114,11 @@ que es justo el fallo observado.
   - **Verify:** `node --test test/state-store.test.mjs test/cli-bin.test.mjs test/sync.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4, CR5
   - **Resolved:** `2026-10-12T11:29:19Z`
-- [ ] Separar en el store las colecciones desconocidas de las rutas mal formadas y cubrirlas con la integridad
+- [x] Separar en el store las colecciones desconocidas de las rutas mal formadas y cubrirlas con la integridad
   - **Target:** `src/state-store.mjs, src/repo.mjs`
   - **Verify:** `node --test test/state-store.test.mjs test/repo.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4
+  - **Resolved:** `2026-10-12T11:29:20Z`
 - [ ] Emitir el aviso una vez por comando y repetirlo en `check`
   - **Target:** `bin/changeledger.mjs, src/commands/check.mjs, test/cli-bin.test.mjs, test/check.test.mjs`
   - **Verify:** `node --test test/cli-bin.test.mjs test/check.test.mjs`
