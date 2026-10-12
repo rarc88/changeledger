@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-10-12T12:56:17Z
 depends_on: []
+reviewed: true
 branch: bug/20261012-125617
 related_to: ["20261002-133728", "20261007-172316"]
 owner: rarc88
@@ -81,3 +82,4 @@ Interfaces externas: ninguna.
 - **2026-10-12T14:02:58Z** `[note]` Mandato de la revisión de confirmación: los dos hallazgos de la ronda 1 (comentario de isPlaceable y cifra de registros del Log) sobre el diff sin commit encima de 5d2b14a8, y regresiones que introduzca.
 - **2026-10-12T14:03:57Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-10-12T14:14:49Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-10-12T14:15:50Z** `[graduation]` spec: `usage.md`
