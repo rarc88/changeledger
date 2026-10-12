@@ -84,8 +84,10 @@ inválida falla cerrada con el mismo texto que emite `check`. Las excepciones so
 una lista cerrada: la ayuda, `--version`, `config migrate --dry-run`, `init` y
 `view`, cuyo viewer comprueba el mínimo de cada proyecto antes de escribir en
 él. Una config efectiva ilegible no declara mínimo que comparar: el guard se
-aparta, los comandos que necesitan esa config fallan al cargarla y `activate`
-conserva la reparación de una activación rota. El guard no consulta gestores de
+aparta y los comandos que necesitan esa config fallan al cargarla. `activate`,
+que sí alcanza una activación rota para repararla, compara antes de sembrar o
+de escribir la activación el mínimo de la revisión que adopta y, por debajo,
+falla sin escribir ninguna ref. El guard no consulta gestores de
 paquetes ni la red, y las versiones publicadas antes de él no leen la clave.
 
 `.changeledger/config.yml` declara un `schema_version` entero. La ausencia se
@@ -160,6 +162,14 @@ compare-and-swap (`mutateState`: árbol candidato en índice temporal,
 `update-ref` con old-value, `LedgerConflictError` en conflicto) e integridad
 padre-contra-candidato: ninguna identidad desaparece sin `remove` explícito,
 y un registro de consumo (`usage.md`) no admite ni `remove` ni reescritura.
+Una colección bien formada que la CLI no declara (`classifyStatePath`: tres
+partes y nombre `/^[a-z][a-z0-9-]*$/`) no impide leer: `readSnapshot` la deja
+fuera de `documents` sin leer su contenido y la expone en `unknown`; el bin
+avisa una vez por proceso pidiendo actualizar la instalación y `check` repite
+el aviso como warning. `mutateState` rechaza borrar o reescribir sus entradas,
+el merge de `sync` rechaza perderlas y `cutover` se niega a comparar o deshacer
+sobre una ref que las contenga; el fast-forward de `sync` no lo comprueba. Una
+ruta mal formada sigue fallando con `invalid state path`.
 La activación es checkout-independiente — `refs/changeledger/activation`
 apunta a un commit cuya `authority.yml` nombra la ref de verdad y el ledger
 que la activación posee: `ledger_dir`, la ruta del `.changeledger` relativa
