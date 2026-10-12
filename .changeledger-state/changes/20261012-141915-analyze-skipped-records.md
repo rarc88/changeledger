@@ -68,10 +68,11 @@ inválido, que impediría analizar el resto, cuando `check` ya es el gate.
   - **Verify:** `pnpm test`
   - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-10-12T16:19:10Z`
-- [ ] Contar los registros no ubicables y exigir la forma de at en isPlaceable
+- [x] Contar los registros no ubicables y exigir la forma de at en isPlaceable
   - **Target:** `src/usage-analysis.mjs`
   - **Verify:** `pnpm test`
   - **Criteria:** CR1, CR2, CR3
+  - **Resolved:** `2026-10-12T16:19:10Z`
 - [ ] Ejecutar el gate completo
   - **Verify:** `pnpm verify`
   - **Support:**
