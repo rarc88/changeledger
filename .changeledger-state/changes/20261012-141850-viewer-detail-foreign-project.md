@@ -81,3 +81,4 @@ Interfaces externas: ninguna.
 - **2026-10-12T16:35:08Z** `[note]` Por decisión del humano en la validación se añade CR3: la carrera que la revisión reprodujo (un resultado de B pulsado, C seleccionado mientras carga B, y C con un change del mismo id) abría el change de C.
 - **2026-10-12T16:38:21Z** `[note]` Corrección de CR3: gotoChange vuelve sin abrir el detalle si el proyecto seleccionado ya no es el del resultado; el toast deja de comprobar el proyecto porque la guarda va antes. Rojo literal: «no gamma change opens for the beta hit», actual '#20261012-130000'. pnpm verify: 1854/1854.
 - **2026-10-12T16:38:21Z** `[status]` in-progress → in-review
+- **2026-10-12T16:38:27Z** `[note]` Mandato de la revisión de confirmación: CR3 y la simplificación de la condición del toast sobre el diff sin commit encima de be4c9e94, y regresiones que introduzca.
