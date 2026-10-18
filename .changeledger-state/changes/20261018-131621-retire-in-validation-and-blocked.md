@@ -216,6 +216,14 @@ con su razón, que ya es gramática válida del Plan, más una nota en el Log.
 - **Then** no hay carril para `in-validation` ni para `blocked`
 - **And** no se renderizan los paneles de validación ni de reapertura
 
+### CR17 — Los comandos `validation` y `reopen` ya no existen
+- **Given** el repo con la CLI instalada
+- **When** se ejecuta `changeledger validation 20261018-131621 pass`
+- **Then** sale con código distinto de cero
+- **And** imprime `error: unknown command 'validation'`
+- **And** `changeledger reopen 20261018-131621 "motivo"` imprime `error: unknown command 'reopen'`
+- **And** ninguno de los dos aparece en la salida de `changeledger help`
+
 ## Plan
 
 - [x] Reducir el conjunto de estados en la configuración y rechazar los retirados en `check`
@@ -238,7 +246,7 @@ con su razón, que ya es gramática válida del Plan, más una nota en el Log.
 - [ ] Retirar los comandos `validation` y `reopen`
   - **Target:** `bin/changeledger.mjs`, `src/commands/agent.mjs`
   - **Verify:** `node --test test/cli-bin.test.mjs`
-  - **Criteria:** CR6
+  - **Criteria:** CR17
 - [ ] Reescribir el ciclo de vida del core y borrar los dos overlays
   - **Target:** `templates/contract/core.md`, `templates/contract/validation.md`, `templates/contract/blocked.md`, `templates/contract/budgets.yml`
   - **Verify:** `node --test test/context.test.mjs`
