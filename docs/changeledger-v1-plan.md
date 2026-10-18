@@ -458,14 +458,25 @@ Dos reglas que lo mantienen sano:
 
 ### 14.4 El modelo de ramas
 
-```
-dev ──●────────────────────────────●──
-      │ (épica sale de dev)        ↑ (épica entra en dev al cerrar)
-      ↓                            │
-épica ──●──────●──●──────●───────────
-        │      ↑  │      ↑
-        ↓      │  ↓      │
-change        A         B
+```mermaid
+---
+config:
+  gitGraph:
+    mainBranchName: dev
+---
+gitGraph
+   commit
+   branch epic
+   branch change-A
+   commit
+   checkout epic
+   merge change-A
+   branch change-B
+   commit
+   checkout epic
+   merge change-B
+   checkout dev
+   merge epic
 ```
 
 - La rama de consolidación nace de la rama de integración, en el worktree
