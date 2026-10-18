@@ -395,3 +395,117 @@ Con 1 y 2: ~3.040. Con las tres: ~2.920. Recomendación: parar en 1 y 2.
 La poda de la suite (§9) viaja con el change que retira cada capacidad; los 181
 casos de deuda independiente (duplicados y sintéticos) son un quinto change
 opcional.
+
+Fuera de esta tanda, en un plan posterior: la agrupación y el modelo de ramas
+(§14). Añade superficie mientras el resto la quita, así que no conviene
+mezclar las dos direcciones en la misma entrega.
+
+---
+
+## 14. Agrupación y ramas — plan posterior
+
+Dos problemas observados en el uso real, con alcance propio. No entran en la
+tanda del recorte.
+
+### 14.1 El caos de ramas no es de worktrees
+
+| | Ramas remotas | Fusionadas y nunca borradas | Sin fusionar |
+|---|---|---|---|
+| ionic-app | 853 | **719 (84 %)** | 134 |
+| backend-laravel | 1.437 | **565 (39 %)** | 872 |
+
+**1.284 ramas muertas** entre los dos repos. Worktrees hay 2 y 3. El dolor no
+viene de los worktrees: viene de que nada borra una rama al fusionarla. Borrar
+la rama al volver es el 95 % del valor del cambio.
+
+Nota: `backend-laravel/.claude/worktrees/zone-ad-drafts` lo creó el harness de
+Claude Code, no la metodología. Una regla de ChangeLedger sobre worktrees no
+gobierna esos.
+
+### 14.2 El grafo de relaciones actual no sirve para agrupar
+
+Grafo de `depends_on` + `related_to`:
+
+| | Changes | Componente gigante | Grupos reales | Aislados |
+|---|---|---|---|---|
+| ionic-app | 457 | **332 (73 %)** | 12 más (5,5,4,4,4,3,3,2…) | 87 |
+| backend-laravel | 913 | **602 (66 %)** | 30 más (26,19,11,11,9,8…) | 155 |
+
+No falta información: dos tercios de los changes están transitivamente
+conectados en un solo blob. `related_to` es un "véase también" y encadenado
+colapsa el repo. Preguntar "¿qué changes son de esta épica?" hoy devuelve 602.
+
+Los grupos de 26, 19, 11… sí son épicas reales. Unas 30 en `backend-laravel`.
+
+### 14.3 El agrupador
+
+Un change puede declarar **un** `parent`. La arista es **exclusiva y no
+transitiva**: el padre no participa en la transitividad de `related_to`. Si es
+otra entrada del mismo grafo, en dos meses reaparece el blob.
+
+Dos reglas que lo mantienen sano:
+
+- **La épica no se aprueba como un plan de N hijos.** Declara objetivo y
+  frontera, igual que §3, y los hijos nacen según se descubren. Enumerarlos al
+  aprobar reintroduce "planificar antes de investigar" un nivel más arriba.
+- **La épica gradúa; los hijos no.** Hoy veinte hijos reconcilian la misma spec
+  veinte veces. Los hijos dejan su verdad persistente como `[finding]` (§3.3) y
+  la épica hace una sola reconciliación al cerrar.
+- **El padre no se implementa**, así que su ciclo es más corto: `draft →
+  approved → in-progress → done`, sin `in-review` propio. Los hijos ya se
+  revisan; si el padre lleva el ciclo completo, la ceremonia se duplica en vez
+  de agruparse.
+
+### 14.4 El modelo de ramas
+
+```
+dev ──●────────────────────────────●──
+      │ (épica sale de dev)        ↑ (épica entra en dev al cerrar)
+      ↓                            │
+épica ──●──────●──●──────●───────────
+        │      ↑  │      ↑
+        ↓      │  ↓      │
+change        A         B
+```
+
+- La rama de consolidación nace de la rama de integración, en el worktree
+  principal.
+- Los hijos salen de la consolidación y vuelven a ella, **borrando su rama y su
+  worktree**.
+- La consolidación entra en la rama de integración al cerrar la épica.
+
+Tres ajustes sobre la propuesta original:
+
+1. **La consolidación trae la integración en cada fusión de hijo**, no al final.
+   Una rama que vive tres semanas mientras `dev` avanza acumula conflicto. Y un
+   límite temporal: si la épica no cierra en unas semanas no es una épica, es un
+   programa, y se parte arriba, no abajo.
+2. **Ningún commit en la consolidación que no sea una fusión de un hijo.**
+   Mantiene el diff atribuible. Sin esta regla la consolidación se convierte en
+   el cajón de los arreglos que nadie quiso documentar.
+3. **Test operativo del worktree**: se justifica solo cuando dos changes tienen
+   que estar en vuelo a la vez **y sus conjuntos de ficheros son disjuntos**. Si
+   no son disjuntos, el trabajo paralelo ya está prohibido por la regla de un
+   dueño por superficie de escritura. Como el contrato ya dice "un change a la
+   vez", el worktree es la excepción. La regla existe; falta que algo la haga
+   cumplir.
+
+### 14.5 Lo que propongo sin dato que lo respalde
+
+La rama de consolidación probablemente necesita **una revisión propia antes de
+entrar en la integración**, con mandato acotado a las costuras entre hijos: un
+defecto de integración entre el change A y el B no lo ve ninguna de las dos
+revisiones individuales.
+
+Es un juicio, no un hallazgo. En las 640 vueltas de revisión clasificadas,
+`alcance-y-diseño` fue el 1,9 % y los defectos de integración no salen
+desglosados; no hay evidencia de que ese fallo esté ocurriendo. Alternativa
+barata si no se quiere la puerta: el **último hijo** de la épica lleva en su
+mandato de revisión las costuras con sus hermanos.
+
+### 14.6 Superficie que toca
+
+Modelo de datos (campo `parent`), CLI (`list` por épica, creación de hijos),
+viewer (agrupación) y configuración de ramas (`change_branch_format` necesita
+saber que el padre es la base). Es la razón de tratarlo como plan aparte: añade
+superficie mientras el recorte la quita.
