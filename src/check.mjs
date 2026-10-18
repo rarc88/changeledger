@@ -92,6 +92,14 @@ export function checkUsageGitConfig(repoRoot, run) {
 
 const TERMINAL_STATUSES = ['done', 'discarded'];
 
+// Statuses removed from the lifecycle (20261018-131621). Only a live document
+// can still carry one — frozen history is never a subject — so the diagnostic
+// names the hand edit that resolves it instead of a generic unknown status.
+const RETIRED_STATUS_FIXES = {
+  'in-validation': 'move it to "done" or "in-progress"',
+  blocked: 'move it to "in-progress" and record a [!] task',
+};
+
 // `checkConfig` already reports a malformed `git.release_branch`, so it reads
 // here as "nothing to add" rather than as a second error on every change.
 function releaseRequirementError(config, type) {
@@ -161,7 +169,9 @@ export function checkRepo({ config, changes, specs = [], releases = [], usage = 
     if (fm.type && !types[fm.type]) {
       err(c, `unknown type "${fm.type}"; valid types: ${Object.keys(types).join(', ')}`);
     }
-    if (fm.status && !statuses.includes(fm.status)) {
+    if (RETIRED_STATUS_FIXES[fm.status]) {
+      err(c, `status "${fm.status}" is retired: ${RETIRED_STATUS_FIXES[fm.status]}`);
+    } else if (fm.status && !statuses.includes(fm.status)) {
       err(c, `unknown status "${fm.status}"; valid statuses: ${statuses.join(', ')}`);
     }
     // A change of a release type that no declared branch can host is stuck: its
@@ -217,9 +227,6 @@ export function checkRepo({ config, changes, specs = [], releases = [], usage = 
     if (fm.status === 'done' && tasks.some((t) => t.state !== 'done')) {
       const pending = tasks.filter((t) => t.state !== 'done').length;
       err(c, `status is "done" but ${pending} task(s) are not done`);
-    }
-    if (fm.status === 'blocked' && tasks.length && !tasks.some((t) => t.state === 'blocked')) {
-      warn(c, 'status is "blocked" but no task is marked [!]');
     }
 
     checkCoverage(c, fm, active, config, { warn, err, asStatus: opts.asStatus });
@@ -899,21 +906,6 @@ function checkConfig(config, err) {
   }
   const minCliVersionError = minCliVersionDeclarationError(c);
   if (minCliVersionError) err(null, minCliVersionError);
-  if (
-    Array.isArray(c.statuses) &&
-    c.statuses.includes('done') &&
-    !c.statuses.includes('in-validation')
-  ) {
-    err(null, 'config statuses must include "in-validation" before "done"');
-  }
-  if (
-    Array.isArray(c.statuses) &&
-    c.statuses.includes('in-validation') &&
-    c.statuses.includes('done') &&
-    c.statuses.indexOf('in-validation') > c.statuses.indexOf('done')
-  ) {
-    err(null, 'config status "in-validation" must appear before "done"');
-  }
   // changes_dir/specs_dir must stay inside the repo. The pure checker catches
   // shape escapes (absolute paths, `..` traversal); the symlink case is enforced
   // at command time by resolveRepoPath, which needs IO.

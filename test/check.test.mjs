@@ -32,7 +32,7 @@ process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'changeled
 
 const config = {
   changes_dir: '.changeledger/changes',
-  statuses: ['draft', 'approved', 'in-progress', 'in-validation', 'blocked', 'done'],
+  statuses: ['draft', 'approved', 'in-progress', 'in-review', 'done'],
   stages: ['request', 'investigation', 'proposal', 'specification', 'plan', 'log'],
   types: {
     feature: { stages: ['request', 'plan', 'log'] },
@@ -742,27 +742,6 @@ test('174310 CR2: a malformed git.release_branch is reported once, not once more
   assert.deepEqual(msgs(errors), ['config "git.release_branch" must be a non-empty string']);
 });
 
-test('171002 CR1/CR5: every config with done requires in-validation before it', () => {
-  const missing = {
-    ...config,
-    statuses: ['draft', 'approved', 'in-progress', 'blocked', 'done'],
-  };
-  assert.ok(
-    msgs(checkRepo({ config: missing, changes: [] }).errors).some((m) =>
-      /must include "in-validation" before "done"/.test(m),
-    ),
-  );
-  const misplaced = {
-    ...config,
-    statuses: ['draft', 'approved', 'in-progress', 'in-review', 'done', 'in-validation'],
-  };
-  assert.ok(
-    msgs(checkRepo({ config: misplaced, changes: [] }).errors).some((m) =>
-      /"in-validation" must appear before "done"/.test(m),
-    ),
-  );
-});
-
 test('config type referencing an unknown stage is an error', () => {
   const bad = { ...config, types: { feature: { stages: ['request', 'banana'] } } };
   const { errors } = checkRepo({ config: bad, changes: [] });
@@ -1248,7 +1227,7 @@ test('151221 CR4: duplicate criteria are an error', () => {
 
 const tddConfig = {
   changes_dir: '.changeledger/changes',
-  statuses: ['draft', 'approved', 'in-progress', 'in-validation', 'blocked', 'done'],
+  statuses: ['draft', 'approved', 'in-progress', 'in-review', 'done'],
   stages: ['request', 'specification', 'plan', 'log'],
   types: {
     feature: { stages: ['request', 'specification', 'plan', 'log'] },
@@ -3197,7 +3176,7 @@ language: en
 tdd: true
 changes_dir: .changeledger/changes
 specs_dir: .changeledger/specs
-statuses: [draft, approved, in-progress, in-review, in-validation, blocked, done, discarded]
+statuses: [draft, approved, in-progress, in-review, done, discarded]
 stages: [request, investigation, proposal, specification, plan, log]
 types:
   refactor:
@@ -3536,7 +3515,7 @@ language: en
 tdd: true
 changes_dir: .changeledger/changes
 specs_dir: .changeledger/specs
-statuses: [draft, approved, in-progress, in-review, in-validation, blocked, done, discarded]
+statuses: [draft, approved, in-progress, in-review, done, discarded]
 stages: [request, investigation, proposal, specification, plan, log]
 types:
   quick:
@@ -4510,4 +4489,76 @@ test('174407 CR11: without git.integration_branch the auto-detected base remains
   const out = captureOutput();
   assert.equal(check(['--commits'], fx.root, out), 0, out.diagnostics.join('\n'));
   assert.deepEqual(out.calls, ['✓ commits main..HEAD valid']);
+});
+
+// --- 131621: in-validation and blocked leave the lifecycle ---
+
+const SIX_STATUSES = ['draft', 'approved', 'in-progress', 'in-review', 'done', 'discarded'];
+const SIX_STATUS_FIXTURE_CONFIG = FROZEN_FIXTURE_CONFIG.replace(
+  'schema_version: 5',
+  'schema_version: 6',
+)
+  .replace(/^statuses: .*$/m, `statuses: [${SIX_STATUSES.join(', ')}]`)
+  .concat(`min_cli_version: ${VERSION}\n`);
+
+test('131621 CR1: the repo config declares exactly the six remaining statuses', () => {
+  const text = fs.readFileSync(path.resolve('.changeledger/config.yml'), 'utf8');
+  assert.deepEqual(parseYaml(text).statuses, SIX_STATUSES);
+  assert.doesNotMatch(text, /in-validation/);
+  assert.doesNotMatch(text, /blocked/);
+});
+
+const RETIRED_STATUS_MESSAGES = {
+  'in-validation': 'status "in-validation" is retired: move it to "done" or "in-progress"',
+  blocked: 'status "blocked" is retired: move it to "in-progress" and record a [!] task',
+};
+
+test('131621 CR2: a live document in a retired status names the status and its destination', () => {
+  for (const [status, message] of Object.entries(RETIRED_STATUS_MESSAGES)) {
+    const id = '20260101-000000';
+    const root = frozenFixture(
+      { [`${id}-live.md`]: missingSpecification({ status }) },
+      {},
+      {},
+      SIX_STATUS_FIXTURE_CONFIG,
+    );
+    const { code, text } = runCheck(root, [id]);
+    assert.equal(code, 1, status);
+    assert.ok(text.includes(message), `${status}: ${text}`);
+    assert.doesNotMatch(text, /unknown status/);
+  }
+});
+
+test('131621 CR2: a status outside the lifecycle stays an unknown status', () => {
+  const { errors } = checkRepo({
+    config: { ...config, statuses: SIX_STATUSES },
+    changes: [change({ frontmatter: { status: 'paused' } })],
+  });
+  assert.ok(msgs(errors).some((m) => /unknown status "paused"/.test(m)));
+  assert.ok(!msgs(errors).some((m) => /is retired/.test(m)));
+});
+
+const RETIRED_HISTORY_LOG = `## Log
+- **2026-06-13T12:00:00Z** \`[status]\` approved → in-progress
+- **2026-06-13T12:10:00Z** \`[status]\` in-progress → blocked
+- **2026-06-13T12:20:00Z** \`[status]\` blocked → in-progress
+- **2026-06-13T12:30:00Z** \`[review]\` in-review → in-validation (delegated subagent)
+- **2026-06-13T12:40:00Z** \`[validation]\` in-validation → done (human accepted)
+`;
+
+test('131621 CR3: archived and discarded history naming retired statuses stays valid', () => {
+  const body = (over) =>
+    `---\n${frontmatter(over)}\n---\n\n## Request\n\nX\n\n## Proposal\n\nX\n\n## Plan\n\nX\n\n${RETIRED_HISTORY_LOG}`;
+  const root = frozenFixture(
+    {
+      '20260101-000000-archived.md': body({ archived: 'true' }),
+      '20260102-000000-discarded.md': body({ id: '20260102-000000', status: 'discarded' }),
+    },
+    {},
+    {},
+    SIX_STATUS_FIXTURE_CONFIG,
+  );
+  const { code, out, text } = runCheck(root);
+  assert.equal(code, 0, text);
+  assert.deepEqual(out.diagnostics, []);
 });
