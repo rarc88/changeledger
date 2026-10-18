@@ -2,9 +2,10 @@
 id: "20261018-131621"
 title: Retirar los estados in-validation y blocked del ciclo de vida
 type: feature
-status: approved
+status: in-progress
 created: 2026-10-18T13:16:21Z
 depends_on: []
+branch: feature/20261018-131621
 related_to: ["20260726-124835", "20260619-171002", "20260614-151759", "20260715-125139", "20260722-124655"]
 owner: raruiz-hiberuscom
 release_impact: major
@@ -261,3 +262,5 @@ con su razón, que ya es gramática válida del Plan, más una nota en el Log.
 ## Log
 - **2026-10-18T14:44:55Z** `[version]` 0.18.0
 - **2026-10-18T14:44:55Z** `[status]` draft → approved (human via conversation)
+- **2026-10-18T14:45:53Z** `[status]` approved → in-progress
+- **2026-10-18T14:45:53Z** `[branch]` set: feature/20261018-131621 (auto)
