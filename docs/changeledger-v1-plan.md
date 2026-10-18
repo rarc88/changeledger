@@ -131,6 +131,37 @@ el del medio:
 - **`changeledger list --pending findings`** los saca de todo el ledger.
 - **Promoción a change** cuando el humano lo decide, no cuando el agente tropieza.
 
+
+### 3.4 El release es la única frontera irreversible
+
+El contrato nombra hoy tres fronteras durables: graduación/skip, archivo y
+release. Solo una lo es:
+
+- **El archivo es reversible por su propia documentación**: `close.md` dice que
+  `changeledger archive <id>` se deshace editando `archived: false`.
+- **La graduación es un enlace a una spec**: `--into` no sobrescribe el cuerpo y
+  `check` verifica que ambos lados coincidan. Reabrir y volver a graduar deja el
+  sistema consistente.
+- **El release sí lo es**: `release record` congela la membresía de una versión
+  publicada. Si el change crece después, esa versión miente sobre su contenido.
+
+Regla nueva: **mientras un change no figure en un release registrado, vuelve a
+`in-progress` con una razón.** Sin comando especial y sin excepción que
+explicar. Desaparece el concepto de "cierre durable" con sus tres condiciones.
+
+Y después del release, el arreglo no cuesta un ciclo completo: un fix de trabajo
+ya publicado es un `quick` por defecto — Request y Log, ~15 líneas, sin puerta
+de revisión — enganchado al mismo padre si lo hubiera (§14.3).
+
+Medido: 16 reaperturas en los 1.290 changes de los repos de producto (1,2 %),
+**todas antes de graduar**, más 15 changes que dicen explícitamente completar o
+corregir uno cerrado. El número es un suelo: quien sabe que no puede reabrir
+abre otro change y no lo redacta así.
+
+`accepted_at` (§11, decisión 1) queda como **dato, no como puerta**: registra la
+aceptación para conservar la señal de los 272 rechazos, y no gobierna ninguna
+transición.
+
 ---
 
 ## 4. Lo que se queda, y qué lo sostiene
@@ -361,10 +392,10 @@ estimación hasta hacer el corte.
 
 | # | Cuestión | Estado |
 |---|---|---|
-| 1 | **`in-validation`**: se decidió sustituirlo por el PR, pero es una suposición sin medir — **272 rechazos humanos** registrados, 15 % en `ionic-app`. Alternativa: conservar la aceptación como campo, no como estado, y que el merge del PR la registre. Conservas la métrica, borras la ceremonia. | pendiente de revisar |
+| 1 | **`in-validation`** | **resuelta**: la aceptación se conserva como campo derivado del merge, no como estado (§3.4). En el change `20261018-131621` |
 | 2 | **La poda de la suite**: ¿entra con el recorte o va aparte? | medida (§9); sin decidir |
-| 3 | **Secuencia**: cuatro changes simultáneos sobre la herramienta que gobierna su propio desarrollo, frente a cortar el contrato primero y solo el contrato — migración cero, reversible con `git revert` — y medir dos semanas. | sin decidir |
-| 4 | **Cadencia de revisión** (hipótesis, sin dato): hoy es una sola puerta al final y el 32 % de las veces devuelve el change entero. Una revisión por selección resuelta cazaría lo mismo con menos retrabajo. | sin investigar |
+| 3 | **Secuencia** | **resuelta**: código y contrato viajan juntos en cada change, empezando por retirar `in-validation` y `blocked` |
+| 4 | **Cadencia de revisión**: una revisión por selección resuelta en vez de una sola puerta al final. | **decidida** pese a no tener dato que la respalde; change propio y con medición |
 
 ---
 
