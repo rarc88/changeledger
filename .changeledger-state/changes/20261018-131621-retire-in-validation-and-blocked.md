@@ -224,6 +224,24 @@ con su razón, que ya es gramática válida del Plan, más una nota en el Log.
 - **And** `changeledger reopen 20261018-131621 "motivo"` imprime `error: unknown command 'reopen'`
 - **And** ninguno de los dos aparece en la salida de `changeledger help`
 
+### CR18 — La plantilla de configuración no reparte estados retirados
+- **Given** `templates/config.yml`, la plantilla que `changeledger init` copia a un repo nuevo
+- **When** se lee su clave `statuses`
+- **Then** su valor es exactamente `[draft, approved, in-progress, in-review, done, discarded]`
+- **And** `changeledger init` sobre un repo vacío produce un `.changeledger/config.yml` cuya salida de `changeledger check` no menciona `in-validation` ni `blocked`
+
+### CR19 — Un tipo sin revisión llega a `done` por la transición genérica
+- **Given** un change de un tipo sin `review_required` en estado `in-progress` con todas sus tareas cerradas
+- **When** se ejecuta `changeledger status <id> done`
+- **Then** el frontmatter queda `status: done`
+- **And** el Log recibe `[status]` con payload `in-progress → done`
+
+### CR20 — La puerta de entrega sobrevive al cambio de sede
+- **Given** un change con una tarea del Plan todavía en `[ ]`
+- **When** se ejecuta `changeledger status <id> done`
+- **Then** sale con código distinto de cero y el documento queda sin modificar
+- **And** el mismo change en `in-review` rechaza igual `changeledger review <id> pass`
+
 ## Plan
 
 - [x] Reducir el conjunto de estados en la configuración y rechazar los retirados en `check`
@@ -249,6 +267,14 @@ con su razón, que ya es gramática válida del Plan, más una nota en el Log.
   - **Verify:** `node --test test/cli-bin.test.mjs`
   - **Criteria:** CR17
   - **Resolved:** `2026-10-18T16:15:21Z`
+- [ ] Sacar los estados retirados de la plantilla que reparte `init`
+  - **Target:** `templates/config.yml`, `src/config-migration.mjs`
+  - **Verify:** `node --test test/cli-bin.test.mjs test/config.test.mjs`
+  - **Criteria:** CR18
+- [ ] Fijar con tests la arista a `done` y la puerta de entrega en sus dos sedes
+  - **Target:** `test/agent.test.mjs`, `test/lifecycle.test.mjs`
+  - **Verify:** `node --test test/agent.test.mjs test/lifecycle.test.mjs`
+  - **Criteria:** CR19, CR20
 - [ ] Reescribir el ciclo de vida del core y borrar los dos overlays
   - **Target:** `templates/contract/core.md`, `templates/contract/validation.md`, `templates/contract/blocked.md`, `templates/contract/budgets.yml`
   - **Verify:** `node --test test/context.test.mjs`
