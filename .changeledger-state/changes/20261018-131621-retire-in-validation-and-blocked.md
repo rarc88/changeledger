@@ -5,7 +5,7 @@ type: feature
 status: draft
 created: 2026-10-18T13:16:21Z
 depends_on: []
-related_to: ["20260726-124835", "20260619-171002", "20260614-151759", "20260715-125139"]
+related_to: ["20260726-124835", "20260619-171002", "20260614-151759", "20260715-125139", "20260722-124655"]
 owner: raruiz-hiberuscom
 release_impact: major
 ---
@@ -242,4 +242,3 @@ con su razón, que ya es gramática válida del Plan, más una nota en el Log.
   - **Verify:** `pnpm verify`
 
 ## Log
-- **2026-10-18T13:16:21Z** `[version]` 0.18.0
