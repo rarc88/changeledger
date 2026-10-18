@@ -244,10 +244,11 @@ con su razón, que ya es gramática válida del Plan, más una nota en el Log.
   - **Target:** `src/git.mjs`, `src/check.mjs`
   - **Verify:** `node --test test/check.test.mjs test/git.test.mjs`
   - **Criteria:** CR10, CR11, CR12
-- [ ] Retirar los comandos `validation` y `reopen`
+- [x] Retirar los comandos `validation` y `reopen`
   - **Target:** `bin/changeledger.mjs`, `src/commands/agent.mjs`
   - **Verify:** `node --test test/cli-bin.test.mjs`
   - **Criteria:** CR17
+  - **Resolved:** `2026-10-18T16:15:21Z`
 - [ ] Reescribir el ciclo de vida del core y borrar los dos overlays
   - **Target:** `templates/contract/core.md`, `templates/contract/validation.md`, `templates/contract/blocked.md`, `templates/contract/budgets.yml`
   - **Verify:** `node --test test/context.test.mjs`
