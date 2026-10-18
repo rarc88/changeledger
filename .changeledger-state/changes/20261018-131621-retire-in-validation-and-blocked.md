@@ -231,10 +231,11 @@ con su razón, que ya es gramática válida del Plan, más una nota en el Log.
   - **Verify:** `node --test test/check.test.mjs`
   - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-10-18T15:02:09Z`
-- [ ] Reorientar las transiciones de `review` y retirar sus flags de clase
+- [x] Reorientar las transiciones de `review` y retirar sus flags de clase
   - **Target:** `src/lifecycle.mjs`, `src/commands/agent.mjs`, `bin/changeledger.mjs`
   - **Verify:** `node --test test/lifecycle.test.mjs test/agent.test.mjs`
   - **Criteria:** CR4, CR5, CR6
+  - **Resolved:** `2026-10-18T16:15:20Z`
 - [ ] Hacer del release la única frontera de la vuelta de `done` a `in-progress`
   - **Target:** `src/change.mjs`, `src/lifecycle.mjs`, `src/release.mjs`, `src/commands/agent.mjs`
   - **Verify:** `node --test test/lifecycle.test.mjs test/release.test.mjs`
