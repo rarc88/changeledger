@@ -19,7 +19,8 @@ El ciclo de vida baja de ocho estados a seis: desaparecen `in-validation` y
 La aceptación humana **no se pierde**: deja de ser un estado y pasa a ser un
 dato. `review pass` lleva el change a `done`, que significa «entregado»; el
 merge de su rama en la rama de integración es la aceptación, y queda registrada
-en el documento. Mientras no esté registrada, el change puede volver a
+en el documento como dato, no como puerta. La única frontera irreversible es el
+**release**: mientras el change no figure en un release registrado vuelve a
 `in-progress` sin ningún comando especial.
 
 `blocked` lo sustituye lo que ya existe: una tarea `[!]` con su razón en el Log.
@@ -79,8 +80,13 @@ stateDiagram-v2
     in_progress --> discarded
 ```
 
-`done → in-progress` sustituye tanto al rechazo humano de hoy como a `reopen`, y
-sólo se permite mientras la aceptación no esté registrada.
+`done → in-progress` sustituye tanto al rechazo humano de hoy como a `reopen`.
+La frontera no es la aceptación sino el release: `release record <version>`
+congela la membresía de una versión publicada, así que un change incluido en
+`.changeledger/releases/<version>.yml` ya no puede crecer sin que esa versión
+mienta sobre lo que contiene. Graduación y archivo dejan de ser fronteras —
+`--into` no sobrescribe el cuerpo de la spec y el archivo es reversible
+editando `archived: false`, según `close.md`.
 
 `blocked` desaparece sin sustituto de estado: un impedimento es una tarea `[!]`
 con su razón, que ya es gramática válida del Plan, más una nota en el Log.
@@ -96,6 +102,10 @@ con su razón, que ya es gramática válida del Plan, más una nota en el Log.
 - **Un comando `accept` explícito.** Descartada: es `validation pass` con otro
   nombre, y sigue dependiendo de que alguien lo escriba. Derivarlo de git lo
   hace verificable y no falsificable.
+- **Mantener la aceptación como frontera.** Descartada: medido sobre los 1.290
+  changes de los repos de producto, las 16 reaperturas ocurrieron todas antes de
+  graduar y ninguna chocó con la regla; lo que sí es incoherente es que el
+  contrato liste tres fronteras durables cuando dos son reversibles.
 - **Construir una migración para los 17 documentos vivos.** Descartada: v1.0 es
   ruptura limpia y los modos de migración de `fix` se retiran en otro change.
   `check` nombra el estado retirado y el destino, y los 17 se editan a mano.
@@ -141,58 +151,65 @@ con su razón, que ya es gramática válida del Plan, más una nota en el Log.
 - **And** el documento queda sin modificar
 - **And** lo mismo ocurre con `--retry`
 
-### CR7 — Un `done` sin aceptación registrada vuelve a `in-progress`
-- **Given** un change en `done` cuyo frontmatter no tiene `accepted_at`
+### CR7 — Un `done` fuera de todo release vuelve a `in-progress`
+- **Given** un change en `done` que no figura en ningún fichero de `.changeledger/releases/`
 - **When** se ejecuta `changeledger status <id> in-progress`
 - **Then** el frontmatter queda `status: in-progress`
 - **And** el Log recibe `[status]` con payload `done → in-progress`
 
-### CR8 — Un `done` ya aceptado no vuelve
-- **Given** un change en `done` con `accepted_at: 2026-10-18T10:00:00Z`
+### CR8 — Estar aceptado no cierra la vuelta
+- **Given** un change en `done` con `accepted_at: 2026-10-18T10:00:00Z` que no figura en ningún release registrado
+- **When** se ejecuta `changeledger status <id> in-progress`
+- **Then** el frontmatter queda `status: in-progress`
+- **And** el Log recibe `[status]` con payload `done → in-progress`
+
+### CR9 — Un change publicado en un release no vuelve
+- **Given** un change en `done` cuyo id figura en la lista `changes:` de `.changeledger/releases/0.19.0.yml`
 - **When** se ejecuta `changeledger status <id> in-progress`
 - **Then** sale con código distinto de cero
-- **And** imprime `change <id> was accepted on 2026-10-18T10:00:00Z: new work needs a new change`
+- **And** imprime `change <id> shipped in release 0.19.0: new work needs a new change`
 - **And** el documento queda sin modificar
 
-### CR9 — La aceptación se deriva del merge, no de una afirmación
+### CR10 — La aceptación se deriva del merge, no de una afirmación
 - **Given** un change en `done` sin `accepted_at`, cuya rama `feature/<id>` está fusionada en la rama publicada como `integration_branch`
 - **When** se ejecuta `changeledger check <id>`
 - **Then** el frontmatter recibe `accepted_at` con el instante del commit de merge en ISO 8601 UTC
 - **And** el Log recibe `[validation]` con payload `accepted (merged <sha-corto>)`
 
-### CR10 — Sin merge no hay aceptación
+### CR11 — Sin merge no hay aceptación
 - **Given** un change en `done` sin `accepted_at` cuya rama no está fusionada en la rama de integración
 - **When** se ejecuta `changeledger check <id>`
 - **Then** el frontmatter sigue sin `accepted_at`
 - **And** el Log no recibe ninguna entrada `[validation]`
 
-### CR11 — Un change sin rama registrada no bloquea ni inventa aceptación
+### CR12 — Un change sin rama registrada no bloquea ni inventa aceptación
 - **Given** un change en `done` sin `accepted_at` y sin entrada `[branch]` en su Log
 - **When** se ejecuta `changeledger check <id>`
 - **Then** sale con código 0
 - **And** el frontmatter sigue sin `accepted_at`
 
-### CR12 — El contrato publica seis estados y ningún overlay retirado
+### CR13 — El contrato publica seis estados, una sola frontera y ningún overlay retirado
 - **Given** la captura de `changeledger context`
 - **When** se lee su sección de ciclo de vida
 - **Then** enumera exactamente los seis estados de CR1
+- **And** nombra el release como única frontera irreversible, sin mencionar graduación ni archivo como tales
 - **And** no contiene las cadenas `in-validation` ni `blocked`
 - **And** `templates/contract/validation.md` y `templates/contract/blocked.md` no existen
 
-### CR13 — La taxonomía de clases de fallo sobrevive en review
+### CR14 — La taxonomía de clases de fallo sobrevive en review
 - **Given** la captura de `changeledger context review`
 - **When** se lee su contenido
 - **Then** distingue la enumeración incompleta dentro de una estrategia ya verificada de una clase nueva de defecto
 - **And** declara que esa clasificación se aplica igual a un veredicto `fail` del revisor y a un rechazo humano
 
-### CR14 — Las métricas dejan de derivar de un estado inexistente
+### CR15 — Las métricas dejan de derivar de un estado inexistente
 - **Given** un ledger con changes en los seis estados
 - **When** se calculan las métricas
 - **Then** `ACTIVE` de `src/metrics.mjs` es `['approved', 'in-progress', 'in-review']`
 - **And** el campo `validationWaitMs` desaparece del resultado
 - **And** se expone `rejectionCount`, el número de transiciones `done → in-progress` del ledger
 
-### CR15 — El viewer no ofrece carriles ni acciones retiradas
+### CR16 — El viewer no ofrece carriles ni acciones retiradas
 - **Given** el viewer sirviendo este repo
 - **When** se carga el tablero
 - **Then** no hay carril para `in-validation` ni para `blocked`
@@ -208,14 +225,14 @@ con su razón, que ya es gramática válida del Plan, más una nota en el Log.
   - **Target:** `src/lifecycle.mjs`, `src/commands/agent.mjs`, `bin/changeledger.mjs`
   - **Verify:** `node --test test/lifecycle.test.mjs test/agent.test.mjs`
   - **Criteria:** CR4, CR5, CR6
-- [ ] Añadir `accepted_at` y la vuelta condicional de `done` a `in-progress`
-  - **Target:** `src/change.mjs`, `src/lifecycle.mjs`, `src/commands/agent.mjs`
-  - **Verify:** `node --test test/lifecycle.test.mjs test/change.test.mjs`
-  - **Criteria:** CR7, CR8
-- [ ] Derivar la aceptación del merge de la rama del change
+- [ ] Hacer del release la única frontera de la vuelta de `done` a `in-progress`
+  - **Target:** `src/change.mjs`, `src/lifecycle.mjs`, `src/release.mjs`, `src/commands/agent.mjs`
+  - **Verify:** `node --test test/lifecycle.test.mjs test/release.test.mjs`
+  - **Criteria:** CR7, CR8, CR9
+- [ ] Derivar `accepted_at` del merge de la rama del change
   - **Target:** `src/git.mjs`, `src/check.mjs`
   - **Verify:** `node --test test/check.test.mjs test/git.test.mjs`
-  - **Criteria:** CR9, CR10, CR11
+  - **Criteria:** CR10, CR11, CR12
 - [ ] Retirar los comandos `validation` y `reopen`
   - **Target:** `bin/changeledger.mjs`, `src/commands/agent.mjs`
   - **Verify:** `node --test test/cli-bin.test.mjs`
@@ -223,19 +240,19 @@ con su razón, que ya es gramática válida del Plan, más una nota en el Log.
 - [ ] Reescribir el ciclo de vida del core y borrar los dos overlays
   - **Target:** `templates/contract/core.md`, `templates/contract/validation.md`, `templates/contract/blocked.md`, `templates/contract/budgets.yml`
   - **Verify:** `node --test test/context.test.mjs`
-  - **Criteria:** CR12
+  - **Criteria:** CR13
 - [ ] Mudar la taxonomía de clases de fallo a la revisión
   - **Target:** `templates/contract/review.md`
   - **Verify:** `node --test test/context.test.mjs`
-  - **Criteria:** CR13
+  - **Criteria:** CR14
 - [ ] Rehacer las métricas que derivaban de `in-validation`
   - **Target:** `src/metrics.mjs`
   - **Verify:** `node --test test/metrics.test.mjs`
-  - **Criteria:** CR14
+  - **Criteria:** CR15
 - [ ] Retirar carriles y paneles del viewer
   - **Target:** `src/viewer/domain.mjs`, `src/viewer/public/app.js`
   - **Verify:** `node --test test/viewer-metadata.test.mjs test/view.test.mjs`
-  - **Criteria:** CR15
+  - **Criteria:** CR16
 - [ ] Barrer de la suite los casos atados a los dos estados
   - **Support:**
   - **Target:** `test/**`
