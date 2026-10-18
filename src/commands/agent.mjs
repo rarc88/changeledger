@@ -178,15 +178,15 @@ function integrationCopies(integration, expected, repoRoot, gitRun) {
 // The pre-text guards of `status`: which destinations this actor may ask for at
 // all, before any document is read. Each terminal or human-owned destination
 // names the command that owns it, so a caller that is not a human — `apply`'s
-// batch included — is told where the move actually belongs.
+// batch included — is told where the move actually belongs. `done` is not one
+// of them: it means "delivered, pending human acceptance", which the agent
+// owns — through `review pass` for a review_required type, and through this
+// command for any other.
 export function assertStatusDestinationAllowed(config, newStatus, actor) {
   if (newStatus === 'discarded') {
     throw new Error(
       'to discard a change use `changeledger discard <id> "<reason>"` (a reason is required)',
     );
-  }
-  if (newStatus === 'done') {
-    throw new Error('to complete a change use human validation in the viewer or conversation');
   }
   if (newStatus === 'approved' && actor !== 'human') {
     throw new Error(
@@ -215,7 +215,7 @@ export function statusMutation(
   return (text) => {
     const fm = parseChange(text).frontmatter;
     if (fm.status === 'done' && newStatus === 'in-progress') {
-      throw new Error('to reopen a done change use `changeledger reopen <id> "<reason>"`');
+      throw new Error('to reopen a done change use the viewer');
     }
     // Validate the move before any in-memory mutation, so an illegal transition
     // leaves the file byte-for-byte unchanged. The review gate reads review_required
@@ -313,6 +313,11 @@ export function statusMutation(
         });
       }
     }
+    // Delivery gate for the types that never enter review, inherited verbatim
+    // from the human-acceptance gate `done` used to sit behind: judge the
+    // POST-flip text, because the rules that matter here (undone tasks, a Log
+    // that does not reconstruct the frontmatter) only apply to a done change.
+    if (newStatus === 'done') assertChangeTextValid(config, name, text);
     events?.push(transitionEvent(fm, 'status', fm.status, newStatus, at));
     return text;
   };
@@ -361,12 +366,12 @@ export function approve(id, cwd = process.cwd(), { usage } = {}) {
 }
 
 // Records the verdict of the independent review (run by a delegated subagent
-// with clean context — see `changeledger context review`). `pass` advances to human validation;
-// `fail` routes it back: `retry` for a defect inside the contract (the
-// implementer fixes), `block` for one that escalates to a human. Requires the
-// change to be in-review.
-export function review(id, verdict, { mode, reason } = {}, cwd = process.cwd(), { usage } = {}) {
-  const { config, repo, target, repoRoot } = locate(cwd, id);
+// with clean context — see `changeledger context review`). `pass` delivers the
+// change to `done`; `fail` routes it back to `in-progress` with its reason.
+// The failure class belongs in that reason, not in a flag. Requires the change
+// to be in-review.
+export function review(id, verdict, { reason } = {}, cwd = process.cwd(), { usage } = {}) {
+  const { config, repo, target, name, repoRoot } = locate(cwd, id);
   const events = [];
   mutateLedgerFile(
     repo,
@@ -377,10 +382,10 @@ export function review(id, verdict, { mode, reason } = {}, cwd = process.cwd(), 
       if (current !== 'in-review') {
         throw new Error(`review requires status in-review (current: ${current})`);
       }
-      // Validate before any mutation, same contract as status()/validation()/
-      // discard()/reopen(): assertTransition is the single lifecycle authority,
-      // even though every in-review edge is legal today (the graph's three
-      // in-review destinations mirror review()'s three outcomes by design).
+      // Validate before any mutation, same contract as status()/discard():
+      // assertTransition is the single lifecycle authority, even though both
+      // in-review edges are legal today (the graph's two in-review
+      // destinations mirror review()'s two verdicts by design).
       const opts = {
         type: fm.type,
         reviewRequired: Boolean(config.types?.[fm.type]?.review_required),
@@ -389,48 +394,34 @@ export function review(id, verdict, { mode, reason } = {}, cwd = process.cwd(), 
       const at = nowUtc();
       let to;
       if (verdict === 'pass') {
-        assertTransition(current, 'in-validation', opts);
-        to = 'in-validation';
-        text = setStatus(text, 'in-validation');
+        assertTransition(current, 'done', opts);
+        to = 'done';
+        text = setStatus(text, 'done');
         text = appendLogEvent(text, {
           at,
           type: 'review',
           from: 'in-review',
-          to: 'in-validation',
+          to: 'done',
           detail: 'delegated subagent, clean context',
         });
+        // Same delivery gate `status` applies to the no-review route, and the
+        // one human acceptance used to apply here: a `done` document cannot
+        // carry defects the repo's own rules reject.
+        assertChangeTextValid(config, name, text);
       } else if (verdict === 'fail') {
         if (!reason) {
-          throw new Error(
-            'fail requires a reason — changeledger review <id> fail --retry|--block "<reason>"',
-          );
+          throw new Error('fail requires a reason — changeledger review <id> fail "<reason>"');
         }
-        if (mode === 'retry') {
-          assertTransition(current, 'in-progress', opts);
-          to = 'in-progress';
-          text = setStatus(text, 'in-progress');
-          text = appendLogEvent(text, {
-            at,
-            type: 'review',
-            from: 'in-review',
-            to: 'in-progress',
-            detail: 'retry',
-            reason,
-          });
-        } else if (mode === 'block') {
-          assertTransition(current, 'blocked', opts);
-          to = 'blocked';
-          text = setStatus(text, 'blocked');
-          text = appendLogEvent(text, {
-            at,
-            type: 'review',
-            from: 'in-review',
-            to: 'blocked',
-            reason,
-          });
-        } else {
-          throw new Error('fail requires --retry or --block');
-        }
+        assertTransition(current, 'in-progress', opts);
+        to = 'in-progress';
+        text = setStatus(text, 'in-progress');
+        text = appendLogEvent(text, {
+          at,
+          type: 'review',
+          from: 'in-review',
+          to: 'in-progress',
+          reason,
+        });
       } else {
         throw new Error(`Unknown review verdict "${verdict}" (use pass|fail)`);
       }

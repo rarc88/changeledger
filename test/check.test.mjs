@@ -2483,19 +2483,18 @@ ${logLines.join('\n')}
 `;
 }
 
-test('225210 CR1: a repeated review verdict after in-validation is an error with line and expectation', () => {
+test('225210 CR1: a repeated review verdict after delivery is an error with line and expectation', () => {
   const text = seqChange('done', [
     '- **2026-06-13T12:10:00Z** `[status]` draft → approved',
     '- **2026-06-13T12:20:00Z** `[status]` approved → in-progress',
     '- **2026-06-13T12:30:00Z** `[status]` in-progress → in-review',
-    '- **2026-06-13T12:40:00Z** `[review]` in-review → in-validation (delegated subagent, clean context)',
-    '- **2026-06-13T12:50:00Z** `[review]` in-review → in-validation (delegated subagent, clean context)',
-    '- **2026-06-13T13:00:00Z** `[validation]` in-validation → done (human accepted)',
+    '- **2026-06-13T12:40:00Z** `[review]` in-review → done (delegated subagent, clean context)',
+    '- **2026-06-13T12:50:00Z** `[review]` in-review → done (delegated subagent, clean context)',
   ]);
   const e = msgs(covResult(text).errors);
   assert.ok(
     e.some((m) =>
-      /Log line \d+: transition "in-review → in-validation" starts from "in-review" but the reconstructed status is "in-validation"/.test(
+      /Log line \d+: transition "in-review → done" starts from "in-review" but the reconstructed status is "done"/.test(
         m,
       ),
     ),
@@ -2508,10 +2507,9 @@ test('225210 CR2: canonical sequences pass; self-loops, skips and final mismatch
     '- **2026-06-13T12:10:00Z** `[status]` draft → approved',
     '- **2026-06-13T12:20:00Z** `[status]` approved → in-progress',
     '- **2026-06-13T12:30:00Z** `[status]` in-progress → in-review',
-    '- **2026-06-13T12:40:00Z** `[review]` in-review → in-progress (retry): reason',
+    '- **2026-06-13T12:40:00Z** `[review]` in-review → in-progress: reason',
     '- **2026-06-13T12:45:00Z** `[status]` in-progress → in-review',
-    '- **2026-06-13T12:50:00Z** `[review]` in-review → in-validation (delegated subagent, clean context)',
-    '- **2026-06-13T13:00:00Z** `[validation]` in-validation → done (human accepted)',
+    '- **2026-06-13T12:50:00Z** `[review]` in-review → done (delegated subagent, clean context)',
   ]);
   assert.deepEqual(
     msgs(covResult(ok).errors).filter((m) => /Log line/.test(m)),
@@ -2544,17 +2542,35 @@ test('225210 CR2: canonical sequences pass; self-loops, skips and final mismatch
   );
 });
 
-test('150232 CR6: sequence validation accepts reopen followed by normal gates', () => {
+test('150232 CR6: sequence validation accepts a return from done followed by normal gates', () => {
+  const text = seqChange('done', [
+    '- **2026-06-13T12:10:00Z** `[status]` draft → approved',
+    '- **2026-06-13T12:20:00Z** `[status]` approved → in-progress',
+    '- **2026-06-13T12:30:00Z** `[status]` in-progress → in-review',
+    '- **2026-06-13T12:40:00Z** `[review]` in-review → done (delegated subagent, clean context)',
+    '- **2026-06-13T13:00:00Z** `[status]` done → in-progress (human reopened): fix',
+    '- **2026-06-13T13:10:00Z** `[status]` in-progress → in-review',
+    '- **2026-06-13T13:20:00Z** `[review]` in-review → done (delegated subagent, clean context)',
+  ]);
+  assert.deepEqual(
+    msgs(covResult(text).errors).filter((m) => /Log line|reconstructs status/.test(m)),
+    [],
+  );
+});
+
+// 20261018-131621 — the legacy-edge decision for the two retired statuses:
+// `LEGACY_EDGES` was NOT widened for them. `checkLifecycleSequence` already
+// abandons the replay at the first event naming a status the graph does not
+// model, so a Log written under the old contract is tolerated by that same
+// rule — the one the contract has always used for custom statuses — instead of
+// by a second, parallel allowance that would have to be carried forever.
+test('20261018-131621: a live Log naming a retired status is tolerated, not diagnosed', () => {
   const text = seqChange('done', [
     '- **2026-06-13T12:10:00Z** `[status]` draft → approved',
     '- **2026-06-13T12:20:00Z** `[status]` approved → in-progress',
     '- **2026-06-13T12:30:00Z** `[status]` in-progress → in-review',
     '- **2026-06-13T12:40:00Z** `[review]` in-review → in-validation (delegated subagent, clean context)',
     '- **2026-06-13T12:50:00Z** `[validation]` in-validation → done (human accepted)',
-    '- **2026-06-13T13:00:00Z** `[status]` done → in-progress (human reopened): fix',
-    '- **2026-06-13T13:10:00Z** `[status]` in-progress → in-review',
-    '- **2026-06-13T13:20:00Z** `[review]` in-review → in-validation (delegated subagent, clean context)',
-    '- **2026-06-13T13:30:00Z** `[validation]` in-validation → done (human accepted)',
   ]);
   assert.deepEqual(
     msgs(covResult(text).errors).filter((m) => /Log line|reconstructs status/.test(m)),
