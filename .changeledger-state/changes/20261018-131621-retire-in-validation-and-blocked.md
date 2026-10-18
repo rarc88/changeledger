@@ -218,10 +218,11 @@ con su razón, que ya es gramática válida del Plan, más una nota en el Log.
 
 ## Plan
 
-- [ ] Reducir el conjunto de estados en la configuración y rechazar los retirados en `check`
+- [x] Reducir el conjunto de estados en la configuración y rechazar los retirados en `check`
   - **Target:** `.changeledger/config.yml`, `src/check.mjs`
   - **Verify:** `node --test test/check.test.mjs`
   - **Criteria:** CR1, CR2, CR3
+  - **Resolved:** `2026-10-18T15:02:09Z`
 - [ ] Reorientar las transiciones de `review` y retirar sus flags de clase
   - **Target:** `src/lifecycle.mjs`, `src/commands/agent.mjs`, `bin/changeledger.mjs`
   - **Verify:** `node --test test/lifecycle.test.mjs test/agent.test.mjs`
