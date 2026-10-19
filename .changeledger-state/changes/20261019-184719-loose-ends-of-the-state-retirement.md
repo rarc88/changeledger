@@ -132,10 +132,11 @@ que es una capacidad que falta y no un cabo suelto de este trabajo.
   - **Target:** `src/check.mjs`
   - **Verify:** `node --test test/check.test.mjs`
   - **Criteria:** CR7
-- [ ] Aflojar el pin de prosa del veredicto del revisor
+- [x] Aflojar el pin de prosa del veredicto del revisor
   - **Target:** `test/agent-context.test.mjs`
   - **Verify:** `node --test test/agent-context.test.mjs`
   - **Criteria:** CR8
+  - **Resolved:** `2026-10-19T19:40:52Z`
 - [ ] Documentar en la spec de métricas que el filtro de actor difiere entre rechazo y retrabajo
   - **Support:**
   - **Target:** `.changeledger/specs/metrics.md`
