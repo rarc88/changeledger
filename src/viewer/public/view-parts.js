@@ -139,21 +139,32 @@ export function approvalPanel(change) {
   </section>`;
 }
 
-export function validationPanel() {
-  return html`<section class="validation-actions" aria-labelledby="validation-title">
+// The human's one verdict seat on delivered work. There is no Accept control:
+// merging the change is the acceptance, and the ledger derives it from that
+// merge. What is left is the return, which carries the reason that is now a
+// rejection's only record. A change already in a published release is frozen —
+// `assertNotShipped` refuses the move server-side — so the seat is not offered
+// either (20261018-131621 CR23).
+export function rejectionPanel(change) {
+  if (change?.status !== 'done' || change?.released) return nothing;
+  return html`<section class="validation-actions" aria-labelledby="rejection-title">
     <div class="validation-copy">
       <span class="validation-kicker">Human checkpoint</span>
-      <h2 id="validation-title">Ready for your verdict</h2>
-      <p>Test the complete change, then accept it or send it back with a precise reason.</p>
+      <h2 id="rejection-title">Ready for your verdict</h2>
+      <p>Merging this change accepts it. Send it back instead with a precise reason.</p>
     </div>
     <div class="validation-controls">
-      <button type="button" class="button button-primary" data-validation="pass">Accept change</button>
       <div class="rejection-field">
-        <label for="validation-reason">Reason for rejection</label>
-        <input id="validation-reason" data-validation-reason type="text" placeholder="What still needs work?" />
+        <label for="rejection-reason">Reason for rejection</label>
+        <input id="rejection-reason" data-rejection-reason type="text" placeholder="What still needs work?" />
         <p class="validation-error" role="alert" hidden></p>
       </div>
-      <button type="button" class="button button-danger" data-validation="fail">Reject with reason</button>
+      <button
+        type="button"
+        class="button button-danger"
+        data-reject
+        aria-label=${`Send change ${change.id} back for work`}
+      >Send back with reason</button>
     </div>
   </section>`;
 }

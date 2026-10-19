@@ -54,6 +54,7 @@ import {
   card,
   detailToolbar,
   referenceDetails,
+  rejectionPanel,
   sortIndicator,
   specBody,
   stageBlock,
@@ -547,6 +548,44 @@ export function bindApproveAction(
   button.onclick = () => approveOnce(project, id, move, [button], closeCurrentDetail);
 }
 
+function showRejectionError(root, message) {
+  const error = root.querySelector('.validation-error');
+  if (!error) return;
+  error.textContent = message;
+  error.hidden = !message;
+}
+
+// Binds the verdict panel's single control. The reason is mandatory and is
+// checked here so an empty one never reaches the server; everything past that
+// — the project-target staleness checks, the error surface and the reload —
+// is `moveStatus`, the same seat every other human-owned move goes through
+// (20261018-131621 CR23).
+export function bindRejectAction(
+  root,
+  { id, project = state.currentProject, move = moveStatus, close = closeDetail } = {},
+) {
+  const button = root.querySelector('[data-reject]');
+  if (!button || id == null) return;
+  button.onclick = async () => {
+    const input = root.querySelector('[data-rejection-reason]');
+    const reason = input?.value.trim();
+    if (!reason) {
+      showRejectionError(root, 'A rejection reason is required.');
+      input?.focus();
+      return false;
+    }
+    showRejectionError(root, '');
+    button.disabled = true;
+    try {
+      const sent = await move(id, 'in-progress', reason, { project });
+      if (sent) close();
+      return sent;
+    } finally {
+      button.disabled = false;
+    }
+  };
+}
+
 export function bindBoardInteractions(
   board,
   changes,
@@ -718,6 +757,7 @@ function openDetail(id) {
     ${referenceDetails('Dependencies', c.depends_on || [], changes, '↓')}
     ${referenceDetails('Related changes', [...outgoing, ...incoming], changes, '↔')}
     ${approvalPanel(c)}
+    ${rejectionPanel(c)}
     ${stages}
     <div id="usage-section"></div>
     <div id="git-section"></div>`,
@@ -730,6 +770,7 @@ function openDetail(id) {
   bindDetailPresentation();
   $('#detail').querySelector('.close').onclick = closeDetail;
   bindApproveAction($('#detail'), { id: c.id, project: detailTarget.project });
+  bindRejectAction($('#detail'), { id: c.id, project: detailTarget.project });
   overlay.onclick = (e) => {
     if (e.target === overlay) closeDetail();
   };

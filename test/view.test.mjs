@@ -1470,13 +1470,9 @@ for (const layout of ['legacy', 'state ref']) {
   });
 }
 
-// 171002 CR2/CR3 pinned the two verdicts of the retired validation gate.
-// Acceptance is now derived from the merge, so the viewer has one verdict
-// left: sending delivered work back, which is also the only record a human
-// rejection leaves (20261018-131621 CR16).
-test('171002 CR2/CR3: the viewer cannot accept a done change, only send it back', () => {
-  isolatedHome();
-  const root = newRepo();
+// A delivered change in an already-initialized repo: reviewed and passed, so
+// `done` means "delivered, pending the acceptance the merge derives".
+function deliveredViewerChange(root) {
   disableChangeBranchFormat(root);
   const file = newChange(
     { type: 'feature', slug: 'rejected', title: 'Rejected', now: '2026-06-13T12:00:00Z' },
@@ -1490,6 +1486,17 @@ test('171002 CR2/CR3: the viewer cannot accept a done change, only send it back'
   task(id, 'done', 1, '', root);
   status(id, 'in-review', root);
   review(id, 'pass', {}, root);
+  return { file, id };
+}
+
+// 171002 CR2/CR3 pinned the two verdicts of the retired validation gate.
+// Acceptance is now derived from the merge, so the viewer has one verdict
+// left: sending delivered work back, which is also the only record a human
+// rejection leaves (20261018-131621 CR16).
+test('171002 CR2/CR3: the viewer cannot accept a done change, only send it back', () => {
+  isolatedHome();
+  const root = newRepo();
+  const { file, id } = deliveredViewerChange(root);
   const { projects, current } = resolveProjects(root, false);
 
   const accept = changeStatus(projects, { project: current, id, status: 'done' });
@@ -1513,6 +1520,55 @@ test('171002 CR2/CR3: the viewer cannot accept a done change, only send it back'
   const parsed = parseChange(fs.readFileSync(file, 'utf8'));
   assert.equal(parsed.frontmatter.status, 'in-progress');
   assert.match(parsed.stages.find((s) => s.key === 'log').body, /manual scenario failed/);
+});
+
+// The viewer is the human's surface, so the return it writes is a human
+// rejection and must say so: `rejectionCount` counts that mark and nothing
+// else (20261018-131621 CR23/CR24).
+test('20261018-131621 CR23: the viewer marks its return from done as the human one', () => {
+  isolatedHome();
+  const root = newRepo();
+  const { file, id } = deliveredViewerChange(root);
+  const { projects, current } = resolveProjects(root, false);
+
+  const rejected = changeStatus(projects, {
+    project: current,
+    id,
+    status: 'in-progress',
+    reason: 'falta el caso de la zona horaria',
+  });
+  assert.equal(rejected.code, 200, rejected.body.error);
+  const parsed = parseChange(fs.readFileSync(file, 'utf8'));
+  assert.equal(parsed.frontmatter.status, 'in-progress');
+  assert.match(
+    parsed.stages.find((s) => s.key === 'log').body,
+    /`\[status\]` done → in-progress \(human\): falta el caso de la zona horaria$/m,
+  );
+});
+
+// The panel is driven by the payload, so release membership has to reach the
+// browser as a datum. It is read through `assertNotShipped` — the one
+// authority on that boundary — never re-derived from the manifests here.
+test('20261018-131621 CR23: serialize reports release membership per change', () => {
+  isolatedHome();
+  const root = newRepo();
+  const { id } = deliveredViewerChange(root);
+
+  assert.equal(
+    serialize(loadRepo(root)).changes.find((c) => String(c.id) === String(id)).released,
+    false,
+  );
+
+  const dir = path.join(root, '.changeledger', 'releases');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(
+    path.join(dir, '0.19.0.yml'),
+    `version: 0.19.0\ncreated: 2026-06-13T13:00:00Z\nchanges: ["${id}"]\n`,
+  );
+  assert.equal(
+    serialize(loadRepo(root)).changes.find((c) => String(c.id) === String(id)).released,
+    true,
+  );
 });
 
 // The viewer's surviving write seat for a scoped-validation failure is the

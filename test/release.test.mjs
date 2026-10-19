@@ -366,7 +366,7 @@ test('20261018-131621 CR7: a done change outside every release returns to in-pro
   assert.equal(parsed.frontmatter.status, 'in-progress');
   assert.match(
     parsed.stages.find((s) => s.key === 'log').body,
-    /`\[status\]` done → in-progress$/m,
+    /`\[status\]` done → in-progress \(human\)$/m,
   );
 });
 
@@ -388,7 +388,7 @@ test('20261018-131621 CR8: accepted_at does not close the return to in-progress'
   assert.equal(parsed.frontmatter.accepted_at, '2026-10-18T10:00:00Z');
   assert.match(
     parsed.stages.find((s) => s.key === 'log').body,
-    /`\[status\]` done → in-progress$/m,
+    /`\[status\]` done → in-progress \(human\)$/m,
   );
 });
 

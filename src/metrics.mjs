@@ -108,7 +108,13 @@ function rejectionCount(change) {
   let count = 0;
   for (const line of logBody(change).split('\n')) {
     const event = parseLogEvent(line);
-    if (event?.from === 'done' && event.to === 'in-progress') count++;
+    // Only the edges the human took: an agent's own return to `in-progress` is
+    // a second pass, and counting it would turn the one surviving record of
+    // human dissatisfaction into a plain tally (20261018-131621 CR24).
+    // `human reopened` is the pre-CR24 payload the product repos already carry; counting
+    // only the new shape would read zero over every rejection recorded before this change.
+    const byHuman = event?.detail === 'human' || event?.detail === 'human reopened';
+    if (event?.from === 'done' && event.to === 'in-progress' && byHuman) count++;
   }
   return count;
 }

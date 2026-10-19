@@ -760,6 +760,8 @@ program
       CONFIGURED_DOMAINS?.statuses,
     ),
   )
+  .argument('[reason...]', 'why delivered work is being sent back to `in-progress`')
+  .option('--human', 'attribute the return from `done` to an explicit human decision')
   .addHelpText(
     'after',
     [
@@ -768,14 +770,29 @@ program
       'to discard. Human-owned moves use the viewer or `changeledger approve <id>`',
       'after an explicit human prompt.',
       '',
+      '`--human` marks the return from `done` as a human rejection — the only',
+      'edge the rejection metric counts. Without it the return belongs to the agent.',
+      '',
       'Examples:',
       '  changeledger status <id> in-progress',
       '  changeledger status <id> in-review',
+      '  changeledger status <id> in-progress --human "<reason>"',
     ].join('\n'),
   )
   .action(
-    action((id, st) => {
-      const { warnings } = status(id, st, process.cwd(), { actor: 'agent' });
+    action((id, st, reasonParts, options) => {
+      // `--human` attributes one edge and nothing else: accepting it anywhere
+      // would hand the agent the human approval seat that
+      // `assertStatusDestinationAllowed` exists to deny it.
+      if (options.human && st !== 'in-progress') {
+        throw new Error(
+          'the `--human` flag only attributes the return to `in-progress`; to approve a draft use `changeledger approve <id>`',
+        );
+      }
+      const { warnings } = status(id, st, process.cwd(), {
+        actor: options.human ? 'human' : 'agent',
+        reason: reasonParts.join(' ').trim() || undefined,
+      });
       for (const warning of warnings) console.error(warning);
       console.log(`#${id} → ${st}`);
     }),

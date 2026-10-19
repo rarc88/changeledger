@@ -29,6 +29,7 @@ import {
   remove,
   update,
 } from '../registry.mjs';
+import { assertNotShipped } from '../release.mjs';
 import { loadRepo, loadRepoWithConfig, resolveChange, resolveChangeInRepo } from '../repo.mjs';
 import { CAS_CONFLICT_MESSAGE, LedgerConflictError, STATE_ROOT } from '../state-store.mjs';
 import { repoCliVersionError } from '../version-guard.mjs';
@@ -72,6 +73,20 @@ function configTarget(repo) {
   return { relPath: 'config.yml', text };
 }
 
+// Whether a change is frozen by a published release, asked of the single
+// authority on that boundary instead of re-read from the manifests here: the
+// viewer offers the return from `done` only where `statusMutation` would
+// accept it, and one predicate cannot drift from the other
+// (20261018-131621 CR23).
+function isReleased(releases, id) {
+  try {
+    assertNotShipped(releases, id);
+    return false;
+  } catch {
+    return true;
+  }
+}
+
 // Serializes a loaded repo into the flat shape the UI consumes.
 export function serialize(repo) {
   return {
@@ -87,6 +102,7 @@ export function serialize(repo) {
       owner: c.frontmatter.owner ?? null,
       branch: c.frontmatter.branch ?? null,
       archived: c.frontmatter.archived === true,
+      released: isReleased(repo.releases, c.frontmatter.id),
       pending_graduation: isPendingGraduation(c),
       created: c.frontmatter.created,
       depends_on: c.frontmatter.depends_on ?? [],

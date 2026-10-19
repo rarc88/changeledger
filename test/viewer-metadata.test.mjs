@@ -23,6 +23,7 @@ const {
   bindBoardSortControls,
   bindDetailPresentation,
   bindProjectViewActions,
+  bindRejectAction,
   card,
   choiceFilterSummary,
   cleanMissingProjectsFromView,
@@ -73,9 +74,14 @@ const {
   setTextFilter,
   state: appState,
 } = await import('../src/viewer/public/app-state.js');
-const { approvalPanel, boardColumnHeader, closeButton, referenceDetails, specBody } = await import(
-  '../src/viewer/public/view-parts.js'
-);
+const {
+  approvalPanel,
+  boardColumnHeader,
+  closeButton,
+  referenceDetails,
+  rejectionPanel,
+  specBody,
+} = await import('../src/viewer/public/view-parts.js');
 const { graphSvg, metricsHtml, specsListHtml } = await import(
   '../src/viewer/public/view-renderers.js'
 );
@@ -1928,6 +1934,62 @@ test('141643 CR1/CR6: Approve uses the lifecycle panel, never the toolbar or car
       assert.match(panel.textContent, /Ready for approval/);
     }
   }
+});
+
+// The viewer's one verdict seat. The merge is the acceptance, so the panel
+// offers no Accept: only the return, and only where the release boundary
+// still allows it (20261018-131621 CR23).
+test('20261018-131621 CR23: the verdict panel offers the return from done and nothing else', () => {
+  for (const status of ['draft', 'approved', 'in-progress', 'in-review', 'done', 'discarded']) {
+    const change = { ...baseChange(), status, released: false };
+    const panel = parse(rejectionPanel(change));
+    const controls = panel.querySelectorAll('[data-reject]');
+    assert.equal(controls.length, status === 'done' ? 1 : 0, status);
+    if (status !== 'done') continue;
+    assert.equal(controls[0].tagName, 'BUTTON');
+    assert.equal(controls[0].type, 'button');
+    assert.equal(controls[0].getAttribute('aria-label'), `Send change ${change.id} back for work`);
+    assert.equal(panel.querySelectorAll('[data-rejection-reason]').length, 1);
+    assert.equal(panel.querySelectorAll('[data-validation]').length, 0, 'no accept control');
+    assert.doesNotMatch(panel.textContent, /Accept/);
+  }
+});
+
+test('20261018-131621 CR23: a released change is offered no return control', () => {
+  const panel = parse(rejectionPanel({ ...baseChange(), status: 'done', released: true }));
+  assert.equal(panel.querySelector('[data-reject]'), null);
+  assert.equal(panel.querySelector('[data-rejection-reason]'), null);
+});
+
+const rejectionDetail = (change) => html`${rejectionPanel(change)}`;
+
+test('20261018-131621 CR23: the return is sent with its reason and refused without one', async () => {
+  const delivered = { ...baseChange(), status: 'done', released: false };
+  const detail = parse(rejectionDetail(delivered));
+  const calls = [];
+  let closes = 0;
+  bindRejectAction(detail, {
+    id: delivered.id,
+    move: (...args) => {
+      calls.push(args.slice(0, 3));
+      return Promise.resolve(true);
+    },
+    close: () => closes++,
+  });
+  const button = detail.querySelector('[data-reject]');
+  const input = detail.querySelector('[data-rejection-reason]');
+
+  input.value = '   ';
+  await button.onclick(new window.Event('click'));
+  assert.deepEqual(calls, [], 'an empty reason never reaches the server');
+  assert.equal(closes, 0);
+  assert.equal(detail.querySelector('.validation-error').hidden, false);
+
+  input.value = 'falta el caso de la zona horaria';
+  await button.onclick(new window.Event('click'));
+  assert.deepEqual(calls, [[delivered.id, 'in-progress', 'falta el caso de la zona horaria']]);
+  assert.equal(closes, 1);
+  assert.equal(detail.querySelector('.validation-error').hidden, true);
 });
 
 test('141643 CR1/CR2: detail approval and draft-only drag share one single-flight guard', async () => {
@@ -4220,9 +4282,11 @@ test('161656 CR4/CR5: the detail approval uses the detail path and rejects forei
   }
 });
 
-// The acceptance gate and the reopen command are retired: the detail of a
-// `done` change offers no human verdict at all (20261018-131621 CR16).
-test('20261018-131621 CR16: the detail of a done change renders no verdict control', () => {
+// CR16 left the detail of a `done` change with no verdict control at all,
+// which took the human's rejection seat away with the retired gate. CR23 gives
+// back exactly one — the return — and only where the release boundary allows
+// it. The retired controls stay gone.
+test('20261018-131621 CR23: the detail of a done change renders only the return control', () => {
   const fixture = installViewerFixture();
   const previous = {
     project: appState.currentProject,
@@ -4232,17 +4296,24 @@ test('20261018-131621 CR16: the detail of a done change renders no verdict contr
   try {
     appState.currentProject = 'no-verdict';
     appState.projectsList = [{ id: 'no-verdict', name: 'N', path: '/repos/n', alive: true }];
-    for (const status of ['done', 'in-validation']) {
+    for (const [status, released, offered] of [
+      ['done', false, true],
+      ['done', true, false],
+      ['in-validation', false, false],
+    ]) {
+      const label = `${status}${released ? ' released' : ''}`;
       appState.repo = {
         project_id: 'no-verdict',
-        changes: [{ ...viewerChange('verdict', 'Verdict'), status }],
+        changes: [{ ...viewerChange('verdict', 'Verdict'), status, released }],
         specs: [],
       };
       openChangeById('verdict');
       const detail = fixture.querySelector('#detail');
-      assert.equal(detail.querySelector('[data-reopen]'), null, status);
-      assert.equal(detail.querySelector('[data-validation]'), null, status);
-      assert.equal(detail.querySelector('.validation-actions'), null, status);
+      assert.equal(detail.querySelector('[data-reopen]'), null, label);
+      assert.equal(detail.querySelector('[data-validation]'), null, label);
+      assert.equal(Boolean(detail.querySelector('[data-reject]')), offered, label);
+      assert.equal(Boolean(detail.querySelector('.validation-actions')), offered, label);
+      if (offered) assert.equal(typeof detail.querySelector('[data-reject]').onclick, 'function');
     }
   } finally {
     fixture.remove();

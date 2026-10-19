@@ -238,25 +238,45 @@ test('20261018-131621 CR15: validationWaitMs is gone from the result', () => {
   assert.equal(Object.hasOwn(m, 'validationWaitMs'), false);
 });
 
-test('20261018-131621 CR15: rejectionCount counts done → in-progress across the ledger', () => {
+// CR15 counted every done → in-progress edge, which made an agent's own
+// self-reopen indistinguishable from a human rejection — the one signal the
+// metric exists to preserve. CR24 narrows it to the edges marked `(human)`.
+test('20261018-131621 CR24: rejectionCount counts only the human returns from done', () => {
   const twice = change({
     id: 'a',
     created: '2026-06-13T10:00:00Z',
     logBody: `- **2026-06-13T11:00:00Z** \`[status]\` in-progress → done
-- **2026-06-13T12:00:00Z** \`[status]\` done → in-progress: not what I asked for
+- **2026-06-13T12:00:00Z** \`[status]\` done → in-progress (human): not what I asked for
 - **2026-06-13T13:00:00Z** \`[status]\` in-progress → done
-- **2026-06-13T14:00:00Z** \`[status]\` done → in-progress (human reopened): still wrong`,
+- **2026-06-13T14:00:00Z** \`[status]\` done → in-progress (human): still wrong`,
   });
   const once = change({
     id: 'b',
     created: '2026-06-13T10:00:00Z',
     logBody: `- **2026-06-13T11:00:00Z** \`[status]\` in-progress → done
-- **2026-06-13T12:00:00Z** \`[status]\` done → in-progress: redo
+- **2026-06-13T12:00:00Z** \`[status]\` done → in-progress (human): redo
 - **2026-06-13T13:00:00Z** \`[review]\` in-review → in-progress: a review fail is not a rejection
 - **2026-06-13T14:00:00Z** \`[status]\` in-progress → done
-- **2026-06-13T15:00:00Z** \`[status]\` done → discarded: leaving done is not being rejected`,
+- **2026-06-13T15:00:00Z** \`[status]\` done → in-progress (agent): my own second pass
+- **2026-06-13T16:00:00Z** \`[status]\` in-progress → done
+- **2026-06-13T17:00:00Z** \`[status]\` done → discarded: leaving done is not being rejected`,
   });
   assert.equal(computeMetrics([twice, once]).rejectionCount, 3);
+});
+
+// The product repos already carry the pre-CR24 payload (`human reopened` /
+// `agent reopened`). Counting only the new shape would read zero over every
+// rejection recorded before this change.
+test('20261018-131621 CR24: the legacy actor payload still counts', () => {
+  const legacy = change({
+    id: 'c',
+    created: '2026-06-13T10:00:00Z',
+    logBody: `- **2026-06-13T11:00:00Z** \`[status]\` in-progress → done
+- **2026-06-13T12:00:00Z** \`[status]\` done → in-progress (human reopened): Se olvidó el método simétrico
+- **2026-06-13T13:00:00Z** \`[status]\` in-progress → done
+- **2026-06-13T14:00:00Z** \`[status]\` done → in-progress (agent reopened): mi propio repaso`,
+  });
+  assert.equal(computeMetrics([legacy]).rejectionCount, 1);
 });
 
 // The merge-derived acceptance arm of `[validation]` carries no `to`, so the

@@ -2051,17 +2051,27 @@ function deliveredChange() {
 // 150232 CR1/CR2/CR5 and 105205 CR2 pinned `reopen`, which is retired with
 // `in-validation`: the return is the generic transition now. Requiring a
 // reason is the viewer's rule, pinned in test/view.test.mjs; what the command
-// owes is to carry that reason into the Log, since it is the only record a
-// human rejection leaves (20261018-131621 CR15/CR16).
-test('20261018-131621 CR16: the return from done carries the reason into the Log', () => {
-  const { root, file, id } = deliveredChange();
-  status(id, 'in-progress', root, { reason: 'complete original acceptance' });
-  const parsed = parseChange(fs.readFileSync(file, 'utf8'));
-  assert.equal(parsed.frontmatter.status, 'in-progress');
-  assert.match(
-    parsed.stages.find((s) => s.key === 'log').body,
-    /`\[status\]` done → in-progress: complete original acceptance$/m,
-  );
+// owes is to carry that reason AND the actor into the Log, since this edge is
+// the only record a human rejection leaves and `rejectionCount` counts only
+// the human ones (20261018-131621 CR24).
+test('20261018-131621 CR24: the return from done records its actor and reason', () => {
+  for (const [actor, expected] of [
+    ['human', 'human'],
+    ['agent', 'agent'],
+  ]) {
+    const { root, file, id } = deliveredChange();
+    status(id, 'in-progress', root, { actor, reason: 'complete original acceptance' });
+    const parsed = parseChange(fs.readFileSync(file, 'utf8'));
+    assert.equal(parsed.frontmatter.status, 'in-progress');
+    assert.match(
+      parsed.stages.find((s) => s.key === 'log').body,
+      new RegExp(
+        `\`\\[status\\]\` done → in-progress \\(${expected}\\): complete original acceptance$`,
+        'm',
+      ),
+      actor,
+    );
+  }
 });
 
 // Supersedes 150232 CR3, whose four durable boundaries are down to one: a

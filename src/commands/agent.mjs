@@ -270,13 +270,19 @@ export function statusMutation(
       assertStagesNotEmpty(config, text);
     }
     text = setStatus(text, newStatus);
+    // The return from `done` is the only record a rejection leaves, and only a
+    // human's counts as one: an agent sending its own delivery back is a second
+    // pass, not a verdict. Stamp the actor so `rejectionCount` can tell them
+    // apart instead of tallying both (20261018-131621 CR24).
     const detail =
       actor === 'human' &&
       channel === 'conversation' &&
       fm.status === 'draft' &&
       newStatus === 'approved'
         ? 'human via conversation'
-        : undefined;
+        : fm.status === 'done' && newStatus === 'in-progress'
+          ? actor
+          : undefined;
     const at = nowUtc();
     text = appendLogEvent(text, {
       at,

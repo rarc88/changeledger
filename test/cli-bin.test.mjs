@@ -2195,7 +2195,9 @@ test('174340 CR2: init declares documentation.seed_stage investigation and check
 // 20261018-131621 — the retired statuses take their commands and flags with
 // them: `review fail` is classless, and `validation`/`reopen` are gone.
 
-function inReviewRepo() {
+// An approvable draft: every stage filled, so `approved` is both a legal
+// transition and a valid candidate. `inReviewRepo` walks it on to `in-review`.
+function readyDraftRepo() {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-review-cli-'));
   const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
@@ -2226,6 +2228,11 @@ function inReviewRepo() {
         '## Plan\n\n- [ ] do it\n  - **Target:** `src/a.mjs`\n  - **Verify:** `node --test test/a.test.mjs`\n  - **Criteria:** CR1\n',
       ),
   );
+  return { root, env, id, file };
+}
+
+function inReviewRepo() {
+  const { root, env, id, file } = readyDraftRepo();
   assert.equal(runIn(root, env, 'approve', id).code, 0);
   for (const next of ['in-progress', 'in-review'])
     assert.equal(runIn(root, env, 'status', id, next).code, 0);
@@ -2241,6 +2248,44 @@ test('20261018-131621 CR6: review fail rejects --block and --retry without writi
     assert.match(result.err, new RegExp(`error: unknown option '${flag}'`), flag);
     assert.equal(fs.readFileSync(file, 'utf8'), before, flag);
   }
+});
+
+// The CLI is the agent's seat, so the return from `done` it writes is the
+// agent's unless the human says otherwise — `--human` is the successor of the
+// retired `validation fail --human`, and the attribution is what keeps
+// `rejectionCount` a signal instead of a tally.
+test('20261018-131621 CR24: `status in-progress` attributes the return to agent or human', () => {
+  for (const [flags, expected] of [
+    [[], 'agent'],
+    [['--human'], 'human'],
+  ]) {
+    const { root, env, id, file } = inReviewRepo();
+    assert.equal(runIn(root, env, 'task', id, 'done', '1').code, 0);
+    assert.equal(runIn(root, env, 'review', id, 'pass').code, 0);
+    const result = runIn(root, env, 'status', id, 'in-progress', 'motivo', ...flags);
+    assert.equal(result.code, 0, result.err);
+    assert.match(
+      fs.readFileSync(file, 'utf8'),
+      new RegExp(`\`\\[status\\]\` done → in-progress \\(${expected}\\): motivo$`, 'm'),
+      flags.join(' ') || '(no flag)',
+    );
+  }
+});
+
+// `--human` only attributes this one edge. The draft here is approvable —
+// `draft → approved` is legal and the candidate is valid — so nothing but the
+// flag's own guard can refuse it. Without that guard the agent would hold the
+// human approval seat `assertStatusDestinationAllowed` exists to deny it.
+test('20261018-131621 CR24: `--human` is refused on any destination but in-progress', () => {
+  const { root, env, id, file } = readyDraftRepo();
+  const before = fs.readFileSync(file, 'utf8');
+  const result = runIn(root, env, 'status', id, 'approved', '--human');
+  assert.notEqual(result.code, 0);
+  assert.match(result.err, /changeledger approve/);
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+  // The same move without the flag is refused by the destination guard it
+  // defers to, so the flag is the only thing this test's refusal can be.
+  assert.equal(runIn(root, env, 'approve', id).code, 0);
 });
 
 test('20261018-131621 CR17: validation and reopen are no longer commands', () => {
