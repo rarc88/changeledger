@@ -49,6 +49,15 @@ sigue siendo dato: un abierto que lo referencia resuelve, y un abierto con
 referencia colgada sigue en error. El predicado de congelado tiene una sola
 sede (`frozenReason`), consumida por identidad de función.
 
+Un documento vivo que declare un estado retirado del ciclo —`in-validation` o
+`blocked`— recibe un error que nombra la edición que lo resuelve
+(`status "in-validation" is retired: move it to "done" or "in-progress"`;
+`status "blocked" is retired: move it to "in-progress" and record a [!] task`)
+en lugar del diagnóstico genérico de estado desconocido. Sólo un documento vivo
+puede ser sujeto de esa regla: el histórico congelado conserva sus estados y sus
+entradas de Log sin recibir diagnóstico, así que el archivo sigue siendo válido
+sin reescribir historia terminada.
+
 La validación también fija invariantes del formato Markdown que el parser expone:
 headings de etapa con casing canónico, tareas `[x]` con timestamp ISO UTC,
 tareas `[!]` con razón y criterios `CRn` no duplicados. El parser de tareas
@@ -65,14 +74,30 @@ diagnóstico específico para distinguir contrato mal escrito de criterio ausent
 El parser de etapas reconoce `##` solo fuera de fenced code blocks, por lo que
 los ejemplos Markdown dentro de fences no crean etapas espurias ni duplicadas.
 
-Un change `done` con tareas `todo` o `blocked` es inválido: `check` informa como
+Un change `done` con tareas `[ ]` o `[!]` es inválido: `check` informa como
 error el número de tareas incompletas. `checkSelectedChange` reutiliza exactamente
 la validación scoped para evaluar tanto el archivo actual como un candidato aún
 no escrito; sólo sus errores bloquean, no sus warnings ni hallazgos de otros
-changes. La aceptación humana valida primero el candidato con la transición
-`validation → done`, y los modos de graduación validan el `done` seleccionado
-antes de tocar change o spec. Estas rutas resuelven y parsean únicamente el
+changes. La **puerta de entrega** aplica esa validación scoped en las dos sedes
+que llevan a `done`: `changeledger review <id> pass` para un tipo con revisión y
+`changeledger status <id> done` para uno sin ella, en ambos casos sobre el texto
+ya volcado a `done`, porque las reglas que importan allí —tareas sin cerrar, un
+Log que no reconstruye el frontmatter— sólo aplican a un change entregado. Los
+modos de graduación validan después el `done` seleccionado antes de tocar change
+o spec. Estas rutas resuelven y parsean únicamente el
 archivo seleccionado; incluso un sibling ilegible queda fuera del gate scoped.
+
+La entrada a `in-review` y la salida de `draft` usan la misma validación scoped
+pero sobre el texto **previo** al cambio de status: un defecto de readiness sólo
+es error mientras el change es anterior a la revisión, así que juzgar el texto
+posterior exoneraría al propio candidato bajo juicio.
+
+Sobre un change `done` sin `accepted_at` cuya rama ya está fusionada en la rama
+de integración, `check` emite un **aviso** —nunca un error— que nombra el change
+y la aceptación pendiente, y no escribe nada: el sellado pertenece a la
+graduación, y un merge sin graduar no es un repositorio roto. El aviso respeta
+el predicado de congelado, así que no lanza un subproceso git por cada documento
+archivado.
 
 Con el `tdd` efectivo del tipo encendido (`effectiveTdd`: `types.<tipo>.tdd`
 sobre el `tdd` global; ver Definition of Ready), `approved` e `in-progress`
