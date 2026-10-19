@@ -44,8 +44,9 @@ carry those transitions inside the implementation commits rather than a commit o
 their own, so a clean worktree is not a valid precondition anywhere in that window,
 and a delegation baseline states this expected set instead of demanding a clean tree.
 
-Implement one change at a time, even while another already-delivered change waits
-in `in-validation`.
+Implement one change at a time, even while another already-delivered change waits in
+`done`. An impediment is not a status: record it as a `[!]` Plan task with its reason,
+and resolve it within authorized scope or ask the human.
 
 ## Execute the Plan
 
@@ -113,31 +114,28 @@ requires independent review by running this ordered gate — do not reconstruct 
 7. Delegate to a fresh, read-only reviewer with clean context; it reports but never records the verdict itself.
 8. Record the delegate's verdict yourself with `changeledger review <id> pass|fail` — never `log`+`status`.
 9. After that mutation, apply the formatter again and repeat affected checks,
-   including `changeledger check`, before commit or human validation.
+   including `changeledger check`, before commit or handing the result to the human.
 
 Types without `review_required` pass the same local gate before
-`changeledger status <id> in-validation`, then apply the same post-transition
+`changeledger status <id> done`, then apply the same post-transition
 formatter and affected-check gate. The host owns these
 commands; ChangeLedger mutations never run configurable hooks or external formatters.
 
-`in-validation`: human accepts; agent rejects with `changeledger validation <id> fail "<reason>"`.
-
 ## Correction isolation
 
-After review `fail --retry`, keep the candidate correction uncommitted while a
+After review `fail`, keep the candidate correction uncommitted while a
 fresh clean-context reviewer checks it. Confirming it requires returning the
 change with `changeledger status <id> in-review` before that delegation: the
 transition re-validates the candidate and the review role loads nowhere else.
 If it fails again, iterate on that same diff. Do not start another task or
 change while a correction waits: the worktree is its isolation boundary. After `pass`, commit the confirmed correction,
-tests and ledger before human validation; this is meaningful correction evidence,
-not a status-only commit.
+tests and ledger; this is meaningful correction evidence, not a status-only commit.
 
-After a rejection (`in-validation → in-progress`), run
+After a human rejection (`done → in-progress`), run
 `changeledger context <id>` before modifying implementation; keep the correction
 uncommitted until the human confirms it fixes the reported failure. Do not start
 another task or change while a correction waits; iterate on
-the same diff if it does not. After human acceptance, graduate or record a skip
+the same diff if it does not. After acceptance, graduate or record a skip
 and include correction plus ledger in the final closure commit.
 
 These exceptions prevent false fix attempts from becoming permanent history;

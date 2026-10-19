@@ -1,7 +1,7 @@
 # Closing Accepted Work
 
-The human accepted this change. Resolve persistent truth before archiving. Run
-`changeledger context <id>` after acceptance even if the base context was loaded
+This change is delivered. Resolve persistent truth before archiving. Run
+`changeledger context <id>` once it reaches `done` even if the base context was loaded
 earlier; this lifecycle-specific close overlay is not part of the base context.
 Changes describe a journey; `.changeledger/specs/*.md` describe the current
 capability, architecture or domain truth that code reflects.
@@ -72,7 +72,7 @@ agree. Repositories with legacy prose markers can migrate them deterministically
 `changeledger fix --graduation-links` (or preview with `--dry-run`).
 
 After `--into` or `--skip`, create one final closure commit that coalesces any
-pending `in-review → in-validation → done` ledger updates with the graduation
+pending `in-review → done` ledger updates with the graduation
 decision and durable spec edit. If no lifecycle state is pending, the graduation
 or skip itself remains the meaningful closure evidence.
 
@@ -85,5 +85,6 @@ Operational inspection and visibility:
 - `changeledger archive <id>` (reversible by manually editing `archived: false` in frontmatter)
 
 Use Mermaid where it communicates persistent relationships better than prose.
-After closure, share a brief retrospective. New work needs a newly authorized
-change; graduated, skipped, archived or released work never reopens.
+After closure, share a brief retrospective. Released work never reopens and new work
+there needs a newly authorized change; graduation and archive are reversible and do
+not close that return.

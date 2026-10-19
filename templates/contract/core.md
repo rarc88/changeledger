@@ -41,8 +41,7 @@ surface; concurrent subagents must not share files. Get the prompt skeleton from
 `changeledger agent-prompt <role>`
 (investigation | implementation | review | post-review | graduation-review);
 the stage context owns what the prompt must contain. A subagent returns findings or a diff
-receipt, not narrative. `post-review` is a read-only inspection of a change already in
-`in-validation`; it never issues a verdict or moves the change.
+receipt, not narrative.
 
 A **selection of work** is the unit that is delegated, measured by completeness and coupling
 rather than delegated task by task: related tasks travel together to the same delegate, and
@@ -69,7 +68,7 @@ rework the orchestrator pays for twice.
 - A human verdict is transmitted, never inferred; praise, “continue” or agent advice is not
   a decision.
 - No silent repository edits when no change applies.
-- After human acceptance, reload `changeledger context <id>`: the close overlay owns
+- Once a change is `done`, reload `changeledger context <id>`: the close overlay owns
   graduation and archive.
 
 ## When no change is needed
@@ -96,8 +95,8 @@ stage, not a normal review round.
 A change must be implementable and verifiable in one bounded pass. If it cannot, split it
 before approval — an oversized change is the most common root cause of repeated review
 rounds, and `changeledger context spec` owns the sizing test and the split criteria. After
-work has started, a failed verification is diagnosed, never auto-split: the blocked and
-review contexts own that classification.
+work has started, a failed verification is diagnosed, never auto-split: the review
+context owns that classification.
 
 ## Commits
 
@@ -107,8 +106,8 @@ document, before any code. **Implementation**: one per resolved selection of wor
 boxes and Log entries — created once the local gate passes and committed as soon as that selection is
 resolved, without waiting for the rest, so the number of implementation commits per change is not fixed.
 **Correction**: zero or more, each left uncommitted until a fresh reviewer confirms it.
-**Handoff**: mandatory whenever work stops in `blocked` or a session ends with uncommitted state; record
-why it was needed.
+**Handoff**: mandatory whenever work stops on an impediment or a session ends with uncommitted
+state; record why it was needed.
 
 Every selection is committed before the review is delegated, so `baseline..HEAD` is closed the instant the
 review is delegated: the reviewer inspects a fixed range and the deliverable cannot change between the
@@ -144,12 +143,9 @@ previous attempt's files.
 - `approved`: ready to start after the Git/worktree checks.
 - `in-progress`: implementation underway.
 - `in-review`: independent review required.
-- `in-validation`: stop for human acceptance or a reasoned rejection. It stops
-  only that change: never accept on the human's behalf, but reject with a reason
-  and start another approved change unless its direct or transitive `depends_on`
-  chain reaches one in `in-validation`.
-- `blocked`: an impediment or decision needs resolution.
-- `done`: the human accepted the complete result; provisional until durable closure.
+- `done`: delivered by the agent. Human acceptance is the merge of the change's branch
+  into the integration branch; graduation stamps that instant as `accepted_at`
+  telemetry, which gates nothing.
 - `discarded`: terminal tombstone; never reopen it.
 
 Who owns each transition and how it is performed:
@@ -157,22 +153,21 @@ Who owns each transition and how it is performed:
 | Transition | Owner | Mechanism |
 |---|---|---|
 | draft → approved | human | viewer or `changeledger approve <id>` after an explicit prompt |
-| approved → in-progress; blocked → in-progress; in-progress → in-review | agent | `changeledger status` |
-| in-progress → in-validation (no review) | agent | `changeledger status` |
-| in-review → in-validation | orchestrator | `changeledger review <id> pass` |
-| in-review → in-progress | orchestrator | `changeledger review <id> fail --retry` |
-| in-review → blocked | orchestrator | `changeledger review <id> fail --block` |
-| in-validation → done | human | viewer or `changeledger validation <id> pass` after an explicit prompt |
-| in-validation → in-progress | agent or human | viewer; agent `validation <id> fail "<reason>"`; human prompt adds `--human` |
-| done → in-progress (pending closure) | agent or human | `changeledger reopen <id> "<reason>"` or viewer |
-| draft/approved/in-progress/blocked → discarded | agent (authorized) | `changeledger discard <id> "<reason>"` |
+| approved → in-progress; in-progress → in-review | agent | `changeledger status` |
+| in-progress → done (no review) | agent | `changeledger status` |
+| in-review → done | orchestrator | `changeledger review <id> pass` |
+| in-review → in-progress | orchestrator | `changeledger review <id> fail "<reason>"` |
+| done → in-progress | agent or human | `changeledger status` or viewer |
+| draft/approved/in-progress → discarded | agent (authorized) | `changeledger discard <id> "<reason>"` |
 
 `changeledger status <id> <status>` performs agent-owned moves and does not accept
-`approved`, `done`, `discarded` or reopening. Conversational decision commands
+`approved` or `discarded`. Conversational decision commands
 are auditable transmitters, never permission to infer a human verdict.
 The discard reason is required and logged, and dependencies remain resolvable; `discarded` never reopens.
-A `done` change can reopen only to finish its original scope before graduation/skip, archive or release;
-after durable closure, later work needs a new change.
+A recorded release is the only irreversible boundary: a change listed in one refuses the
+return with `change <id> shipped in release <version>: new work needs a new change`.
+Graduation and archive are not boundaries — `--into` leaves the spec body alone and an
+archive is undone by editing `archived: false`.
 
 ## Context modes
 

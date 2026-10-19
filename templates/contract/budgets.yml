@@ -1,6 +1,6 @@
 {
   "base": {
-    "core": { "tokens": 4000, "lines": 400 },
+    "core": { "tokens": 3250, "lines": 325 },
     "spec": { "tokens": 3000, "lines": 300 },
     "implement": { "tokens": 3000, "lines": 300 },
     "review": { "tokens": 2500, "lines": 250 },
@@ -8,8 +8,6 @@
   },
   "agent": { "tokens": 1250, "lines": 125 },
   "overlays": {
-    "blocked": { "tokens": 1250, "lines": 125 },
-    "in-validation": { "tokens": 1250, "lines": 125 },
     "done": { "tokens": 1250, "lines": 125 },
     "discarded": { "tokens": 1250, "lines": 125 }
   },
