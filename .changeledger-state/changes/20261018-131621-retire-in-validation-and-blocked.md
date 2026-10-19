@@ -422,3 +422,4 @@ con su razón, que ya es gramática válida del Plan, más una nota en el Log.
 - **2026-10-19T18:46:28Z** `[graduation]` spec: `lifecycle.md`
 - **2026-10-19T18:46:28Z** `[graduation]` spec: `viewer.md`
 - **2026-10-19T18:46:29Z** `[graduation]` spec: `contract-discovery.md`
+- **2026-10-19T18:46:30Z** `[graduation]` spec: `git-traceability.md`
