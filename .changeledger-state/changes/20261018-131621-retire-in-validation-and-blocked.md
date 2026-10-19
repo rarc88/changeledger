@@ -267,10 +267,11 @@ con su razón, que ya es gramática válida del Plan, más una nota en el Log.
   - **Verify:** `node --test test/cli-bin.test.mjs`
   - **Criteria:** CR17
   - **Resolved:** `2026-10-18T16:15:21Z`
-- [ ] Sacar los estados retirados de la plantilla que reparte `init`
+- [x] Sacar los estados retirados de la plantilla que reparte `init`
   - **Target:** `templates/config.yml`, `src/config-migration.mjs`
   - **Verify:** `node --test test/cli-bin.test.mjs test/config.test.mjs`
   - **Criteria:** CR18
+  - **Resolved:** `2026-10-19T10:30:41Z`
 - [ ] Fijar con tests la arista a `done` y la puerta de entrega en sus dos sedes
   - **Target:** `test/agent.test.mjs`, `test/lifecycle.test.mjs`
   - **Verify:** `node --test test/agent.test.mjs test/lifecycle.test.mjs`
