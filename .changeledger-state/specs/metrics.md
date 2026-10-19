@@ -40,4 +40,10 @@ el único rastro de un rechazo, y cuenta por tres formas del Log:
 Una devolución del agente (`(agent)` o `(agent reopened)`) no cuenta, y un
 `review fail` tampoco: sale de `in-review`, no de `done`.
 
+`reviewRetries` cuenta esa otra arista, `[review] in-review → in-progress`: todo
+veredicto `fail` del revisor independiente. El veredicto no tiene clases, así que
+la cifra es el número de rondas de revisión que no pasaron, sin distinguir entre
+un defecto corregible y uno que necesita juicio del humano — esa clasificación
+vive en el informe del revisor, no en la métrica.
+
 El server las precalcula y el visor las pinta en la pestaña **Metrics**.
