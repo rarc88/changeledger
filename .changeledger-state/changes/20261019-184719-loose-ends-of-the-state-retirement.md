@@ -110,10 +110,11 @@ que es una capacidad que falta y no un cabo suelto de este trabajo.
 
 ## Plan
 
-- [ ] Estrechar la secuencia de ciclo de vida para exigir veredicto en la entrega desde `in-review`
+- [x] Estrechar la secuencia de ciclo de vida para exigir veredicto en la entrega desde `in-review`
   - **Target:** `src/check.mjs`
   - **Verify:** `node --test test/check.test.mjs`
   - **Criteria:** CR1
+  - **Resolved:** `2026-10-19T20:01:02Z`
 - [ ] Sellar la aceptación pendiente desde `sync` y llevar el aviso a los archivados
   - **Target:** `src/commands/sync.mjs`, `src/check.mjs`
   - **Verify:** `node --test test/sync.test.mjs test/check.test.mjs`
