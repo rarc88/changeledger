@@ -4,9 +4,9 @@ title: Cerrar los cabos sueltos que dejó la retirada de los dos estados
 type: bug
 status: in-progress
 created: 2026-10-19T18:47:19Z
-depends_on: []
+depends_on: ["20261018-131621"]
 branch: bug/20261019-184719
-related_to: ["20261018-131621"]
+related_to: []
 owner: raruiz-hiberuscom
 release_impact: patch
 ---
