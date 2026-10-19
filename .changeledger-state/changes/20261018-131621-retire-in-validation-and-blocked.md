@@ -299,10 +299,11 @@ con su razón, que ya es gramática válida del Plan, más una nota en el Log.
   - **Verify:** `node --test test/agent.test.mjs test/lifecycle.test.mjs`
   - **Criteria:** CR19, CR20
   - **Resolved:** `2026-10-19T10:30:42Z`
-- [ ] Reescribir el ciclo de vida del core y borrar los dos overlays
+- [x] Reescribir el ciclo de vida del core y borrar los dos overlays
   - **Target:** `templates/contract/core.md`, `templates/contract/validation.md`, `templates/contract/blocked.md`, `templates/contract/budgets.yml`
   - **Verify:** `node --test test/context.test.mjs`
   - **Criteria:** CR13
+  - **Resolved:** `2026-10-19T13:53:54Z`
 - [ ] Mudar la taxonomía de clases de fallo a la revisión
   - **Target:** `templates/contract/review.md`
   - **Verify:** `node --test test/context.test.mjs`
