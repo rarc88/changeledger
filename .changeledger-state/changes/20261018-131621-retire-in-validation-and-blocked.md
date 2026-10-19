@@ -178,23 +178,31 @@ con su razón, que ya es gramática válida del Plan, más una nota en el Log.
 - **Then** la respuesta sale de los releases que expone `loadRepo`, no de `fs.readdirSync` sobre el árbol
 - **And** un change publicado en ese repo activado se rechaza igual que en un repo con layout de worktree
 
-### CR10 — La aceptación se deriva del merge, no de una afirmación
-- **Given** un change en `done` sin `accepted_at`, cuya rama `feature/<id>` está fusionada en la rama publicada como `integration_branch`
-- **When** se ejecuta `changeledger check <id>`
+### CR10 — La graduación sella la aceptación derivada del merge
+- **Given** un change en `done` sin `accepted_at`, con una entrada `[branch]` en su Log, y esa rama fusionada en la rama publicada como `integration_branch`
+- **When** se ejecuta `changeledger graduate <id> --skip "sin verdad persistente"`
 - **Then** el frontmatter recibe `accepted_at` con el instante del commit de merge en ISO 8601 UTC
 - **And** el Log recibe `[validation]` con payload `accepted (merged <sha-corto>)`
+- **And** `changeledger graduate <id> <slug> --into` sella igual
 
-### CR11 — Sin merge no hay aceptación
+### CR11 — Sin merge no se inventa aceptación
 - **Given** un change en `done` sin `accepted_at` cuya rama no está fusionada en la rama de integración
-- **When** se ejecuta `changeledger check <id>`
-- **Then** el frontmatter sigue sin `accepted_at`
+- **When** se ejecuta `changeledger graduate <id> --skip "sin verdad persistente"`
+- **Then** la graduación se registra con normalidad
+- **And** el frontmatter sigue sin `accepted_at`
 - **And** el Log no recibe ninguna entrada `[validation]`
 
-### CR12 — Un change sin rama registrada no bloquea ni inventa aceptación
+### CR12 — Un change sin rama registrada gradúa igual
 - **Given** un change en `done` sin `accepted_at` y sin entrada `[branch]` en su Log
-- **When** se ejecuta `changeledger check <id>`
-- **Then** sale con código 0
+- **When** se ejecuta `changeledger graduate <id> --skip "sin verdad persistente"`
+- **Then** sale con código 0 y la graduación queda registrada
 - **And** el frontmatter sigue sin `accepted_at`
+
+### CR22 — `check` informa de la aceptación pendiente sin escribir
+- **Given** un change en `done` sin `accepted_at` cuya rama sí está fusionada en la rama de integración
+- **When** se ejecuta `changeledger check <id>`
+- **Then** sale con código 0 e imprime un aviso que nombra el change y la palabra `accepted`
+- **And** el documento queda byte a byte sin modificar
 
 ### CR13 — El contrato publica seis estados, una sola frontera y ningún overlay retirado
 - **Given** la captura de `changeledger context`
@@ -266,10 +274,10 @@ con su razón, que ya es gramática válida del Plan, más una nota en el Log.
   - **Verify:** `node --test test/lifecycle.test.mjs test/release.test.mjs`
   - **Criteria:** CR7, CR8, CR9, CR21
   - **Resolved:** `2026-10-19T11:25:52Z`
-- [ ] Derivar `accepted_at` del merge de la rama del change
-  - **Target:** `src/git.mjs`, `src/check.mjs`
-  - **Verify:** `node --test test/check.test.mjs test/git.test.mjs`
-  - **Criteria:** CR10, CR11, CR12
+- [ ] Sellar `accepted_at` en la graduación y avisar desde `check` sin escribir
+  - **Target:** `src/git.mjs`, `src/commands/graduate.mjs`, `src/check.mjs`
+  - **Verify:** `node --test test/graduate.test.mjs test/git.test.mjs test/check.test.mjs`
+  - **Criteria:** CR10, CR11, CR12, CR22
 - [x] Retirar los comandos `validation` y `reopen`
   - **Target:** `bin/changeledger.mjs`, `src/commands/agent.mjs`
   - **Verify:** `node --test test/cli-bin.test.mjs`
