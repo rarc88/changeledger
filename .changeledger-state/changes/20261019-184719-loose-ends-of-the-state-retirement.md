@@ -118,10 +118,11 @@ que es una capacidad que falta y no un cabo suelto de este trabajo.
   - **Target:** `src/commands/sync.mjs`, `src/check.mjs`
   - **Verify:** `node --test test/sync.test.mjs test/check.test.mjs`
   - **Criteria:** CR2, CR3
-- [ ] Corregir lo que la CLI publica sobre `[validation]` y sobre las operaciones retiradas
+- [x] Corregir lo que la CLI publica sobre `[validation]` y sobre las operaciones retiradas
   - **Target:** `bin/changeledger.mjs`, `src/commands/apply.mjs`
   - **Verify:** `node --test test/cli-bin.test.mjs test/apply.test.mjs`
   - **Criteria:** CR4, CR5
+  - **Resolved:** `2026-10-19T19:39:36Z`
 - [ ] Llevar la corrección del comentario a la configuración que la herramienta lee
   - **Target:** `.changeledger/config.yml`
   - **Verify:** verify: el comentario de la ref de estado no contiene `human validation`
