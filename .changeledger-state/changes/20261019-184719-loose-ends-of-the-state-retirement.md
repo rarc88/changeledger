@@ -2,9 +2,10 @@
 id: "20261019-184719"
 title: Cerrar los cabos sueltos que dejó la retirada de los dos estados
 type: bug
-status: approved
+status: in-progress
 created: 2026-10-19T18:47:19Z
 depends_on: []
+branch: bug/20261019-184719
 related_to: ["20261018-131621"]
 owner: raruiz-hiberuscom
 release_impact: patch
@@ -141,3 +142,5 @@ que es una capacidad que falta y no un cabo suelto de este trabajo.
 ## Log
 - **2026-10-19T18:47:19Z** `[version]` 0.18.0
 - **2026-10-19T18:55:23Z** `[status]` draft → approved (human via conversation)
+- **2026-10-19T18:56:14Z** `[status]` approved → in-progress
+- **2026-10-19T18:56:14Z** `[branch]` set: bug/20261019-184719 (auto)
