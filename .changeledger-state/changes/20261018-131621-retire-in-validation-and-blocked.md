@@ -272,6 +272,17 @@ con su razón, que ya es gramática válida del Plan, más una nota en el Log.
 - **And** con `--human` el payload es `done → in-progress (human): motivo`
 - **And** `rejectionCount` cuenta exactamente las transiciones `done → in-progress` marcadas `(human)`, y una reapertura del agente no suma
 
+### CR25 — `--human` sólo marca la vuelta, no abre una segunda puerta de aprobación
+- **Given** un change en `draft` cuyo borrador pasa la validación
+- **When** se ejecuta `changeledger status <id> approved --human`
+- **Then** sale con código distinto de cero y el documento queda sin modificar
+- **And** `changeledger approve <id>` sobre ese mismo change sí lo aprueba
+
+### CR26 — La métrica cuenta también el actor del histórico
+- **Given** un ledger con una entrada `[status]` de payload `done → in-progress (human reopened): motivo` y otra `done → in-progress (agent reopened): motivo`, la forma que ya llevan los repos consumidores
+- **When** se calculan las métricas
+- **Then** `rejectionCount` vale 1
+
 ## Plan
 
 - [x] Reducir el conjunto de estados en la configuración y rechazar los retirados en `check`
@@ -337,7 +348,7 @@ con su razón, que ya es gramática válida del Plan, más una nota en el Log.
 - [ ] Devolver al viewer el asiento de rechazo y registrar el actor de la vuelta
   - **Target:** `bin/changeledger.mjs`, `src/commands/agent.mjs`, `src/metrics.mjs`, `src/viewer/domain.mjs`, `src/viewer/public/app.js`, `src/viewer/public/view-parts.js`
   - **Verify:** `node --test test/view.test.mjs test/viewer-metadata.test.mjs test/metrics.test.mjs test/agent.test.mjs`
-  - **Criteria:** CR23, CR24
+  - **Criteria:** CR23, CR24, CR25, CR26
 - [ ] Barrer de la suite los casos atados a los dos estados
   - **Support:**
   - **Target:** `test/**`
