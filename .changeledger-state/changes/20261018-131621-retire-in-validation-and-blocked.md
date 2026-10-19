@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-10-18T13:16:21Z
 depends_on: []
+accepted_at: 2026-10-19T19:26:56Z
 archived: true
 reviewed: true
 branch: feature/20261018-131621
@@ -429,3 +430,4 @@ con su razón, que ya es gramática válida del Plan, más una nota en el Log.
 - **2026-10-19T18:46:31Z** `[graduation]` spec: `architecture.md`
 - **2026-10-19T18:46:32Z** `[graduation]` spec: `metrics.md`
 - **2026-10-19T18:46:40Z** `[archive]` archived
+- **2026-10-19T23:18:10Z** `[validation]` accepted (merged 0c35eb7)
