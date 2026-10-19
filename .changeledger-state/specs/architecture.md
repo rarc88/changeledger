@@ -384,7 +384,7 @@ y la salida manual literal.
 
 `changeledger activate` (`src/commands/activate.mjs`) activa clones y
 worktrees que ya tienen la ref de estado, sin depender del checkout.
-`writeActivation` es CAS desde este change: create con old-value cero, no-op
+`writeActivation` es CAS: create con old-value cero, no-op
 sobre un estado idéntico, reparación CAS de una activación pre-ancla (mismo
 `state_ref` sin `ledger_dir`: se reescribe sobre su oid actual) y rechazo
 explícito ante una activación divergente — un `ledger_dir` distinto se
