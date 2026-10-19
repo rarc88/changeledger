@@ -32,7 +32,7 @@ process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'changeled
 
 const config = {
   changes_dir: '.changeledger/changes',
-  statuses: ['draft', 'approved', 'in-progress', 'in-validation', 'blocked', 'done'],
+  statuses: ['draft', 'approved', 'in-progress', 'in-review', 'done'],
   stages: ['request', 'investigation', 'proposal', 'specification', 'plan', 'log'],
   types: {
     feature: { stages: ['request', 'plan', 'log'] },
@@ -742,27 +742,6 @@ test('174310 CR2: a malformed git.release_branch is reported once, not once more
   assert.deepEqual(msgs(errors), ['config "git.release_branch" must be a non-empty string']);
 });
 
-test('171002 CR1/CR5: every config with done requires in-validation before it', () => {
-  const missing = {
-    ...config,
-    statuses: ['draft', 'approved', 'in-progress', 'blocked', 'done'],
-  };
-  assert.ok(
-    msgs(checkRepo({ config: missing, changes: [] }).errors).some((m) =>
-      /must include "in-validation" before "done"/.test(m),
-    ),
-  );
-  const misplaced = {
-    ...config,
-    statuses: ['draft', 'approved', 'in-progress', 'in-review', 'done', 'in-validation'],
-  };
-  assert.ok(
-    msgs(checkRepo({ config: misplaced, changes: [] }).errors).some((m) =>
-      /"in-validation" must appear before "done"/.test(m),
-    ),
-  );
-});
-
 test('config type referencing an unknown stage is an error', () => {
   const bad = { ...config, types: { feature: { stages: ['request', 'banana'] } } };
   const { errors } = checkRepo({ config: bad, changes: [] });
@@ -1248,7 +1227,7 @@ test('151221 CR4: duplicate criteria are an error', () => {
 
 const tddConfig = {
   changes_dir: '.changeledger/changes',
-  statuses: ['draft', 'approved', 'in-progress', 'in-validation', 'blocked', 'done'],
+  statuses: ['draft', 'approved', 'in-progress', 'in-review', 'done'],
   stages: ['request', 'specification', 'plan', 'log'],
   types: {
     feature: { stages: ['request', 'specification', 'plan', 'log'] },
@@ -2504,19 +2483,18 @@ ${logLines.join('\n')}
 `;
 }
 
-test('225210 CR1: a repeated review verdict after in-validation is an error with line and expectation', () => {
+test('225210 CR1: a repeated review verdict after delivery is an error with line and expectation', () => {
   const text = seqChange('done', [
     '- **2026-06-13T12:10:00Z** `[status]` draft → approved',
     '- **2026-06-13T12:20:00Z** `[status]` approved → in-progress',
     '- **2026-06-13T12:30:00Z** `[status]` in-progress → in-review',
-    '- **2026-06-13T12:40:00Z** `[review]` in-review → in-validation (delegated subagent, clean context)',
-    '- **2026-06-13T12:50:00Z** `[review]` in-review → in-validation (delegated subagent, clean context)',
-    '- **2026-06-13T13:00:00Z** `[validation]` in-validation → done (human accepted)',
+    '- **2026-06-13T12:40:00Z** `[review]` in-review → done (delegated subagent, clean context)',
+    '- **2026-06-13T12:50:00Z** `[review]` in-review → done (delegated subagent, clean context)',
   ]);
   const e = msgs(covResult(text).errors);
   assert.ok(
     e.some((m) =>
-      /Log line \d+: transition "in-review → in-validation" starts from "in-review" but the reconstructed status is "in-validation"/.test(
+      /Log line \d+: transition "in-review → done" starts from "in-review" but the reconstructed status is "done"/.test(
         m,
       ),
     ),
@@ -2529,10 +2507,9 @@ test('225210 CR2: canonical sequences pass; self-loops, skips and final mismatch
     '- **2026-06-13T12:10:00Z** `[status]` draft → approved',
     '- **2026-06-13T12:20:00Z** `[status]` approved → in-progress',
     '- **2026-06-13T12:30:00Z** `[status]` in-progress → in-review',
-    '- **2026-06-13T12:40:00Z** `[review]` in-review → in-progress (retry): reason',
+    '- **2026-06-13T12:40:00Z** `[review]` in-review → in-progress: reason',
     '- **2026-06-13T12:45:00Z** `[status]` in-progress → in-review',
-    '- **2026-06-13T12:50:00Z** `[review]` in-review → in-validation (delegated subagent, clean context)',
-    '- **2026-06-13T13:00:00Z** `[validation]` in-validation → done (human accepted)',
+    '- **2026-06-13T12:50:00Z** `[review]` in-review → done (delegated subagent, clean context)',
   ]);
   assert.deepEqual(
     msgs(covResult(ok).errors).filter((m) => /Log line/.test(m)),
@@ -2565,17 +2542,35 @@ test('225210 CR2: canonical sequences pass; self-loops, skips and final mismatch
   );
 });
 
-test('150232 CR6: sequence validation accepts reopen followed by normal gates', () => {
+test('150232 CR6: sequence validation accepts a return from done followed by normal gates', () => {
+  const text = seqChange('done', [
+    '- **2026-06-13T12:10:00Z** `[status]` draft → approved',
+    '- **2026-06-13T12:20:00Z** `[status]` approved → in-progress',
+    '- **2026-06-13T12:30:00Z** `[status]` in-progress → in-review',
+    '- **2026-06-13T12:40:00Z** `[review]` in-review → done (delegated subagent, clean context)',
+    '- **2026-06-13T13:00:00Z** `[status]` done → in-progress (human reopened): fix',
+    '- **2026-06-13T13:10:00Z** `[status]` in-progress → in-review',
+    '- **2026-06-13T13:20:00Z** `[review]` in-review → done (delegated subagent, clean context)',
+  ]);
+  assert.deepEqual(
+    msgs(covResult(text).errors).filter((m) => /Log line|reconstructs status/.test(m)),
+    [],
+  );
+});
+
+// 20261018-131621 — the legacy-edge decision for the two retired statuses:
+// `LEGACY_EDGES` was NOT widened for them. `checkLifecycleSequence` already
+// abandons the replay at the first event naming a status the graph does not
+// model, so a Log written under the old contract is tolerated by that same
+// rule — the one the contract has always used for custom statuses — instead of
+// by a second, parallel allowance that would have to be carried forever.
+test('20261018-131621: a live Log naming a retired status is tolerated, not diagnosed', () => {
   const text = seqChange('done', [
     '- **2026-06-13T12:10:00Z** `[status]` draft → approved',
     '- **2026-06-13T12:20:00Z** `[status]` approved → in-progress',
     '- **2026-06-13T12:30:00Z** `[status]` in-progress → in-review',
     '- **2026-06-13T12:40:00Z** `[review]` in-review → in-validation (delegated subagent, clean context)',
     '- **2026-06-13T12:50:00Z** `[validation]` in-validation → done (human accepted)',
-    '- **2026-06-13T13:00:00Z** `[status]` done → in-progress (human reopened): fix',
-    '- **2026-06-13T13:10:00Z** `[status]` in-progress → in-review',
-    '- **2026-06-13T13:20:00Z** `[review]` in-review → in-validation (delegated subagent, clean context)',
-    '- **2026-06-13T13:30:00Z** `[validation]` in-validation → done (human accepted)',
   ]);
   assert.deepEqual(
     msgs(covResult(text).errors).filter((m) => /Log line|reconstructs status/.test(m)),
@@ -3197,7 +3192,7 @@ language: en
 tdd: true
 changes_dir: .changeledger/changes
 specs_dir: .changeledger/specs
-statuses: [draft, approved, in-progress, in-review, in-validation, blocked, done, discarded]
+statuses: [draft, approved, in-progress, in-review, done, discarded]
 stages: [request, investigation, proposal, specification, plan, log]
 types:
   refactor:
@@ -3536,7 +3531,7 @@ language: en
 tdd: true
 changes_dir: .changeledger/changes
 specs_dir: .changeledger/specs
-statuses: [draft, approved, in-progress, in-review, in-validation, blocked, done, discarded]
+statuses: [draft, approved, in-progress, in-review, done, discarded]
 stages: [request, investigation, proposal, specification, plan, log]
 types:
   quick:
@@ -4510,4 +4505,325 @@ test('174407 CR11: without git.integration_branch the auto-detected base remains
   const out = captureOutput();
   assert.equal(check(['--commits'], fx.root, out), 0, out.diagnostics.join('\n'));
   assert.deepEqual(out.calls, ['✓ commits main..HEAD valid']);
+});
+
+// --- 131621: in-validation and blocked leave the lifecycle ---
+
+const SIX_STATUSES = ['draft', 'approved', 'in-progress', 'in-review', 'done', 'discarded'];
+const SIX_STATUS_FIXTURE_CONFIG = FROZEN_FIXTURE_CONFIG.replace(
+  'schema_version: 5',
+  'schema_version: 6',
+)
+  .replace(/^statuses: .*$/m, `statuses: [${SIX_STATUSES.join(', ')}]`)
+  .concat(`min_cli_version: ${VERSION}\n`);
+
+test('131621 CR1: the repo config declares exactly the six remaining statuses', () => {
+  const text = fs.readFileSync(path.resolve('.changeledger/config.yml'), 'utf8');
+  assert.deepEqual(parseYaml(text).statuses, SIX_STATUSES);
+  assert.doesNotMatch(text, /in-validation/);
+  assert.doesNotMatch(text, /blocked/);
+});
+
+const RETIRED_STATUS_MESSAGES = {
+  'in-validation': 'status "in-validation" is retired: move it to "done" or "in-progress"',
+  blocked: 'status "blocked" is retired: move it to "in-progress" and record a [!] task',
+};
+
+test('131621 CR2: a live document in a retired status names the status and its destination', () => {
+  for (const [status, message] of Object.entries(RETIRED_STATUS_MESSAGES)) {
+    const id = '20260101-000000';
+    const root = frozenFixture(
+      { [`${id}-live.md`]: missingSpecification({ status }) },
+      {},
+      {},
+      SIX_STATUS_FIXTURE_CONFIG,
+    );
+    const { code, text } = runCheck(root, [id]);
+    assert.equal(code, 1, status);
+    assert.ok(text.includes(message), `${status}: ${text}`);
+    assert.doesNotMatch(text, /unknown status/);
+  }
+});
+
+test('131621 CR2: a status outside the lifecycle stays an unknown status', () => {
+  const { errors } = checkRepo({
+    config: { ...config, statuses: SIX_STATUSES },
+    changes: [change({ frontmatter: { status: 'paused' } })],
+  });
+  assert.ok(msgs(errors).some((m) => /unknown status "paused"/.test(m)));
+  assert.ok(!msgs(errors).some((m) => /is retired/.test(m)));
+});
+
+const RETIRED_HISTORY_LOG = `## Log
+- **2026-06-13T12:00:00Z** \`[status]\` approved → in-progress
+- **2026-06-13T12:10:00Z** \`[status]\` in-progress → blocked
+- **2026-06-13T12:20:00Z** \`[status]\` blocked → in-progress
+- **2026-06-13T12:30:00Z** \`[review]\` in-review → in-validation (delegated subagent)
+- **2026-06-13T12:40:00Z** \`[validation]\` in-validation → done (human accepted)
+`;
+
+test('131621 CR3: archived and discarded history naming retired statuses stays valid', () => {
+  const body = (over) =>
+    `---\n${frontmatter(over)}\n---\n\n## Request\n\nX\n\n## Proposal\n\nX\n\n## Plan\n\nX\n\n${RETIRED_HISTORY_LOG}`;
+  const root = frozenFixture(
+    {
+      '20260101-000000-archived.md': body({ archived: 'true' }),
+      '20260102-000000-discarded.md': body({ id: '20260102-000000', status: 'discarded' }),
+    },
+    {},
+    {},
+    SIX_STATUS_FIXTURE_CONFIG,
+  );
+  const { code, out, text } = runCheck(root);
+  assert.equal(code, 0, text);
+  assert.deepEqual(out.diagnostics, []);
+});
+
+// --- pending acceptance (20261018-131621 CR22: check reports, never writes) ---
+
+const ACCEPT_ID = '20261018-131621';
+const ACCEPT_CONFIG = `changes_dir: .changeledger/changes
+statuses: [draft, approved, in-progress, in-review, done, discarded]
+stages: [request, investigation, proposal, specification, plan, log]
+git:
+  integration_branch: dev
+  change_branch_format: "{type}/{id}"
+types:
+  feature:
+    stages: [request, plan, log]
+`;
+
+function acceptDoc({
+  branchLine = `- **2026-10-18T14:45:55Z** \`[branch]\` set: feature/${ACCEPT_ID} (auto)`,
+  acceptedAt,
+} = {}) {
+  return [
+    '---',
+    `id: "${ACCEPT_ID}"`,
+    'title: Acceptance telemetry',
+    'type: feature',
+    'status: done',
+    'created: 2026-10-18T13:16:21Z',
+    'depends_on: []',
+    ...(acceptedAt ? [`accepted_at: ${acceptedAt}`] : []),
+    `branch: feature/${ACCEPT_ID}`,
+    '---',
+    '',
+    '## Request',
+    '',
+    'Telemetry, not a gate.',
+    '',
+    '## Plan',
+    '',
+    '- [x] Ship it',
+    '  - **Target:** `src/x.mjs`',
+    '  - **Verify:** `node --test test/x.test.mjs`',
+    '  - **Resolved:** `2026-10-18T14:45:56Z`',
+    '',
+    '## Log',
+    '',
+    '- **2026-10-18T14:45:53Z** `[status]` draft → approved',
+    '- **2026-10-18T14:45:54Z** `[status]` approved → in-progress',
+    ...(branchLine ? [branchLine] : []),
+    '- **2026-10-18T14:45:56Z** `[status]` in-progress → done',
+    '',
+  ].join('\n');
+}
+
+// A repo whose change was worked on `feature/<id>`; `merged` decides whether
+// that branch ever landed on the integration branch `dev`.
+function acceptFixture({ merged = true, doc = acceptDoc(), config = ACCEPT_CONFIG } = {}) {
+  const { root, git } = gitFixture();
+  const changesDir = path.join(root, '.changeledger', 'changes');
+  fs.mkdirSync(changesDir, { recursive: true });
+  fs.writeFileSync(path.join(root, '.changeledger', 'config.yml'), config);
+  const file = path.join(changesDir, `${ACCEPT_ID}-acceptance.md`);
+  fs.writeFileSync(file, doc);
+
+  git(['branch', 'dev']);
+  git(['checkout', '-q', '-b', `feature/${ACCEPT_ID}`, 'dev']);
+  fs.writeFileSync(path.join(root, 'work.txt'), 'work\n');
+  git(['add', 'work.txt']);
+  git(['commit', '-q', '-m', `feat(x): work [#${ACCEPT_ID}]`]);
+  git(['checkout', '-q', 'dev']);
+  if (merged)
+    git(['merge', '--no-ff', '-q', '-m', `merge [#${ACCEPT_ID}]`, `feature/${ACCEPT_ID}`]);
+  return { root, git, file };
+}
+
+test('20261018-131621 CR22: check warns that a merged done change is accepted, exits 0 and writes nothing', () => {
+  const { root, file } = acceptFixture();
+  const before = fs.readFileSync(file);
+
+  const out = captureOutput();
+  const code = check([ACCEPT_ID], root, out);
+
+  assert.equal(code, 0, out.diagnostics.join('\n'));
+  const warning = out.diagnostics.find((d) => d.includes('accepted'));
+  assert.ok(warning, `expected an acceptance warning, got: ${out.diagnostics.join('\n')}`);
+  assert.match(warning, /^ {2}warn {3}/);
+  assert.ok(
+    warning.includes(`${ACCEPT_ID}-acceptance.md`),
+    `warning must name the change: ${warning}`,
+  );
+  assert.deepEqual(fs.readFileSync(file), before, 'check must leave the document byte-for-byte');
+});
+
+test('20261018-131621 CR22: an unmerged branch draws no acceptance warning', () => {
+  const { root } = acceptFixture({ merged: false });
+
+  const out = captureOutput();
+  assert.equal(check([ACCEPT_ID], root, out), 0, out.diagnostics.join('\n'));
+  assert.deepEqual(out.diagnostics, []);
+});
+
+test('20261018-131621 CR22: a change already stamped draws no acceptance warning', () => {
+  const { root } = acceptFixture({ doc: acceptDoc({ acceptedAt: '2026-10-18T10:00:00Z' }) });
+
+  const out = captureOutput();
+  assert.equal(check([ACCEPT_ID], root, out), 0, out.diagnostics.join('\n'));
+  assert.deepEqual(out.diagnostics, []);
+});
+
+test('20261018-131621 CR22: a change with no [branch] entry draws no acceptance warning', () => {
+  const { root } = acceptFixture({ doc: acceptDoc({ branchLine: '' }) });
+
+  const out = captureOutput();
+  assert.equal(check([ACCEPT_ID], root, out), 0, out.diagnostics.join('\n'));
+  assert.deepEqual(out.diagnostics, []);
+});
+
+test('20261018-131621 CR22: frozen history is never told to stamp acceptance', () => {
+  // Every archived change in a long-lived ledger was merged at some point;
+  // reporting them would bury the one live subject the warning is for, and
+  // the fix it names (`graduate`) is refused on frozen history anyway.
+  const { root } = acceptFixture({
+    doc: acceptDoc().replace('status: done', 'status: done\narchived: true'),
+  });
+
+  const out = captureOutput();
+  check([ACCEPT_ID], root, out);
+  assert.deepEqual(
+    out.diagnostics.filter((d) => d.includes('accepted')),
+    [],
+  );
+});
+
+test('20261018-131621 CR22: a rebound branch is read from the last [branch] entry', () => {
+  // The change started on `feature/abandoned`, which did land on dev, and was
+  // rebound to `feature/<id>`, which did not. Acceptance belongs to the branch
+  // the change is on now, so the abandoned merge must not claim it.
+  const { root, git } = acceptFixture({ merged: false });
+  git(['checkout', '-q', '-b', 'feature/abandoned', 'dev']);
+  fs.writeFileSync(path.join(root, 'abandoned.txt'), 'x\n');
+  git(['add', 'abandoned.txt']);
+  git(['commit', '-q', '-m', `feat(x): abandoned [#${ACCEPT_ID}]`]);
+  git(['checkout', '-q', 'dev']);
+  git(['merge', '--no-ff', '-q', '-m', 'merge abandoned', 'feature/abandoned']);
+
+  const file = path.join(root, '.changeledger', 'changes', `${ACCEPT_ID}-acceptance.md`);
+  fs.writeFileSync(
+    file,
+    fs
+      .readFileSync(file, 'utf8')
+      .replace(
+        `- **2026-10-18T14:45:55Z** \`[branch]\` set: feature/${ACCEPT_ID} (auto)`,
+        [
+          '- **2026-10-18T14:45:55Z** `[branch]` set: feature/abandoned (auto)',
+          `- **2026-10-18T14:45:55Z** \`[branch]\` set: feature/${ACCEPT_ID}`,
+        ].join('\n'),
+      ),
+  );
+
+  const out = captureOutput();
+  check([ACCEPT_ID], root, out);
+  assert.deepEqual(
+    out.diagnostics.filter((d) => d.includes('accepted')),
+    [],
+  );
+});
+
+test('20261018-131621 CR22: only a delivered change is reported as accepted', () => {
+  const { root } = acceptFixture({
+    doc: acceptDoc()
+      .replace('status: done', 'status: in-progress')
+      .replace('- **2026-10-18T14:45:56Z** `[status]` in-progress → done\n', '')
+      .replace('- [x] Ship it', '- [ ] Ship it')
+      .replace('  - **Resolved:** `2026-10-18T14:45:56Z`\n', ''),
+  });
+
+  const out = captureOutput();
+  check([ACCEPT_ID], root, out);
+  assert.deepEqual(
+    out.diagnostics.filter((d) => d.includes('accepted')),
+    [],
+  );
+});
+
+test('20261018-131621 CR22: a malformed integration branch is a config error, not a crash', () => {
+  const { root } = acceptFixture({
+    config: ACCEPT_CONFIG.replace('  integration_branch: dev', '  integration_branch: 42'),
+  });
+
+  const out = captureOutput();
+  assert.equal(check([ACCEPT_ID], root, out), 1);
+  assert.ok(
+    out.diagnostics.some((d) => d.includes('git.integration_branch')),
+    out.diagnostics.join('\n'),
+  );
+});
+
+test('20261018-131621 CR22: without a declared integration branch there is nothing to detect', () => {
+  const { root } = acceptFixture({
+    config: ACCEPT_CONFIG.replace('  integration_branch: dev\n', ''),
+  });
+
+  const out = captureOutput();
+  assert.equal(check([ACCEPT_ID], root, out), 0, out.diagnostics.join('\n'));
+  assert.deepEqual(out.diagnostics, []);
+});
+
+// The git-fed findings `check` already had (`checkUsageGitConfig`) are
+// repo-wide only; this one must reach a single named subject too, which is the
+// scope CR22 actually asks for. The sweep is pinned here so the warning cannot
+// later be moved behind that `!id` guard. (The fixture is a bare scratch repo,
+// so the sweep also reports the missing AGENTS.md — the exit code is not the
+// subject of this test.)
+test('20261018-131621 CR22: the repo-wide sweep reports acceptance too', () => {
+  const { root } = acceptFixture();
+
+  const out = captureOutput();
+  check([], root, out);
+  assert.ok(
+    out.diagnostics.some((d) => d.includes('accepted')),
+    out.diagnostics.join('\n'),
+  );
+});
+
+// 20261018-131621 CR10. Once `graduate` stamps `[validation] accepted (merged
+// <sha>)`, that event has no `from`/`to`. The sequence replay must step over
+// it: treating it as an unmodellable status would abandon the replay at the
+// line — and with it the frontmatter reconciliation that closes the document.
+test('20261018-131621 CR10: an accepted validation entry does not abandon the lifecycle replay', () => {
+  const log = [
+    '- **2026-06-13T12:01:00Z** `[status]` draft → approved',
+    '- **2026-06-13T12:02:00Z** `[status]` approved → in-progress',
+    '- **2026-06-13T12:03:00Z** `[status]` in-progress → in-review',
+    '- **2026-06-13T12:04:00Z** `[review]` in-review → done',
+    '- **2026-06-13T12:05:00Z** `[validation]` accepted (merged abc1234)',
+  ];
+  assert.deepEqual(msgs(run([versionLogChange('done', log)]).errors), []);
+  assert.match(
+    msgs(run([versionLogChange('approved', log)]).errors).join('\n'),
+    /Log reconstructs status "done" but frontmatter says "approved"/,
+  );
+  // And a defect recorded after the acceptance is still reported.
+  assert.match(
+    msgs(
+      run([
+        versionLogChange('done', [...log, '- **2026-06-13T12:06:00Z** `[status]` done → approved']),
+      ]).errors,
+    ).join('\n'),
+    /invalid lifecycle transition "done → approved"/,
+  );
 });

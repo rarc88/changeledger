@@ -5,8 +5,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { parseChange } from '../src/change.mjs';
 import { writeLedgerFiles } from '../src/change-store.mjs';
 import { checkRepo } from '../src/check.mjs';
+import { status } from '../src/commands/agent.mjs';
 import { initReleaseHistory, recordRelease, releasePlan } from '../src/commands/release.mjs';
 import { bumpVersion } from '../src/release.mjs';
 import { loadRepo } from '../src/repo.mjs';
@@ -327,4 +329,110 @@ test('CR7/CR8 (active): recordRelease on an active repo is exact and lands in on
     '1',
   );
   assert.equal(fs.existsSync(path.join(root, STATE_ROOT)), false);
+});
+
+// 20261018-131621 — release membership is the only boundary of the return from
+// `done` to `in-progress`, and it is read from the ledger in both layouts.
+
+const RELEASED_VERSION = '0.19.0';
+
+// `status` resolves git identity and the current checkout; these fixtures are
+// plain directories, so both seams are stubbed out rather than left to the
+// host's git.
+const quiet = { ownerHandle: () => '', checkoutBranch: () => '' };
+
+function writeReleaseFile(root, version, changes) {
+  const dir = path.join(root, '.changeledger', 'releases');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(
+    path.join(dir, `${version}.yml`),
+    `version: ${version}\ncreated: 2026-06-24T01:00:00Z\nchanges: [${changes.map((id) => `"${id}"`).join(', ')}]\n`,
+  );
+}
+
+function shippedMessage(id, version) {
+  return `change ${id} shipped in release ${version}: new work needs a new change`;
+}
+
+test('20261018-131621 CR7: a done change outside every release returns to in-progress', () => {
+  const root = fixture();
+  const id = '20260624-000001';
+  const file = writeChange(root, id);
+  writeReleaseFile(root, RELEASED_VERSION, ['20260624-999999']);
+
+  status(id, 'in-progress', root, quiet);
+
+  const parsed = parseChange(fs.readFileSync(file, 'utf8'));
+  assert.equal(parsed.frontmatter.status, 'in-progress');
+  assert.match(
+    parsed.stages.find((s) => s.key === 'log').body,
+    /`\[status\]` done → in-progress \(human\)$/m,
+  );
+});
+
+test('20261018-131621 CR8: accepted_at does not close the return to in-progress', () => {
+  const root = fixture();
+  const id = '20260624-000001';
+  const file = writeChange(root, id);
+  fs.writeFileSync(
+    file,
+    fs
+      .readFileSync(file, 'utf8')
+      .replace('depends_on: []', 'depends_on: []\naccepted_at: 2026-10-18T10:00:00Z'),
+  );
+
+  status(id, 'in-progress', root, quiet);
+
+  const parsed = parseChange(fs.readFileSync(file, 'utf8'));
+  assert.equal(parsed.frontmatter.status, 'in-progress');
+  assert.equal(parsed.frontmatter.accepted_at, '2026-10-18T10:00:00Z');
+  assert.match(
+    parsed.stages.find((s) => s.key === 'log').body,
+    /`\[status\]` done → in-progress \(human\)$/m,
+  );
+});
+
+test('20261018-131621 CR9: a change shipped in a release is refused, with or without a reason', () => {
+  const root = fixture();
+  const id = '20260624-000001';
+  const file = writeChange(root, id);
+  writeReleaseFile(root, RELEASED_VERSION, [id]);
+  const before = fs.readFileSync(file, 'utf8');
+  const expected = shippedMessage(id, RELEASED_VERSION);
+
+  assert.throws(
+    () => status(id, 'in-progress', root, quiet),
+    (e) => e.message === expected,
+  );
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+
+  // The viewer's seat is this same command carrying the human's reason
+  // (20261018-131621 CR16); end to end it is pinned in test/view.test.mjs.
+  assert.throws(
+    () => status(id, 'in-progress', root, { ...quiet, reason: 'late' }),
+    (e) => e.message === expected,
+  );
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
+test('20261018-131621 CR21: release membership is read from the ledger, not the worktree', () => {
+  const root = fixture();
+  const id = '20260624-000001';
+  writeChange(root, id);
+  activate(root);
+  initReleaseHistory(RELEASED_VERSION, root, '2026-06-24T01:00:00Z');
+  const before = stateRefTip(root);
+
+  // The boundary that must hold: in an activated repo the manifest lives in the
+  // state ref and `.changeledger/releases/` never exists, so a membership check
+  // reading the worktree would find no releases and let the change back out.
+  assert.equal(fs.existsSync(path.join(root, '.changeledger', 'releases')), false);
+  assert.deepEqual(loadRepo(root).releases[0].changes, [id]);
+
+  assert.throws(
+    () => status(id, 'in-progress', root, quiet),
+    (e) => e.message === shippedMessage(id, RELEASED_VERSION),
+  );
+  assert.equal(stateRefTip(root), before);
+  assert.equal(fs.existsSync(path.join(root, '.changeledger', 'releases')), false);
 });

@@ -21,7 +21,8 @@ inspection.
 Deep security, SAST and lint belong to dedicated tools. You may run them
 read-only and report their evidence; ChangeLedger does not reimplement them.
 
-Return per-criterion PASS/FAIL evidence and one recommended outcome: pass,
-fail-retry with a reason for a fixable defect inside scope, or fail-block with a
-reason when correction needs scope or product judgment. The orchestrator alone
+Return per-criterion PASS/FAIL evidence and one recommended outcome: pass, or
+fail with a reason. Say for each defect whether it is fixable inside the
+authorized contract or needs scope or product judgment; that classification
+guides the correction, it is not a second verdict. The orchestrator alone
 records the verdict.

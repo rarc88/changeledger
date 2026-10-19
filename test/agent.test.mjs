@@ -20,12 +20,10 @@ import {
   list,
   log,
   owner,
-  reopen,
   review,
   show,
   status,
   task,
-  validation,
 } from '../src/commands/agent.mjs';
 import { edit } from '../src/commands/edit.mjs';
 import { fix } from '../src/commands/fix.mjs';
@@ -1063,8 +1061,6 @@ test('161652 CR2: lifecycle mutations reject a future schema before writing', ()
     ['status', ({ id, root }) => status(id, 'approved', root)],
     ['approve', ({ id, root }) => approve(id, root)],
     ['review', ({ id, root }) => review(id, 'pass', {}, root)],
-    ['validation', ({ id, root }) => validation(id, 'pass', {}, root)],
-    ['reopen', ({ id, root }) => reopen(id, 'reason', root)],
     ['owner', ({ id, root }) => owner(id, 'ana', root)],
     ['discard', ({ id, root }) => discard(id, 'reason', root)],
     ['archive', ({ id, root }) => archive(id, root)],
@@ -1357,7 +1353,7 @@ test('status rejects an invalid value without writing', () => {
 test('status rejects an illegal lifecycle jump without writing', () => {
   const { root, file, id } = repoWithChange();
   const before = fs.readFileSync(file, 'utf8');
-  assert.throws(() => status(id, 'done', root), /use human validation in the viewer/);
+  assert.throws(() => status(id, 'done', root), /invalid lifecycle transition: draft → done/);
   assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
 
@@ -1687,7 +1683,7 @@ test('131649 CR1/CR2: list owns graduation and archive pending queries', () => {
     id: '20260613-120004',
     log: '- **2026-06-13T12:00:00Z** `[graduation]` skipped: no durable truth',
   });
-  write({ id: '20260613-120005', status: 'in-validation', reviewed: false });
+  write({ id: '20260613-120005', status: 'in-review', reviewed: false });
   write({
     id: '20260613-120006',
     archived: true,
@@ -1721,18 +1717,18 @@ test('141643 CR3: pending graduation is exactly done with reviewed other than tr
   assert.equal(isPendingGraduation(change('done', 'true')), true);
   assert.equal(isPendingGraduation(change('done', undefined, graduationMarker)), true);
   assert.equal(isPendingGraduation(change('done', true)), false);
-  assert.equal(isPendingGraduation(change('in-validation', undefined)), false);
+  assert.equal(isPendingGraduation(change('in-review', undefined)), false);
 });
 
 test('131649 CR3-CR5: list combines owner, unowned, status and type filters', () => {
   const { root, write } = repoWithArchiveCandidates();
-  write({ id: '20260613-120001', owner: 'Roberto Ruiz', status: 'in-validation' });
-  write({ id: '20260613-120002', owner: 'raruiz-hiberuscom', status: 'in-validation' });
-  write({ id: '20260613-120003', status: 'in-validation' });
+  write({ id: '20260613-120001', owner: 'Roberto Ruiz', status: 'in-review' });
+  write({ id: '20260613-120002', owner: 'raruiz-hiberuscom', status: 'in-review' });
+  write({ id: '20260613-120003', status: 'in-review' });
   write({ id: '20260613-120004', owner: 'Roberto Ruiz', type: 'bug' });
 
   assert.deepEqual(
-    list({ owner: 'Roberto Ruiz', status: 'in-validation', type: 'feature' }, root).map(
+    list({ owner: 'Roberto Ruiz', status: 'in-review', type: 'feature' }, root).map(
       (change) => change.id,
     ),
     ['20260613-120001'],
@@ -1802,13 +1798,13 @@ const reach = (id, root, target) => {
   }
 };
 
-test('171002 CR1: status blocks review-required in-progress → in-validation', () => {
+test('171002 CR1: status blocks review-required in-progress → done', () => {
   const { root, file, id } = repoWithChange();
   reach(id, root, 'in-progress');
   const before = fs.readFileSync(file, 'utf8');
   assert.throws(
-    () => status(id, 'in-validation', root),
-    /feature changes must be reviewed before validation — move to in-review first/,
+    () => status(id, 'done', root),
+    /feature changes must be reviewed before delivery — move to in-review first/,
   );
   assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
@@ -1843,7 +1839,7 @@ test('141120 CR2: rejecting review entry leaves the document and Log untouched',
   const before = fs.readFileSync(file, 'utf8');
   assert.throws(
     () => status(id, 'in-review', root),
-    /^Error: audit changes do not require review — move to in-validation instead$/,
+    /^Error: audit changes do not require review — move to done instead$/,
   );
   const after = fs.readFileSync(file, 'utf8');
   assert.equal(after, before);
@@ -1865,7 +1861,7 @@ test('141120 CR1: the CLI reports the rejection and exits 1', async () => {
   assert.equal(failure.code, 1);
   assert.match(
     failure.stderr,
-    /^Error: audit changes do not require review — move to in-validation instead$/m,
+    /^Error: audit changes do not require review — move to done instead$/m,
   );
 });
 
@@ -1963,16 +1959,6 @@ test('124656 CR3: a ready candidate still reaches in-review', () => {
   assert.match(c.stages.find((s) => s.key === 'log').body, /in-progress → in-review/);
 });
 
-test('171002 CR5: a chore goes directly to in-validation, not done', () => {
-  const { root, file, id } = repoWithChore();
-  status(id, 'approved', root);
-  status(id, 'in-progress', root, { ownerHandle: () => '' });
-  status(id, 'in-validation', root);
-  const c = parseChange(fs.readFileSync(file, 'utf8'));
-  assert.equal(c.frontmatter.status, 'in-validation');
-  assert.match(c.stages.find((s) => s.key === 'log').body, /in-progress → in-validation/);
-});
-
 test('CR5: status rejects approved → in-review without writing', () => {
   const { root, file, id } = repoWithChange();
   status(id, 'approved', root);
@@ -1987,24 +1973,26 @@ test('CR5: status rejects approved → in-review without writing', () => {
 test('CR12: status rejects draft → done without writing', () => {
   const { root, file, id } = repoWithChange();
   const before = fs.readFileSync(file, 'utf8');
-  assert.throws(() => status(id, 'done', root), /use human validation in the viewer/);
+  assert.throws(() => status(id, 'done', root), /invalid lifecycle transition: draft → done/);
   assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
 
-test('171002 CR1: review pass moves to validation and marks the delegation', () => {
+test('171002 CR1: review pass delivers and marks the delegation', () => {
   const { root, file, id } = repoWithChange();
+  task(id, 'done', 1, '', root);
   reach(id, root, 'in-review');
   review(id, 'pass', {}, root);
   const c = parseChange(fs.readFileSync(file, 'utf8'));
-  assert.equal(c.frontmatter.status, 'in-validation');
+  assert.equal(c.frontmatter.status, 'done');
   assert.match(
     c.stages.find((s) => s.key === 'log').body,
-    /review → in-validation \(delegated subagent, clean context\)/,
+    /review → done \(delegated subagent, clean context\)/,
   );
 });
 
 test('122950 support: status and review preserve non-canonical valid YAML style', () => {
   const { root, file, id } = repoWithChange();
+  task(id, 'done', 1, '', root);
   const styled = fs
     .readFileSync(file, 'utf8')
     .replace('title: X', "title: 'X'")
@@ -2017,67 +2005,11 @@ test('122950 support: status and review preserve non-canonical valid YAML style'
   assert.match(fs.readFileSync(file, 'utf8'), /title: 'X'.*depends_on: \[\] # keep compact/s);
 });
 
-test('171002 CR2: human validation pass closes the complete change', () => {
-  const { root, file, id } = repoWithChange();
-  task(id, 'done', 1, '', root);
-  reach(id, root, 'in-review');
-  review(id, 'pass', {}, root);
-  validation(id, 'pass', {}, root);
-  const c = parseChange(fs.readFileSync(file, 'utf8'));
-  assert.equal(c.frontmatter.status, 'done');
-  assert.match(c.stages.find((s) => s.key === 'log').body, /validation → done \(human accepted\)/);
-});
-
-test('125139 CR3/CR5/CR6: conversation channel attributes human validation decisions', () => {
-  const accepted = repoWithChange();
-  task(accepted.id, 'done', 1, '', accepted.root);
-  reach(accepted.id, accepted.root, 'in-review');
-  review(accepted.id, 'pass', {}, accepted.root);
-  validation(accepted.id, 'pass', { channel: 'conversation' }, accepted.root);
-  assert.match(
-    parseChange(fs.readFileSync(accepted.file, 'utf8')).stages.find((stage) => stage.key === 'log')
-      .body,
-    /validation → done \(human accepted via conversation\)/,
-  );
-
-  const rejected = repoWithChange();
-  reach(rejected.id, rejected.root, 'in-review');
-  review(rejected.id, 'pass', {}, rejected.root);
-  validation(
-    rejected.id,
-    'fail',
-    { reason: 'Falla en dispositivo', actor: 'human', channel: 'conversation' },
-    rejected.root,
-  );
-  assert.match(
-    parseChange(fs.readFileSync(rejected.file, 'utf8')).stages.find((stage) => stage.key === 'log')
-      .body,
-    /human rejected via conversation\): Falla en dispositivo/,
-  );
-});
-
-test('105205 CR1: agent rejection requires a reason and records its actor', () => {
-  const { root, file, id } = repoWithChange();
-  reach(id, root, 'in-review');
-  review(id, 'pass', {}, root);
-  const before = fs.readFileSync(file, 'utf8');
-  assert.throws(() => validation(id, 'fail', { actor: 'agent' }, root), /requires a reason/);
-  assert.equal(fs.readFileSync(file, 'utf8'), before);
-  validation(id, 'fail', { reason: 'fails on device', actor: 'agent' }, root);
-  const parsed = parseChange(fs.readFileSync(file, 'utf8'));
-  assert.equal(parsed.frontmatter.status, 'in-progress');
-  assert.match(
-    parsed.stages.find((s) => s.key === 'log').body,
-    /agent rejected\): fails on device/,
-  );
-});
-
-test('150231 CR2/CR3: human acceptance rejects incomplete or inconsistent changes without writing', () => {
+test('150231 CR2/CR3: delivery rejects incomplete or inconsistent changes without writing', () => {
   for (const defect of ['task', 'log']) {
     const { root, file, id } = repoWithChange();
     if (defect === 'log') task(id, 'done', 1, '', root);
     reach(id, root, 'in-review');
-    review(id, 'pass', {}, root);
     if (defect === 'log') {
       fs.writeFileSync(
         file,
@@ -2091,65 +2023,64 @@ test('150231 CR2/CR3: human acceptance rejects incomplete or inconsistent change
     }
     const before = fs.readFileSync(file, 'utf8');
     assert.throws(
-      () => validation(id, 'pass', {}, root),
+      () => review(id, 'pass', {}, root),
       defect === 'task' ? /1 task\(s\) are not done/ : /Log line .*reconstructed status/,
     );
     assert.equal(fs.readFileSync(file, 'utf8'), before);
   }
 });
 
-test('150231 CR6: human acceptance ignores an unrelated unparseable change', () => {
+test('150231 CR6: delivery ignores an unrelated unparseable change', () => {
   const { root, file, id } = repoWithChange();
   task(id, 'done', 1, '', root);
   reach(id, root, 'in-review');
-  review(id, 'pass', {}, root);
   fs.writeFileSync(path.join(root, '.changeledger', 'changes', 'broken.md'), 'not frontmatter\n');
 
-  assert.doesNotThrow(() => validation(id, 'pass', {}, root));
+  assert.doesNotThrow(() => review(id, 'pass', {}, root));
   assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'done');
 });
 
-function acceptedChange() {
+function deliveredChange() {
   const result = repoWithChange();
   task(result.id, 'done', 1, '', result.root);
   reach(result.id, result.root, 'in-review');
   review(result.id, 'pass', {}, result.root);
-  validation(result.id, 'pass', {}, result.root);
   return result;
 }
 
-test('150232 CR1/CR2/CR5: human reopens provisional done with a required reason', () => {
-  const { root, file, id } = acceptedChange();
-  const before = fs.readFileSync(file, 'utf8');
-  assert.throws(() => reopen(id, '', root), /requires a reason/);
-  assert.equal(fs.readFileSync(file, 'utf8'), before);
-  reopen(id, 'complete original acceptance', root);
-  const parsed = parseChange(fs.readFileSync(file, 'utf8'));
-  assert.equal(parsed.frontmatter.status, 'in-progress');
-  assert.match(
-    parsed.stages.find((s) => s.key === 'log').body,
-    /done → in-progress \(human reopened\)/,
-  );
-  assert.throws(() => validation(id, 'pass', {}, root), /requires status in-validation/);
+// 150232 CR1/CR2/CR5 and 105205 CR2 pinned `reopen`, which is retired with
+// `in-validation`: the return is the generic transition now. Requiring a
+// reason is the viewer's rule, pinned in test/view.test.mjs; what the command
+// owes is to carry that reason AND the actor into the Log, since this edge is
+// the only record a human rejection leaves and `rejectionCount` counts only
+// the human ones (20261018-131621 CR24).
+test('20261018-131621 CR24: the return from done records its actor and reason', () => {
+  for (const [actor, expected] of [
+    ['human', 'human'],
+    ['agent', 'agent'],
+  ]) {
+    const { root, file, id } = deliveredChange();
+    status(id, 'in-progress', root, { actor, reason: 'complete original acceptance' });
+    const parsed = parseChange(fs.readFileSync(file, 'utf8'));
+    assert.equal(parsed.frontmatter.status, 'in-progress');
+    assert.match(
+      parsed.stages.find((s) => s.key === 'log').body,
+      new RegExp(
+        `\`\\[status\\]\` done → in-progress \\(${expected}\\): complete original acceptance$`,
+        'm',
+      ),
+      actor,
+    );
+  }
 });
 
-test('105205 CR2: agent reopens only a provisional done change and records its actor', () => {
-  const { root, file, id } = acceptedChange();
-  const before = fs.readFileSync(file, 'utf8');
-  assert.throws(() => reopen(id, '', root, { actor: 'agent' }), /requires a reason/);
-  assert.equal(fs.readFileSync(file, 'utf8'), before);
-  reopen(id, 'complete original scope', root, { actor: 'agent' });
-  const parsed = parseChange(fs.readFileSync(file, 'utf8'));
-  assert.equal(parsed.frontmatter.status, 'in-progress');
-  assert.match(
-    parsed.stages.find((s) => s.key === 'log').body,
-    /agent reopened\): complete original scope/,
-  );
-});
-
-test('150232 CR3: durable closure boundaries reject reopening without writes', () => {
-  for (const boundary of ['reviewed', 'graduated', 'archived', 'released']) {
-    const { root, file, id } = acceptedChange();
+// Supersedes 150232 CR3, whose four durable boundaries are down to one: a
+// graduated or archived change is reversible (`--into` never overwrites a spec
+// body, `archived: false` undoes an archive), so only a published release
+// still freezes what the change contains.
+test('20261018-131621 CR9: only release membership closes the return from done', () => {
+  for (const boundary of ['reviewed', 'graduated', 'archived']) {
+    const { root, file, id } = deliveredChange();
     let text = fs.readFileSync(file, 'utf8');
     if (boundary === 'reviewed')
       text = text.replace('depends_on: []', 'depends_on: []\nreviewed: true');
@@ -2157,94 +2088,86 @@ test('150232 CR3: durable closure boundaries reject reopening without writes', (
     if (boundary === 'archived')
       text = text.replace('depends_on: []', 'depends_on: []\narchived: true');
     fs.writeFileSync(file, text);
-    if (boundary === 'released') {
-      const dir = path.join(root, '.changeledger', 'releases');
-      fs.mkdirSync(dir, { recursive: true });
-      fs.writeFileSync(
-        path.join(dir, '1.0.0.yml'),
-        `version: 1.0.0\ncreated: 2026-06-13T13:00:00Z\nchanges: ["${id}"]\n`,
-      );
-    }
-    const before = fs.readFileSync(file, 'utf8');
-    assert.throws(() => reopen(id, 'late', root), /cannot reopen/);
-    assert.equal(fs.readFileSync(file, 'utf8'), before);
+
+    status(id, 'in-progress', root, { reason: 'late' });
+    assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'in-progress');
   }
-});
 
-test('150232 CR3: release publication wins a deterministic race with reopen', async () => {
-  const { root, file, id } = acceptedChange();
-  const before = fs.readFileSync(file, 'utf8');
-  const releasesDir = path.join(root, '.changeledger', 'releases');
-  fs.mkdirSync(releasesDir, { recursive: true });
-  const lock = path.join(releasesDir, '..history.lock');
-  fs.writeFileSync(lock, JSON.stringify({ pid: process.pid, created: new Date().toISOString() }));
-  const moduleUrl = new URL('../src/commands/agent.mjs', import.meta.url).href;
-  const script = `import { reopen } from ${JSON.stringify(moduleUrl)}; reopen(process.argv[1], 'race', process.argv[2]);`;
-  let settled = false;
-  const attempt = execFileAsync(process.execPath, ['--input-type=module', '-e', script, id, root]);
-  attempt.then(
-    () => {
-      settled = true;
-    },
-    () => {
-      settled = true;
-    },
-  );
-
-  await delay(100);
-  assert.equal(settled, false, 'reopen must wait for the release-history lock');
+  const { root, file, id } = deliveredChange();
+  const dir = path.join(root, '.changeledger', 'releases');
+  fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(
-    path.join(releasesDir, '1.0.0.yml'),
-    `version: 1.0.0\ncreated: 2026-06-13T13:00:00Z\nchanges: ["${id}"]\n`,
+    path.join(dir, '0.19.0.yml'),
+    `version: 0.19.0\ncreated: 2026-06-13T13:00:00Z\nchanges: ["${id}"]\n`,
   );
-  fs.unlinkSync(lock);
-
-  await assert.rejects(attempt, /cannot reopen: change belongs to a recorded release/);
-  assert.equal(fs.readFileSync(file, 'utf8'), before);
-});
-
-test('171002 CR3: human rejection requires a reason and returns to in-progress', () => {
-  const { root, file, id } = repoWithChange();
-  reach(id, root, 'in-review');
-  review(id, 'pass', {}, root);
   const before = fs.readFileSync(file, 'utf8');
-  assert.throws(() => validation(id, 'fail', {}, root), /requires a reason/);
+  assert.throws(
+    () => status(id, 'in-progress', root, { reason: 'late' }),
+    (e) => e.message === `change ${id} shipped in release 0.19.0: new work needs a new change`,
+  );
   assert.equal(fs.readFileSync(file, 'utf8'), before);
-  validation(id, 'fail', { reason: 'fails on device' }, root);
-  const c = parseChange(fs.readFileSync(file, 'utf8'));
-  assert.equal(c.frontmatter.status, 'in-progress');
-  assert.match(c.stages.find((s) => s.key === 'log').body, /human rejected\): fails on device/);
 });
 
-test('171002 CR2: generic status cannot close a change on behalf of the human', () => {
+// 150232 CR3 pinned a race between `release record` and `reopen`, which took
+// the release-history lock. `reopen` is retired and the generic transition
+// does not take that lock: in an activated repo the CAS on the state revision
+// closes the window, and in a worktree layout the race stays open and
+// unguarded (20261018-131621 CR16).
+
+test('20261018-131621 CR4: a type without review delivers through generic status', () => {
   const { root, file, id } = repoWithChore();
   status(id, 'approved', root);
   status(id, 'in-progress', root, { ownerHandle: () => '' });
-  status(id, 'in-validation', root);
+  task(id, 'done', 1, '', root);
+  status(id, 'done', root);
+  const c = parseChange(fs.readFileSync(file, 'utf8'));
+  assert.equal(c.frontmatter.status, 'done');
+  assert.match(c.stages.find((s) => s.key === 'log').body, /`\[status\]` in-progress → done/);
+});
+
+test('20261018-131621 CR20: status done refuses a change with an open Plan task', () => {
+  const { root, file, id } = repoWithChore();
+  status(id, 'approved', root);
+  status(id, 'in-progress', root, { ownerHandle: () => '' });
   const before = fs.readFileSync(file, 'utf8');
-  assert.throws(() => status(id, 'done', root), /use human validation in the viewer/);
+  assert.throws(() => status(id, 'done', root), /status is "done" but 1 task\(s\) are not done/);
   assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
 
-test('CR7: review fail --retry returns to in-progress with the reason', () => {
+test('20261018-131621 CR20: review pass refuses a change with an open Plan task', () => {
   const { root, file, id } = repoWithChange();
   reach(id, root, 'in-review');
-  review(id, 'fail', { mode: 'retry', reason: 'CR3 not met' }, root);
-  const c = parseChange(fs.readFileSync(file, 'utf8'));
-  assert.equal(c.frontmatter.status, 'in-progress');
-  assert.match(
-    c.stages.find((s) => s.key === 'log').body,
-    /review → in-progress \(retry\): CR3 not met/,
+  const before = fs.readFileSync(file, 'utf8');
+  assert.throws(
+    () => review(id, 'pass', {}, root),
+    /status is "done" but 1 task\(s\) are not done/,
   );
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
 
-test('CR8: review fail --block escalates to blocked with the reason', () => {
+// Retiring `in-validation` left `in-review → done` as a legal edge of the
+// graph with no seat narrowing it, so the generic transition delivered
+// review_required work with no verdict at all and `check` saw nothing wrong.
+// The verdict is the reviewer's to give; this seat only names where it lives.
+test('20261018-131621 CR27: status done refuses to deliver a change in review', () => {
+  const { root, file, id } = repoWithChange();
+  task(id, 'done', 1, '', root);
+  reach(id, root, 'in-review');
+  const before = fs.readFileSync(file, 'utf8');
+  assert.throws(
+    () => status(id, 'done', root),
+    (e) => e.message.includes(`changeledger review ${id} pass`),
+  );
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
+test('CR7: review fail returns to in-progress with the reason', () => {
   const { root, file, id } = repoWithChange();
   reach(id, root, 'in-review');
-  review(id, 'fail', { mode: 'block', reason: 'spec is ambiguous' }, root);
+  review(id, 'fail', { reason: 'CR3 not met' }, root);
   const c = parseChange(fs.readFileSync(file, 'utf8'));
-  assert.equal(c.frontmatter.status, 'blocked');
-  assert.match(c.stages.find((s) => s.key === 'log').body, /review → blocked: spec is ambiguous/);
+  assert.equal(c.frontmatter.status, 'in-progress');
+  assert.match(c.stages.find((s) => s.key === 'log').body, /review → in-progress: CR3 not met/);
 });
 
 test('CR9: review requires status in-review', () => {
@@ -2259,37 +2182,23 @@ test('CR9: review requires status in-review', () => {
   assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
 
-// 20260729-162616 CR2: review() now validates every one of its three outcomes
-// through assertTransition, the same lifecycle authority status()/validation()/
-// discard()/reopen() already use — instead of writing setStatus directly once
-// its own bespoke `current !== 'in-review'` guard passes. Under today's graph
-// every in-review edge is legal (`in-review: ['in-validation', 'in-progress',
-// 'blocked']` mirrors review()'s three outcomes exactly), so assertTransition
-// can never actually throw through review() right now — exactly like the
-// equally-defensive call already in reopen() (`assertTransition('done',
-// 'in-progress', ...)`, always legal too). These tests pin the illegal-current
-// rejection (the only reachable one) across all three verdict paths, not just
-// `pass`, so a future edit that narrows the graph or the review-required gate
-// is enforced here the same way it already is for the other verbs.
-test('162616 CR2: review fail --retry rejects an illegal current status without writing', () => {
+// 20260729-162616 CR2: review() validates both its outcomes through
+// assertTransition, the same lifecycle authority status() and discard() already
+// use — instead of writing setStatus directly once its own bespoke
+// `current !== 'in-review'` guard passes. Under today's graph both in-review
+// edges are legal (`in-review: ['done', 'in-progress']` mirrors review()'s two
+// verdicts exactly), so assertTransition can never actually throw through
+// review() right now. This pins the illegal-current rejection (the only
+// reachable one) on the fail path too, not just `pass`, so a future edit that
+// narrows the graph or the review-required gate is enforced here the same way
+// it already is for the other verbs.
+test('162616 CR2: review fail rejects an illegal current status without writing', () => {
   const { root, file, id } = repoWithChange();
   status(id, 'approved', root);
   status(id, 'in-progress', root, { ownerHandle: () => '' });
   const before = fs.readFileSync(file, 'utf8');
   assert.throws(
-    () => review(id, 'fail', { mode: 'retry', reason: 'x' }, root),
-    /review requires status in-review \(current: in-progress\)/,
-  );
-  assert.equal(fs.readFileSync(file, 'utf8'), before);
-});
-
-test('162616 CR2: review fail --block rejects an illegal current status without writing', () => {
-  const { root, file, id } = repoWithChange();
-  status(id, 'approved', root);
-  status(id, 'in-progress', root, { ownerHandle: () => '' });
-  const before = fs.readFileSync(file, 'utf8');
-  assert.throws(
-    () => review(id, 'fail', { mode: 'block', reason: 'x' }, root),
+    () => review(id, 'fail', { reason: 'x' }, root),
     /review requires status in-review \(current: in-progress\)/,
   );
   assert.equal(fs.readFileSync(file, 'utf8'), before);
@@ -2300,8 +2209,8 @@ test('CR10: review fail requires a reason', () => {
   reach(id, root, 'in-review');
   const before = fs.readFileSync(file, 'utf8');
   assert.throws(
-    () => review(id, 'fail', { mode: 'retry' }, root),
-    /fail requires a reason — changeledger review <id> fail --retry\|--block "<reason>"/,
+    () => review(id, 'fail', {}, root),
+    /fail requires a reason — changeledger review <id> fail "<reason>"/,
   );
   assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
@@ -2402,10 +2311,9 @@ test('210508 CR3/CR4: cannot discard a done change, and discarded is terminal', 
   task(id, 'done', 1, '', root);
   status(id, 'approved', root);
   status(id, 'in-progress', root, { ownerHandle: () => '' });
-  // Drive the feature through review and human validation to test terminal done.
+  // Drive the feature through review to test terminal done.
   status(id, 'in-review', root);
   review(id, 'pass', {}, root);
-  validation(id, 'pass', {}, root);
   const before = fs.readFileSync(file, 'utf8');
   assert.throws(
     () => discard(id, 'too late', root),
@@ -2574,7 +2482,7 @@ test('CR9: status returns the worktree path when inactive and the state-tree pat
   assert.equal(activeResult.file, `changes/${active.name}`);
 });
 
-test('CR1: full lifecycle through review/validation/reopen/discard stays on the ref', () => {
+test('CR1: full lifecycle through review/return/discard stays on the ref', () => {
   const { root, id, name } = activatedRepoWithChange();
   const relPath = `changes/${name}`;
   task(id, 'done', 1, '', root);
@@ -2585,24 +2493,18 @@ test('CR1: full lifecycle through review/validation/reopen/discard stays on the 
   review(id, 'pass', {}, root);
   assert.equal(
     parseChange(stateDocText(root, stateRefTip(root), relPath)).frontmatter.status,
-    'in-validation',
-  );
-
-  validation(id, 'pass', {}, root);
-  assert.equal(
-    parseChange(stateDocText(root, stateRefTip(root), relPath)).frontmatter.status,
     'done',
   );
 
-  reopen(id, 'needs a fix', root);
+  status(id, 'in-progress', root, { reason: 'needs a fix' });
   assert.equal(
     parseChange(stateDocText(root, stateRefTip(root), relPath)).frontmatter.status,
     'in-progress',
   );
-  assert.equal(lastCommitMessage(root), `reopen: ${id}`);
+  assert.equal(lastCommitMessage(root), `status: ${id} → in-progress`);
 
   status(id, 'in-review', root);
-  review(id, 'fail', { mode: 'retry', reason: 'oops' }, root);
+  review(id, 'fail', { reason: 'oops' }, root);
   assert.equal(
     parseChange(stateDocText(root, stateRefTip(root), relPath)).frontmatter.status,
     'in-progress',
@@ -2623,7 +2525,6 @@ test('CR1: archive and archiveGraduated commit through the ref', () => {
   status(id, 'in-progress', root, { ownerHandle: () => '' });
   status(id, 'in-review', root);
   review(id, 'pass', {}, root);
-  validation(id, 'pass', {}, root);
 
   archive(id, root);
   assert.equal(
@@ -2887,22 +2788,10 @@ const PRODUCERS = [
     types: ['status'],
   },
   {
-    name: 'reopen',
-    at: 'done',
-    run: ({ id, root }) => reopen(id, 'more work', root),
-    types: ['status'],
-  },
-  {
     name: 'review',
     at: 'in-review',
     run: ({ id, root }) => review(id, 'pass', {}, root),
     types: ['review'],
-  },
-  {
-    name: 'validation',
-    at: 'in-validation',
-    run: ({ id, root }) => validation(id, 'pass', {}, root),
-    types: ['validation'],
   },
   {
     name: 'owner',
@@ -3380,19 +3269,14 @@ for (const activated of [false, true]) {
       expectNone('owner', () => owner(id, 'someone', root));
       expectNone('branch', () => branch(id, 'feature/x', root));
       expectOne('status in-review', () => status(id, 'in-review', root, own));
-      expectOne('review fail', () =>
-        review(id, 'fail', { mode: 'retry', reason: 'r' }, root, quiet),
+      expectOne('review fail', () => review(id, 'fail', { reason: 'r' }, root, quiet));
+      expectOne('status in-review', () => status(id, 'in-review', root, own));
+      expectOne('review pass', () => review(id, 'pass', {}, root, quiet));
+      expectOne('status done → in-progress', () =>
+        status(id, 'in-progress', root, { ...own, reason: 'again' }),
       );
       expectOne('status in-review', () => status(id, 'in-review', root, own));
       expectOne('review pass', () => review(id, 'pass', {}, root, quiet));
-      expectOne('validation fail', () => validation(id, 'fail', { reason: 'no' }, root, quiet));
-      expectOne('status in-review', () => status(id, 'in-review', root, own));
-      expectOne('review pass', () => review(id, 'pass', {}, root, quiet));
-      expectOne('validation pass', () => validation(id, 'pass', {}, root, quiet));
-      expectOne('reopen', () => reopen(id, 'again', root, quiet));
-      expectOne('status in-review', () => status(id, 'in-review', root, own));
-      expectOne('review pass', () => review(id, 'pass', {}, root, quiet));
-      expectOne('validation pass', () => validation(id, 'pass', {}, root, quiet));
       expectNone('graduate', () => skipGraduation(id, 'nothing durable', root));
       expectNone('archive', () => archive(id, root));
 
@@ -3430,15 +3314,10 @@ for (const activated of [false, true]) {
         'status:in-progress→in-review',
         'review:in-review→in-progress',
         'status:in-progress→in-review',
-        'review:in-review→in-validation',
-        'validation:in-validation→in-progress',
-        'status:in-progress→in-review',
-        'review:in-review→in-validation',
-        'validation:in-validation→done',
+        'review:in-review→done',
         'status:done→in-progress',
         'status:in-progress→in-review',
-        'review:in-review→in-validation',
-        'validation:in-validation→done',
+        'review:in-review→done',
       ]);
     });
   });
@@ -3813,4 +3692,29 @@ test('20261002-133728 CR8: without the collector a transition adds no commit, fo
     }
     assertNoUsage(root);
   }
+});
+
+// 20261018-131621 — `in-validation` is retired: delivery is `done` and the only
+// failure route out of review is back to `in-progress`, with no class flag.
+
+test('20261018-131621 CR4: review pass delivers straight to done', () => {
+  const { root, file, id } = repoWithChange();
+  task(id, 'done', 1, '', root);
+  reach(id, root, 'in-review');
+  review(id, 'pass', {}, root);
+  const c = parseChange(fs.readFileSync(file, 'utf8'));
+  assert.equal(c.frontmatter.status, 'done');
+  assert.match(c.stages.find((s) => s.key === 'log').body, /`\[review\]` in-review → done/);
+});
+
+test('20261018-131621 CR5: review fail returns to in-progress without a class flag', () => {
+  const { root, file, id } = repoWithChange();
+  reach(id, root, 'in-review');
+  review(id, 'fail', { reason: 'motivo' }, root);
+  const c = parseChange(fs.readFileSync(file, 'utf8'));
+  assert.equal(c.frontmatter.status, 'in-progress');
+  assert.match(
+    c.stages.find((s) => s.key === 'log').body,
+    /`\[review\]` in-review → in-progress: motivo/,
+  );
 });

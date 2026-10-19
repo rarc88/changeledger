@@ -16,7 +16,6 @@ import {
   REVIEW_VERDICTS,
   serializeLogEvent,
   TASK_ACTIONS,
-  VALIDATION_VERDICTS,
 } from '../src/lifecycle.mjs';
 import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 
@@ -37,7 +36,6 @@ test('20260824-134716 CR1/CR2: closed lifecycle domains have one executable auth
   ]);
   assert.deepEqual(Object.keys(LOG_EVENT_PAYLOAD_FORMS), LOG_EVENT_TYPES);
   assert.deepEqual(REVIEW_VERDICTS, ['pass', 'fail']);
-  assert.deepEqual(VALIDATION_VERDICTS, ['pass', 'fail']);
   assert.deepEqual(TASK_ACTIONS, ['done', 'block']);
 });
 
@@ -132,10 +130,21 @@ test('20261001-155216 CR8: version is not a transition event and serializes both
 });
 
 test('CR1: the happy path is allowed at every step', () => {
-  const path = ['draft', 'approved', 'in-progress', 'in-validation', 'done'];
+  const path = ['draft', 'approved', 'in-progress', 'done'];
   for (let i = 0; i < path.length - 1; i++) {
     assert.ok(canTransition(path[i], path[i + 1]), `${path[i]} → ${path[i + 1]}`);
     assert.doesNotThrow(() => assertTransition(path[i], path[i + 1]));
+  }
+});
+
+test('20261018-131621 CR4: the review_required happy path delivers through in-review', () => {
+  const opts = { type: 'feature', reviewRequired: true };
+  for (const [from, to] of [
+    ['in-progress', 'in-review'],
+    ['in-review', 'done'],
+  ]) {
+    assert.ok(canTransition(from, to), `${from} → ${to}`);
+    assert.doesNotThrow(() => assertTransition(from, to, opts));
   }
 });
 
@@ -143,11 +152,6 @@ test('150232 CR4/CR5: done may re-enter normal flow while discarded remains term
   assert.equal(canTransition('done', 'in-progress'), true);
   assert.doesNotThrow(() => assertTransition('done', 'in-progress'));
   assert.throws(() => assertTransition('discarded', 'in-progress'), /invalid lifecycle transition/);
-});
-
-test('CR2: blocked is a reversible detour from in-progress', () => {
-  assert.doesNotThrow(() => assertTransition('in-progress', 'blocked'));
-  assert.doesNotThrow(() => assertTransition('blocked', 'in-progress'));
 });
 
 test('CR3: skips, regressions and self-loops are rejected', () => {
@@ -169,40 +173,39 @@ test('custom (non-canonical) statuses keep enum-only behavior', () => {
 // Review gate (change 20260615-150510): in-review sits between in-progress and
 // done for review_required types.
 
-test('171002 CR1: a review_required type cannot skip review before validation', () => {
+test('171002 CR1: a review_required type cannot skip review before delivery', () => {
   assert.throws(
     () =>
-      assertTransition('in-progress', 'in-validation', {
+      assertTransition('in-progress', 'done', {
         type: 'feature',
         reviewRequired: true,
       }),
-    /^Error: feature changes must be reviewed before validation — move to in-review first$/,
+    /^Error: feature changes must be reviewed before delivery — move to in-review first$/,
   );
 });
 
 test('162616 CR3: an empty type does not deform the review-required message with a double space', () => {
   assert.throws(
     () =>
-      assertTransition('in-progress', 'in-validation', {
+      assertTransition('in-progress', 'done', {
         type: '',
         reviewRequired: true,
       }),
-    /^Error: changes must be reviewed before validation — move to in-review first$/,
+    /^Error: changes must be reviewed before delivery — move to in-review first$/,
   );
 });
 
-test('171002 CR5: a non-review_required type goes from in-progress to validation', () => {
+test('171002 CR5: a non-review_required type delivers straight from in-progress', () => {
   assert.doesNotThrow(() =>
-    assertTransition('in-progress', 'in-validation', { type: 'chore', reviewRequired: false }),
+    assertTransition('in-progress', 'done', { type: 'chore', reviewRequired: false }),
   );
-  assert.throws(() => assertTransition('in-progress', 'done'), /invalid lifecycle transition/);
 });
 
 // 20260711-103756 CR2: the `quick` lane has no review gate — same shape as any
 // other non-review_required type, proven explicitly for `quick`.
-test('103756 CR2: a quick change goes from in-progress to validation without review', () => {
+test('103756 CR2: a quick change delivers from in-progress without review', () => {
   assert.doesNotThrow(() =>
-    assertTransition('in-progress', 'in-validation', { type: 'quick', reviewRequired: false }),
+    assertTransition('in-progress', 'done', { type: 'quick', reviewRequired: false }),
   );
 });
 
@@ -223,7 +226,7 @@ test('CR5: in-review is only reachable from in-progress', () => {
 test('141120 CR1: a type without review cannot enter in-review', () => {
   assert.throws(
     () => assertTransition('in-progress', 'in-review', { type: 'audit', reviewRequired: false }),
-    /^Error: audit changes do not require review — move to in-validation instead$/,
+    /^Error: audit changes do not require review — move to done instead$/,
   );
 });
 
@@ -234,9 +237,9 @@ test('141120: a typeless document gets a named cause instead of "undefined"', ()
   );
 });
 
-test('141120 CR3: the lightweight type keeps its legitimate route to validation', () => {
+test('141120 CR3: the lightweight type keeps its legitimate route to delivery', () => {
   assert.doesNotThrow(() =>
-    assertTransition('in-progress', 'in-validation', { type: 'audit', reviewRequired: false }),
+    assertTransition('in-progress', 'done', { type: 'audit', reviewRequired: false }),
   );
 });
 
@@ -246,9 +249,9 @@ test('141120 CR4: feature and bug keep both review edges', () => {
       assertTransition('in-progress', 'in-review', { type, reviewRequired: true }),
     );
     assert.throws(
-      () => assertTransition('in-progress', 'in-validation', { type, reviewRequired: true }),
+      () => assertTransition('in-progress', 'done', { type, reviewRequired: true }),
       new RegExp(
-        `^Error: ${type} changes must be reviewed before validation — move to in-review first$`,
+        `^Error: ${type} changes must be reviewed before delivery — move to in-review first$`,
       ),
     );
   }
@@ -261,23 +264,20 @@ test('CR12: an edge outside the graph is rejected', () => {
   );
 });
 
-test('171002 CR1/CR3: review and validation have distinct edges', () => {
+test('20261018-131621 CR4/CR5: in-review has exactly the two verdict edges', () => {
   assert.doesNotThrow(() => assertTransition('in-review', 'in-progress'));
-  assert.doesNotThrow(() => assertTransition('in-review', 'blocked'));
-  assert.doesNotThrow(() => assertTransition('in-review', 'in-validation'));
-  assert.doesNotThrow(() => assertTransition('in-validation', 'in-progress'));
-  assert.doesNotThrow(() => assertTransition('in-validation', 'done'));
-  assert.throws(() => assertTransition('in-review', 'done'), /invalid lifecycle transition/);
+  assert.doesNotThrow(() => assertTransition('in-review', 'done'));
+  assert.throws(() => assertTransition('in-review', 'approved'), /invalid lifecycle transition/);
+  assert.throws(() => assertTransition('in-review', 'discarded'), /invalid lifecycle transition/);
 });
 
 // 20260615-210508 — `discarded` terminal state.
-test('discarded: reachable before closing gates, while done/validation stay terminal', () => {
-  for (const from of ['draft', 'approved', 'in-progress', 'blocked']) {
+test('discarded: reachable before delivery, while done stays terminal', () => {
+  for (const from of ['draft', 'approved', 'in-progress']) {
     assert.ok(canTransition(from, 'discarded'), `${from} → discarded`);
   }
   assert.ok(!canTransition('done', 'discarded'), 'done is terminal, cannot discard');
   assert.ok(!canTransition('in-review', 'discarded'), 'must leave in-review first');
-  assert.ok(!canTransition('in-validation', 'discarded'), 'must validate or reject first');
   assert.ok(!canTransition('discarded', 'in-progress'), 'discarded has no outgoing');
   assert.throws(
     () => assertTransition('discarded', 'in-progress'),
@@ -293,6 +293,9 @@ test('225210 CR2/CR5: parseLogEvent extracts explicit and implied origins', () =
     from: 'in-progress',
     to: 'in-review',
   });
+  // `in-validation` is retired as a status, but Logs written while it existed
+  // must keep parsing (20261018-131621 CR3): the payload grammar constrains the
+  // origin of a typed transition, never the destination's membership.
   assert.deepEqual(
     parseLogEvent(
       '- **2026-06-30T10:48:03Z** `[review]` in-review → in-validation (delegated subagent, clean context)',
@@ -360,6 +363,86 @@ test('225210 CR2/CR5: parseLogEvent extracts explicit and implied origins', () =
   assert.equal(parseLogEvent('- plain decision note'), null);
 });
 
+// 20261018-131621 CR10. Acceptance stopped being a status and became a datum
+// derived from the merge, but it keeps the `[validation]` event type: `analyze`
+// already segments on it, and a brand-new type would have split one concept in
+// two. The historical `in-validation → <to>` arm above must keep parsing.
+test('20261018-131621 CR10: the validation event carries the merge-derived acceptance', () => {
+  assert.deepEqual(
+    parseLogEvent('- **2026-10-19T12:00:00Z** `[validation]` accepted (merged abc1234)'),
+    {
+      at: '2026-10-19T12:00:00Z',
+      type: 'validation',
+      outcome: 'accepted',
+      sha: 'abc1234',
+    },
+  );
+  assert.equal(
+    serializeLogEvent({
+      at: '2026-10-19T12:00:00Z',
+      type: 'validation',
+      outcome: 'accepted',
+      sha: 'abc1234',
+    }),
+    '- **2026-10-19T12:00:00Z** `[validation]` accepted (merged abc1234)',
+  );
+});
+
+test('20261018-131621 CR10: the acceptance arm takes a sha and nothing else', () => {
+  for (const payload of [
+    'accepted',
+    'accepted (merged )',
+    'accepted (merged abc123)',
+    'accepted (merged ABC1234)',
+    'accepted (merged zzzzzzz)',
+    'accepted (merged abc1234) extra',
+    'accepted (merged abc1234): reason',
+  ]) {
+    assert.equal(
+      parseLogEvent(logLine('validation', payload)),
+      null,
+      `validation accepted: ${payload}`,
+    );
+  }
+  // The arm is the validation event's alone; it must not leak into the other
+  // two transition types.
+  for (const type of ['status', 'review']) {
+    assert.equal(parseLogEvent(logLine(type, 'accepted (merged abc1234)')), null, type);
+    assert.equal(
+      serializeLogEvent({
+        at: '2026-08-24T16:00:00Z',
+        type,
+        from: type === 'review' ? 'in-review' : 'draft',
+        to: type === 'review' ? 'done' : 'approved',
+        outcome: 'accepted',
+        sha: 'abc1234',
+      }),
+      logLine(type, type === 'review' ? 'in-review → done' : 'draft → approved'),
+      type,
+    );
+  }
+});
+
+test('20261018-131621 CR10: widening validation leaves the historical arm intact', () => {
+  assert.deepEqual(parseLogEvent(logLine('validation', 'in-validation → done')), {
+    at: '2026-08-24T16:00:00Z',
+    type: 'validation',
+    from: 'in-validation',
+    to: 'done',
+  });
+  assert.equal(parseLogEvent(logLine('validation', 'in-progress → done')), null);
+  assert.equal(
+    serializeLogEvent({
+      at: '2026-08-24T16:00:00Z',
+      type: 'validation',
+      from: 'in-validation',
+      to: 'done',
+      reason: 'ok',
+    }),
+    logLine('validation', 'in-validation → done: ok'),
+  );
+});
+
 test('125007 CR7: typed log text payloads round-trip without delimiter parsing', () => {
   for (const event of [
     {
@@ -371,7 +454,7 @@ test('125007 CR7: typed log text payloads round-trip without delimiter parsing',
       at: '2026-07-20T10:00:01Z',
       type: 'review',
       from: 'in-review',
-      to: 'blocked',
+      to: 'in-progress',
       reason: 'evidence — platform | [status]: missing',
     },
   ]) {
@@ -438,7 +521,7 @@ test('124656 CR3: the in-review edges stay legal; readiness is not a graph rule'
 // spawned CLI on a freshly initialised repo: a change with one criterion and no
 // Plan walks approve → in-progress → in-review → review pass. The review gate of
 // a tdd-off type is still honoured: `review` is what reaches validation.
-test('113320 CR8: a documentation change without a Plan reaches in-validation', () => {
+test('113320 CR8: a documentation change without a Plan reaches done', () => {
   const bin = fileURLToPath(new URL('../bin/changeledger.mjs', import.meta.url));
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-doc-e2e-'));
@@ -489,12 +572,12 @@ test('113320 CR8: a documentation change without a Plan reaches in-validation', 
     env: sanitizedEnv(),
   });
   ok('status', id, 'in-progress');
-  const skipped = cli('status', id, 'in-validation');
+  const skipped = cli('status', id, 'done');
   assert.notEqual(skipped.code, 0);
-  assert.match(skipped.out, /must be reviewed before validation — move to in-review first/);
+  assert.match(skipped.out, /must be reviewed before delivery — move to in-review first/);
   ok('status', id, 'in-review');
   ok('review', id, 'pass');
-  assert.match(fs.readFileSync(file, 'utf8'), /^status: in-validation$/m);
+  assert.match(fs.readFileSync(file, 'utf8'), /^status: done$/m);
 });
 
 // 20261002-152555 CR8 — first use of `graduation-review`, through the spawned CLI
@@ -557,7 +640,6 @@ test('152555 CR8: a graduation review is recorded before the first --into of a d
   ok('task', id, 'done', '1');
   ok('status', id, 'in-review');
   ok('review', id, 'pass');
-  ok('validation', id, 'pass');
   assert.match(fs.readFileSync(file, 'utf8'), /^status: done$/m);
 
   // The closure corrects the existing spec's body, then has it reviewed.

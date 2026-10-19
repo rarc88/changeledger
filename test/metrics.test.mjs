@@ -189,7 +189,11 @@ test('CR11: wip counts an in-review change as active', () => {
   assert.equal(m.wip['in-review'], 1);
 });
 
-test('171002 CR1: validation is active WIP and contributes time in status', () => {
+// 171002 CR1 asserted the opposite while `in-validation` was a lifecycle state.
+// A retired status left in an archived document still contributes to the
+// historical time-in-status series — the Log is not rewritten — but it is no
+// longer work in progress, because no live change can be in it.
+test('20261018-131621 CR15: a retired status is historical time, never active WIP', () => {
   const c = change({
     id: 'v',
     created: '2026-06-13T10:00:00Z',
@@ -197,8 +201,120 @@ test('171002 CR1: validation is active WIP and contributes time in status', () =
     logBody: `- **2026-06-13T11:00:00Z** \`[status]\` in-progress → in-validation`,
   });
   const m = computeMetrics([c], { now: '2026-06-13T13:00:00Z' });
-  assert.equal(m.wip['in-validation'], 1);
+  assert.deepEqual(Object.keys(m.wip), []);
   assert.equal(m.timeInStatus.find((t) => t.state === 'in-validation').totalMs, 2 * HOUR);
+});
+
+test('20261018-131621 CR15: the three active states are the only WIP counted', () => {
+  const live = (id, status) =>
+    change({
+      id,
+      created: '2026-06-13T10:00:00Z',
+      status,
+      logBody: `- **2026-06-13T11:00:00Z** \`[status]\` draft → ${status}`,
+    });
+  const m = computeMetrics(
+    [
+      live('a', 'approved'),
+      live('b', 'in-progress'),
+      live('c', 'in-review'),
+      live('d', 'blocked'),
+      live('e', 'draft'),
+    ],
+    { now: '2026-06-13T13:00:00Z' },
+  );
+  assert.deepEqual(m.wip, { approved: 1, 'in-progress': 1, 'in-review': 1 });
+});
+
+test('20261018-131621 CR15: validationWaitMs is gone from the result', () => {
+  const m = computeMetrics([
+    change({
+      id: 'v',
+      created: '2026-06-13T10:00:00Z',
+      logBody: `- **2026-06-13T11:00:00Z** \`[status]\` in-progress → in-validation
+- **2026-06-13T15:00:00Z** \`[validation]\` in-validation → done (human accepted)`,
+    }),
+  ]);
+  assert.equal(Object.hasOwn(m, 'validationWaitMs'), false);
+});
+
+// CR15 counted every done → in-progress edge, which made an agent's own
+// self-reopen indistinguishable from a human rejection — the one signal the
+// metric exists to preserve. CR24 narrows it to the edges marked `(human)`.
+test('20261018-131621 CR24: rejectionCount counts only the human returns from done', () => {
+  const twice = change({
+    id: 'a',
+    created: '2026-06-13T10:00:00Z',
+    logBody: `- **2026-06-13T11:00:00Z** \`[status]\` in-progress → done
+- **2026-06-13T12:00:00Z** \`[status]\` done → in-progress (human): not what I asked for
+- **2026-06-13T13:00:00Z** \`[status]\` in-progress → done
+- **2026-06-13T14:00:00Z** \`[status]\` done → in-progress (human): still wrong`,
+  });
+  const once = change({
+    id: 'b',
+    created: '2026-06-13T10:00:00Z',
+    logBody: `- **2026-06-13T11:00:00Z** \`[status]\` in-progress → done
+- **2026-06-13T12:00:00Z** \`[status]\` done → in-progress (human): redo
+- **2026-06-13T13:00:00Z** \`[review]\` in-review → in-progress: a review fail is not a rejection
+- **2026-06-13T14:00:00Z** \`[status]\` in-progress → done
+- **2026-06-13T15:00:00Z** \`[status]\` done → in-progress (agent): my own second pass
+- **2026-06-13T16:00:00Z** \`[status]\` in-progress → done
+- **2026-06-13T17:00:00Z** \`[status]\` done → discarded: leaving done is not being rejected`,
+  });
+  assert.equal(computeMetrics([twice, once]).rejectionCount, 3);
+});
+
+// The product repos already carry the pre-CR24 payload (`human reopened` /
+// `agent reopened`). Counting only the new shape would read zero over every
+// rejection recorded before this change.
+test('20261018-131621 CR26: the legacy actor payload still counts', () => {
+  const legacy = change({
+    id: 'c',
+    created: '2026-06-13T10:00:00Z',
+    logBody: `- **2026-06-13T11:00:00Z** \`[status]\` in-progress → done
+- **2026-06-13T12:00:00Z** \`[status]\` done → in-progress (human reopened): Se olvidó el método simétrico
+- **2026-06-13T13:00:00Z** \`[status]\` in-progress → done
+- **2026-06-13T14:00:00Z** \`[status]\` done → in-progress (agent reopened): mi propio repaso`,
+  });
+  assert.equal(computeMetrics([legacy]).rejectionCount, 1);
+});
+
+// CR24 and CR26 both read the `[status] done → in-progress` edge, which only
+// exists since this change: 258 of the 278 rejections the three repos have
+// recorded are the retired gate's `[validation] in-validation → in-progress`
+// (44 here, 103 in ionic-app, 111 in backend-laravel), so without this arm the
+// metric reads zero over every rejection ever recorded. A rejection taken at
+// that seat was a human's by definition — the gate had no other actor.
+test('20261018-131621 CR28: the retired validation gate records rejections too', () => {
+  const historical = change({
+    id: 'd',
+    created: '2026-06-13T10:00:00Z',
+    logBody: `- **2026-06-13T11:00:00Z** \`[status]\` in-progress → in-validation
+- **2026-06-13T12:00:00Z** \`[validation]\` in-validation → in-progress: falta el caso borde
+- **2026-06-13T13:00:00Z** \`[status]\` in-progress → in-validation
+- **2026-06-13T14:00:00Z** \`[validation]\` in-validation → in-progress: sigue faltando
+- **2026-06-13T15:00:00Z** \`[status]\` in-progress → in-validation
+- **2026-06-13T16:00:00Z** \`[validation]\` in-validation → done (human accepted)`,
+  });
+  assert.equal(computeMetrics([historical]).rejectionCount, 2);
+});
+
+// The merge-derived acceptance arm of `[validation]` carries no `to`, so the
+// shared transition parser must drop it instead of seating an `undefined`
+// state in the timeline (residue noted by selection 6).
+test('20261018-131621 CR15: the merge-derived acceptance is not a transition', () => {
+  const c = change({
+    id: 'g',
+    created: '2026-06-13T10:00:00Z',
+    logBody: `- **2026-06-13T11:00:00Z** \`[status]\` in-progress → done
+- **2026-06-13T12:00:00Z** \`[validation]\` accepted (merged a1b2c3d)`,
+  });
+  const m = computeMetrics([c], { now: '2026-06-13T13:00:00Z' });
+  assert.deepEqual(
+    m.timeInStatus.map((t) => t.state),
+    ['draft'],
+  );
+  assert.equal(doneAt(c), '2026-06-13T11:00:00Z');
 });
 
 test('171002 CR2: human validation is the canonical done transition', () => {
@@ -276,7 +392,7 @@ test('155721 CR3: p50/p85 cycle time percentiles alongside avg/median', () => {
   assert.equal(m.medianCycleMs, 2 * HOUR);
 });
 
-test('155721 CR3: reviewRetries counts fail --retry verdicts, validationWaitMs is the mean in-validation wait', () => {
+test('155721 CR3: reviewRetries counts review fail verdicts', () => {
   const c = change({
     id: 'x',
     created: '2026-07-01T10:00:00Z',
@@ -292,7 +408,6 @@ test('155721 CR3: reviewRetries counts fail --retry verdicts, validationWaitMs i
   });
   const m = computeMetrics([c]);
   assert.equal(m.reviewRetries, 2);
-  assert.equal(m.validationWaitMs, 4 * HOUR);
 });
 
 test('155721 CR3: reviewRetries ignores review→blocked and validation→in-progress verdicts', () => {
@@ -329,7 +444,7 @@ test('155721 CR5: empty input yields zero metrics, no NaN/Infinity', () => {
   assert.equal(m.count, 0);
   assert.equal(m.p50CycleMs, 0);
   assert.equal(m.p85CycleMs, 0);
-  assert.equal(m.validationWaitMs, 0);
+  assert.equal(m.rejectionCount, 0);
   assert.equal(m.reviewRetries, 0);
   assert.deepEqual(m.byOwner, []);
 });

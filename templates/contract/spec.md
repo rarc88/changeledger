@@ -66,8 +66,8 @@ the code actually does, and changes no application code. The shipped type turns
 `tdd` off and has no Plan, so write its execution rules as its own CRs while
 drafting: the perimeter is fixed in the draft from who calls what, never from
 textual matches; every claim cites path and symbol; the human decides every
-divergence from an existing spec before `in-review`, else the change goes
-`blocked`; corrections to existing specs are drafted inside the change, where
+divergence from an existing spec before `in-review`, and the change waits on a `[!]`
+task until they do; corrections to existing specs are drafted inside the change, where
 the reviewer sees them.
 
 When you classify a problem as a defect and the `Effective policy:` line

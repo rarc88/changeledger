@@ -234,6 +234,33 @@ test('CR3: a review that passes, or a status change out of in-review, starts no 
   assert.ok(!result.hints.some((h) => h.startsWith('rework:')), result.hints.join('\n'));
 });
 
+// The human rejection of delivered work moved to `[status] done → in-progress`
+// (20261018-131621 CR15), and `status` was not a failed-verdict key, so the
+// segment worked after a rejection silently stopped being rework — the one
+// attribution this analysis exists to make.
+test('20261018-131621 CR29: work after a human rejection is rework', () => {
+  const change = changeDoc(C, {
+    log: [logLine(at(5), 'status', 'done → in-progress (human): no es lo que pedí')],
+  });
+  const usage = [
+    usageRecord({ change: C, at: at(1), event: 'created', to: 'draft', sessions: [s1(0)] }),
+    usageRecord({ change: C, at: at(2), from: 'draft', to: 'approved', sessions: [s1(100)] }),
+    usageRecord({ change: C, at: at(3), from: 'approved', to: 'in-progress', sessions: [s1(200)] }),
+    usageRecord({ change: C, at: at(4), from: 'in-progress', to: 'done', sessions: [s1(600)] }),
+    usageRecord({ change: C, at: at(5), from: 'done', to: 'in-progress', sessions: [s1(700)] }),
+    usageRecord({ change: C, at: at(6), from: 'in-progress', to: 'done', sessions: [s1(1000)] }),
+  ].map(usageEntryOf);
+  const c = only(analyzeUsage({ changes: [change], usage }));
+  assert.deepEqual(segmentTotals(c), [
+    ['draft', 100],
+    ['approved', 100],
+    ['in-progress', 400],
+    ['done', 100],
+    ['rework', 300],
+  ]);
+  assert.equal(c.rework_pct, 30);
+});
+
 test('CR3: rework that rounds to 0% is still reported, as <0.1%', () => {
   const change = changeDoc(C, {
     log: [logLine(at(3), 'review', 'in-review → in-progress (retry)')],

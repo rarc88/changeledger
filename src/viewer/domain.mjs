@@ -6,12 +6,7 @@ import { mutateFileAtomic } from '../atomic-write.mjs';
 import { parseChange } from '../change.mjs';
 import { mutateLedgerFile, repoIsActivated } from '../change-store.mjs';
 import { checkRepo } from '../check.mjs';
-import {
-  reopen as applyReopen,
-  status as applyStatusCmd,
-  validation as applyValidation,
-  isPendingGraduation,
-} from '../commands/agent.mjs';
+import { status as applyStatusCmd, isPendingGraduation } from '../commands/agent.mjs';
 import {
   findChangeledgerDir,
   loadEffectiveConfig,
@@ -34,6 +29,7 @@ import {
   remove,
   update,
 } from '../registry.mjs';
+import { assertNotShipped } from '../release.mjs';
 import { loadRepo, loadRepoWithConfig, resolveChange, resolveChangeInRepo } from '../repo.mjs';
 import { CAS_CONFLICT_MESSAGE, LedgerConflictError, STATE_ROOT } from '../state-store.mjs';
 import { repoCliVersionError } from '../version-guard.mjs';
@@ -77,6 +73,20 @@ function configTarget(repo) {
   return { relPath: 'config.yml', text };
 }
 
+// Whether a change is frozen by a published release, asked of the single
+// authority on that boundary instead of re-read from the manifests here: the
+// viewer offers the return from `done` only where `statusMutation` would
+// accept it, and one predicate cannot drift from the other
+// (20261018-131621 CR23).
+function isReleased(releases, id) {
+  try {
+    assertNotShipped(releases, id);
+    return false;
+  } catch {
+    return true;
+  }
+}
+
 // Serializes a loaded repo into the flat shape the UI consumes.
 export function serialize(repo) {
   return {
@@ -92,6 +102,7 @@ export function serialize(repo) {
       owner: c.frontmatter.owner ?? null,
       branch: c.frontmatter.branch ?? null,
       archived: c.frontmatter.archived === true,
+      released: isReleased(repo.releases, c.frontmatter.id),
       pending_graduation: isPendingGraduation(c),
       created: c.frontmatter.created,
       depends_on: c.frontmatter.depends_on ?? [],
@@ -477,18 +488,21 @@ function changeStatusImpl(projects, { project, id, status, reason }, { usage } =
   try {
     if (current === 'draft' && status === 'approved') {
       applyStatusCmd(id, status, proj.path, { actor: 'human', usage });
-    } else if (current === 'in-validation' && status === 'done') {
-      applyValidation(id, 'pass', {}, proj.path, { usage });
-    } else if (current === 'in-validation' && status === 'in-progress') {
-      applyValidation(id, 'fail', { reason }, proj.path, { usage });
     } else if (current === 'done' && status === 'in-progress') {
-      applyReopen(id, reason, proj.path, { usage });
+      // Sending delivered work back. A reason is required here and nowhere
+      // else: acceptance is now derived from the merge, so this edge is the
+      // only record of a human rejection. Release membership — the single
+      // irreversible boundary — is `statusMutation`'s to enforce, not the
+      // viewer's to re-implement (20261018-131621 CR9, CR16).
+      if (!String(reason ?? '').trim()) {
+        throw new Error('returning a done change to in-progress requires a reason');
+      }
+      applyStatusCmd(id, status, proj.path, { actor: 'human', reason, usage });
     } else {
       return {
         code: 403,
         body: {
-          error:
-            'the viewer only allows draft → approved, in-validation → done|in-progress, and eligible done → in-progress',
+          error: 'the viewer only allows draft → approved and an unreleased done → in-progress',
         },
       };
     }
@@ -966,8 +980,6 @@ const CANONICAL_STATUSES_REQUIRED = new Set([
   'approved',
   'in-progress',
   'in-review',
-  'in-validation',
-  'blocked',
   'done',
   'discarded',
 ]);

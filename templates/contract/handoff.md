@@ -2,7 +2,7 @@
 
 ## Triage friction at handoff; retrospect after completion
 
-Before handing completed or blocked work to the human, classify friction and
+Before handing completed or stopped work to the human, classify friction and
 unfinished observations instead of silently mixing them into the active change:
 
 - If necessary to fulfill the purpose of an active change, update its
@@ -16,7 +16,7 @@ unfinished observations instead of silently mixing them into the active change:
 - If too vague for backlog, mention it in the handoff without
   creating a file.
 
-Do not mix independent concerns into active work or block otherwise-ready human
-validation. When a change reaches `done`, also share a brief retrospective about
+Do not mix independent concerns into active work or hold up an otherwise-ready
+delivery. When a change reaches `done`, also share a brief retrospective about
 what went well and what caused friction. `discarded` records a decision, not a
 completed implementation cycle.

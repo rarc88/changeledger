@@ -26,8 +26,6 @@ const STATUS_CONTEXT = {
   approved: { mode: 'implement', fragments: MODE_CONTEXT.implement },
   'in-progress': { mode: 'implement', fragments: MODE_CONTEXT.implement },
   'in-review': { mode: 'review', fragments: MODE_CONTEXT.review },
-  blocked: { mode: 'blocked', fragments: ['blocked', 'handoff'] },
-  'in-validation': { mode: 'validation', fragments: ['validation'] },
   done: { mode: 'close', fragments: ['close'] },
   discarded: { mode: 'discarded', fragments: ['discarded'] },
 };

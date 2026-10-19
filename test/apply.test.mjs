@@ -303,9 +303,34 @@ test('CR4: human-owned transitions never travel in a batch', () => {
     () => apply({ from: manifest(root, [{ op: 'discard', id, reason: 'x' }]) }, root),
     /"discard".*`changeledger discard`/s,
   );
+  // `done` is no longer behind a human gate: the batch still fails closed,
+  // now because `draft → done` is not an edge of the lifecycle at all
+  // (20261018-131621 CR16).
   assert.throws(
     () => apply({ from: manifest(root, [{ op: 'status', id, to: 'done' }]) }, root),
-    /human validation/,
+    /invalid lifecycle transition: draft → done/,
+  );
+  assert.equal(stateTip(root), tip);
+});
+
+// A batch is executed by an agent, and `status → done` from `in-review` is
+// exactly the move that would let that agent sign off its own review_required
+// work. The refusal is `statusMutation`'s, so this seat inherits it rather
+// than re-implementing it (20261018-131621 CR27).
+test('20261018-131621 CR27: a batch never delivers a change out of review', () => {
+  const { root, id } = activatedRepo({
+    status: 'in-review',
+    prepare: (text) =>
+      `${text}- **2026-06-13T12:01:00Z** \`[status]\` draft → approved
+- **2026-06-13T12:02:00Z** \`[status]\` approved → in-progress
+- **2026-06-13T12:03:00Z** \`[status]\` in-progress → in-review
+`,
+  });
+  const tip = stateTip(root);
+
+  assert.throws(
+    () => apply({ from: manifest(root, [{ op: 'status', id, to: 'done' }]) }, root),
+    new RegExp(`changeledger review ${id} pass`),
   );
   assert.equal(stateTip(root), tip);
 });

@@ -34,6 +34,28 @@ export function resolveReleasesDir(repoRoot) {
   return resolveRepoPath(repoRoot, DEFAULT_RELEASES_DIR, 'releases_dir');
 }
 
+// The single boundary of the return from `done` to `in-progress`, shared by
+// `status` and the viewer's `reopen` so both refuse identically. A published
+// release froze what that version contains, so the change can no longer grow;
+// acceptance, graduation and archival are data or reversible, and gate nothing.
+//
+// `releases` are the manifests the ledger exposes — callers pass
+// `loadRepo(...).releases`, never the `loadReleases` below, because that one
+// reads `.changeledger/releases/` from the worktree and an activated repo keeps
+// its manifests in the state ref with no such directory on disk: the lookup
+// would silently answer "no release" for every change (20261018-131621 CR21).
+export function assertNotShipped(releases, id) {
+  const wanted = String(id);
+  const release = (releases ?? []).find((candidate) =>
+    (candidate.changes ?? []).some((changeId) => String(changeId) === wanted),
+  );
+  if (release) {
+    throw new Error(
+      `change ${id} shipped in release ${release.version}: new work needs a new change`,
+    );
+  }
+}
+
 export function loadReleases(repoRoot) {
   const releasesDir = resolveReleasesDir(repoRoot);
   const releases = [];

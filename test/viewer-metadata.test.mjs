@@ -23,6 +23,7 @@ const {
   bindBoardSortControls,
   bindDetailPresentation,
   bindProjectViewActions,
+  bindRejectAction,
   card,
   choiceFilterSummary,
   cleanMissingProjectsFromView,
@@ -44,17 +45,13 @@ const {
   requestUnregisterConfirmation,
   renderLedger,
   restoreLedgerRouteSelection,
-  bindReopenAction,
-  reopenPanel,
   renderChoiceFilter,
   renderStatusFilter,
   detailToolbar,
   detailPresentationControls,
   restoreInitialViewerShell,
-  resetValidationState,
   scrollToStage,
   selectViewerProject,
-  runValidationSubmission,
   setConfirmImpl,
   setPromptImpl,
   showConfirm,
@@ -82,8 +79,8 @@ const {
   boardColumnHeader,
   closeButton,
   referenceDetails,
+  rejectionPanel,
   specBody,
-  validationPanel,
 } = await import('../src/viewer/public/view-parts.js');
 const { graphSvg, metricsHtml, specsListHtml } = await import(
   '../src/viewer/public/view-renderers.js'
@@ -1939,6 +1936,62 @@ test('141643 CR1/CR6: Approve uses the lifecycle panel, never the toolbar or car
   }
 });
 
+// The viewer's one verdict seat. The merge is the acceptance, so the panel
+// offers no Accept: only the return, and only where the release boundary
+// still allows it (20261018-131621 CR23).
+test('20261018-131621 CR23: the verdict panel offers the return from done and nothing else', () => {
+  for (const status of ['draft', 'approved', 'in-progress', 'in-review', 'done', 'discarded']) {
+    const change = { ...baseChange(), status, released: false };
+    const panel = parse(rejectionPanel(change));
+    const controls = panel.querySelectorAll('[data-reject]');
+    assert.equal(controls.length, status === 'done' ? 1 : 0, status);
+    if (status !== 'done') continue;
+    assert.equal(controls[0].tagName, 'BUTTON');
+    assert.equal(controls[0].type, 'button');
+    assert.equal(controls[0].getAttribute('aria-label'), `Send change ${change.id} back for work`);
+    assert.equal(panel.querySelectorAll('[data-rejection-reason]').length, 1);
+    assert.equal(panel.querySelectorAll('[data-validation]').length, 0, 'no accept control');
+    assert.doesNotMatch(panel.textContent, /Accept/);
+  }
+});
+
+test('20261018-131621 CR23: a released change is offered no return control', () => {
+  const panel = parse(rejectionPanel({ ...baseChange(), status: 'done', released: true }));
+  assert.equal(panel.querySelector('[data-reject]'), null);
+  assert.equal(panel.querySelector('[data-rejection-reason]'), null);
+});
+
+const rejectionDetail = (change) => html`${rejectionPanel(change)}`;
+
+test('20261018-131621 CR23: the return is sent with its reason and refused without one', async () => {
+  const delivered = { ...baseChange(), status: 'done', released: false };
+  const detail = parse(rejectionDetail(delivered));
+  const calls = [];
+  let closes = 0;
+  bindRejectAction(detail, {
+    id: delivered.id,
+    move: (...args) => {
+      calls.push(args.slice(0, 3));
+      return Promise.resolve(true);
+    },
+    close: () => closes++,
+  });
+  const button = detail.querySelector('[data-reject]');
+  const input = detail.querySelector('[data-rejection-reason]');
+
+  input.value = '   ';
+  await button.onclick(new window.Event('click'));
+  assert.deepEqual(calls, [], 'an empty reason never reaches the server');
+  assert.equal(closes, 0);
+  assert.equal(detail.querySelector('.validation-error').hidden, false);
+
+  input.value = 'falta el caso de la zona horaria';
+  await button.onclick(new window.Event('click'));
+  assert.deepEqual(calls, [[delivered.id, 'in-progress', 'falta el caso de la zona horaria']]);
+  assert.equal(closes, 1);
+  assert.equal(detail.querySelector('.validation-error').hidden, true);
+});
+
 test('141643 CR1/CR2: detail approval and draft-only drag share one single-flight guard', async () => {
   const draft = baseChange();
   const approved = { ...baseChange(), id: '20260613-120001', status: 'approved' };
@@ -2528,196 +2581,11 @@ test('125850 CR7/CR8: table cells have explicit wrapping roles and a safe status
   assert.match(unsafe.querySelector('.status-tag').getAttribute('style'), /--status-muted/);
 });
 
-test('125850 CR3/CR4: validation card and detail close control expose accessible hooks', () => {
+test('125850 CR4: the detail close control exposes accessible hooks', () => {
   const closeHost = parse(closeButton());
   const close = closeHost.querySelector('button.close');
   assert.equal(close.getAttribute('aria-label'), 'Close detail');
   assert.ok(close.querySelector('svg'));
-  const host = parse(validationPanel());
-  assert.equal(
-    host.querySelector('label[for="validation-reason"]')?.textContent,
-    'Reason for rejection',
-  );
-  assert.ok(host.querySelector('[data-validation="pass"].button-primary'));
-  assert.ok(host.querySelector('[data-validation="fail"].button-danger'));
-  assert.equal(host.querySelector('.validation-error').getAttribute('role'), 'alert');
-});
-
-test('125850 CR3: validation submission disables controls pending and removes stale UI on success', async () => {
-  const host = parse(validationPanel());
-  let resolveRequest;
-  const request = new Promise((resolve) => {
-    resolveRequest = resolve;
-  });
-  const submission = runValidationSubmission({
-    root: host,
-    request: () => request,
-    onSuccess: async () => host.replaceChildren(),
-  });
-  assert.ok(host.querySelector('.validation-actions').classList.contains('is-pending'));
-  assert.ok([...host.querySelectorAll('button, input')].every((control) => control.disabled));
-
-  resolveRequest({ ok: true, json: async () => ({ ok: true }) });
-  assert.equal(await submission, true);
-  assert.equal(host.querySelector('.validation-actions'), null);
-});
-
-test('125850 CR3: validation error re-enables controls and preserves the rejection reason', async () => {
-  const host = parse(validationPanel());
-  const input = host.querySelector('[data-validation-reason]');
-  input.value = 'Still fails on device';
-  const result = await runValidationSubmission({
-    root: host,
-    request: async () => ({ ok: false, json: async () => ({ error: 'Transition rejected' }) }),
-    onSuccess: async () => assert.fail('error response must not call onSuccess'),
-  });
-  assert.equal(result, false);
-  assert.ok([...host.querySelectorAll('button, input')].every((control) => !control.disabled));
-  assert.equal(input.value, 'Still fails on device');
-  const error = host.querySelector('.validation-error');
-  assert.equal(error.hidden, false);
-  assert.equal(error.textContent, 'Transition rejected');
-});
-
-test('161656 CR4: validation checks attributed error provenance before displaying it', async () => {
-  const host = parse(validationPanel());
-  let provenanceChecks = 0;
-  const result = await runValidationSubmission({
-    root: host,
-    request: async () => ({
-      ok: false,
-      json: async () => ({
-        project_id: 'foreign-project',
-        repository_path: '/repos/foreign',
-        error: 'foreign error',
-      }),
-    }),
-    acceptResponse: () => {
-      provenanceChecks++;
-      return false;
-    },
-    onSuccess: async () => assert.fail('foreign error must not call onSuccess'),
-  });
-
-  assert.equal(result, false);
-  assert.equal(provenanceChecks, 1);
-  assert.equal(host.querySelector('.validation-error').hidden, true);
-  assert.equal(host.querySelector('.validation-error').textContent, '');
-});
-
-test('005437 CR1/CR2/CR3: a reused validation panel is enabled after a successful verdict', async () => {
-  const host = parse(validationPanel());
-  const result = await runValidationSubmission({
-    root: host,
-    request: async () => ({ ok: true, json: async () => ({ ok: true }) }),
-    // Lit reuses this subtree when the next in-validation change opens.
-    onSuccess: async () => render(validationPanel(), host),
-  });
-
-  assert.equal(result, true);
-  assert.equal(host.querySelector('.validation-actions').classList.contains('is-pending'), false);
-  assert.ok([...host.querySelectorAll('button, input')].every((control) => !control.disabled));
-});
-
-test('005437 CR2: opening another validation panel clears the previous form error', async () => {
-  const host = parse(validationPanel());
-  await runValidationSubmission({
-    root: host,
-    request: async () => ({ ok: false, json: async () => ({ error: 'First change failed' }) }),
-    onSuccess: async () => assert.fail('error response must not call onSuccess'),
-  });
-  assert.equal(host.querySelector('.validation-error').hidden, false);
-
-  render(validationPanel(), host);
-  resetValidationState(host);
-  assert.equal(host.querySelector('.validation-error').hidden, true);
-  assert.equal(host.querySelector('.validation-error').textContent, '');
-  assert.ok([...host.querySelectorAll('button, input')].every((control) => !control.disabled));
-});
-
-test('150232 CR-retry: reopen and validation panels never share a grid container class', () => {
-  // Regression: reopenPanel() (2 children) once reused .validation-controls,
-  // whose 3-track grid template is owned by validationPanel() (3 children).
-  // Sharing the class silently breaks whichever panel's child count doesn't
-  // match the other's track count.
-  const validation = parse(validationPanel());
-  const validationControls = validation.querySelector('.validation-controls');
-  assert.equal(validationControls.children.length, 3);
-  assert.equal(validation.querySelector('.reopen-controls'), null);
-
-  const reopen = parse(reopenPanel('done'));
-  const reopenControls = reopen.querySelector('.reopen-controls');
-  assert.equal(reopenControls.children.length, 2);
-  assert.equal(reopen.querySelector('.validation-controls'), null);
-});
-
-test('150232 CR4: only a done change exposes an accessible reopen action', () => {
-  const done = parse(reopenPanel('done'));
-  assert.equal(
-    done.querySelector('label[for="reopen-reason"]')?.textContent,
-    'Reason for reopening',
-  );
-  assert.ok(done.querySelector('[data-reopen]'));
-  assert.equal(done.querySelector('.validation-error').getAttribute('role'), 'alert');
-
-  assert.equal(parse(reopenPanel('discarded')).querySelector('[data-reopen]'), null);
-  assert.equal(parse(reopenPanel('in-progress')).querySelector('[data-reopen]'), null);
-});
-
-test('150232 CR4: reopen requires a reason and preserves the form on request failure', async () => {
-  const host = parse(reopenPanel('done'));
-  document.body.append(host);
-  const input = host.querySelector('[data-reopen-reason]');
-  let requestedReason;
-  let successes = 0;
-  bindReopenAction({
-    root: host,
-    request: async (reason) => {
-      requestedReason = reason;
-      return { ok: false, json: async () => ({ error: 'Reopen rejected' }) };
-    },
-    onSuccess: async () => {
-      successes++;
-    },
-  });
-
-  assert.equal(await host.querySelector('[data-reopen]').onclick(), false);
-  assert.equal(requestedReason, undefined);
-  assert.equal(
-    host.querySelector('.validation-error').textContent,
-    'A reopening reason is required.',
-  );
-  assert.equal(document.activeElement, input);
-
-  input.value = 'Acceptance evidence was incomplete';
-  assert.equal(await host.querySelector('[data-reopen]').onclick(), false);
-  assert.equal(requestedReason, 'Acceptance evidence was incomplete');
-  assert.equal(successes, 0);
-  assert.equal(input.value, 'Acceptance evidence was incomplete');
-  assert.equal(host.querySelector('.validation-error').textContent, 'Reopen rejected');
-  assert.ok([...host.querySelectorAll('button, input')].every((control) => !control.disabled));
-  host.remove();
-});
-
-test('150232 CR4: successful reopen sends the reason and keeps completion in caller control', async () => {
-  const host = parse(reopenPanel('done'));
-  host.querySelector('[data-reopen-reason]').value = 'Production validation found a regression';
-  let requestedReason;
-  let successes = 0;
-  bindReopenAction({
-    root: host,
-    request: async (reason) => {
-      requestedReason = reason;
-      return { ok: true, json: async () => ({ ok: true }) };
-    },
-    onSuccess: async () => {
-      successes++;
-    },
-  });
-
-  assert.equal(await host.querySelector('[data-reopen]').onclick(), true);
-  assert.equal(requestedReason, 'Production validation found a regression');
-  assert.equal(successes, 1);
 });
 
 test('150228 CR1/CR2/CR6: detail controls expose and apply accessible layout presets', () => {
@@ -3085,13 +2953,39 @@ test('155721 CR5: zero visible changes render an explicit empty state, no NaN/In
   assert.doesNotMatch(host.innerHTML, /NaN|Infinity/);
 });
 
+test('20261018-131621 CR15/CR16: the KPI row reports rejections, never a validation wait', () => {
+  const metrics = {
+    count: 1,
+    p50CycleMs: HOUR,
+    p85CycleMs: HOUR,
+    blockedMs: 0,
+    rejectionCount: 3,
+    reviewRetries: 0,
+    wip: {},
+    aging: [],
+    throughput: [],
+    timeInStatus: [],
+    byType: [],
+    byOwner: [],
+  };
+  const labels = [...parse(metricsHtml(metrics, 1)).querySelectorAll('.metric-card')].map((card) =>
+    card.querySelector('.metric-label').textContent.trim(),
+  );
+  assert.ok(labels.includes('Rejections'), labels.join(', '));
+  assert.ok(!labels.some((label) => /validation/i.test(label)), labels.join(', '));
+  const rejections = [...parse(metricsHtml(metrics, 1)).querySelectorAll('.metric-card')].find(
+    (card) => card.querySelector('.metric-label').textContent.trim() === 'Rejections',
+  );
+  assert.equal(rejections.querySelector('.metric-val').textContent.trim(), '3');
+});
+
 test('155721 CR4/CR5: KPI cards render all seven values without NaN even with no closed changes', () => {
   const metrics = {
     count: 0,
     p50CycleMs: 0,
     p85CycleMs: 0,
     blockedMs: 0,
-    validationWaitMs: 0,
+    rejectionCount: 0,
     reviewRetries: 0,
     wip: { 'in-progress': 2 },
     aging: [],
@@ -3113,7 +3007,6 @@ test('155721 CR4: throughput renders an svg with one bar, a date label and a num
     p50CycleMs: HOUR,
     p85CycleMs: HOUR,
     blockedMs: 0,
-    validationWaitMs: 0,
     reviewRetries: 0,
     wip: {},
     aging: [],
@@ -3142,7 +3035,6 @@ test('155721 CR4: time-in-status bars share one common scale across states', () 
     p50CycleMs: HOUR,
     p85CycleMs: HOUR,
     blockedMs: 0,
-    validationWaitMs: 0,
     reviewRetries: 0,
     wip: {},
     aging: [],
@@ -3171,7 +3063,6 @@ test('155721 CR3/CR4: byType and byOwner render as separate tables with visible 
     p50CycleMs: HOUR,
     p85CycleMs: HOUR,
     blockedMs: 0,
-    validationWaitMs: 0,
     reviewRetries: 0,
     wip: {},
     aging: [],
@@ -3197,7 +3088,6 @@ test('155721 CR6: below the KPI cards the content is a grid of four titled panel
     p50CycleMs: HOUR,
     p85CycleMs: HOUR,
     blockedMs: 0,
-    validationWaitMs: 0,
     reviewRetries: 0,
     wip: { 'in-progress': 1 },
     aging: [{ id: '20260701-000001', ms: HOUR }],
@@ -4319,7 +4209,7 @@ test('161656 CR4/CR5: resolved repo and status HTTP requests carry repository_pa
   });
 });
 
-test('161656 CR4/CR5: validation and reopen use detail path and reject foreign receipts', async () => {
+test('161656 CR4/CR5: the detail approval uses the detail path and rejects foreign receipts', async () => {
   const fixture = installViewerFixture();
   const previous = {
     project: appState.currentProject,
@@ -4363,22 +4253,11 @@ test('161656 CR4/CR5: validation and reopen use detail path and reject foreign r
       async () => {
         appState.repo = {
           project_id: 'detail-status',
-          changes: [{ ...viewerChange('validation', 'Validation'), status: 'in-validation' }],
+          changes: [{ ...viewerChange('approval', 'Approval'), status: 'draft' }],
           specs: [],
         };
-        openChangeById('validation');
-        fixture.querySelector('[data-validation="pass"]').onclick();
-        await nextTask();
-        assert.equal(fixture.querySelector('#overlay').classList.contains('hidden'), false);
-
-        appState.repo = {
-          project_id: 'detail-status',
-          changes: [{ ...viewerChange('reopen', 'Reopen'), status: 'done' }],
-          specs: [],
-        };
-        openChangeById('reopen');
-        fixture.querySelector('[data-reopen-reason]').value = 'needs another pass';
-        await fixture.querySelector('[data-reopen]').onclick();
+        openChangeById('approval');
+        await fixture.querySelector('[data-approve]').onclick();
         assert.equal(fixture.querySelector('#overlay').classList.contains('hidden'), false);
       },
     );
@@ -4387,17 +4266,51 @@ test('161656 CR4/CR5: validation and reopen use detail path and reject foreign r
       {
         project: 'detail-status',
         repository_path: '/repos/detail',
-        id: 'validation',
-        status: 'done',
-      },
-      {
-        project: 'detail-status',
-        repository_path: '/repos/detail',
-        id: 'reopen',
-        status: 'in-progress',
-        reason: 'needs another pass',
+        id: 'approval',
+        status: 'approved',
       },
     ]);
+  } finally {
+    fixture.remove();
+    appState.currentProject = previous.project;
+    appState.projectsList = previous.projects;
+    appState.repo = previous.repo;
+  }
+});
+
+// CR16 left the detail of a `done` change with no verdict control at all,
+// which took the human's rejection seat away with the retired gate. CR23 gives
+// back exactly one — the return — and only where the release boundary allows
+// it. The retired controls stay gone.
+test('20261018-131621 CR23: the detail of a done change renders only the return control', () => {
+  const fixture = installViewerFixture();
+  const previous = {
+    project: appState.currentProject,
+    projects: appState.projectsList,
+    repo: appState.repo,
+  };
+  try {
+    appState.currentProject = 'no-verdict';
+    appState.projectsList = [{ id: 'no-verdict', name: 'N', path: '/repos/n', alive: true }];
+    for (const [status, released, offered] of [
+      ['done', false, true],
+      ['done', true, false],
+      ['in-validation', false, false],
+    ]) {
+      const label = `${status}${released ? ' released' : ''}`;
+      appState.repo = {
+        project_id: 'no-verdict',
+        changes: [{ ...viewerChange('verdict', 'Verdict'), status, released }],
+        specs: [],
+      };
+      openChangeById('verdict');
+      const detail = fixture.querySelector('#detail');
+      assert.equal(detail.querySelector('[data-reopen]'), null, label);
+      assert.equal(detail.querySelector('[data-validation]'), null, label);
+      assert.equal(Boolean(detail.querySelector('[data-reject]')), offered, label);
+      assert.equal(Boolean(detail.querySelector('.validation-actions')), offered, label);
+      if (offered) assert.equal(typeof detail.querySelector('[data-reject]').onclick, 'function');
+    }
   } finally {
     fixture.remove();
     appState.currentProject = previous.project;

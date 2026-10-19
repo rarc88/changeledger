@@ -12,12 +12,10 @@ import {
   list,
   log,
   owner,
-  reopen,
   review,
   show,
   status,
   task,
-  validation,
 } from '../src/commands/agent.mjs';
 import { AGENT_ROLES, agentContext } from '../src/commands/agent-context.mjs';
 import { agentPrompt } from '../src/commands/agent-prompt.mjs';
@@ -44,12 +42,7 @@ import {
   loadEffectiveConfig,
 } from '../src/config.mjs';
 import { applyMigration } from '../src/config-migration.mjs';
-import {
-  LOG_EVENT_DEFINITIONS,
-  REVIEW_VERDICTS,
-  TASK_ACTIONS,
-  VALIDATION_VERDICTS,
-} from '../src/lifecycle.mjs';
+import { LOG_EVENT_DEFINITIONS, REVIEW_VERDICTS, TASK_ACTIONS } from '../src/lifecycle.mjs';
 import { nowUtc } from '../src/paths.mjs';
 import { RELEASE_IMPACTS } from '../src/release.mjs';
 import {
@@ -112,14 +105,11 @@ function configuredDomainsHelp() {
 }
 
 const LOG_EVENT_PRODUCERS = Object.freeze({
-  status: [
-    'changeledger approve',
-    'changeledger status',
-    'changeledger discard',
-    'changeledger reopen',
-  ],
+  status: ['changeledger approve', 'changeledger status', 'changeledger discard'],
   review: ['changeledger review'],
-  validation: ['changeledger validation'],
+  // Retired as a lifecycle verb with `in-validation`; the definition stays so
+  // Logs written while it existed keep parsing.
+  validation: ['no command writes it; historical Log entries only'],
   owner: ['changeledger owner', 'changeledger status (automatic when work starts)'],
   branch: ['changeledger branch', 'changeledger status (automatic when work starts)'],
   graduation: ['changeledger graduate'],
@@ -177,7 +167,7 @@ Run \`changeledger context\` first in any repo unless a ChangeLedger delegation
 prompt identifies your role and tells you to run \`agent-context\` instead.
 
   changeledger init | register | new | edit | apply | view | check | fix | context | agent-context
-  changeledger commit | status | approve | validation | discard | review | owner
+  changeledger commit | status | approve | discard | review | owner
   changeledger archive | log | task | list | show | search | analyze | graduate | config | release
   changeledger cutover | activate | import | sync
 
@@ -479,8 +469,8 @@ program
       'and runs every guard `new --from`/`edit` run, byte-identical included; a',
       '`new` entry may add "slug" to name the file (derived from the title if absent).',
       'An event entry is {"op": "status"|"log"|"task"|"owner", "id": "<id>", ...} and',
-      "runs its own command's validations. `approve`, `validation`, `review` and",
-      '`discard` stay individual commands and are refused here by name.',
+      "runs its own command's validations. `approve`, `review` and `discard` stay",
+      'individual commands and are refused here by name.',
       '',
       'Examples:',
       '  changeledger apply --from batch.json --dry-run',
@@ -681,9 +671,8 @@ program
       '',
       'Change id (e.g. changeledger context 20260630-225212): loads the pack inferred',
       "from that change's current lifecycle status — you never choose this pack",
-      'yourself. Lifecycle overlays such as blocked, validation, close and discarded',
-      'are inferred the same way from the change id; they are not modes you pass',
-      'explicitly.',
+      'yourself. Lifecycle overlays such as close and discarded are inferred the same way',
+      'from the change id; they are not modes you pass explicitly.',
       '',
       'Examples:',
       '  changeledger context',
@@ -766,26 +755,43 @@ program
   .addArgument(
     closedArgument(
       '<status>',
-      'a status configured in .changeledger/config.yml (statuses:), e.g. in-progress, in-review, blocked',
+      'a status configured in .changeledger/config.yml (statuses:), e.g. in-progress, in-review',
       CONFIGURED_DOMAINS?.statuses,
     ),
   )
+  .argument('[reason...]', 'why delivered work is being sent back to `in-progress`')
+  .option('--human', 'attribute the return from `done` to an explicit human decision')
   .addHelpText(
     'after',
     [
       '',
       'Terminal moves are not accepted here: use `changeledger discard <id> "<reason>"`',
-      'to discard. Human-owned moves use the viewer, `changeledger approve <id>`,',
-      'or `changeledger validation <id> pass` after an explicit human prompt.',
+      'to discard. Human-owned moves use the viewer or `changeledger approve <id>`',
+      'after an explicit human prompt.',
+      '',
+      '`--human` marks the return from `done` as a human rejection — the only',
+      'edge the rejection metric counts. Without it the return belongs to the agent.',
       '',
       'Examples:',
       '  changeledger status <id> in-progress',
-      '  changeledger status <id> blocked',
+      '  changeledger status <id> in-review',
+      '  changeledger status <id> in-progress --human "<reason>"',
     ].join('\n'),
   )
   .action(
-    action((id, st) => {
-      const { warnings } = status(id, st, process.cwd(), { actor: 'agent' });
+    action((id, st, reasonParts, options) => {
+      // `--human` attributes one edge and nothing else: accepting it anywhere
+      // would hand the agent the human approval seat that
+      // `assertStatusDestinationAllowed` exists to deny it.
+      if (options.human && st !== 'in-progress') {
+        throw new Error(
+          'the `--human` flag only attributes the return to `in-progress`; to approve a draft use `changeledger approve <id>`',
+        );
+      }
+      const { warnings } = status(id, st, process.cwd(), {
+        actor: options.human ? 'human' : 'agent',
+        reason: reasonParts.join(' ').trim() || undefined,
+      });
       for (const warning of warnings) console.error(warning);
       console.log(`#${id} → ${st}`);
     }),
@@ -814,59 +820,6 @@ program
   );
 
 program
-  .command('validation')
-  .description('transmit an explicit human validation decision, or reject as the agent')
-  .argument('<id>')
-  .addArgument(closedArgument('<verdict>', VALIDATION_VERDICTS.join('|'), VALIDATION_VERDICTS))
-  .argument('[reason...]')
-  .option('--human', 'attribute a fail verdict to an explicit human decision via conversation')
-  .addHelpText(
-    'after',
-    [
-      '',
-      '`pass` and `fail --human` are human-owned: run only after an explicit human',
-      'decision in the conversation. Never infer acceptance or rejection.',
-      'Plain `fail` remains an agent-owned rejection and always requires a reason.',
-      '',
-      'Examples:',
-      '  changeledger validation <id> pass',
-      '  changeledger validation <id> fail "<reason>"',
-      '  changeledger validation <id> fail --human "<reason>"',
-    ].join('\n'),
-  )
-  .action(
-    action((id, verdict, reasonParts, options) => {
-      const reason = (reasonParts ?? []).join(' ').trim();
-      if (verdict === 'pass') {
-        if (reason) throw new Error('validation pass does not accept a reason');
-        if (options.human) throw new Error('validation pass is already human-owned; omit --human');
-        validation(id, 'pass', { actor: 'human', channel: 'conversation' });
-      } else if (verdict === 'fail') {
-        validation(id, 'fail', {
-          reason,
-          actor: options.human ? 'human' : 'agent',
-          channel: options.human ? 'conversation' : 'agent',
-        });
-      } else {
-        throw new Error(`Unknown validation verdict "${verdict}" (use pass|fail)`);
-      }
-      console.log(`#${id} validation ${verdict}${options.human ? ' --human' : ''}`);
-    }),
-  );
-
-program
-  .command('reopen')
-  .description('reopen a provisional done change with a reason')
-  .argument('<id>')
-  .argument('<reason...>')
-  .action(
-    action((id, reasonParts) => {
-      reopen(id, reasonParts.join(' ').trim(), process.cwd(), { actor: 'agent' });
-      console.log(`#${id} → in-progress`);
-    }),
-  );
-
-program
   .command('discard')
   .description('discard a change (terminal; keeps the record and reason)')
   .argument('<id>')
@@ -884,24 +837,23 @@ program
   .argument('<id>')
   .addArgument(closedArgument('<verdict>', REVIEW_VERDICTS.join('|'), REVIEW_VERDICTS))
   .argument('[reason...]')
-  .addOption(new Option('--retry', 'route a failed review back to in-progress').conflicts('block'))
-  .addOption(new Option('--block', 'route a failed review to blocked').conflicts('retry'))
   .addHelpText(
     'after',
     [
       '',
+      '`pass` delivers the change to `done`; `fail` returns it to `in-progress`.',
+      'The failure class belongs in the reason, not in a flag.',
+      '',
       'Examples:',
       '  changeledger review <id> pass',
-      '  changeledger review <id> fail --retry "<reason>"',
-      '  changeledger review <id> fail --block "<reason>"',
+      '  changeledger review <id> fail "<reason>"',
     ].join('\n'),
   )
   .action(
-    action((id, verdict, reasonParts, options) => {
-      const mode = options.retry ? 'retry' : options.block ? 'block' : undefined;
+    action((id, verdict, reasonParts) => {
       const reason = reasonParts.join(' ').trim() || undefined;
-      review(id, verdict, { mode, reason });
-      console.log(`#${id} review ${verdict}${mode ? ` --${mode}` : ''}`);
+      review(id, verdict, { reason });
+      console.log(`#${id} review ${verdict}`);
     }),
   );
 
@@ -1054,7 +1006,7 @@ program
       '',
       'Examples:',
       '  changeledger list --status approved',
-      '  changeledger list --owner "Roberto Ruiz" --status in-validation',
+      '  changeledger list --owner "Roberto Ruiz" --status in-review',
       '  changeledger list --unowned',
       '  changeledger list --pending graduation',
       '  changeledger list --pending archive',

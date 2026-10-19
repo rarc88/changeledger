@@ -362,23 +362,20 @@ test('214902 CR5/CR6: the installed contract regrows no retired commit rule', ()
   }
 });
 
-test('171002 CR1-CR5: installed contract gives done one human-accepted meaning', () => {
+test('171002 CR1-CR5: installed contract gives done one delivered meaning', () => {
   const contract = contractText();
   // Anchored to the row's own cells, not just its label: an unanchored `.*`
   // reaches past this row's own mechanism into the next row's `changeledger
   // status` cell post-normalization, so the pin can pass while this row's own
   // mechanism is wrong.
   assert.match(contract, /in-progress → in-review \| agent \| `changeledger status`/);
-  assert.match(contract, /in-review → in-validation.*`changeledger review <id> pass`/);
-  assert.match(contract, /in-progress → in-validation \(no review\).*`changeledger status`/);
-  // Widened reach after normalization (intra-fragment newlines no longer block
-  // `.*`) let this pin drift onto the next row's unrelated "human"/"viewer": tied
-  // to the accept command so only this row's own content can satisfy it.
-  assert.match(
-    contract,
-    /in-validation → done.*human.*viewer.*`changeledger validation <id> pass`/,
-  );
-  assert.match(contract, /human accepted the complete result/);
+  assert.match(contract, /in-review → done.*`changeledger review <id> pass`/);
+  assert.match(contract, /in-progress → done \(no review\).*`changeledger status`/);
+  // 20261018-131621 retired the human-acceptance transition: `done` is the
+  // delivery, and acceptance is the merge, recorded as telemetry. The meaning is
+  // pinned as an obligation, not as a sentence — any wording that says `done` is
+  // delivered satisfies it.
+  assert.match(contract, /`done`[^.|]{0,40}deliver\w*/i);
   // 20260730-002730 retired the two sentence pins that stood here. The transition rows
   // above are table cells, and the lifecycle value's own terminality is asserted by the
   // enum literal rather than by the sentence explaining it.
@@ -448,8 +445,6 @@ test('CR1: init seeds in-review and review_required per type (review-gate)', () 
     'approved',
     'in-progress',
     'in-review',
-    'in-validation',
-    'blocked',
     'done',
     'discarded',
   ]);

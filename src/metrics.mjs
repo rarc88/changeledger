@@ -5,7 +5,7 @@
 
 import { parseLogEvent } from './lifecycle.mjs';
 
-const ACTIVE = ['approved', 'in-progress', 'in-review', 'in-validation', 'blocked'];
+const ACTIVE = ['approved', 'in-progress', 'in-review'];
 
 function logBody(change) {
   return (change.stages ?? []).find((s) => s.key === 'log')?.body ?? '';
@@ -13,15 +13,19 @@ function logBody(change) {
 
 // Same event grammar as `changeledger check`'s sequence validation — one shared
 // parser so metrics and validation cannot drift (20260630-225210 CR5).
+// `[validation]` has a second arm — `accepted (merged <sha>)` — that names no
+// destination state, so `event.to` is undefined there. It is a datum about the
+// merge, not a move: without this guard it would seat an `undefined` state in
+// the timeline (20261018-131621 CR15).
 function logTransition(line) {
   const event = parseLogEvent(line);
-  return event && ['status', 'review', 'validation'].includes(event.type)
+  return event && ['status', 'review', 'validation'].includes(event.type) && event.to
     ? { at: event.at, state: event.to }
     : null;
 }
 
 // The moment a change reached `done`: the last lifecycle transition to done, or
-// null. Canonical done is written by a passed human validation.
+// null. `done` is written by `review pass` or by the generic transition.
 export function doneAt(change) {
   let at = null;
   for (const line of logBody(change).split('\n')) {
@@ -80,10 +84,10 @@ function percentile(sorted, p) {
   return sorted[rank - 1];
 }
 
-// Count of `review → in-progress` verdicts (the `fail --retry` outcome) — the
-// same event grammar as lifecycle transitions, filtered to the implicit
-// review-verdict shape so an explicit `status:` move or a validation verdict
-// isn't miscounted as a retry.
+// Count of `review → in-progress` verdicts (the `fail` outcome) — the same
+// event grammar as lifecycle transitions, filtered to the implicit
+// review-verdict shape so an explicit `status:` move isn't miscounted as a
+// retry.
 function reviewRetryCount(change) {
   let count = 0;
   for (const line of logBody(change).split('\n')) {
@@ -91,6 +95,39 @@ function reviewRetryCount(change) {
     if (event?.type === 'review' && event.from === 'in-review' && event.to === 'in-progress') {
       count++;
     }
+  }
+  return count;
+}
+
+// How many times the human sent delivered work back. Acceptance stopped being
+// a state and became a datum derived from the merge, so the only remaining
+// trace of a rejection is the return edge itself (20261018-131621 CR15). A
+// review `fail` is the reviewer's verdict, not the human's, and leaves
+// `in-review`, so the `done` origin is what separates them.
+function rejectionCount(change) {
+  let count = 0;
+  for (const line of logBody(change).split('\n')) {
+    const event = parseLogEvent(line);
+    // Only the edges the human took: an agent's own return to `in-progress` is
+    // a second pass, and counting it would turn the one surviving record of
+    // human dissatisfaction into a plain tally (20261018-131621 CR24).
+    // `human reopened` is the pre-CR24 payload the product repos already carry; counting
+    // only the new shape would read zero over every rejection recorded before this change.
+    const byHuman = event?.detail === 'human' || event?.detail === 'human reopened';
+    if (event?.from === 'done' && event.to === 'in-progress' && byHuman) count++;
+    // The shape the archive is actually made of: 258 of the 278 rejections the
+    // three repos have recorded are the retired gate's return, and none of
+    // them carries an actor because the gate had no other — a `[validation]`
+    // return to `in-progress` was a human's by definition. Without this arm
+    // the metric reads zero over every rejection recorded before this change
+    // (20261018-131621 CR28). `in-validation → done` is the acceptance, not a
+    // rejection, and the `to` is what separates them.
+    if (
+      event?.type === 'validation' &&
+      event.from === 'in-validation' &&
+      event.to === 'in-progress'
+    )
+      count++;
   }
   return count;
 }
@@ -107,6 +144,7 @@ export function computeMetrics(changes = [], { now } = {}) {
   const byType = new Map(); // type → { closed, cycles:[] }
   const byOwner = new Map(); // owner → { closed, cycles:[] }
   let reviewRetries = 0;
+  let rejections = 0;
 
   for (const c of changes) {
     const status = c.frontmatter?.status;
@@ -115,6 +153,7 @@ export function computeMetrics(changes = [], { now } = {}) {
     const created = c.frontmatter?.created;
 
     reviewRetries += reviewRetryCount(c);
+    rejections += rejectionCount(c);
 
     if (ACTIVE.includes(status)) wip[status] = (wip[status] ?? 0) + 1;
 
@@ -168,7 +207,6 @@ export function computeMetrics(changes = [], { now } = {}) {
   const byOwnerArr = [...byOwner.entries()]
     .map(([owner, v]) => ({ owner, closed: v.closed, avgCycleMs: avg(v.cycles) }))
     .sort((a, b) => b.closed - a.closed);
-  const validationWaitMs = timeInStatus.find((t) => t.state === 'in-validation')?.avgMs ?? 0;
 
   return {
     count: perChange.length,
@@ -182,7 +220,7 @@ export function computeMetrics(changes = [], { now } = {}) {
     wip,
     aging: aging.sort((a, b) => b.ms - a.ms),
     blockedMs,
-    validationWaitMs,
+    rejectionCount: rejections,
     reviewRetries,
     byType: byTypeArr,
     byOwner: byOwnerArr,
