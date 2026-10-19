@@ -279,10 +279,11 @@ con su razón, que ya es gramática válida del Plan, más una nota en el Log.
   - **Verify:** `node --test test/git.test.mjs test/check.test.mjs`
   - **Criteria:** CR22
   - **Resolved:** `2026-10-19T12:25:11Z`
-- [ ] Sellar `accepted_at` en la graduación
+- [x] Sellar `accepted_at` en la graduación
   - **Target:** `src/lifecycle.mjs`, `src/writer.mjs`, `src/commands/graduate.mjs`
   - **Verify:** `node --test test/graduate.test.mjs test/lifecycle.test.mjs test/writer.test.mjs`
   - **Criteria:** CR10, CR11, CR12
+  - **Resolved:** `2026-10-19T12:51:55Z`
 - [x] Retirar los comandos `validation` y `reopen`
   - **Target:** `bin/changeledger.mjs`, `src/commands/agent.mjs`
   - **Verify:** `node --test test/cli-bin.test.mjs`
