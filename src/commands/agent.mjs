@@ -26,7 +26,7 @@ import {
 } from '../git.mjs';
 import { assertTransition, parseLogEvent } from '../lifecycle.mjs';
 import { nowUtc } from '../paths.mjs';
-import { resolveReleasesDir } from '../release.mjs';
+import { assertNotShipped, resolveReleasesDir } from '../release.mjs';
 import { loadRepo, resolveChange, resolveChangeInRepo } from '../repo.mjs';
 import { snapshotUsage } from '../usage-collector.mjs';
 import {
@@ -214,8 +214,12 @@ export function statusMutation(
 ) {
   return (text) => {
     const fm = parseChange(text).frontmatter;
+    // The only boundary of the return from `done`: a change already published
+    // in a release cannot grow without making that version lie about what it
+    // contains. Read through `loadRepo`, the ledger's own reader, so the answer
+    // is the same in an activated repo and a worktree layout (CR21).
     if (fm.status === 'done' && newStatus === 'in-progress') {
-      throw new Error('to reopen a done change use the viewer');
+      assertNotShipped(loadRepo(repoRoot).releases, fm.id);
     }
     // Validate the move before any in-memory mutation, so an illegal transition
     // leaves the file byte-for-byte unchanged. The review gate reads review_required
@@ -496,19 +500,16 @@ export function validation(
   return target.file;
 }
 
-// Correction path while `done` is still provisional. Graduation,
-// skip, archive and release membership are durable boundaries and fail closed.
-function reopenMutation({ config, actor, reason, released, events }) {
+// The viewer's seat for the same return `status` offers, and bound by the same
+// single boundary: release membership. Graduation and archival are reversible
+// (`--into` never overwrites a spec body, `archived: false` undoes an archive),
+// so neither closes the change.
+function reopenMutation({ config, actor, reason, releases, events }) {
   return (text) => {
-    const change = { ...parseChange(text), text };
-    const fm = change.frontmatter;
+    const fm = parseChange(text).frontmatter;
     if (fm.status !== 'done')
       throw new Error(`reopen requires status done (current: ${fm.status})`);
-    if (fm.reviewed === true) throw new Error('cannot reopen: graduation is already reviewed');
-    if (hasGraduationResolution(change))
-      throw new Error('cannot reopen: graduation is already resolved');
-    if (fm.archived === true) throw new Error('cannot reopen: change is archived');
-    if (released) throw new Error('cannot reopen: change belongs to a recorded release');
+    assertNotShipped(releases, fm.id);
     assertTransition('done', 'in-progress', {
       type: fm.type,
       reviewRequired: Boolean(config.types?.[fm.type]?.review_required),
@@ -539,10 +540,8 @@ export function reopen(id, reason, cwd = process.cwd(), { actor = 'human', usage
   // before this check) conflicts on its own. A lock file here would touch
   // the worktree for no protection this repo doesn't already have.
   if (repo.state) {
-    const released = loadRepo(cwd).releases.some((release) =>
-      (release.changes ?? []).some((changeId) => String(changeId) === String(id)),
-    );
-    mutateLedgerFile(repo, target, reopenMutation({ config, actor, reason, released, events }), {
+    const { releases } = loadRepo(cwd);
+    mutateLedgerFile(repo, target, reopenMutation({ config, actor, reason, releases, events }), {
       message: `reopen: ${id}`,
     });
     snapshotUsage({ repoRoot, events, usage });
@@ -552,10 +551,8 @@ export function reopen(id, reason, cwd = process.cwd(), { actor = 'human', usage
   const releasesDir = resolveReleasesDir(repoRoot);
   fs.mkdirSync(releasesDir, { recursive: true });
   const file = withFileLock(path.join(releasesDir, '.history'), () => {
-    const released = loadRepo(cwd).releases.some((release) =>
-      (release.changes ?? []).some((changeId) => String(changeId) === String(id)),
-    );
-    mutateLedgerFile(repo, target, reopenMutation({ config, actor, reason, released, events }), {
+    const { releases } = loadRepo(cwd);
+    mutateLedgerFile(repo, target, reopenMutation({ config, actor, reason, releases, events }), {
       message: `reopen: ${id}`,
     });
     return target.file;

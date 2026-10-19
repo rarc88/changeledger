@@ -2080,8 +2080,12 @@ test('105205 CR2: agent reopens only a provisional done change and records its a
   );
 });
 
-test('150232 CR3: durable closure boundaries reject reopening without writes', () => {
-  for (const boundary of ['reviewed', 'graduated', 'archived', 'released']) {
+// Supersedes 150232 CR3, whose four durable boundaries are down to one: a
+// graduated or archived change is reversible (`--into` never overwrites a spec
+// body, `archived: false` undoes an archive), so only a published release
+// still freezes what the change contains.
+test('20261018-131621 CR9: only release membership closes the return from done', () => {
+  for (const boundary of ['reviewed', 'graduated', 'archived']) {
     const { root, file, id } = deliveredChange();
     let text = fs.readFileSync(file, 'utf8');
     if (boundary === 'reviewed')
@@ -2090,18 +2094,24 @@ test('150232 CR3: durable closure boundaries reject reopening without writes', (
     if (boundary === 'archived')
       text = text.replace('depends_on: []', 'depends_on: []\narchived: true');
     fs.writeFileSync(file, text);
-    if (boundary === 'released') {
-      const dir = path.join(root, '.changeledger', 'releases');
-      fs.mkdirSync(dir, { recursive: true });
-      fs.writeFileSync(
-        path.join(dir, '1.0.0.yml'),
-        `version: 1.0.0\ncreated: 2026-06-13T13:00:00Z\nchanges: ["${id}"]\n`,
-      );
-    }
-    const before = fs.readFileSync(file, 'utf8');
-    assert.throws(() => reopen(id, 'late', root), /cannot reopen/);
-    assert.equal(fs.readFileSync(file, 'utf8'), before);
+
+    reopen(id, 'late', root);
+    assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'in-progress');
   }
+
+  const { root, file, id } = deliveredChange();
+  const dir = path.join(root, '.changeledger', 'releases');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(
+    path.join(dir, '0.19.0.yml'),
+    `version: 0.19.0\ncreated: 2026-06-13T13:00:00Z\nchanges: ["${id}"]\n`,
+  );
+  const before = fs.readFileSync(file, 'utf8');
+  assert.throws(
+    () => reopen(id, 'late', root),
+    (e) => e.message === `change ${id} shipped in release 0.19.0: new work needs a new change`,
+  );
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
 
 test('150232 CR3: release publication wins a deterministic race with reopen', async () => {
@@ -2127,12 +2137,15 @@ test('150232 CR3: release publication wins a deterministic race with reopen', as
   await delay(100);
   assert.equal(settled, false, 'reopen must wait for the release-history lock');
   fs.writeFileSync(
-    path.join(releasesDir, '1.0.0.yml'),
-    `version: 1.0.0\ncreated: 2026-06-13T13:00:00Z\nchanges: ["${id}"]\n`,
+    path.join(releasesDir, '0.19.0.yml'),
+    `version: 0.19.0\ncreated: 2026-06-13T13:00:00Z\nchanges: ["${id}"]\n`,
   );
   fs.unlinkSync(lock);
 
-  await assert.rejects(attempt, /cannot reopen: change belongs to a recorded release/);
+  await assert.rejects(
+    attempt,
+    new RegExp(`change ${id} shipped in release 0\\.19\\.0: new work needs a new change`),
+  );
   assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
 
