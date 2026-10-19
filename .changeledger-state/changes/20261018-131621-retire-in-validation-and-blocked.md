@@ -304,10 +304,11 @@ con su razón, que ya es gramática válida del Plan, más una nota en el Log.
   - **Verify:** `node --test test/context.test.mjs`
   - **Criteria:** CR13
   - **Resolved:** `2026-10-19T13:53:54Z`
-- [ ] Mudar la taxonomía de clases de fallo a la revisión
+- [x] Mudar la taxonomía de clases de fallo a la revisión
   - **Target:** `templates/contract/review.md`
   - **Verify:** `node --test test/context.test.mjs`
   - **Criteria:** CR14
+  - **Resolved:** `2026-10-19T13:53:55Z`
 - [ ] Rehacer las métricas que derivaban de `in-validation`
   - **Target:** `src/metrics.mjs`
   - **Verify:** `node --test test/metrics.test.mjs`
