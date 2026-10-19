@@ -74,6 +74,8 @@ que es una capacidad que falta y no un cabo suelto de este trabajo.
 - **Then** el frontmatter recibe `accepted_at` con el instante del commit de merge y el Log su entrada `[validation] accepted (merged <sha-corto>)`
 - **And** un change `done` cuya rama no está fusionada no recibe nada
 - **And** el sellado ocurre también en un repo sin remoto, donde la publicación es un no-op: la detección del merge es local
+- **And** el sellado ocurre también en un repo en layout de worktree, sin ref de estado y sin activar, escribiendo sobre el fichero del worktree
+- **And** un checkout que tiene la ref de estado presente pero no la ha adoptado no sella nada, ni en el worktree ni en la ref
 
 ### CR3 — El aviso de aceptación pendiente alcanza a los archivados
 - **Given** un change archivado, `done`, sin `accepted_at` y con su rama fusionada
@@ -143,6 +145,10 @@ que es una capacidad que falta y no un cabo suelto de este trabajo.
 - [ ] Documentar en la spec de métricas que el filtro de actor difiere entre rechazo y retrabajo
   - **Support:**
   - **Target:** `.changeledger/specs/metrics.md`
+  - **Verify:** `node bin/changeledger.mjs check`
+- [ ] Rectificar en la spec de arquitectura que el sello es la única escritura de `sync` por encima de la puerta de activación
+  - **Support:**
+  - **Target:** `.changeledger/specs/architecture.md`
   - **Verify:** `node bin/changeledger.mjs check`
 
 ## Log
