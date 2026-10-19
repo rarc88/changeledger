@@ -11,7 +11,7 @@ El contrato canónico es un artefacto de la herramienta, separado del contrato
 propio de cada repo. Vive como fragmentos normativos únicos en
 `templates/contract/`: `core.md`, packs de tarea (`spec`, `implement`, `review`,
 `release`), fragmentos compartidos (`readiness`, `delegation`, `handoff`) y
-overlays de lifecycle (`blocked`, `validation`, `close`, `discarded`). No existe
+overlays de lifecycle (`close`, `discarded`). No existe
 un monolito paralelo que pueda divergir.
 
 El contexto dinámico reduce carga seleccionando el detalle que necesita la
@@ -41,8 +41,7 @@ La composición especializada es explícita:
   a `spec`);
 - `review`: revisión independiente + handoff (el reviewer es hoja: no recibe la
   guía general de delegación);
-- `blocked`: resolución del bloqueo + handoff;
-- `release`, `validation`, `close` y `discarded`: su pack u overlay propio.
+- `release`, `close` y `discarded`: su pack u overlay propio.
 
 La doctrina transversal de delegación (cuándo delegar, dimensionado del
 delegado, un dueño por superficie, la definición de `selection of work`) tiene
