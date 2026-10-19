@@ -18,6 +18,7 @@ import {
   usageCollector,
 } from './config.mjs';
 import { hasFixableDefects } from './fix.mjs';
+import { mergeRecord } from './git.mjs';
 import { CANONICAL_STATUSES, canTransition, LOG_EVENT_TYPES, parseLogEvent } from './lifecycle.mjs';
 import { compareVersions, parseVersion, RELEASE_IMPACTS } from './release.mjs';
 import {
@@ -88,6 +89,57 @@ export function checkUsageGitConfig(repoRoot, run) {
   } catch (error) {
     return [{ file: `(git config ${USAGE_COLLECTOR_GIT_KEY})`, message: error.message }];
   }
+}
+
+// Acceptance is telemetry, not a gate: `graduate` stamps `accepted_at` from
+// the merge, and `check` only ever says it is missing. It must stay a WARNING
+// that never writes — `check` runs inside the versioned `hooks/pre-commit` and
+// in CI, where a document rewrite is not an option and a non-zero exit would
+// turn a merge that simply has not been graduated yet into a broken build.
+//
+// Like `checkUsageGitConfig`, this needs the filesystem, so it stays out of
+// the pure `checkRepo`: the `check` command feeds it the repo it loaded. The
+// branch comes from the change's own `[branch]` record, never from the
+// checkout, and every uncertainty (no branch, no declared integration branch,
+// a branch deleted or never fetched) resolves to silence.
+export function checkPendingAcceptance(repoRoot, { config, changes = [] }, run) {
+  let integration;
+  try {
+    integration = integrationBranch(config);
+  } catch {
+    return []; // checkConfig already reports a malformed git.integration_branch
+  }
+  // No `if (!integration) return []` short-circuit: `mergeRecord` is the single
+  // authority on what counts as undetectable, and an undeclared integration
+  // branch resolves there without a subprocess.
+
+  const warnings = [];
+  for (const c of changes) {
+    const fm = c.frontmatter ?? {};
+    if (fm.status !== 'done' || fm.accepted_at) continue;
+    if (frozenReason(c)) continue; // same subject rule as the per-document loop
+    const record = mergeRecord(repoRoot, recordedBranch(c), integration, run);
+    if (!record) continue;
+    warnings.push({
+      file: c.name ?? '(repo)',
+      message: `accepted in ${integration} (merged ${record.sha}) but accepted_at is not stamped — run \`changeledger graduate ${fm.id}\``,
+    });
+  }
+  return warnings;
+}
+
+// The branch a change was worked on, as its Log records it: the LAST
+// `[branch]` event wins, because rebinding is legal and `cleared` means the
+// change has no branch again.
+function recordedBranch(c) {
+  const log = (c.stages ?? []).find((s) => s.key === 'log');
+  if (!log) return null;
+  let branch = null;
+  for (const line of log.body.split('\n')) {
+    const event = parseLogEvent(line);
+    if (event?.type === 'branch') branch = event.branch;
+  }
+  return branch;
 }
 
 const TERMINAL_STATUSES = ['done', 'discarded'];

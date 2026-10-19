@@ -4578,3 +4578,224 @@ test('131621 CR3: archived and discarded history naming retired statuses stays v
   assert.equal(code, 0, text);
   assert.deepEqual(out.diagnostics, []);
 });
+
+// --- pending acceptance (20261018-131621 CR22: check reports, never writes) ---
+
+const ACCEPT_ID = '20261018-131621';
+const ACCEPT_CONFIG = `changes_dir: .changeledger/changes
+statuses: [draft, approved, in-progress, in-review, done, discarded]
+stages: [request, investigation, proposal, specification, plan, log]
+git:
+  integration_branch: dev
+  change_branch_format: "{type}/{id}"
+types:
+  feature:
+    stages: [request, plan, log]
+`;
+
+function acceptDoc({
+  branchLine = `- **2026-10-18T14:45:55Z** \`[branch]\` set: feature/${ACCEPT_ID} (auto)`,
+  acceptedAt,
+} = {}) {
+  return [
+    '---',
+    `id: "${ACCEPT_ID}"`,
+    'title: Acceptance telemetry',
+    'type: feature',
+    'status: done',
+    'created: 2026-10-18T13:16:21Z',
+    'depends_on: []',
+    ...(acceptedAt ? [`accepted_at: ${acceptedAt}`] : []),
+    `branch: feature/${ACCEPT_ID}`,
+    '---',
+    '',
+    '## Request',
+    '',
+    'Telemetry, not a gate.',
+    '',
+    '## Plan',
+    '',
+    '- [x] Ship it',
+    '  - **Target:** `src/x.mjs`',
+    '  - **Verify:** `node --test test/x.test.mjs`',
+    '  - **Resolved:** `2026-10-18T14:45:56Z`',
+    '',
+    '## Log',
+    '',
+    '- **2026-10-18T14:45:53Z** `[status]` draft → approved',
+    '- **2026-10-18T14:45:54Z** `[status]` approved → in-progress',
+    ...(branchLine ? [branchLine] : []),
+    '- **2026-10-18T14:45:56Z** `[status]` in-progress → done',
+    '',
+  ].join('\n');
+}
+
+// A repo whose change was worked on `feature/<id>`; `merged` decides whether
+// that branch ever landed on the integration branch `dev`.
+function acceptFixture({ merged = true, doc = acceptDoc(), config = ACCEPT_CONFIG } = {}) {
+  const { root, git } = gitFixture();
+  const changesDir = path.join(root, '.changeledger', 'changes');
+  fs.mkdirSync(changesDir, { recursive: true });
+  fs.writeFileSync(path.join(root, '.changeledger', 'config.yml'), config);
+  const file = path.join(changesDir, `${ACCEPT_ID}-acceptance.md`);
+  fs.writeFileSync(file, doc);
+
+  git(['branch', 'dev']);
+  git(['checkout', '-q', '-b', `feature/${ACCEPT_ID}`, 'dev']);
+  fs.writeFileSync(path.join(root, 'work.txt'), 'work\n');
+  git(['add', 'work.txt']);
+  git(['commit', '-q', '-m', `feat(x): work [#${ACCEPT_ID}]`]);
+  git(['checkout', '-q', 'dev']);
+  if (merged)
+    git(['merge', '--no-ff', '-q', '-m', `merge [#${ACCEPT_ID}]`, `feature/${ACCEPT_ID}`]);
+  return { root, git, file };
+}
+
+test('20261018-131621 CR22: check warns that a merged done change is accepted, exits 0 and writes nothing', () => {
+  const { root, file } = acceptFixture();
+  const before = fs.readFileSync(file);
+
+  const out = captureOutput();
+  const code = check([ACCEPT_ID], root, out);
+
+  assert.equal(code, 0, out.diagnostics.join('\n'));
+  const warning = out.diagnostics.find((d) => d.includes('accepted'));
+  assert.ok(warning, `expected an acceptance warning, got: ${out.diagnostics.join('\n')}`);
+  assert.match(warning, /^ {2}warn {3}/);
+  assert.ok(
+    warning.includes(`${ACCEPT_ID}-acceptance.md`),
+    `warning must name the change: ${warning}`,
+  );
+  assert.deepEqual(fs.readFileSync(file), before, 'check must leave the document byte-for-byte');
+});
+
+test('20261018-131621 CR22: an unmerged branch draws no acceptance warning', () => {
+  const { root } = acceptFixture({ merged: false });
+
+  const out = captureOutput();
+  assert.equal(check([ACCEPT_ID], root, out), 0, out.diagnostics.join('\n'));
+  assert.deepEqual(out.diagnostics, []);
+});
+
+test('20261018-131621 CR22: a change already stamped draws no acceptance warning', () => {
+  const { root } = acceptFixture({ doc: acceptDoc({ acceptedAt: '2026-10-18T10:00:00Z' }) });
+
+  const out = captureOutput();
+  assert.equal(check([ACCEPT_ID], root, out), 0, out.diagnostics.join('\n'));
+  assert.deepEqual(out.diagnostics, []);
+});
+
+test('20261018-131621 CR22: a change with no [branch] entry draws no acceptance warning', () => {
+  const { root } = acceptFixture({ doc: acceptDoc({ branchLine: '' }) });
+
+  const out = captureOutput();
+  assert.equal(check([ACCEPT_ID], root, out), 0, out.diagnostics.join('\n'));
+  assert.deepEqual(out.diagnostics, []);
+});
+
+test('20261018-131621 CR22: frozen history is never told to stamp acceptance', () => {
+  // Every archived change in a long-lived ledger was merged at some point;
+  // reporting them would bury the one live subject the warning is for, and
+  // the fix it names (`graduate`) is refused on frozen history anyway.
+  const { root } = acceptFixture({
+    doc: acceptDoc().replace('status: done', 'status: done\narchived: true'),
+  });
+
+  const out = captureOutput();
+  check([ACCEPT_ID], root, out);
+  assert.deepEqual(
+    out.diagnostics.filter((d) => d.includes('accepted')),
+    [],
+  );
+});
+
+test('20261018-131621 CR22: a rebound branch is read from the last [branch] entry', () => {
+  // The change started on `feature/abandoned`, which did land on dev, and was
+  // rebound to `feature/<id>`, which did not. Acceptance belongs to the branch
+  // the change is on now, so the abandoned merge must not claim it.
+  const { root, git } = acceptFixture({ merged: false });
+  git(['checkout', '-q', '-b', 'feature/abandoned', 'dev']);
+  fs.writeFileSync(path.join(root, 'abandoned.txt'), 'x\n');
+  git(['add', 'abandoned.txt']);
+  git(['commit', '-q', '-m', `feat(x): abandoned [#${ACCEPT_ID}]`]);
+  git(['checkout', '-q', 'dev']);
+  git(['merge', '--no-ff', '-q', '-m', 'merge abandoned', 'feature/abandoned']);
+
+  const file = path.join(root, '.changeledger', 'changes', `${ACCEPT_ID}-acceptance.md`);
+  fs.writeFileSync(
+    file,
+    fs
+      .readFileSync(file, 'utf8')
+      .replace(
+        `- **2026-10-18T14:45:55Z** \`[branch]\` set: feature/${ACCEPT_ID} (auto)`,
+        [
+          '- **2026-10-18T14:45:55Z** `[branch]` set: feature/abandoned (auto)',
+          `- **2026-10-18T14:45:55Z** \`[branch]\` set: feature/${ACCEPT_ID}`,
+        ].join('\n'),
+      ),
+  );
+
+  const out = captureOutput();
+  check([ACCEPT_ID], root, out);
+  assert.deepEqual(
+    out.diagnostics.filter((d) => d.includes('accepted')),
+    [],
+  );
+});
+
+test('20261018-131621 CR22: only a delivered change is reported as accepted', () => {
+  const { root } = acceptFixture({
+    doc: acceptDoc()
+      .replace('status: done', 'status: in-progress')
+      .replace('- **2026-10-18T14:45:56Z** `[status]` in-progress → done\n', '')
+      .replace('- [x] Ship it', '- [ ] Ship it')
+      .replace('  - **Resolved:** `2026-10-18T14:45:56Z`\n', ''),
+  });
+
+  const out = captureOutput();
+  check([ACCEPT_ID], root, out);
+  assert.deepEqual(
+    out.diagnostics.filter((d) => d.includes('accepted')),
+    [],
+  );
+});
+
+test('20261018-131621 CR22: a malformed integration branch is a config error, not a crash', () => {
+  const { root } = acceptFixture({
+    config: ACCEPT_CONFIG.replace('  integration_branch: dev', '  integration_branch: 42'),
+  });
+
+  const out = captureOutput();
+  assert.equal(check([ACCEPT_ID], root, out), 1);
+  assert.ok(
+    out.diagnostics.some((d) => d.includes('git.integration_branch')),
+    out.diagnostics.join('\n'),
+  );
+});
+
+test('20261018-131621 CR22: without a declared integration branch there is nothing to detect', () => {
+  const { root } = acceptFixture({
+    config: ACCEPT_CONFIG.replace('  integration_branch: dev\n', ''),
+  });
+
+  const out = captureOutput();
+  assert.equal(check([ACCEPT_ID], root, out), 0, out.diagnostics.join('\n'));
+  assert.deepEqual(out.diagnostics, []);
+});
+
+// The git-fed findings `check` already had (`checkUsageGitConfig`) are
+// repo-wide only; this one must reach a single named subject too, which is the
+// scope CR22 actually asks for. The sweep is pinned here so the warning cannot
+// later be moved behind that `!id` guard. (The fixture is a bare scratch repo,
+// so the sweep also reports the missing AGENTS.md — the exit code is not the
+// subject of this test.)
+test('20261018-131621 CR22: the repo-wide sweep reports acceptance too', () => {
+  const { root } = acceptFixture();
+
+  const out = captureOutput();
+  check([], root, out);
+  assert.ok(
+    out.diagnostics.some((d) => d.includes('accepted')),
+    out.diagnostics.join('\n'),
+  );
+});
