@@ -246,8 +246,8 @@ trabajo `review_required` y `check` no vería nada mal.
 `discarded` es terminal. `done` vuelve a `in-progress` por acción humana o del
 agente, con motivo, salvo que el change figure en un release registrado: esa es
 la única comprobación previa a la escritura, y un rechazo deja el documento byte
-a byte intacto. `reviewed: true`, una graduación saltada y `archived: true` ya
-no cierran la vuelta.
+a byte intacto. Ni `reviewed: true`, ni una graduación saltada, ni
+`archived: true` cierran la vuelta.
 
 El visor añade la política de actor: ofrece exactamente `draft → approved` y la
 devolución `done → in-progress` de un change no publicado, con razón
@@ -363,7 +363,9 @@ El tipo de evento `[validation]` sobrevive con dos armas. La histórica,
 convertiría en un diagnóstico de evento inválido. La viva,
 `accepted (merged <sha>)`, es la que estampa la graduación; como no declara
 origen, el replay la **salta** explícitamente en vez de leerla como un estado
-no modelable, que abandonaría la reconstrucción de todo change graduado. El `owner` nace en la creación (`changeledger new`): se resuelve
+no modelable, que abandonaría la reconstrucción de todo change graduado.
+
+El `owner` nace en la creación (`changeledger new`): se resuelve
 la identidad git local vía `ownerHandle` salvo que se pase `--owner` explícito,
 que siempre prevalece. `ownerHandle` prueba primero el username de GitHub (`gh
 api user --jq .login`), con fallback a `git config user.name` si `gh` falta o
