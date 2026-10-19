@@ -144,3 +144,4 @@ que es una capacidad que falta y no un cabo suelto de este trabajo.
 - **2026-10-19T18:55:23Z** `[status]` draft → approved (human via conversation)
 - **2026-10-19T18:56:14Z** `[status]` approved → in-progress
 - **2026-10-19T18:56:14Z** `[branch]` set: bug/20261019-184719 (auto)
+- **2026-10-19T18:57:29Z** `[note]` Rama creada desde feature/20261018-131621, no desde dev: este change corrige cabos sueltos de ese trabajo, que está en el PR rarc88/changeledger#13 y todavía no en la rama de integración. Salir de dev dejaba la rama sin el código a corregir, comprobado (assertNotShipped ausente). depends_on corregido de related_to a dependencia de ejecución real; al integrar, este change entra después del 13.
