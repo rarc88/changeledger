@@ -1,8 +1,8 @@
 ---
 title: Métricas
-updated: 2026-07-01T23:21:38Z
+updated: 2026-10-19T18:46:32Z
 tags: [ metrics ]
-graduated_from: ["20260616-210825", "20260630-225210"]
+graduated_from: ["20260616-210825", "20260630-225210", "20261018-131621"]
 ---
 
 ## Métricas

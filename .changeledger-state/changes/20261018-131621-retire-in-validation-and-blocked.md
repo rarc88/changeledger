@@ -426,3 +426,4 @@ con su razón, que ya es gramática válida del Plan, más una nota en el Log.
 - **2026-10-19T18:46:30Z** `[graduation]` spec: `usage.md`
 - **2026-10-19T18:46:31Z** `[graduation]` spec: `validation.md`
 - **2026-10-19T18:46:31Z** `[graduation]` spec: `architecture.md`
+- **2026-10-19T18:46:32Z** `[graduation]` spec: `metrics.md`
