@@ -261,10 +261,11 @@ con su razón, que ya es gramática válida del Plan, más una nota en el Log.
   - **Verify:** `node --test test/lifecycle.test.mjs test/agent.test.mjs`
   - **Criteria:** CR4, CR5, CR6
   - **Resolved:** `2026-10-18T16:15:20Z`
-- [ ] Hacer del release la única frontera de la vuelta de `done` a `in-progress`
+- [x] Hacer del release la única frontera de la vuelta de `done` a `in-progress`
   - **Target:** `src/change.mjs`, `src/lifecycle.mjs`, `src/release.mjs`, `src/commands/agent.mjs`
   - **Verify:** `node --test test/lifecycle.test.mjs test/release.test.mjs`
   - **Criteria:** CR7, CR8, CR9, CR21
+  - **Resolved:** `2026-10-19T11:25:52Z`
 - [ ] Derivar `accepted_at` del merge de la rama del change
   - **Target:** `src/git.mjs`, `src/check.mjs`
   - **Verify:** `node --test test/check.test.mjs test/git.test.mjs`
