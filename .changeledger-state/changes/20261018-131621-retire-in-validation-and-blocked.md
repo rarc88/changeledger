@@ -345,10 +345,11 @@ con su razón, que ya es gramática válida del Plan, más una nota en el Log.
   - **Verify:** `node --test test/viewer-metadata.test.mjs test/view.test.mjs`
   - **Criteria:** CR16
   - **Resolved:** `2026-10-19T15:47:31Z`
-- [ ] Devolver al viewer el asiento de rechazo y registrar el actor de la vuelta
+- [x] Devolver al viewer el asiento de rechazo y registrar el actor de la vuelta
   - **Target:** `bin/changeledger.mjs`, `src/commands/agent.mjs`, `src/metrics.mjs`, `src/viewer/domain.mjs`, `src/viewer/public/app.js`, `src/viewer/public/view-parts.js`
   - **Verify:** `node --test test/view.test.mjs test/viewer-metadata.test.mjs test/metrics.test.mjs test/agent.test.mjs`
   - **Criteria:** CR23, CR24, CR25, CR26
+  - **Resolved:** `2026-10-19T16:34:02Z`
 - [ ] Barrer de la suite los casos atados a los dos estados
   - **Support:**
   - **Target:** `test/**`
