@@ -350,10 +350,11 @@ con su razón, que ya es gramática válida del Plan, más una nota en el Log.
   - **Verify:** `node --test test/view.test.mjs test/viewer-metadata.test.mjs test/metrics.test.mjs test/agent.test.mjs`
   - **Criteria:** CR23, CR24, CR25, CR26
   - **Resolved:** `2026-10-19T16:34:02Z`
-- [ ] Barrer de la suite los casos atados a los dos estados
+- [x] Barrer de la suite los casos atados a los dos estados
   - **Support:**
   - **Target:** `test/**`
   - **Verify:** `pnpm verify`
+  - **Resolved:** `2026-10-19T16:34:03Z`
 
 ## Log
 - **2026-10-18T14:44:55Z** `[version]` 0.18.0
