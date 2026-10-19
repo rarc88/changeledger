@@ -164,12 +164,19 @@ con su razón, que ya es gramática válida del Plan, más una nota en el Log.
 - **Then** el frontmatter queda `status: in-progress`
 - **And** el Log recibe `[status]` con payload `done → in-progress`
 
-### CR9 — Un change publicado en un release no vuelve
-- **Given** un change en `done` cuyo id figura en la lista `changes:` de `.changeledger/releases/0.19.0.yml`
+### CR9 — Un change publicado en un release no vuelve, por ninguna vía
+- **Given** un change en `done` cuyo id figura en la lista `changes:` de un release registrado con versión `0.19.0`
 - **When** se ejecuta `changeledger status <id> in-progress`
 - **Then** sale con código distinto de cero
 - **And** imprime `change <id> shipped in release 0.19.0: new work needs a new change`
 - **And** el documento queda sin modificar
+- **And** `reopen()`, la función que usa el viewer, rechaza el mismo change con el mismo mensaje
+
+### CR21 — La frontera se lee del ledger, no del árbol de trabajo
+- **Given** un repo activado, donde los releases viven en la ref de estado y `.changeledger/releases/` no existe en disco
+- **When** se consulta la pertenencia a un release de un change en `done`
+- **Then** la respuesta sale de los releases que expone `loadRepo`, no de `fs.readdirSync` sobre el árbol
+- **And** un change publicado en ese repo activado se rechaza igual que en un repo con layout de worktree
 
 ### CR10 — La aceptación se deriva del merge, no de una afirmación
 - **Given** un change en `done` sin `accepted_at`, cuya rama `feature/<id>` está fusionada en la rama publicada como `integration_branch`
@@ -257,7 +264,7 @@ con su razón, que ya es gramática válida del Plan, más una nota en el Log.
 - [ ] Hacer del release la única frontera de la vuelta de `done` a `in-progress`
   - **Target:** `src/change.mjs`, `src/lifecycle.mjs`, `src/release.mjs`, `src/commands/agent.mjs`
   - **Verify:** `node --test test/lifecycle.test.mjs test/release.test.mjs`
-  - **Criteria:** CR7, CR8, CR9
+  - **Criteria:** CR7, CR8, CR9, CR21
 - [ ] Derivar `accepted_at` del merge de la rama del change
   - **Target:** `src/git.mjs`, `src/check.mjs`
   - **Verify:** `node --test test/check.test.mjs test/git.test.mjs`
