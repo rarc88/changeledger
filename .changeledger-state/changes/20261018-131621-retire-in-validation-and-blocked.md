@@ -390,10 +390,11 @@ con su razón, que ya es gramática válida del Plan, más una nota en el Log.
   - **Verify:** verify: `node bin/changeledger.mjs status --help` no ofrece los retirados
   - **Criteria:** CR30
   - **Resolved:** `2026-10-19T17:20:00Z`
-- [ ] Alinear documentación, ayuda y etiquetas de test con el ciclo nuevo
+- [x] Alinear documentación, ayuda y etiquetas de test con el ciclo nuevo
   - **Target:** `README.md`, `bin/changeledger.mjs`, `templates/contract/agent-prompts/review.md`, `templates/config.yml`
   - **Verify:** `node --test test/cli-bin.test.mjs test/context.test.mjs test/viewer-metadata.test.mjs`
   - **Criteria:** CR17
+  - **Resolved:** `2026-10-19T17:39:46Z`
 
 ## Log
 - **2026-10-18T14:44:55Z** `[version]` 0.18.0
