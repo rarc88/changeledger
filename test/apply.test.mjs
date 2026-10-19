@@ -313,6 +313,28 @@ test('CR4: human-owned transitions never travel in a batch', () => {
   assert.equal(stateTip(root), tip);
 });
 
+// A batch is executed by an agent, and `status → done` from `in-review` is
+// exactly the move that would let that agent sign off its own review_required
+// work. The refusal is `statusMutation`'s, so this seat inherits it rather
+// than re-implementing it (20261018-131621 CR27).
+test('20261018-131621 CR27: a batch never delivers a change out of review', () => {
+  const { root, id } = activatedRepo({
+    status: 'in-review',
+    prepare: (text) =>
+      `${text}- **2026-06-13T12:01:00Z** \`[status]\` draft → approved
+- **2026-06-13T12:02:00Z** \`[status]\` approved → in-progress
+- **2026-06-13T12:03:00Z** \`[status]\` in-progress → in-review
+`,
+  });
+  const tip = stateTip(root);
+
+  assert.throws(
+    () => apply({ from: manifest(root, [{ op: 'status', id, to: 'done' }]) }, root),
+    new RegExp(`changeledger review ${id} pass`),
+  );
+  assert.equal(stateTip(root), tip);
+});
+
 test('CR5: a net-empty manifest is a no-op with no new commit', () => {
   const { root, text, id } = activatedRepo();
   const a = draftFor(root, { slug: 'alpha', title: 'Alpha', now: '2026-08-11T10:00:00Z' });

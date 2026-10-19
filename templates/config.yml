@@ -60,7 +60,7 @@ stages: [request, investigation, proposal, specification, plan, log]
 
 # Active stages per type. The viewer shows only these.
 # `review_required: true` makes the change pass through `in-review` (an
-# independent subagent review) before universal human validation. See
+# independent subagent review) before it is delivered to `done`. See
 # `changeledger context implement` and `changeledger context review`.
 types:
   feature:

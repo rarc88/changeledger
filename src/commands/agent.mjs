@@ -180,7 +180,8 @@ function integrationCopies(integration, expected, repoRoot, gitRun) {
 // batch included — is told where the move actually belongs. `done` is not one
 // of them: it means "delivered, pending human acceptance", which the agent
 // owns — through `review pass` for a review_required type, and through this
-// command for any other.
+// command for any other. Which of the two applies depends on the origin, which
+// no pre-text guard can read: `statusMutation` refuses the `in-review` one.
 export function assertStatusDestinationAllowed(config, newStatus, actor) {
   if (newStatus === 'discarded') {
     throw new Error(
@@ -221,6 +222,18 @@ export function statusMutation(
     // is the same in an activated repo and a worktree layout (CR21).
     if (fm.status === 'done' && newStatus === 'in-progress') {
       assertNotShipped(loadRepo(repoRoot).releases, fm.id);
+    }
+    // The exit from review belongs to the reviewer's verdict, never to the
+    // generic seat. `in-review → done` is a legal edge of the graph — `review
+    // pass` walks it — so the narrowing lives here, where the origin is known,
+    // and covers every caller of this transform: the CLI, the viewer and
+    // `apply`'s batch alike. Without it an agent delivers its own
+    // review_required work unreviewed and `check` sees nothing wrong
+    // (20261018-131621 CR27).
+    if (fm.status === 'in-review' && newStatus === 'done') {
+      throw new Error(
+        `the review verdict delivers a change in review: use \`changeledger review ${fm.id} pass\``,
+      );
     }
     // Validate the move before any in-memory mutation, so an illegal transition
     // leaves the file byte-for-byte unchanged. The review gate reads review_required

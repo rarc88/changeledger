@@ -36,7 +36,7 @@ canonical contract fragments remain in the global package.
 
 ```text
 conversation → draft → human approval → implementation → review
-             → human validation → persistent specification
+             → done (merge = acceptance) → persistent specification
 ```
 
 A typical change starts like this:
@@ -48,7 +48,7 @@ changeledger view
 
 The agent completes the generated stages under `.changeledger/changes/`. You approve the
 draft in the viewer before implementation. From there, ChangeLedger validates
-lifecycle transitions, task traceability and the final human acceptance gate.
+lifecycle transitions and task traceability; the merge is the acceptance.
 When the work is done, its lasting truth graduates into `.changeledger/specs/`.
 
 The contract is agent-agnostic: Codex, Claude Code, opencode, Copilot, Cursor and
@@ -92,8 +92,7 @@ changeledger status <id> <status>
 changeledger task <id> done|block <n> [reason]
 changeledger log <id> <message>
 changeledger review <id> pass
-changeledger review <id> fail --retry "<reason>"
-changeledger review <id> fail --block "<reason>"
+changeledger review <id> fail "<reason>"
 changeledger discard <id> <reason>
 ```
 
@@ -156,10 +155,9 @@ normally without ChangeLedger; when the executable fails it reports the error
 for human direction.
 
 Roles are `investigation`, `implementation`, `review`, `post-review` and
-`graduation-review`. `post-review` is a read-only inspection of a change already
-in `in-validation` — after review has already passed — for a human or
-orchestrator to consult before accepting or rejecting it; it never moves the
-change or records a verdict. `graduation-review` is a read-only check of the spec
+`graduation-review`. `post-review` is a read-only inspection that never moves a
+change or records a verdict; no lifecycle status reaches it now, so it is
+slated for retirement. `graduation-review` is a read-only check of the spec
 reconciliation drafted for a change already `done`, before the first `--into`;
 it never moves the change either. Each generated
 delegation prompt explicitly replaces the bootstrap's default context load with

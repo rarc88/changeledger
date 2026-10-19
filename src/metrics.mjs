@@ -115,6 +115,19 @@ function rejectionCount(change) {
     // only the new shape would read zero over every rejection recorded before this change.
     const byHuman = event?.detail === 'human' || event?.detail === 'human reopened';
     if (event?.from === 'done' && event.to === 'in-progress' && byHuman) count++;
+    // The shape the archive is actually made of: 258 of the 278 rejections the
+    // three repos have recorded are the retired gate's return, and none of
+    // them carries an actor because the gate had no other — a `[validation]`
+    // return to `in-progress` was a human's by definition. Without this arm
+    // the metric reads zero over every rejection recorded before this change
+    // (20261018-131621 CR28). `in-validation → done` is the acceptance, not a
+    // rejection, and the `to` is what separates them.
+    if (
+      event?.type === 'validation' &&
+      event.from === 'in-validation' &&
+      event.to === 'in-progress'
+    )
+      count++;
   }
   return count;
 }

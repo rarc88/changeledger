@@ -671,9 +671,8 @@ program
       '',
       'Change id (e.g. changeledger context 20260630-225212): loads the pack inferred',
       "from that change's current lifecycle status — you never choose this pack",
-      'yourself. Lifecycle overlays such as blocked, validation, close and discarded',
-      'are inferred the same way from the change id; they are not modes you pass',
-      'explicitly.',
+      'yourself. Lifecycle overlays such as close and discarded are inferred the same way',
+      'from the change id; they are not modes you pass explicitly.',
       '',
       'Examples:',
       '  changeledger context',
@@ -756,7 +755,7 @@ program
   .addArgument(
     closedArgument(
       '<status>',
-      'a status configured in .changeledger/config.yml (statuses:), e.g. in-progress, in-review, blocked',
+      'a status configured in .changeledger/config.yml (statuses:), e.g. in-progress, in-review',
       CONFIGURED_DOMAINS?.statuses,
     ),
   )

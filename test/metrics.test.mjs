@@ -267,7 +267,7 @@ test('20261018-131621 CR24: rejectionCount counts only the human returns from do
 // The product repos already carry the pre-CR24 payload (`human reopened` /
 // `agent reopened`). Counting only the new shape would read zero over every
 // rejection recorded before this change.
-test('20261018-131621 CR24: the legacy actor payload still counts', () => {
+test('20261018-131621 CR26: the legacy actor payload still counts', () => {
   const legacy = change({
     id: 'c',
     created: '2026-06-13T10:00:00Z',
@@ -277,6 +277,26 @@ test('20261018-131621 CR24: the legacy actor payload still counts', () => {
 - **2026-06-13T14:00:00Z** \`[status]\` done → in-progress (agent reopened): mi propio repaso`,
   });
   assert.equal(computeMetrics([legacy]).rejectionCount, 1);
+});
+
+// CR24 and CR26 both read the `[status] done → in-progress` edge, which only
+// exists since this change: 258 of the 278 rejections the three repos have
+// recorded are the retired gate's `[validation] in-validation → in-progress`
+// (44 here, 103 in ionic-app, 111 in backend-laravel), so without this arm the
+// metric reads zero over every rejection ever recorded. A rejection taken at
+// that seat was a human's by definition — the gate had no other actor.
+test('20261018-131621 CR28: the retired validation gate records rejections too', () => {
+  const historical = change({
+    id: 'd',
+    created: '2026-06-13T10:00:00Z',
+    logBody: `- **2026-06-13T11:00:00Z** \`[status]\` in-progress → in-validation
+- **2026-06-13T12:00:00Z** \`[validation]\` in-validation → in-progress: falta el caso borde
+- **2026-06-13T13:00:00Z** \`[status]\` in-progress → in-validation
+- **2026-06-13T14:00:00Z** \`[validation]\` in-validation → in-progress: sigue faltando
+- **2026-06-13T15:00:00Z** \`[status]\` in-progress → in-validation
+- **2026-06-13T16:00:00Z** \`[validation]\` in-validation → done (human accepted)`,
+  });
+  assert.equal(computeMetrics([historical]).rejectionCount, 2);
 });
 
 // The merge-derived acceptance arm of `[validation]` carries no `to`, so the

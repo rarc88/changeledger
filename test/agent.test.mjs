@@ -2145,6 +2145,22 @@ test('20261018-131621 CR20: review pass refuses a change with an open Plan task'
   assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
 
+// Retiring `in-validation` left `in-review → done` as a legal edge of the
+// graph with no seat narrowing it, so the generic transition delivered
+// review_required work with no verdict at all and `check` saw nothing wrong.
+// The verdict is the reviewer's to give; this seat only names where it lives.
+test('20261018-131621 CR27: status done refuses to deliver a change in review', () => {
+  const { root, file, id } = repoWithChange();
+  task(id, 'done', 1, '', root);
+  reach(id, root, 'in-review');
+  const before = fs.readFileSync(file, 'utf8');
+  assert.throws(
+    () => status(id, 'done', root),
+    (e) => e.message.includes(`changeledger review ${id} pass`),
+  );
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
 test('CR7: review fail returns to in-progress with the reason', () => {
   const { root, file, id } = repoWithChange();
   reach(id, root, 'in-review');

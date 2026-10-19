@@ -512,8 +512,6 @@ test('225212 CR1: changeledger context -h enumerates modes, no-arg and change-id
   }
   assert.match(out, /no argument/i);
   assert.match(out, /change id/i);
-  assert.match(out, /blocked/);
-  assert.match(out, /validation/);
   assert.match(out, /close|discarded/);
   assert.match(out, /inferred/i);
 });
@@ -2276,7 +2274,7 @@ test('20261018-131621 CR24: `status in-progress` attributes the return to agent 
 // `draft → approved` is legal and the candidate is valid — so nothing but the
 // flag's own guard can refuse it. Without that guard the agent would hold the
 // human approval seat `assertStatusDestinationAllowed` exists to deny it.
-test('20261018-131621 CR24: `--human` is refused on any destination but in-progress', () => {
+test('20261018-131621 CR25: `--human` is refused on any destination but in-progress', () => {
   const { root, env, id, file } = readyDraftRepo();
   const before = fs.readFileSync(file, 'utf8');
   const result = runIn(root, env, 'status', id, 'approved', '--human');

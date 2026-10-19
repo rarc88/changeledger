@@ -400,7 +400,7 @@ test('201703 CR2: post-review never asks for a verdict or a lifecycle command', 
   const base = out.split('\n# Selected change')[0];
   assert.match(base, /findings and evidence/i);
   assert.doesNotMatch(base, /recommended (outcome|verdict)/i);
-  assert.doesNotMatch(base, /pass, fail-retry|fail-block/i);
+  assert.doesNotMatch(base, /recommended outcome: pass/i);
   assert.doesNotMatch(
     base,
     /changeledger (status|task|log|review|graduate|archive|unarchive|validation)/,
@@ -444,7 +444,7 @@ test('201703 CR1/CR2: post-review requires in-validation and requires a change i
     /role review requires change status in-review; got in-validation/,
   );
   const reviewOut = buildAgentContext('review', inReview, root);
-  assert.match(reviewOut, /pass, fail-retry|fail-block/i);
+  assert.match(reviewOut, /outcome: pass, or\s+fail with a reason/i);
 });
 
 test('201703 CR3: post-review capsule fits the shared agent budget and lists in the CLI role set', () => {
