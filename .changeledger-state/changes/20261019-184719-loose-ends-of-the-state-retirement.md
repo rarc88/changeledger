@@ -115,10 +115,11 @@ que es una capacidad que falta y no un cabo suelto de este trabajo.
   - **Verify:** `node --test test/check.test.mjs`
   - **Criteria:** CR1
   - **Resolved:** `2026-10-19T20:01:02Z`
-- [ ] Sellar la aceptación pendiente desde `sync` y llevar el aviso a los archivados
+- [x] Sellar la aceptación pendiente desde `sync` y llevar el aviso a los archivados
   - **Target:** `src/commands/sync.mjs`, `src/check.mjs`
   - **Verify:** `node --test test/sync.test.mjs test/check.test.mjs`
   - **Criteria:** CR2, CR3
+  - **Resolved:** `2026-10-19T20:01:02Z`
 - [x] Corregir lo que la CLI publica sobre `[validation]` y sobre las operaciones retiradas
   - **Target:** `bin/changeledger.mjs`, `src/commands/apply.mjs`
   - **Verify:** `node --test test/cli-bin.test.mjs test/apply.test.mjs`
