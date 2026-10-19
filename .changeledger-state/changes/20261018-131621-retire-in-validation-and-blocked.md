@@ -309,10 +309,11 @@ con su razón, que ya es gramática válida del Plan, más una nota en el Log.
   - **Verify:** `node --test test/context.test.mjs`
   - **Criteria:** CR14
   - **Resolved:** `2026-10-19T13:53:55Z`
-- [ ] Rehacer las métricas que derivaban de `in-validation`
+- [x] Rehacer las métricas que derivaban de `in-validation`
   - **Target:** `src/metrics.mjs`
   - **Verify:** `node --test test/metrics.test.mjs`
   - **Criteria:** CR15
+  - **Resolved:** `2026-10-19T15:47:30Z`
 - [ ] Retirar carriles y paneles del viewer
   - **Target:** `src/viewer/domain.mjs`, `src/viewer/public/app.js`
   - **Verify:** `node --test test/viewer-metadata.test.mjs test/view.test.mjs`
