@@ -368,6 +368,18 @@ test('20260824-134716 CR7: log help derives the complete grammar without promisi
   );
 });
 
+test('20261019-184719 CR4: log help names graduate as the writer of the validation acceptance arm', () => {
+  const { out } = run('log', '--help');
+  const block = out.match(/^ {2}validation\n((?: {4}.*\n)+)/m);
+  assert.ok(block, 'log help should list the validation type');
+  const writers = block[1].split('Written by:')[1];
+  assert.match(writers, /changeledger graduate/);
+  // A "no command" claim is only true of the retired in-validation arm.
+  for (const line of writers.split('\n').filter((l) => /no command/i.test(l))) {
+    assert.match(line, /in-validation/);
+  }
+});
+
 test('125139 CR1/CR6: approve is the human decision the CLI transmits', () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-agent-cli-'));
