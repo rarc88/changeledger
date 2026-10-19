@@ -283,6 +283,30 @@ con su razón, que ya es gramática válida del Plan, más una nota en el Log.
 - **When** se calculan las métricas
 - **Then** `rejectionCount` vale 1
 
+### CR27 — La vía genérica no entrega trabajo que exige revisión
+- **Given** un change de un tipo con `review_required` en `in-review`, con todas sus tareas cerradas
+- **When** se ejecuta `changeledger status <id> done`
+- **Then** sale con código distinto de cero y el documento queda sin modificar
+- **And** el mensaje nombra `changeledger review <id> pass`
+- **And** una entrada `status` con destino `done` dentro de un manifiesto de `apply` sobre ese change se rechaza igual
+
+### CR28 — La métrica cuenta el rechazo en su forma histórica
+- **Given** un ledger con una entrada `[validation]` de payload `in-validation → in-progress: motivo`, la forma que llevan 258 de los 278 rechazos registrados en los tres repos
+- **When** se calculan las métricas
+- **Then** esa entrada suma en `rejectionCount`
+- **And** una entrada `[validation]` con payload `in-validation → done` no suma
+
+### CR29 — `analyze` sigue atribuyendo el retrabajo tras un rechazo humano
+- **Given** un change cuyo Log lleva `[status] done → in-progress (human): motivo` y después un tramo en `in-progress`
+- **When** se analiza el consumo
+- **Then** ese tramo se clasifica como `rework`
+
+### CR30 — El conjunto efectivo de estados es el que la herramienta lee
+- **Given** este repo, que está activado y por tanto resuelve su configuración desde la ref de estado
+- **When** se lee la configuración efectiva
+- **Then** `statuses` es exactamente `[draft, approved, in-progress, in-review, done, discarded]`
+- **And** `changeledger status --help` no ofrece `in-validation` ni `blocked` como destino
+
 ## Plan
 
 - [x] Reducir el conjunto de estados en la configuración y rechazar los retirados en `check`
@@ -355,6 +379,20 @@ con su razón, que ya es gramática válida del Plan, más una nota en el Log.
   - **Target:** `test/**`
   - **Verify:** `pnpm verify`
   - **Resolved:** `2026-10-19T16:34:03Z`
+
+- [ ] Cerrar los huecos del motor que encontró la revisión
+  - **Target:** `src/commands/agent.mjs`, `src/metrics.mjs`, `src/usage-analysis.mjs`
+  - **Verify:** `node --test test/agent.test.mjs test/metrics.test.mjs test/usage-analysis.test.mjs test/apply.test.mjs`
+  - **Criteria:** CR27, CR28, CR29
+- [x] Retirar los estados del config autoritativo de la ref de estado
+  - **Target:** `.changeledger/config.yml`
+  - **Verify:** verify: `node bin/changeledger.mjs status --help` no ofrece los retirados
+  - **Criteria:** CR30
+  - **Resolved:** `2026-10-19T17:20:00Z`
+- [ ] Alinear documentación, ayuda y etiquetas de test con el ciclo nuevo
+  - **Target:** `README.md`, `bin/changeledger.mjs`, `templates/contract/agent-prompts/review.md`, `templates/config.yml`
+  - **Verify:** `node --test test/cli-bin.test.mjs test/context.test.mjs test/viewer-metadata.test.mjs`
+  - **Criteria:** CR17
 
 ## Log
 - **2026-10-18T14:44:55Z** `[version]` 0.18.0
