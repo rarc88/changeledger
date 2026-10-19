@@ -274,10 +274,11 @@ con su razón, que ya es gramática válida del Plan, más una nota en el Log.
   - **Verify:** `node --test test/lifecycle.test.mjs test/release.test.mjs`
   - **Criteria:** CR7, CR8, CR9, CR21
   - **Resolved:** `2026-10-19T11:25:52Z`
-- [ ] Detectar el merge y avisar desde `check` sin escribir
+- [x] Detectar el merge y avisar desde `check` sin escribir
   - **Target:** `src/git.mjs`, `src/check.mjs`, `src/commands/check.mjs`
   - **Verify:** `node --test test/git.test.mjs test/check.test.mjs`
   - **Criteria:** CR22
+  - **Resolved:** `2026-10-19T12:25:11Z`
 - [ ] Sellar `accepted_at` en la graduación
   - **Target:** `src/lifecycle.mjs`, `src/writer.mjs`, `src/commands/graduate.mjs`
   - **Verify:** `node --test test/graduate.test.mjs test/lifecycle.test.mjs test/writer.test.mjs`
