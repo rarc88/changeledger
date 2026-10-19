@@ -67,11 +67,12 @@ que es una capacidad que falta y no un cabo suelto de este trabajo.
 - **And** el mensaje nombra que la entrega desde `in-review` la registra `changeledger review <id> pass`
 - **And** el mismo documento con `[review]` in-review → done` en su lugar sale con código 0
 
-### CR2 — El sello de aceptación se reintenta mientras el change siga abierto
-- **Given** un change `done` ya graduado y sin `accepted_at`, cuya rama se fusiona en la rama de integración después de la graduación
-- **When** se ejecuta `changeledger check <id>`
-- **Then** el aviso de aceptación pendiente lo nombra
-- **And** `changeledger graduate <id> --skip` sobre un change ya graduado no es la vía: el sello lo aplica `changeledger accept <id>`, que estampa `accepted_at` y su entrada `[validation]` y falla con código distinto de cero si la rama no está fusionada
+### CR2 — `sync` sella la aceptación que la graduación no alcanzó
+- **Given** un change `done` sin `accepted_at`, ya graduado, cuya rama se fusionó en la rama de integración después de la graduación
+- **When** se ejecuta `changeledger sync`
+- **Then** el frontmatter recibe `accepted_at` con el instante del commit de merge y el Log su entrada `[validation] accepted (merged <sha-corto>)`
+- **And** un change `done` cuya rama no está fusionada no recibe nada
+- **And** el sellado ocurre también en un repo sin remoto, donde la publicación es un no-op: la detección del merge es local
 
 ### CR3 — El aviso de aceptación pendiente alcanza a los archivados
 - **Given** un change archivado, `done`, sin `accepted_at` y con su rama fusionada
@@ -112,9 +113,9 @@ que es una capacidad que falta y no un cabo suelto de este trabajo.
   - **Target:** `src/check.mjs`
   - **Verify:** `node --test test/check.test.mjs`
   - **Criteria:** CR1
-- [ ] Separar el sello de aceptación de la graduación y darle un comando propio
-  - **Target:** `src/commands/graduate.mjs`, `src/check.mjs`, `bin/changeledger.mjs`
-  - **Verify:** `node --test test/graduate.test.mjs test/check.test.mjs test/cli-bin.test.mjs`
+- [ ] Sellar la aceptación pendiente desde `sync` y llevar el aviso a los archivados
+  - **Target:** `src/commands/sync.mjs`, `src/check.mjs`
+  - **Verify:** `node --test test/sync.test.mjs test/check.test.mjs`
   - **Criteria:** CR2, CR3
 - [ ] Corregir lo que la CLI publica sobre `[validation]` y sobre las operaciones retiradas
   - **Target:** `bin/changeledger.mjs`, `src/commands/apply.mjs`
