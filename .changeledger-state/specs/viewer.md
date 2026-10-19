@@ -170,7 +170,8 @@ los imports relativos del módulo (`lifecycle.mjs` y `cli-version.mjs`), y un
 test recorre el grafo de cada módulo compartido para exigir que cada import
 relativo se sirva y que ninguno importe `node:*`. Los KPI incluyen closed,
 cycle p50/p85, WIP, tiempo bloqueado y el número de rechazos humanos, más los
-retries de review. Bajo la fila de KPI cards el contenido se organiza en una cuadrícula
+retries de review. `blocked` no es un estado: el tiempo bloqueado sólo suma
+histórico de changes que lo atravesaron y vale cero en uno que nunca lo hizo. Bajo la fila de KPI cards el contenido se organiza en una cuadrícula
 2×2 de paneles tipo card a ancho completo — throughput como SVG propio con
 barra, fecha y valor por día; tiempos medios por estado con barras a escala
 común y valor visible; aging + WIP; tablas por tipo y por owner — que degrada a
