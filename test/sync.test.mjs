@@ -1248,6 +1248,83 @@ test('20261019-184719 CR2: the tip sync publishes is the sealed one', () => {
   assert.equal(refOid(remote, STATE_REF), sealedTip, 'the remote must hold the sealed tip');
 });
 
+// A repo that never ran `cutover`: no state ref, no activation, the ledger in
+// worktree files. This is what all three consuming repos are, so a seal that
+// only ran in an activated repo would never run where the defect was found.
+// `mergedWorktreeRepo` reproduces the same order as `sealFixture` — graduation
+// first, merge second — one layout down.
+function mergedWorktreeRepo(files) {
+  const { root } = seedLedgerRepo({ files });
+  git(root, ['checkout', '-q', '-b', `feature/${SEAL_ID}`, 'main']);
+  fs.writeFileSync(path.join(root, 'work.txt'), 'work\n');
+  git(root, ['add', 'work.txt']);
+  git(root, ['commit', '-q', '-m', `fix(x): work [#${SEAL_ID}]`]);
+  git(root, ['checkout', '-q', 'main']);
+  git(root, ['merge', '--no-ff', '-q', '-m', `merge [#${SEAL_ID}]`, `feature/${SEAL_ID}`]);
+  return root;
+}
+
+const SEAL_CHANGE_FILE = `.changeledger/changes/${SEAL_ID}-sealed.md`;
+
+function worktreeDocument(root) {
+  return fs.readFileSync(path.join(root, SEAL_CHANGE_FILE), 'utf8');
+}
+
+test('20261019-184719 CR2: a worktree-layout repo seals without ever being activated', () => {
+  const root = mergedWorktreeRepo({
+    '.changeledger/config.yml': SEAL_STATE_CONFIG,
+    [SEAL_CHANGE_FILE]: sealChangeText(),
+  });
+
+  const { code, out, err } = cli(root, 'sync');
+
+  assert.equal(code, 0, `${out}${err}`);
+  assert.equal(optionalOid(root, STATE_REF), null, 'sealing must not create a state ref');
+  const document = worktreeDocument(root);
+  assert.ok(
+    document.includes(`accepted_at: ${mergeInstant(root)}`),
+    `expected the worktree document to be sealed, got:\n${document}`,
+  );
+  assert.ok(
+    document.includes(`\`[validation]\` accepted (merged ${mergeShortSha(root)})`),
+    `expected the acceptance Log entry, got:\n${document}`,
+  );
+  assert.ok(out.includes(NOTHING_MESSAGE), `sync must still report its own outcome: ${out}`);
+});
+
+// The one case above the gate that must NOT seal: the ref exists but this
+// checkout has not adopted it, so the worktree files and the snapshot are two
+// candidate homes for the write and nothing says which is truth yet.
+test('20261019-184719 CR2: a checkout holding an unadopted state ref seals nothing', () => {
+  const root = mergedWorktreeRepo({
+    '.changeledger/config.yml': SEAL_STATE_CONFIG,
+    [SEAL_CHANGE_FILE]: sealChangeText(),
+  });
+  const revision = commitTree(
+    root,
+    buildTree(
+      root,
+      defaultStateFiles({
+        projectId: 'fixture01',
+        extra: {
+          '.changeledger-state/config.yml': SEAL_STATE_CONFIG,
+          [`.changeledger-state/changes/${SEAL_ID}-sealed.md`]: sealChangeText(),
+        },
+      }),
+    ),
+    { message: 'chore: state' },
+  );
+  updateRef(root, STATE_REF, revision);
+  const before = worktreeDocument(root);
+
+  const { code, out, err } = cli(root, 'sync');
+
+  assert.equal(code, 0, `${out}${err}`);
+  assert.equal(worktreeDocument(root), before, 'the worktree document must be untouched');
+  assert.equal(refOid(root, STATE_REF), revision, 'the unadopted ref must not move');
+  assert.ok(out.includes('sync changed nothing'), `expected the activate reminder, got: ${out}`);
+});
+
 // `--status` is the offline freshness report: it resolves no remote and writes
 // nothing, so the seal is deliberately not on its path.
 test('20261019-184719 CR2: --status reports without sealing anything', () => {

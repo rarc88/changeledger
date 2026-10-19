@@ -23,9 +23,11 @@
 // is pushed. Publishing a local tip that is ahead runs none of them.
 //
 // It is never blocking. No remote, no remote ref, an unreachable remote or a
-// checkout that is not activated are informative no-ops with exit 0: no other
+// checkout that is not activated transport nothing and exit 0: no other
 // command consults `sync`, waits for it, or changes behavior when it has never
-// run. What it must never do is guess — a document that changed on both sides
+// run. "Transports nothing" is the whole of that promise — the acceptance seal
+// below is local reconciliation of the ledger, not publication, and runs in
+// whichever layout the repo operates in. What it must never do is guess — a document that changed on both sides
 // stops and reports, because the state ceiling puts automatic multi-source
 // conflict resolution outside the tool.
 
@@ -318,6 +320,11 @@ function readableRepo(cwd, output, run) {
 // fetched), so a repo seals nothing rather than failing. Detection reads local
 // refs only — no remote is consulted — which is why this runs BEFORE the
 // remote is resolved: a repo with no remote publishes nothing and still seals.
+// For the same reason it runs before the activation gate: the defect is a
+// property of the ledger, not of the transport, and a worktree-layout repo
+// — which is what a repo that never ran `cutover` is — would otherwise be the
+// one layout where the warning can never clear. `writeLedgerFiles` already
+// routes the write to worktree files when there is no snapshot.
 //
 // Archived changes are sealed too, by the same reasoning `pendingAcceptances`
 // documents: in the very case this exists for, the merge lands after the
@@ -359,12 +366,25 @@ export function sync(
     );
   }
   const repoRoot = path.dirname(changeledgerDir);
+  const activated = resolveOwnedActivation(repoRoot, run) !== null;
+
+  // The seal is above the activation gate because it reconciles the local
+  // ledger rather than publishing state, and the repos that need it most are
+  // the ones still on the worktree layout. Two exclusions. `--status` is a
+  // freshness report that writes nothing by definition. And a checkout holding
+  // the state ref without having adopted it has two candidate homes for the
+  // write and no basis to choose between them, so it seals nothing and says
+  // only what it has always said.
+  let local = readStateRef(repoRoot, run);
+  if (!status && (activated || local === null)) {
+    sealPendingAcceptances(cwd, output, run);
+    local = readStateRef(repoRoot, run);
+  }
 
   // Activation is the local checkout's own decision and never travels with the
   // ref: a fetch must not be able to change how a repo operates. So an
   // unactivated checkout is told what the manual step is and nothing else.
-  let local = readStateRef(repoRoot, run);
-  if (resolveOwnedActivation(repoRoot, run) === null) {
+  if (!activated) {
     if (local !== null) {
       output.log(
         `${STATE_REF} is present but this checkout is not activated — run \`changeledger activate\` to adopt it. sync changed nothing.`,
@@ -385,13 +405,7 @@ export function sync(
     );
   }
 
-  // `--status` is a freshness report that writes nothing, so the seal is not
-  // on its path. Anywhere after it the seal runs first and the local tip is
-  // re-read, so whatever it committed is what the comparison below publishes.
   if (status) return reportStatus(repoRoot, { local }, output, run);
-
-  sealPendingAcceptances(cwd, output, run);
-  local = readStateRef(repoRoot, run);
 
   const remote = resolveRemote(repoRoot, run);
   if (remote === null) {

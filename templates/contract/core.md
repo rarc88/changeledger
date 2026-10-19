@@ -145,7 +145,8 @@ previous attempt's files.
 - `in-review`: independent review required.
 - `done`: delivered by the agent. Human acceptance is the merge of the change's branch
   into the integration branch; graduation stamps that instant as `accepted_at`
-  telemetry, which gates nothing.
+  telemetry, which gates nothing. A branch that lands after the graduation is
+  stamped by the next `changeledger sync`, in any layout and with no remote.
 - `discarded`: terminal tombstone; never reopen it.
 
 Who owns each transition and how it is performed:
@@ -198,7 +199,7 @@ fail-closed report when the same document changed on both sides — the human
 coordinates that resolution, and once resolved `sync` publishes. Run `sync` at the
 strategic points: when a session opens, before delegating a review, at durable
 closure (graduation or archive) and at every handoff. Sync never blocks the
-local flow: without a remote every point is a no-op, a network failure is a
+local flow: without a remote every point transports nothing, a network failure is a
 warning, and no other command waits for it. `sync --status` reports freshness
 offline at any time. The activation never travels — each clone runs
 `changeledger activate` once; `sync` reminds when the repo is inactive but the
