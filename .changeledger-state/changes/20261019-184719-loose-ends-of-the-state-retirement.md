@@ -130,10 +130,11 @@ que es una capacidad que falta y no un cabo suelto de este trabajo.
   - **Verify:** verify: el comentario de la ref de estado no contiene `human validation`
   - **Criteria:** CR6
   - **Resolved:** `2026-10-19T19:40:52Z`
-- [ ] Podar `LEGACY_EDGES` de lo que ya es canónico
+- [x] Podar `LEGACY_EDGES` de lo que ya es canónico
   - **Target:** `src/check.mjs`
   - **Verify:** `node --test test/check.test.mjs`
   - **Criteria:** CR7
+  - **Resolved:** `2026-10-19T20:01:03Z`
 - [x] Aflojar el pin de prosa del veredicto del revisor
   - **Target:** `test/agent-context.test.mjs`
   - **Verify:** `node --test test/agent-context.test.mjs`
