@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-10-18T13:16:21Z
 depends_on: []
+archived: true
 reviewed: true
 branch: feature/20261018-131621
 related_to: ["20260726-124835", "20260619-171002", "20260614-151759", "20260715-125139", "20260722-124655"]
@@ -427,3 +428,4 @@ con su razón, que ya es gramática válida del Plan, más una nota en el Log.
 - **2026-10-19T18:46:31Z** `[graduation]` spec: `validation.md`
 - **2026-10-19T18:46:31Z** `[graduation]` spec: `architecture.md`
 - **2026-10-19T18:46:32Z** `[graduation]` spec: `metrics.md`
+- **2026-10-19T18:46:40Z** `[archive]` archived
