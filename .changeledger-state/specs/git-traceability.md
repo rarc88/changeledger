@@ -250,9 +250,9 @@ selección de trabajo resuelta —su código, sus tests, sus casillas y su Log�
 creado cuando el gate local pasa, y que se commitea al resolverse, sin esperar a
 las demás, así que el número de commits de implementación por change no se fija;
 **Correction**, cero o más, cada una sin commitear hasta que un revisor fresco la
-confirma; y **Handoff**, obligatoria siempre que el trabajo se detiene en
-`blocked` o una sesión termina con estado sin commitear, registrando por qué fue
-necesario.
+confirma; y **Handoff**, obligatoria siempre que el trabajo se detiene ante un
+impedimento —una tarea `[!]` del Plan con su razón, nunca un estado— o una
+sesión termina con estado sin commitear, registrando por qué fue necesario.
 
 Toda selección queda commiteada **antes** de delegar el review, de modo que
 `baseline..HEAD` está cerrado en el instante de delegar: el revisor inspecciona
@@ -293,17 +293,18 @@ divergir sin que nada las compare.
 
 Los overlays de etapa conservan solo lo que es comportamiento de su fase y no la
 unidad de commit: `review` gobierna qué ocurre con una corrección sin commitear
-según el veredicto, `validation` remite al commit final del cierre y aísla las
-correcciones no confirmadas tras un rechazo, y `close` define qué contiene ese
-commit de cierre y cuándo la graduación o el skip son por sí mismos la evidencia.
+según el veredicto y aísla la que nace de un rechazo humano, y `close` define
+qué contiene el commit final de cierre y cuándo la graduación o el skip son por
+sí mismos la evidencia.
 Un puntero de un overlay hacia contenido de otro fragmento se retira cuando su
 destino se mueve: al consolidar, el que remitía al checkpoint del contrato de
 implementación quedó apuntando a una sección vacía.
 
-Una corrección candidata nacida de un `review fail --retry` queda sin commit y
-aislada hasta que otro revisor de contexto limpio la confirme. Tras el `pass`, se
-commitea con la verdad relacionada antes de solicitar validación humana. Una
-corrección nacida de un rechazo humano permanece sin commit hasta la aceptación
-final. Los intentos fallidos iteran sobre el mismo diff y no se empieza otra
-tarea/change durante la espera; tras aceptación, se gradúa o salta graduación y
-se commitean juntos la corrección validada y su verdad relacionada.
+Una corrección candidata nacida de un `review fail` queda sin commit y aislada
+hasta que otro revisor de contexto limpio la confirme. Tras el `pass`, se
+commitea con la verdad relacionada antes de entregar el change al humano. Una
+corrección nacida de un rechazo humano —la vuelta `done → in-progress` con su
+razón— permanece sin commit hasta superar su propio gate. Los intentos fallidos
+iteran sobre el mismo diff y no se empieza otra tarea/change durante la espera;
+después, se gradúa o salta graduación y se commitean juntos la corrección
+confirmada y su verdad relacionada.
