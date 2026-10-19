@@ -10,16 +10,7 @@ import { mutateState, readStateConfigText, readStateRef } from './state-store.mj
 
 export const SUPPORTED_SCHEMA_VERSION = 6;
 
-const CANONICAL_STATUSES = [
-  'draft',
-  'approved',
-  'in-progress',
-  'in-review',
-  'in-validation',
-  'blocked',
-  'done',
-  'discarded',
-];
+const CANONICAL_STATUSES = ['draft', 'approved', 'in-progress', 'in-review', 'done', 'discarded'];
 
 const BUILTIN_TYPES = ['feature', 'bug', 'refactor'];
 

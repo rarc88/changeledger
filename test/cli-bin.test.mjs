@@ -240,6 +240,25 @@ test('20260824-134716 CR2: static CLI domains are complete in help and invalid-v
   assert.match(release, /branch format placeholders: \{type\}, \{id\}/);
 });
 
+test('20261018-131621 CR18: init hands out the six statuses and check never names a retired one', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
+  assert.equal(runIn(root, env, 'init').code, 0);
+  const config = parseYaml(fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8'));
+  assert.deepEqual(config.statuses, [
+    'draft',
+    'approved',
+    'in-progress',
+    'in-review',
+    'done',
+    'discarded',
+  ]);
+  const check = runIn(root, env, 'check');
+  assert.doesNotMatch(check.out + check.err, /in-validation|blocked/);
+});
+
 test('20260824-134716 CR2: repo-configured domains appear in help and invalid errors', () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
@@ -260,7 +279,7 @@ test('20260824-134716 CR2: repo-configured domains appear in help and invalid er
   );
   assert.match(
     help,
-    /effective statuses: draft, approved, in-progress, in-review, in-validation, blocked, done, discarded/,
+    /effective statuses: draft, approved, in-progress, in-review, done, discarded/,
   );
   assert.match(
     help,

@@ -2147,6 +2147,26 @@ test('20261018-131621 CR4: a type without review delivers through generic status
   assert.match(c.stages.find((s) => s.key === 'log').body, /`\[status\]` in-progress → done/);
 });
 
+test('20261018-131621 CR20: status done refuses a change with an open Plan task', () => {
+  const { root, file, id } = repoWithChore();
+  status(id, 'approved', root);
+  status(id, 'in-progress', root, { ownerHandle: () => '' });
+  const before = fs.readFileSync(file, 'utf8');
+  assert.throws(() => status(id, 'done', root), /status is "done" but 1 task\(s\) are not done/);
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
+test('20261018-131621 CR20: review pass refuses a change with an open Plan task', () => {
+  const { root, file, id } = repoWithChange();
+  reach(id, root, 'in-review');
+  const before = fs.readFileSync(file, 'utf8');
+  assert.throws(
+    () => review(id, 'pass', {}, root),
+    /status is "done" but 1 task\(s\) are not done/,
+  );
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
 test('CR7: review fail returns to in-progress with the reason', () => {
   const { root, file, id } = repoWithChange();
   reach(id, root, 'in-review');

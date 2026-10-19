@@ -53,7 +53,7 @@ git:
   change_branch_format: "{type}/{id}"
 
 # Valid lifecycle statuses (order = progress)
-statuses: [draft, approved, in-progress, in-review, in-validation, blocked, done, discarded]
+statuses: [draft, approved, in-progress, in-review, done, discarded]
 
 # Canonical stages (## headings in the change body)
 stages: [request, investigation, proposal, specification, plan, log]

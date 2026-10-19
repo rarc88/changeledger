@@ -505,7 +505,7 @@ test('113219 CR4: migration adds required fields and removes id_digits', () => {
   assert.match(migrated, /^schema_version: 6/m);
   assert.match(migrated, /tdd: true/);
   assert.match(migrated, /in-review/);
-  assert.match(migrated, /in-validation/);
+  assert.doesNotMatch(migrated, /in-validation/);
   assert.match(migrated, /discarded/);
   assert.doesNotMatch(migrated, /id_digits/);
   assert.ok(result.changes.some((c) => c.includes('review_required')));
@@ -570,7 +570,7 @@ project_name: myrepo
   assert.match(migrated, /custom_policy: strict/);
   // Missing canonicals added
   assert.match(migrated, /in-review/);
-  assert.match(migrated, /in-validation/);
+  assert.doesNotMatch(migrated, /in-validation/);
   assert.match(migrated, /discarded/);
   // tdd not added (already present as false)
   assert.equal(migrated.match(/tdd:/g)?.length, 1, 'tdd should appear exactly once');

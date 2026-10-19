@@ -448,8 +448,6 @@ test('CR1: init seeds in-review and review_required per type (review-gate)', () 
     'approved',
     'in-progress',
     'in-review',
-    'in-validation',
-    'blocked',
     'done',
     'discarded',
   ]);
