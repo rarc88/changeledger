@@ -12,7 +12,8 @@ graduated_from: ["20260616-210825", "20260630-225210"]
 `src/lifecycle.mjs` — el mismo parser que usa la validación secuencial de
 `changeledger check`, para que métricas y validación no diverjan: una entrada que
 métricas contaría pero que rompe la secuencia la señala `check` como error, no
-produce silenciosamente una timeline engañosa. Reconoce `status: from → estado`, `review → estado` y `validation → estado`;
+produce silenciosamente una timeline engañosa. Reconoce `status: from → estado`, `review → estado` y
+`validation → estado`;
 un evento sin estado de destino —la línea `[validation] accepted (merged <sha>)`
 que estampa la graduación— no siembra ningún tramo de la timeline, porque el
 tramo exige `event.to`. De la timeline salen:
@@ -29,8 +30,8 @@ las retiradas de `done`. La aceptación no es un estado, así que la devolución
 el único rastro de un rechazo, y cuenta por tres formas del Log:
 
 - `[status] done → in-progress (human)`, la forma vigente.
-- `[status] done → in-progress (human reopened)`, la forma de los ledgers
-  anteriores.
+- `[status] done → in-progress (human reopened)`, la forma que llevan los
+  Log de los repos consumidores.
 - `[validation] in-validation → in-progress`, la forma histórica de la puerta de
   validación, que carga 258 de los 278 rechazos registrados en los repos que
   usan ChangeLedger. Sin ella la métrica leería cero sobre casi todo el
