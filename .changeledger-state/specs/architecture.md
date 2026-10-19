@@ -330,7 +330,7 @@ JSON — documentos enteros (`new`/`change:<id>`/`spec:<slug>`) y eventos
 propiedad del agente (`status`/`log`/`task`/`owner`) — como UNA entrada de
 journal, todo-o-nada, aplicando por entrada exactamente las guardas de
 `edit`/`new` y de cada comando individual. Las transiciones del humano
-(`approve`, `validation`, `discard`) se rechazan en el manifiesto: nunca
+(`approve`, `discard`) se rechazan en el manifiesto: nunca
 viajan en un lote. Las entradas se aplican en orden sobre un candidato
 acumulado; un efecto neto vacío es no-op sin commit. `--dry-run` valida el
 manifiesto completo — errores y warnings de `check` sobre el candidato — sin
