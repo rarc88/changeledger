@@ -123,10 +123,11 @@ que es una capacidad que falta y no un cabo suelto de este trabajo.
   - **Verify:** `node --test test/cli-bin.test.mjs test/apply.test.mjs`
   - **Criteria:** CR4, CR5
   - **Resolved:** `2026-10-19T19:39:36Z`
-- [ ] Llevar la corrección del comentario a la configuración que la herramienta lee
+- [x] Llevar la corrección del comentario a la configuración que la herramienta lee
   - **Target:** `.changeledger/config.yml`
   - **Verify:** verify: el comentario de la ref de estado no contiene `human validation`
   - **Criteria:** CR6
+  - **Resolved:** `2026-10-19T19:40:52Z`
 - [ ] Podar `LEGACY_EDGES` de lo que ya es canónico
   - **Target:** `src/check.mjs`
   - **Verify:** `node --test test/check.test.mjs`
