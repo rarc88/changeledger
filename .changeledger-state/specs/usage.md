@@ -27,8 +27,8 @@ transición el valor inválido sólo omite la foto con un aviso.
 
 ## Cuándo y qué se registra
 
-Después de que la escritura tenga éxito, cada evento de transición (`[status]`,
-`[review]`, `[validation]`) y cada creación de un change (`new`, `apply` con
+Después de que la escritura tenga éxito, cada evento de transición (`[status]`
+y `[review]`) y cada creación de un change (`new`, `apply` con
 `target: "new"`) toman una foto. Las transiciones del viewer pasan por los
 mismos comandos. Los demás comandos no fotografían.
 
@@ -44,7 +44,8 @@ modelo sin precio guarda `null`, nunca `0`. Los subagentes se suman a su sesión
 así que el rol sólo se distingue por el modelo.
 
 El registro es JSON `schema: 1` con el change, el instante del evento, el evento
-(`created`, `status`, `review` o `validation`), los estados de origen y destino,
+(`created`, `status` o `review`; los registros anteriores al ciclo de seis
+estados también llevan `validation`), los estados de origen y destino,
 el colector con su versión y su modo de precios, las sesiones, las fuentes
 excluidas y un `error`. La versión de ChangeLedger de cada registro se obtiene
 cruzando su instante con las líneas `[version]` del Log, sin copiarla. El
@@ -110,8 +111,13 @@ que el panel del viewer lo reutilice.
   entera y una sesión que decrece cuenta 0 en ese tramo.
 - La diferencia va al change del registro y al tramo que cierra su transición:
   `pre-draft` para `created`, si no el estado `from`, y `rework` para un tramo
-  `in-progress` cerrado en o después del primer `[review]` hacia `in-progress`
-  o `blocked`, o `[validation]` hacia `in-progress`, del mismo change.
+  `in-progress` cerrado en o después del primer veredicto fallido del mismo
+  change. El veredicto fallido se reconoce por la arista completa —tipo, origen
+  y destino—, nunca por el destino solo: `[status] done → in-progress` es el
+  rechazo de lo entregado, mientras que `approved → in-progress` es el trabajo
+  empezando. Cuentan también las formas que ya lleva el histórico
+  (`[review] in-review → in-progress|blocked` y `[validation] in-validation →
+  in-progress`), de modo que la atribución no pierde los ciclos anteriores.
 - El primer registro con datos de cada registrador es su base y no se atribuye.
   Un registro con `error` no es base ni cierra tramo: su hueco cae en el
   siguiente registro con datos del registrador.
