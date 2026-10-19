@@ -53,7 +53,7 @@ La CLI enumera los dominios cerrados auditados desde sus autoridades ejecutables
 roles, veredictos, acciones de tarea, impactos de release y placeholders de
 rama; los tipos, estados y etapas provienen de la configuración efectiva del
 repo. Los modos de migración de `fix` son mutuamente excluyentes, al igual que
-`review --retry` y `--block`; una combinación ambigua falla antes de escribir.
+los de `graduate`; una combinación ambigua falla antes de escribir.
 La ayuda de `log` explica que el comando sólo escribe `note`, muestra un ejemplo
 concreto y enumera los nueve tipos válidos con sus payloads y comandos productores
 a partir de `LOG_EVENT_DEFINITIONS`. El flujo por lotes de `apply` se presenta
