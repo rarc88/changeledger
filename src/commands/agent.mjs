@@ -2,9 +2,8 @@
 // (list/show). Files remain the source of truth; these are optional helpers
 // that inject correct timestamps/markers and validate transitions.
 
-import fs from 'node:fs';
 import path from 'node:path';
-import { mutateFileAtomic, withFileLock } from '../atomic-write.mjs';
+import { mutateFileAtomic } from '../atomic-write.mjs';
 import { parseChange } from '../change.mjs';
 import { mutateLedgerFile, repoIsActivated, writeLedgerFiles } from '../change-store.mjs';
 import { assertChangeTextValid, assertStagesNotEmpty } from '../check.mjs';
@@ -26,7 +25,7 @@ import {
 } from '../git.mjs';
 import { assertTransition, parseLogEvent } from '../lifecycle.mjs';
 import { nowUtc } from '../paths.mjs';
-import { assertNotShipped, resolveReleasesDir } from '../release.mjs';
+import { assertNotShipped } from '../release.mjs';
 import { loadRepo, resolveChange, resolveChangeInRepo } from '../repo.mjs';
 import { snapshotUsage } from '../usage-collector.mjs';
 import {
@@ -203,9 +202,11 @@ export function assertStatusDestinationAllowed(config, newStatus, actor) {
 // stored document. `warnings` is the caller's array — the branch-drift warning
 // is collected, never thrown. `events`, when given, receives the transition
 // this transform wrote, for the usage snapshot taken after the write lands.
+// `reason` is the human's words when they send delivered work back; it is the
+// only trace a rejection leaves now that acceptance is derived from the merge.
 export function statusMutation(
   newStatus,
-  { config, repoRoot, gitCwd, name, warnings, events, actor = 'human', channel = 'viewer' },
+  { config, repoRoot, gitCwd, name, warnings, events, reason, actor = 'human', channel = 'viewer' },
   {
     ownerHandle = defaultOwnerHandle,
     checkoutBranch = defaultCheckoutBranch,
@@ -283,6 +284,7 @@ export function statusMutation(
       from: fm.status,
       to: newStatus,
       detail,
+      reason,
     });
 
     // Work begins here: assign the owner from the local git identity unless one was
@@ -342,6 +344,7 @@ export function status(
     gitRun = defaultGitRun,
     actor = 'human',
     channel = 'viewer',
+    reason,
     usage,
   } = {},
 ) {
@@ -354,7 +357,7 @@ export function status(
     target,
     statusMutation(
       newStatus,
-      { config, repoRoot, gitCwd, name, warnings, events, actor, channel },
+      { config, repoRoot, gitCwd, name, warnings, events, reason, actor, channel },
       { ownerHandle, checkoutBranch, gitRun },
     ),
     { message: `status: ${id} → ${newStatus}` },
@@ -437,129 +440,6 @@ export function review(id, verdict, { reason } = {}, cwd = process.cwd(), { usag
   );
   snapshotUsage({ repoRoot, events, usage });
   return target.file;
-}
-
-// Records a validation verdict while keeping the deciding actor and interaction
-// channel explicit. Viewer and conversation share every lifecycle/check guard.
-export function validation(
-  id,
-  verdict,
-  { reason, actor = 'human', channel = 'viewer' } = {},
-  cwd = process.cwd(),
-  { usage } = {},
-) {
-  const { config, repo, target, name, repoRoot } = locate(cwd, id);
-  const events = [];
-  mutateLedgerFile(
-    repo,
-    target,
-    (text) => {
-      const fm = parseChange(text).frontmatter;
-      const current = fm.status;
-      let to;
-      if (verdict === 'pass') {
-        to = 'done';
-      } else if (verdict === 'fail') {
-        if (!String(reason ?? '').trim()) throw new Error('validation fail requires a reason');
-        to = 'in-progress';
-      } else {
-        throw new Error(`Unknown validation verdict "${verdict}" (use pass|fail)`);
-      }
-      if (current !== 'in-validation') {
-        throw new Error(`validation requires status in-validation (current: ${current})`);
-      }
-      assertTransition(current, to, {
-        type: fm.type,
-        reviewRequired: Boolean(config.types?.[fm.type]?.review_required),
-      });
-      text = setStatus(text, to);
-      const detail =
-        verdict === 'pass'
-          ? channel === 'conversation'
-            ? 'human accepted via conversation'
-            : 'human accepted'
-          : channel === 'conversation' && actor === 'human'
-            ? 'human rejected via conversation'
-            : `${actor} rejected`;
-      const at = nowUtc();
-      text = appendLogEvent(text, {
-        at,
-        type: 'validation',
-        from: 'in-validation',
-        to,
-        detail,
-        reason: verdict === 'fail' ? reason : undefined,
-      });
-      if (verdict === 'pass') assertChangeTextValid(config, name, text);
-      events.push(transitionEvent(fm, 'validation', 'in-validation', to, at));
-      return text;
-    },
-    { message: `validation: ${id} ${verdict}` },
-  );
-  snapshotUsage({ repoRoot, events, usage });
-  return target.file;
-}
-
-// The viewer's seat for the same return `status` offers, and bound by the same
-// single boundary: release membership. Graduation and archival are reversible
-// (`--into` never overwrites a spec body, `archived: false` undoes an archive),
-// so neither closes the change.
-function reopenMutation({ config, actor, reason, releases, events }) {
-  return (text) => {
-    const fm = parseChange(text).frontmatter;
-    if (fm.status !== 'done')
-      throw new Error(`reopen requires status done (current: ${fm.status})`);
-    assertNotShipped(releases, fm.id);
-    assertTransition('done', 'in-progress', {
-      type: fm.type,
-      reviewRequired: Boolean(config.types?.[fm.type]?.review_required),
-    });
-    text = setStatus(text, 'in-progress');
-    const at = nowUtc();
-    text = appendLogEvent(text, {
-      at,
-      type: 'status',
-      from: 'done',
-      to: 'in-progress',
-      detail: `${actor} reopened`,
-      reason,
-    });
-    events.push(transitionEvent(fm, 'status', 'done', 'in-progress', at));
-    return text;
-  };
-}
-
-export function reopen(id, reason, cwd = process.cwd(), { actor = 'human', usage } = {}) {
-  if (!String(reason ?? '').trim()) throw new Error('reopen requires a reason');
-  const { config, repo, target, repoRoot } = locate(cwd, id);
-  const events = [];
-
-  // Active: the released-check/write pair needs no worktree lock — any
-  // concurrent write (a release included) advances the state ref, so the
-  // write below's CAS on `repo.state.revision` (captured by `locate()`
-  // before this check) conflicts on its own. A lock file here would touch
-  // the worktree for no protection this repo doesn't already have.
-  if (repo.state) {
-    const { releases } = loadRepo(cwd);
-    mutateLedgerFile(repo, target, reopenMutation({ config, actor, reason, releases, events }), {
-      message: `reopen: ${id}`,
-    });
-    snapshotUsage({ repoRoot, events, usage });
-    return target.file;
-  }
-
-  const releasesDir = resolveReleasesDir(repoRoot);
-  fs.mkdirSync(releasesDir, { recursive: true });
-  const file = withFileLock(path.join(releasesDir, '.history'), () => {
-    const { releases } = loadRepo(cwd);
-    mutateLedgerFile(repo, target, reopenMutation({ config, actor, reason, releases, events }), {
-      message: `reopen: ${id}`,
-    });
-    return target.file;
-  });
-  // Outside the release lock: the snapshot may take seconds and guards nothing.
-  snapshotUsage({ repoRoot, events, usage });
-  return file;
 }
 
 // Text transform of `owner`, lifted out for the same reason as

@@ -406,7 +406,7 @@ export function metricsHtml(metrics = {}, totalChanges = 0, usage) {
     ['Cycle p85', fmtDuration(metrics.p85CycleMs)],
     ['WIP', wipTotal],
     ['Blocked time', fmtDuration(metrics.blockedMs)],
-    ['Validation wait', fmtDuration(metrics.validationWaitMs)],
+    ['Rejections', metrics.rejectionCount ?? 0],
     ['Review retries', metrics.reviewRetries ?? 0],
   ].map(
     ([label, val]) =>

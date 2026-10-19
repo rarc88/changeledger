@@ -303,9 +303,12 @@ test('CR4: human-owned transitions never travel in a batch', () => {
     () => apply({ from: manifest(root, [{ op: 'discard', id, reason: 'x' }]) }, root),
     /"discard".*`changeledger discard`/s,
   );
+  // `done` is no longer behind a human gate: the batch still fails closed,
+  // now because `draft → done` is not an edge of the lifecycle at all
+  // (20261018-131621 CR16).
   assert.throws(
     () => apply({ from: manifest(root, [{ op: 'status', id, to: 'done' }]) }, root),
-    /human validation/,
+    /invalid lifecycle transition: draft → done/,
   );
   assert.equal(stateTip(root), tip);
 });

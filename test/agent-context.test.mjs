@@ -569,7 +569,7 @@ test('141120 CR5: a quick change can never reach the status the review role need
   const id = addQuickChange(root);
   assert.throws(
     () => status(id, 'in-review', root),
-    /^Error: quick changes do not require review — move to in-validation instead$/,
+    /^Error: quick changes do not require review — move to done instead$/,
   );
   assert.throws(
     () => buildAgentContext('review', id, root),

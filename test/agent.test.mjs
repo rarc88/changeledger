@@ -20,12 +20,10 @@ import {
   list,
   log,
   owner,
-  reopen,
   review,
   show,
   status,
   task,
-  validation,
 } from '../src/commands/agent.mjs';
 import { edit } from '../src/commands/edit.mjs';
 import { fix } from '../src/commands/fix.mjs';
@@ -1063,8 +1061,6 @@ test('161652 CR2: lifecycle mutations reject a future schema before writing', ()
     ['status', ({ id, root }) => status(id, 'approved', root)],
     ['approve', ({ id, root }) => approve(id, root)],
     ['review', ({ id, root }) => review(id, 'pass', {}, root)],
-    ['validation', ({ id, root }) => validation(id, 'pass', {}, root)],
-    ['reopen', ({ id, root }) => reopen(id, 'reason', root)],
     ['owner', ({ id, root }) => owner(id, 'ana', root)],
     ['discard', ({ id, root }) => discard(id, 'reason', root)],
     ['archive', ({ id, root }) => archive(id, root)],
@@ -2052,31 +2048,19 @@ function deliveredChange() {
   return result;
 }
 
-test('150232 CR1/CR2/CR5: human reopens provisional done with a required reason', () => {
+// 150232 CR1/CR2/CR5 and 105205 CR2 pinned `reopen`, which is retired with
+// `in-validation`: the return is the generic transition now. Requiring a
+// reason is the viewer's rule, pinned in test/view.test.mjs; what the command
+// owes is to carry that reason into the Log, since it is the only record a
+// human rejection leaves (20261018-131621 CR15/CR16).
+test('20261018-131621 CR16: the return from done carries the reason into the Log', () => {
   const { root, file, id } = deliveredChange();
-  const before = fs.readFileSync(file, 'utf8');
-  assert.throws(() => reopen(id, '', root), /requires a reason/);
-  assert.equal(fs.readFileSync(file, 'utf8'), before);
-  reopen(id, 'complete original acceptance', root);
+  status(id, 'in-progress', root, { reason: 'complete original acceptance' });
   const parsed = parseChange(fs.readFileSync(file, 'utf8'));
   assert.equal(parsed.frontmatter.status, 'in-progress');
   assert.match(
     parsed.stages.find((s) => s.key === 'log').body,
-    /done → in-progress \(human reopened\)/,
-  );
-});
-
-test('105205 CR2: agent reopens only a provisional done change and records its actor', () => {
-  const { root, file, id } = deliveredChange();
-  const before = fs.readFileSync(file, 'utf8');
-  assert.throws(() => reopen(id, '', root, { actor: 'agent' }), /requires a reason/);
-  assert.equal(fs.readFileSync(file, 'utf8'), before);
-  reopen(id, 'complete original scope', root, { actor: 'agent' });
-  const parsed = parseChange(fs.readFileSync(file, 'utf8'));
-  assert.equal(parsed.frontmatter.status, 'in-progress');
-  assert.match(
-    parsed.stages.find((s) => s.key === 'log').body,
-    /agent reopened\): complete original scope/,
+    /`\[status\]` done → in-progress: complete original acceptance$/m,
   );
 });
 
@@ -2095,7 +2079,7 @@ test('20261018-131621 CR9: only release membership closes the return from done',
       text = text.replace('depends_on: []', 'depends_on: []\narchived: true');
     fs.writeFileSync(file, text);
 
-    reopen(id, 'late', root);
+    status(id, 'in-progress', root, { reason: 'late' });
     assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'in-progress');
   }
 
@@ -2108,46 +2092,17 @@ test('20261018-131621 CR9: only release membership closes the return from done',
   );
   const before = fs.readFileSync(file, 'utf8');
   assert.throws(
-    () => reopen(id, 'late', root),
+    () => status(id, 'in-progress', root, { reason: 'late' }),
     (e) => e.message === `change ${id} shipped in release 0.19.0: new work needs a new change`,
   );
   assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
 
-test('150232 CR3: release publication wins a deterministic race with reopen', async () => {
-  const { root, file, id } = deliveredChange();
-  const before = fs.readFileSync(file, 'utf8');
-  const releasesDir = path.join(root, '.changeledger', 'releases');
-  fs.mkdirSync(releasesDir, { recursive: true });
-  const lock = path.join(releasesDir, '..history.lock');
-  fs.writeFileSync(lock, JSON.stringify({ pid: process.pid, created: new Date().toISOString() }));
-  const moduleUrl = new URL('../src/commands/agent.mjs', import.meta.url).href;
-  const script = `import { reopen } from ${JSON.stringify(moduleUrl)}; reopen(process.argv[1], 'race', process.argv[2]);`;
-  let settled = false;
-  const attempt = execFileAsync(process.execPath, ['--input-type=module', '-e', script, id, root]);
-  attempt.then(
-    () => {
-      settled = true;
-    },
-    () => {
-      settled = true;
-    },
-  );
-
-  await delay(100);
-  assert.equal(settled, false, 'reopen must wait for the release-history lock');
-  fs.writeFileSync(
-    path.join(releasesDir, '0.19.0.yml'),
-    `version: 0.19.0\ncreated: 2026-06-13T13:00:00Z\nchanges: ["${id}"]\n`,
-  );
-  fs.unlinkSync(lock);
-
-  await assert.rejects(
-    attempt,
-    new RegExp(`change ${id} shipped in release 0\\.19\\.0: new work needs a new change`),
-  );
-  assert.equal(fs.readFileSync(file, 'utf8'), before);
-});
+// 150232 CR3 pinned a race between `release record` and `reopen`, which took
+// the release-history lock. `reopen` is retired and the generic transition
+// does not take that lock: in an activated repo the CAS on the state revision
+// closes the window, and in a worktree layout the race stays open and
+// unguarded (20261018-131621 CR16).
 
 test('20261018-131621 CR4: a type without review delivers through generic status', () => {
   const { root, file, id } = repoWithChore();
@@ -2501,7 +2456,7 @@ test('CR9: status returns the worktree path when inactive and the state-tree pat
   assert.equal(activeResult.file, `changes/${active.name}`);
 });
 
-test('CR1: full lifecycle through review/reopen/discard stays on the ref', () => {
+test('CR1: full lifecycle through review/return/discard stays on the ref', () => {
   const { root, id, name } = activatedRepoWithChange();
   const relPath = `changes/${name}`;
   task(id, 'done', 1, '', root);
@@ -2515,12 +2470,12 @@ test('CR1: full lifecycle through review/reopen/discard stays on the ref', () =>
     'done',
   );
 
-  reopen(id, 'needs a fix', root);
+  status(id, 'in-progress', root, { reason: 'needs a fix' });
   assert.equal(
     parseChange(stateDocText(root, stateRefTip(root), relPath)).frontmatter.status,
     'in-progress',
   );
-  assert.equal(lastCommitMessage(root), `reopen: ${id}`);
+  assert.equal(lastCommitMessage(root), `status: ${id} → in-progress`);
 
   status(id, 'in-review', root);
   review(id, 'fail', { reason: 'oops' }, root);
@@ -2807,22 +2762,10 @@ const PRODUCERS = [
     types: ['status'],
   },
   {
-    name: 'reopen',
-    at: 'done',
-    run: ({ id, root }) => reopen(id, 'more work', root),
-    types: ['status'],
-  },
-  {
     name: 'review',
     at: 'in-review',
     run: ({ id, root }) => review(id, 'pass', {}, root),
     types: ['review'],
-  },
-  {
-    name: 'validation',
-    at: 'in-validation',
-    run: ({ id, root }) => validation(id, 'pass', {}, root),
-    types: ['validation'],
   },
   {
     name: 'owner',
@@ -3303,7 +3246,9 @@ for (const activated of [false, true]) {
       expectOne('review fail', () => review(id, 'fail', { reason: 'r' }, root, quiet));
       expectOne('status in-review', () => status(id, 'in-review', root, own));
       expectOne('review pass', () => review(id, 'pass', {}, root, quiet));
-      expectOne('reopen', () => reopen(id, 'again', root, quiet));
+      expectOne('status done → in-progress', () =>
+        status(id, 'in-progress', root, { ...own, reason: 'again' }),
+      );
       expectOne('status in-review', () => status(id, 'in-review', root, own));
       expectOne('review pass', () => review(id, 'pass', {}, root, quiet));
       expectNone('graduate', () => skipGraduation(id, 'nothing durable', root));

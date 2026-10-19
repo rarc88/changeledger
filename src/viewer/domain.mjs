@@ -6,12 +6,7 @@ import { mutateFileAtomic } from '../atomic-write.mjs';
 import { parseChange } from '../change.mjs';
 import { mutateLedgerFile, repoIsActivated } from '../change-store.mjs';
 import { checkRepo } from '../check.mjs';
-import {
-  reopen as applyReopen,
-  status as applyStatusCmd,
-  validation as applyValidation,
-  isPendingGraduation,
-} from '../commands/agent.mjs';
+import { status as applyStatusCmd, isPendingGraduation } from '../commands/agent.mjs';
 import {
   findChangeledgerDir,
   loadEffectiveConfig,
@@ -477,18 +472,21 @@ function changeStatusImpl(projects, { project, id, status, reason }, { usage } =
   try {
     if (current === 'draft' && status === 'approved') {
       applyStatusCmd(id, status, proj.path, { actor: 'human', usage });
-    } else if (current === 'in-validation' && status === 'done') {
-      applyValidation(id, 'pass', {}, proj.path, { usage });
-    } else if (current === 'in-validation' && status === 'in-progress') {
-      applyValidation(id, 'fail', { reason }, proj.path, { usage });
     } else if (current === 'done' && status === 'in-progress') {
-      applyReopen(id, reason, proj.path, { usage });
+      // Sending delivered work back. A reason is required here and nowhere
+      // else: acceptance is now derived from the merge, so this edge is the
+      // only record of a human rejection. Release membership — the single
+      // irreversible boundary — is `statusMutation`'s to enforce, not the
+      // viewer's to re-implement (20261018-131621 CR9, CR16).
+      if (!String(reason ?? '').trim()) {
+        throw new Error('returning a done change to in-progress requires a reason');
+      }
+      applyStatusCmd(id, status, proj.path, { actor: 'human', reason, usage });
     } else {
       return {
         code: 403,
         body: {
-          error:
-            'the viewer only allows draft → approved, in-validation → done|in-progress, and eligible done → in-progress',
+          error: 'the viewer only allows draft → approved and an unreleased done → in-progress',
         },
       };
     }
@@ -966,8 +964,6 @@ const CANONICAL_STATUSES_REQUIRED = new Set([
   'approved',
   'in-progress',
   'in-review',
-  'in-validation',
-  'blocked',
   'done',
   'discarded',
 ]);

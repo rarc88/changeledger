@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { parseChange } from '../src/change.mjs';
 import { writeLedgerFiles } from '../src/change-store.mjs';
 import { checkRepo } from '../src/check.mjs';
-import { reopen, status } from '../src/commands/agent.mjs';
+import { status } from '../src/commands/agent.mjs';
 import { initReleaseHistory, recordRelease, releasePlan } from '../src/commands/release.mjs';
 import { bumpVersion } from '../src/release.mjs';
 import { loadRepo } from '../src/repo.mjs';
@@ -336,9 +336,9 @@ test('CR7/CR8 (active): recordRelease on an active repo is exact and lands in on
 
 const RELEASED_VERSION = '0.19.0';
 
-// `status` and `reopen` resolve git identity and the current checkout; these
-// fixtures are plain directories, so both seams are stubbed out rather than
-// left to the host's git.
+// `status` resolves git identity and the current checkout; these fixtures are
+// plain directories, so both seams are stubbed out rather than left to the
+// host's git.
 const quiet = { ownerHandle: () => '', checkoutBranch: () => '' };
 
 function writeReleaseFile(root, version, changes) {
@@ -392,7 +392,7 @@ test('20261018-131621 CR8: accepted_at does not close the return to in-progress'
   );
 });
 
-test('20261018-131621 CR9: a change shipped in a release is refused by status and reopen alike', () => {
+test('20261018-131621 CR9: a change shipped in a release is refused, with or without a reason', () => {
   const root = fixture();
   const id = '20260624-000001';
   const file = writeChange(root, id);
@@ -406,8 +406,10 @@ test('20261018-131621 CR9: a change shipped in a release is refused by status an
   );
   assert.equal(fs.readFileSync(file, 'utf8'), before);
 
+  // The viewer's seat is this same command carrying the human's reason
+  // (20261018-131621 CR16); end to end it is pinned in test/view.test.mjs.
   assert.throws(
-    () => reopen(id, 'late', root),
+    () => status(id, 'in-progress', root, { ...quiet, reason: 'late' }),
     (e) => e.message === expected,
   );
   assert.equal(fs.readFileSync(file, 'utf8'), before);
