@@ -380,10 +380,11 @@ con su razón, que ya es gramática válida del Plan, más una nota en el Log.
   - **Verify:** `pnpm verify`
   - **Resolved:** `2026-10-19T16:34:03Z`
 
-- [ ] Cerrar los huecos del motor que encontró la revisión
+- [x] Cerrar los huecos del motor que encontró la revisión
   - **Target:** `src/commands/agent.mjs`, `src/metrics.mjs`, `src/usage-analysis.mjs`
   - **Verify:** `node --test test/agent.test.mjs test/metrics.test.mjs test/usage-analysis.test.mjs test/apply.test.mjs`
   - **Criteria:** CR27, CR28, CR29
+  - **Resolved:** `2026-10-19T17:39:46Z`
 - [x] Retirar los estados del config autoritativo de la ref de estado
   - **Target:** `.changeledger/config.yml`
   - **Verify:** verify: `node bin/changeledger.mjs status --help` no ofrece los retirados
