@@ -314,10 +314,11 @@ con su razón, que ya es gramática válida del Plan, más una nota en el Log.
   - **Verify:** `node --test test/metrics.test.mjs`
   - **Criteria:** CR15
   - **Resolved:** `2026-10-19T15:47:30Z`
-- [ ] Retirar carriles y paneles del viewer
+- [x] Retirar carriles y paneles del viewer
   - **Target:** `src/viewer/domain.mjs`, `src/viewer/public/app.js`
   - **Verify:** `node --test test/viewer-metadata.test.mjs test/view.test.mjs`
   - **Criteria:** CR16
+  - **Resolved:** `2026-10-19T15:47:31Z`
 - [ ] Barrer de la suite los casos atados a los dos estados
   - **Support:**
   - **Target:** `test/**`
