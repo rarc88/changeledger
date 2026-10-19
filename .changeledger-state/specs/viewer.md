@@ -15,10 +15,16 @@ body y exige una credencial efímera por proceso (inyectada en la página y
 enviada en `x-changeledger-token`) para escribir. Las escrituras exigen un `project`
 exacto, sin fallback al primero. Es de solo lectura salvo `POST /api/status`, que
 permite que **el humano** apruebe un change `draft` mediante la acción accesible
-`Approve`, visible en un panel contextual dentro de su detalle/modal equivalente
-al de aceptar o rechazar validación y nunca en el toolbar, o arrastrando su card a
-Approved; también permite aceptar o rechazar con motivo un change
-`in-validation` desde su detalle y reabrir uno provisional. Las cards de draft no
+`Approve`, visible en un panel contextual dentro de su detalle/modal y nunca en
+el toolbar, o arrastrando su card a Approved. El viewer admite exactamente dos
+transiciones humanas: esa y la devolución de trabajo entregado. La aceptación no
+tiene asiento porque no es una acción del viewer: la da el merge de la rama del
+change. Lo que sí ofrece es el **rechazo**, un panel en el detalle de un change
+`done` que no figure en ningún release registrado, con una razón obligatoria que
+devuelve el change a `in-progress` atribuido al humano; el panel no se renderiza
+sobre un change publicado y el servidor rechaza con 403 cualquier otro par
+origen–destino. La frontera de release no se reimplementa en el viewer: la
+impone la misma mutación de `status` que usa la CLI. Las cards de draft no
 contienen `Approve`, pero siguen siendo las únicas draggable. La acción del
 detalle y el drop usan la misma transición humana y comparten una única petición
 pendiente por proyecto e id. Mientras está pendiente, la acción del detalle queda
@@ -86,7 +92,7 @@ type, owner y statuses, y afecta Board, Table y Metrics; Graph conserva su
 semántica de tombstones. El valor se persiste por proyecto junto con los demás
 filtros. `Clear` lo desactiva y restablece tanto los statuses como la visibilidad
 `Archived`/`Discarded`;
-`Discarded` añade su lane al final del Board sin comprimir las siete columnas
+`Discarded` añade su lane al final del Board sin comprimir las columnas
 normales. En escritorio, `.board` mide `100dvh - var(--header-height)` y es el
 único contenedor nativo de scroll vertical y horizontal; `ResizeObserver`
 mantiene la variable sincronizada con la altura real de una topbar de una o más
@@ -95,8 +101,10 @@ el contenido de la lane más alta, de modo que todas las columnas —incluida
 Approved vacía— comparten altura, `.column-body` rellena el espacio y el board
 absorbe el overflow de una columna larga sin sacar el scrollbar horizontal del
 borde inferior. Cada columna conserva un ancho responsive entre 190 px y 400 px
-que garantiza al menos seis visibles sin scroll desde 1280 px; en vez de
-comprimirse para que las siete quepan, el board permite llegar a la restante.
+dimensionado para que seis quepan sin scroll desde 1280 px; en vez de
+comprimirse cuando hay más lanes de las que caben, el board permite llegar a las
+restantes. Las lanes salen de los `statuses` del repo, así que con el ciclo
+canónico son las cinco vivas más la de `Discarded`, y todas caben.
 Título, id y owner de la card envuelven
 tokens largos sin espacios (`overflow-wrap: anywhere`) para no desbordar la
 card; hasta 680 px el board recupera altura natural y overflow visible, y las
@@ -161,8 +169,8 @@ assets existente, sin reimplementar `computeMetrics`. Esa ruta sirve también
 los imports relativos del módulo (`lifecycle.mjs` y `cli-version.mjs`), y un
 test recorre el grafo de cada módulo compartido para exigir que cada import
 relativo se sirva y que ninguno importe `node:*`. Los KPI incluyen closed,
-cycle p50/p85, WIP, tiempo bloqueado, espera media de validación y retries de
-review. Bajo la fila de KPI cards el contenido se organiza en una cuadrícula
+cycle p50/p85, WIP, tiempo bloqueado y el número de rechazos humanos, más los
+retries de review. Bajo la fila de KPI cards el contenido se organiza en una cuadrícula
 2×2 de paneles tipo card a ancho completo — throughput como SVG propio con
 barra, fecha y valor por día; tiempos medios por estado con barras a escala
 común y valor visible; aging + WIP; tablas por tipo y por owner — que degrada a
