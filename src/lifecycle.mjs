@@ -69,6 +69,15 @@ export const TASK_ACTIONS = ['done', 'block'];
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
 const LOG_EVENT = /^- \*\*([^*]+)\*\* `\[([a-z]+)\]`(?: (.*))?$/;
 const TRANSITION_PAYLOAD = /^([a-z-]+) → ([a-z-]+)(?: \(([^)]*)\))?(?:: ([\s\S]+))?$/;
+// The merge-derived acceptance arm of `[validation]`. A short sha only: the
+// payload is read back by tooling, so it carries the identity of the merge
+// and nothing a human might paraphrase.
+const ACCEPTED_PAYLOAD = /^accepted \(merged ([0-9a-f]{7,40})\)$/;
+
+function parseAcceptedPayload(payload) {
+  const accepted = payload.match(ACCEPTED_PAYLOAD);
+  return accepted ? { outcome: 'accepted', sha: accepted[1] } : null;
+}
 
 function parseTransitionPayload(payload, type) {
   const transition = payload.match(TRANSITION_PAYLOAD);
@@ -126,14 +135,18 @@ export const LOG_EVENT_DEFINITIONS = Object.freeze({
     transition: true,
     parse: (payload) => parseTransitionPayload(payload, 'review'),
   }),
-  // `in-validation` is retired as a status, but Logs written while it existed
-  // stay parseable: dropping this definition would turn every historical
-  // acceptance line into an "invalid typed event" diagnostic.
+  // Acceptance keeps one event type across the two eras (20261018-131621
+  // CR10). `accepted (merged <sha>)` is what `graduate` stamps now that
+  // acceptance is a datum derived from the merge; the `in-validation → <to>`
+  // arm is the retired gate's, and must keep parsing or every historical
+  // acceptance line in the archive turns into an "invalid typed event"
+  // diagnostic.
   validation: Object.freeze({
-    form: 'in-validation → <to> [(detail)] [: reason]',
+    form: 'in-validation → <to> [(detail)] [: reason] | accepted (merged <sha>)',
     canonicalPayload: 'in-validation → done',
     transition: true,
-    parse: (payload) => parseTransitionPayload(payload, 'validation'),
+    parse: (payload) =>
+      parseAcceptedPayload(payload) ?? parseTransitionPayload(payload, 'validation'),
   }),
   owner: Object.freeze({
     form: 'set: <owner> [(auto)] | cleared',
@@ -197,7 +210,9 @@ export function serializeLogEvent(event) {
   const type = String(event?.type ?? '');
   let payload;
 
-  if (['status', 'review', 'validation'].includes(type)) {
+  if (type === 'validation' && event.outcome === 'accepted') {
+    payload = `accepted (merged ${event.sha})`;
+  } else if (['status', 'review', 'validation'].includes(type)) {
     payload = `${event.from} → ${event.to}`;
     if (event.detail) payload += ` (${event.detail})`;
     if (event.reason) payload += `: ${event.reason}`;

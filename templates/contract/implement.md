@@ -86,7 +86,7 @@ Each transition event (`status`, `review`, `validation`) records exactly one tra
 
 - status: <from> → <to> [(detail)] [: reason]
 - review: in-review → <to> [(detail)] [: reason]
-- validation: in-validation → <to> [(detail)] [: reason]
+- validation: in-validation → <to> [(detail)] [: reason] | accepted (merged <sha>)
 - owner: set: <owner> [(auto)] | cleared
 - branch: set: <branch> [(auto)] | cleared
 - graduation: spec: `<file>` [(detail)] | skipped [: reason]

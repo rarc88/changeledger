@@ -131,7 +131,7 @@ export function checkPendingAcceptance(repoRoot, { config, changes = [] }, run) 
 // The branch a change was worked on, as its Log records it: the LAST
 // `[branch]` event wins, because rebinding is legal and `cleared` means the
 // change has no branch again.
-function recordedBranch(c) {
+export function recordedBranch(c) {
   const log = (c.stages ?? []).find((s) => s.key === 'log');
   if (!log) return null;
   let branch = null;
@@ -768,6 +768,10 @@ function checkLifecycleSequence(c, fm, err) {
       continue;
     }
     if (!['status', 'review', 'validation'].includes(event.type)) continue;
+    // `[validation] accepted (merged <sha>)` is acceptance telemetry, not a
+    // move: it records no origin, so it is skipped rather than read as an
+    // unmodellable status, which would abandon the replay at that line.
+    if (event.outcome === 'accepted') continue;
     if (!CANONICAL.has(event.from) || !CANONICAL.has(event.to)) return;
     events += 1;
     if (event.from !== current) {

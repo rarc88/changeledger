@@ -4799,3 +4799,31 @@ test('20261018-131621 CR22: the repo-wide sweep reports acceptance too', () => {
     out.diagnostics.join('\n'),
   );
 });
+
+// 20261018-131621 CR10. Once `graduate` stamps `[validation] accepted (merged
+// <sha>)`, that event has no `from`/`to`. The sequence replay must step over
+// it: treating it as an unmodellable status would abandon the replay at the
+// line — and with it the frontmatter reconciliation that closes the document.
+test('20261018-131621 CR10: an accepted validation entry does not abandon the lifecycle replay', () => {
+  const log = [
+    '- **2026-06-13T12:01:00Z** `[status]` draft → approved',
+    '- **2026-06-13T12:02:00Z** `[status]` approved → in-progress',
+    '- **2026-06-13T12:03:00Z** `[status]` in-progress → in-review',
+    '- **2026-06-13T12:04:00Z** `[review]` in-review → done',
+    '- **2026-06-13T12:05:00Z** `[validation]` accepted (merged abc1234)',
+  ];
+  assert.deepEqual(msgs(run([versionLogChange('done', log)]).errors), []);
+  assert.match(
+    msgs(run([versionLogChange('approved', log)]).errors).join('\n'),
+    /Log reconstructs status "done" but frontmatter says "approved"/,
+  );
+  // And a defect recorded after the acceptance is still reported.
+  assert.match(
+    msgs(
+      run([
+        versionLogChange('done', [...log, '- **2026-06-13T12:06:00Z** `[status]` done → approved']),
+      ]).errors,
+    ).join('\n'),
+    /invalid lifecycle transition "done → approved"/,
+  );
+});

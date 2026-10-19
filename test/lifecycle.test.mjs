@@ -363,6 +363,86 @@ test('225210 CR2/CR5: parseLogEvent extracts explicit and implied origins', () =
   assert.equal(parseLogEvent('- plain decision note'), null);
 });
 
+// 20261018-131621 CR10. Acceptance stopped being a status and became a datum
+// derived from the merge, but it keeps the `[validation]` event type: `analyze`
+// already segments on it, and a brand-new type would have split one concept in
+// two. The historical `in-validation → <to>` arm above must keep parsing.
+test('20261018-131621 CR10: the validation event carries the merge-derived acceptance', () => {
+  assert.deepEqual(
+    parseLogEvent('- **2026-10-19T12:00:00Z** `[validation]` accepted (merged abc1234)'),
+    {
+      at: '2026-10-19T12:00:00Z',
+      type: 'validation',
+      outcome: 'accepted',
+      sha: 'abc1234',
+    },
+  );
+  assert.equal(
+    serializeLogEvent({
+      at: '2026-10-19T12:00:00Z',
+      type: 'validation',
+      outcome: 'accepted',
+      sha: 'abc1234',
+    }),
+    '- **2026-10-19T12:00:00Z** `[validation]` accepted (merged abc1234)',
+  );
+});
+
+test('20261018-131621 CR10: the acceptance arm takes a sha and nothing else', () => {
+  for (const payload of [
+    'accepted',
+    'accepted (merged )',
+    'accepted (merged abc123)',
+    'accepted (merged ABC1234)',
+    'accepted (merged zzzzzzz)',
+    'accepted (merged abc1234) extra',
+    'accepted (merged abc1234): reason',
+  ]) {
+    assert.equal(
+      parseLogEvent(logLine('validation', payload)),
+      null,
+      `validation accepted: ${payload}`,
+    );
+  }
+  // The arm is the validation event's alone; it must not leak into the other
+  // two transition types.
+  for (const type of ['status', 'review']) {
+    assert.equal(parseLogEvent(logLine(type, 'accepted (merged abc1234)')), null, type);
+    assert.equal(
+      serializeLogEvent({
+        at: '2026-08-24T16:00:00Z',
+        type,
+        from: type === 'review' ? 'in-review' : 'draft',
+        to: type === 'review' ? 'done' : 'approved',
+        outcome: 'accepted',
+        sha: 'abc1234',
+      }),
+      logLine(type, type === 'review' ? 'in-review → done' : 'draft → approved'),
+      type,
+    );
+  }
+});
+
+test('20261018-131621 CR10: widening validation leaves the historical arm intact', () => {
+  assert.deepEqual(parseLogEvent(logLine('validation', 'in-validation → done')), {
+    at: '2026-08-24T16:00:00Z',
+    type: 'validation',
+    from: 'in-validation',
+    to: 'done',
+  });
+  assert.equal(parseLogEvent(logLine('validation', 'in-progress → done')), null);
+  assert.equal(
+    serializeLogEvent({
+      at: '2026-08-24T16:00:00Z',
+      type: 'validation',
+      from: 'in-validation',
+      to: 'done',
+      reason: 'ok',
+    }),
+    logLine('validation', 'in-validation → done: ok'),
+  );
+});
+
 test('125007 CR7: typed log text payloads round-trip without delimiter parsing', () => {
   for (const event of [
     {

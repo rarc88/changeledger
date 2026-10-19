@@ -46,6 +46,16 @@ export function setReviewed(text, reviewed) {
   });
 }
 
+// Sets or removes the optional `accepted_at:` frontmatter line — the instant
+// the change's branch landed on the integration branch, stamped by
+// `graduate`. It is telemetry, never a gate: nothing in the lifecycle reads
+// it back to decide anything.
+export function setAcceptedAt(text, iso) {
+  return mutateFrontmatter(text, (fm, doc) => {
+    return patchOptionalPair(fm, doc, 'accepted_at', iso || null);
+  });
+}
+
 // Refreshes a spec's `updated:` frontmatter line, leaving title, tags and body
 // untouched. Used when graduating a change into an existing spec.
 export function setSpecUpdated(text, iso) {

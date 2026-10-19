@@ -5,6 +5,7 @@ import { VERSION } from '../src/framing.mjs';
 import { parseLogEvent } from '../src/lifecycle.mjs';
 import {
   appendLogEvent,
+  setAcceptedAt,
   setArchived,
   setBranch,
   setOwner,
@@ -426,6 +427,22 @@ test('setReviewed is idempotent', () => {
   const once = setReviewed(DOC, true);
   const twice = setReviewed(once, true);
   assert.equal(twice.match(/^reviewed: true$/gm).length, 1);
+});
+
+// 20261018-131621 CR10. `accepted_at` is telemetry: the instant the change's
+// branch landed on the integration branch, stamped by `graduate`.
+test('20261018-131621 CR10: setAcceptedAt stamps and removes the acceptance instant', () => {
+  const on = setAcceptedAt(DOC, '2026-10-19T12:00:00Z');
+  assert.equal(parseChange(on).frontmatter.accepted_at, '2026-10-19T12:00:00Z');
+  const off = setAcceptedAt(on, null);
+  assert.equal('accepted_at' in parseChange(off).frontmatter, false);
+});
+
+test('20261018-131621 CR10: setAcceptedAt rewrites in place instead of duplicating', () => {
+  const once = setAcceptedAt(DOC, '2026-10-19T12:00:00Z');
+  const twice = setAcceptedAt(once, '2026-10-19T13:00:00Z');
+  assert.equal(twice.match(/^accepted_at:/gm).length, 1);
+  assert.equal(parseChange(twice).frontmatter.accepted_at, '2026-10-19T13:00:00Z');
 });
 
 test('setArchived adds and removes the archived flag', () => {

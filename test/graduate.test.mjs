@@ -65,6 +65,14 @@ El sistema soporta login OAuth.
   return { root, file, id: '20260613-120000' };
 }
 
+// Applies `mutate` to the repo's parsed config.yml and writes it back.
+function setRepoConfig(root, mutate) {
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  const config = parseYaml(fs.readFileSync(configFile, 'utf8'));
+  mutate(config);
+  fs.writeFileSync(configFile, stringifyYaml(config));
+}
+
 // Writes an existing spec with a known body and a stale `updated`.
 function seedSpec(root, name, body) {
   const specsDir = path.join(root, '.changeledger', 'specs');
@@ -80,8 +88,9 @@ function seedSpec(root, name, body) {
 // Activated variant: the change document (from `repo()`) and, optionally, a
 // pre-existing spec both live only in the state ref's snapshot — nothing on
 // disk backs either, so a fallback to the worktree would fail outright.
-function activatedRepo({ specName, specBody, prepare = (text) => text } = {}) {
+function activatedRepo({ specName, specBody, prepare = (text) => text, configure } = {}) {
   const { root, file, id } = repo();
+  if (configure) setRepoConfig(root, configure);
   const changeName = path.basename(file);
   const changeText = prepare(fs.readFileSync(file, 'utf8'));
   fs.rmSync(file);
@@ -938,3 +947,191 @@ for (const [layout, build] of Object.entries(graduationLayouts)) {
     assert.equal(versionEvents(added).length, 1);
   });
 }
+
+// --- 20261018-131621 CR10/CR11/CR12: graduation seals the merge-derived acceptance ---
+//
+// Acceptance is telemetry, never a gate: graduation records it when git shows
+// the change's branch landed on the integration branch, and proceeds exactly
+// as before when it does not.
+
+const ACCEPT_BRANCH = 'feature/20260613-120000';
+const BRANCH_LINE = `- **2026-06-13T12:30:00Z** \`[branch]\` set: ${ACCEPT_BRANCH} (auto)`;
+
+const withBranchLine = (text) => `${text.replace(/\s*$/, '')}\n${BRANCH_LINE}\n`;
+
+// Git history in which `ACCEPT_BRANCH` may or may not have landed on `dev`.
+// The ledger files stay UNTRACKED on purpose: no checkout here may rewrite the
+// document the command under test is about to mutate.
+function seedAcceptanceHistory(root, { merged = true } = {}) {
+  const git = (args) =>
+    execFileSync('git', args, { cwd: root, encoding: 'utf8', env: sanitizedEnv() });
+  git(['commit', '-q', '--allow-empty', '-m', 'chore: root']);
+  git(['branch', 'dev']);
+  git(['checkout', '-q', '-b', ACCEPT_BRANCH, 'dev']);
+  git(['commit', '-q', '--allow-empty', '-m', 'feat: work']);
+  git(['checkout', '-q', 'dev']);
+  if (merged) git(['merge', '--no-ff', '-q', '-m', 'merge', ACCEPT_BRANCH]);
+  return git;
+}
+
+// The merge commit `mergeRecord` must find: dev's tip once the merge landed.
+function landedMerge(git) {
+  const [sha, seconds] = git(['log', '-1', '--format=%H %ct', 'dev']).trim().split(' ');
+  return {
+    sha: sha.slice(0, 7),
+    at: new Date(Number(seconds) * 1000).toISOString().replace(/\.\d{3}Z$/, 'Z'),
+  };
+}
+
+function acceptanceRepo({ merged = true, branchLine = true, integration = 'dev' } = {}) {
+  const { root, file, id } = repo();
+  setRepoConfig(root, (config) => {
+    config.git.integration_branch = integration;
+  });
+  if (branchLine) fs.writeFileSync(file, withBranchLine(fs.readFileSync(file, 'utf8')));
+  initGitFixture(root);
+  const git = seedAcceptanceHistory(root, { merged });
+  return { root, file, id, git };
+}
+
+const logOf = (text) => parseChange(text).stages.find((s) => s.key === 'log').body;
+const acceptedLines = (text) =>
+  logOf(text)
+    .split('\n')
+    .filter((line) => line.includes('[validation]'));
+
+test('20261018-131621 CR10: graduate --skip seals the acceptance derived from the merge', () => {
+  const { root, file, id, git } = acceptanceRepo();
+  const merge = landedMerge(git);
+
+  skipGraduation(id, 'sin verdad persistente', root);
+
+  const text = fs.readFileSync(file, 'utf8');
+  assert.equal(parseChange(text).frontmatter.accepted_at, merge.at);
+  assert.deepEqual(
+    acceptedLines(text).map((line) => line.replace(/^- \*\*[^*]+\*\* /, '')),
+    [`\`[validation]\` accepted (merged ${merge.sha})`],
+  );
+  assert.match(logOf(text), /`\[graduation\]` skipped: sin verdad persistente$/m);
+});
+
+test('20261018-131621 CR10: graduate --into seals the acceptance too', () => {
+  const { root, file, id, git } = acceptanceRepo();
+  const merge = landedMerge(git);
+  seedSpec(root, 'architecture.md', '\n# Arch\n\nCuerpo intacto.\n');
+
+  graduate(id, 'architecture', root, { into: true });
+
+  const text = fs.readFileSync(file, 'utf8');
+  assert.equal(parseChange(text).frontmatter.accepted_at, merge.at);
+  assert.equal(acceptedLines(text).length, 1);
+  assert.match(logOf(text), new RegExp(`accepted \\(merged ${merge.sha}\\)$`, 'm'));
+  assert.match(logOf(text), /`\[graduation\]` spec: `architecture\.md`$/m);
+});
+
+test('20261018-131621 CR10: the activated --skip path seals in the same commit', () => {
+  const { root, id, changeName } = activatedRepo({
+    prepare: withBranchLine,
+    configure: (config) => {
+      config.git.integration_branch = 'dev';
+    },
+  });
+  const git = seedAcceptanceHistory(root);
+  const merge = landedMerge(git);
+  const before = stateRefTip(root);
+
+  skipGraduation(id, 'sin verdad persistente', root);
+
+  const tip = stateRefTip(root);
+  assert.equal(
+    execFileSync('git', ['rev-list', '--count', `${before}..${tip}`], {
+      encoding: 'utf8',
+      cwd: root,
+      env: sanitizedEnv(),
+    }).trim(),
+    '1',
+    'frontmatter field and Log entry must land atomically with the graduation',
+  );
+  const text = stateDocText(root, tip, `changes/${changeName}`);
+  assert.equal(parseChange(text).frontmatter.accepted_at, merge.at);
+  assert.equal(acceptedLines(text).length, 1);
+});
+
+test('20261018-131621 CR10: the activated --into path seals in the same commit', () => {
+  const { root, id, changeName } = activatedRepo({
+    specName: 'architecture.md',
+    specBody: '\n# Arch\n\nCuerpo intacto.\n',
+    prepare: withBranchLine,
+    configure: (config) => {
+      config.git.integration_branch = 'dev';
+    },
+  });
+  const git = seedAcceptanceHistory(root);
+  const merge = landedMerge(git);
+  const before = stateRefTip(root);
+
+  graduate(id, 'architecture', root, { into: true });
+
+  const tip = stateRefTip(root);
+  assert.equal(
+    execFileSync('git', ['rev-list', '--count', `${before}..${tip}`], {
+      encoding: 'utf8',
+      cwd: root,
+      env: sanitizedEnv(),
+    }).trim(),
+    '1',
+  );
+  const text = stateDocText(root, tip, `changes/${changeName}`);
+  assert.equal(parseChange(text).frontmatter.accepted_at, merge.at);
+  assert.equal(acceptedLines(text).length, 1);
+});
+
+test('20261018-131621 CR10: --new leaves the graduation pending and stamps nothing', () => {
+  const { root, file, id } = acceptanceRepo();
+
+  scaffoldSpec(id, 'architecture', root);
+
+  const text = fs.readFileSync(file, 'utf8');
+  assert.equal('accepted_at' in parseChange(text).frontmatter, false);
+  assert.deepEqual(acceptedLines(text), []);
+});
+
+test('20261018-131621 CR11: without a merge no acceptance is invented', () => {
+  const { root, file, id } = acceptanceRepo({ merged: false });
+
+  skipGraduation(id, 'sin verdad persistente', root);
+
+  const text = fs.readFileSync(file, 'utf8');
+  assert.equal('accepted_at' in parseChange(text).frontmatter, false);
+  assert.deepEqual(acceptedLines(text), []);
+  assert.equal(parseChange(text).frontmatter.reviewed, true);
+  assert.match(logOf(text), /`\[graduation\]` skipped: sin verdad persistente$/m);
+});
+
+test('20261018-131621 CR10: a second graduation does not stamp the acceptance twice', () => {
+  const { root, file, id } = acceptanceRepo();
+  seedSpec(root, 'architecture.md', '\n# Arch\n\nCuerpo intacto.\n');
+  seedSpec(root, 'lifecycle.md', '\n# Lifecycle\n\nCuerpo intacto.\n');
+
+  graduate(id, 'architecture', root, { into: true });
+  const once = fs.readFileSync(file, 'utf8');
+  graduate(id, 'lifecycle', root, { into: true });
+  const twice = fs.readFileSync(file, 'utf8');
+
+  assert.equal(acceptedLines(twice).length, 1, 'one acceptance line after two graduations');
+  assert.equal(
+    parseChange(twice).frontmatter.accepted_at,
+    parseChange(once).frontmatter.accepted_at,
+  );
+});
+
+test('20261018-131621 CR12: a change with no recorded branch graduates all the same', () => {
+  const { root, file, id } = acceptanceRepo({ branchLine: false });
+
+  assert.doesNotThrow(() => skipGraduation(id, 'sin verdad persistente', root));
+
+  const text = fs.readFileSync(file, 'utf8');
+  assert.equal('accepted_at' in parseChange(text).frontmatter, false);
+  assert.deepEqual(acceptedLines(text), []);
+  assert.equal(parseChange(text).frontmatter.reviewed, true);
+});
