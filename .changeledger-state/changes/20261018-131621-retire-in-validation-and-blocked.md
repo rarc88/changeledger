@@ -257,6 +257,21 @@ con su razón, que ya es gramática válida del Plan, más una nota en el Log.
 - **Then** sale con código distinto de cero y el documento queda sin modificar
 - **And** el mismo change en `in-review` rechaza igual `changeledger review <id> pass`
 
+### CR23 — El viewer conserva un asiento para rechazar lo entregado
+- **Given** un change en `done` que no figura en ningún release registrado, abierto en el detalle del viewer
+- **When** el humano envía la devolución con la razón `falta el caso de la zona horaria`
+- **Then** el change queda en `status: in-progress`
+- **And** el Log recibe `[status]` con payload `done → in-progress (human): falta el caso de la zona horaria`
+- **And** enviar la devolución con la razón vacía se rechaza y el documento queda sin modificar
+- **And** un change que sí figura en un release registrado no ofrece ese control
+
+### CR24 — La arista de vuelta registra su actor y la métrica sólo cuenta humanos
+- **Given** un change en `done` sin publicar
+- **When** se ejecuta `changeledger status <id> in-progress "motivo"` sin `--human`
+- **Then** el Log recibe `[status]` con payload `done → in-progress (agent): motivo`
+- **And** con `--human` el payload es `done → in-progress (human): motivo`
+- **And** `rejectionCount` cuenta exactamente las transiciones `done → in-progress` marcadas `(human)`, y una reapertura del agente no suma
+
 ## Plan
 
 - [x] Reducir el conjunto de estados en la configuración y rechazar los retirados en `check`
@@ -319,6 +334,10 @@ con su razón, que ya es gramática válida del Plan, más una nota en el Log.
   - **Verify:** `node --test test/viewer-metadata.test.mjs test/view.test.mjs`
   - **Criteria:** CR16
   - **Resolved:** `2026-10-19T15:47:31Z`
+- [ ] Devolver al viewer el asiento de rechazo y registrar el actor de la vuelta
+  - **Target:** `bin/changeledger.mjs`, `src/commands/agent.mjs`, `src/metrics.mjs`, `src/viewer/domain.mjs`, `src/viewer/public/app.js`, `src/viewer/public/view-parts.js`
+  - **Verify:** `node --test test/view.test.mjs test/viewer-metadata.test.mjs test/metrics.test.mjs test/agent.test.mjs`
+  - **Criteria:** CR23, CR24
 - [ ] Barrer de la suite los casos atados a los dos estados
   - **Support:**
   - **Target:** `test/**`
