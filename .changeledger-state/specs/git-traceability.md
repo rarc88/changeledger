@@ -285,8 +285,12 @@ la superficie.
 
 **Sede única.** Todo este comportamiento —las clases, el discriminante, la
 fórmula, la forma del subject, el body multi-change, las excepciones, el
-compositor, el linter previo a review y la inspección del índice staged— vive en
-un solo bloque del contexto core, no repartido entre overlays de etapa.
+compositor y el linter previo a review— vive en un solo bloque del contexto
+core, no repartido entre overlays de etapa. La inspección del índice staged tras
+un `pre-commit` fallido salió de ahí a `commit --help` en `20261020-130304`: es
+un peligro real de git, pero consejo operativo que ningún comando de
+ChangeLedger provoca, y eso pertenece a la ayuda del comando que lo encuentra y
+no al contexto que todo agente carga siempre.
 Commitear ocurre en todas las fases, así que su comportamiento es común a
 cualquiera y una regla escrita en cuatro sedes son cuatro versiones que pueden
 divergir sin que nada las compare.
