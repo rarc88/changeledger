@@ -2,9 +2,10 @@
 id: "20261020-130304"
 title: Recortar el peso del contrato por lo que un agente carga de verdad
 type: refactor
-status: approved
+status: in-progress
 created: 2026-10-20T13:03:04Z
 depends_on: []
+branch: refactor/20261020-130304
 related_to: []
 owner: raruiz-hiberuscom
 release_impact: minor
@@ -148,3 +149,5 @@ moverlo obliga a re-registrar los cuatro y merece su propio change deliberado.
 ## Log
 - **2026-10-20T13:03:04Z** `[version]` 0.18.0
 - **2026-10-20T13:06:55Z** `[status]` draft → approved (human via conversation)
+- **2026-10-20T13:07:01Z** `[status]` approved → in-progress
+- **2026-10-20T13:07:01Z** `[branch]` set: refactor/20261020-130304 (auto)
