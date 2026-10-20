@@ -116,7 +116,7 @@ que es una capacidad que falta y no un cabo suelto de este trabajo.
 - **Given** un change cuyo Log tiene tres retornos de la puerta retirada: uno `(human rejected)`, uno `(agent rejected)` y uno sin actor
 - **When** se calcula `rejectionCount`
 - **Then** vale 2
-- **And** la spec de métricas describe cómo se reconoce al agente en cada una de las dos formas y por qué difieren
+- **And** la spec de métricas describe cómo se reconoce al agente en cada una de las dos formas, por qué difieren y que sobre el archivo real no se comportan distinto
 
 ## Plan
 
