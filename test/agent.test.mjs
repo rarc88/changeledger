@@ -3815,6 +3815,26 @@ test('20261020-172221 CR7: show names the children and the parent, each with its
   assert.deepEqual(childView.children, [], 'a child of a two-level hierarchy has none of its own');
 });
 
+// `--print` is a SEPARATE seat (`scaffoldChange`) and it is the mandatory one
+// in an activated repo, where `new` refuses to write. The first cut of this
+// change dropped `parent` there and only an unrelated ReferenceError exposed
+// it; a silent drop would have been invisible to the whole suite.
+test('20261020-172221 CR7: the --print scaffold carries the parent too', () => {
+  const { root, epicId } = epicWithChildren();
+  const scaffold = scaffoldChange(
+    {
+      type: 'quick',
+      slug: 'impreso',
+      title: 'Hijo impreso',
+      parent: epicId,
+      now: '2026-06-13T17:00:00Z',
+    },
+    root,
+    { ownerHandle: () => '' },
+  );
+  assert.match(scaffold.text, new RegExp(`^parent: "${epicId}"$`, 'm'));
+});
+
 test('20261020-172221 CR7: new --parent writes the field into the scaffold', () => {
   const { root, epicId } = epicWithChildren();
   const created = newChange(
@@ -3880,6 +3900,52 @@ test('20261020-172221 CR8: an unmerged branch survives and the result explains w
   const result = archive(id, root);
   assert.match(result.branchOutcome, /is not merged into "dev"/);
   assert.ok(branches().includes(branch), 'an unmerged branch must never be deleted');
+});
+
+// The merge proof alone does NOT identify the change's own branch:
+// `isAncestor(dev, dev)` is trivially true, and `changeledger branch <id> dev`
+// is accepted — the drift warning itself suggests it when the checkout has
+// moved. Without these two guards `archive` deleted the shared integration
+// branch, reproduced end to end in both layouts.
+test('20261020-172221 CR8: the integration branch is never deleted', () => {
+  const { root, id, branches } = archivableOnBranch({ merged: true });
+  const file = path.join(root, '.changeledger', 'changes', `${id}-x.md`);
+  fs.appendFileSync(file, '- **2026-06-13T12:40:00Z** `[branch]` set: dev (auto)\n');
+  git(root, ['checkout', '-q', `feature/${id}`]);
+  const result = archive(id, root);
+  assert.match(result.branchOutcome, /is the integration branch/);
+  assert.ok(branches().includes('dev'), 'the integration branch must survive');
+});
+
+test('20261020-172221 CR8: only the branch this change declares is deleted', () => {
+  const { root, id, branches } = archivableOnBranch({ merged: true });
+  git(root, ['branch', 'someone-elses']);
+  const file = path.join(root, '.changeledger', 'changes', `${id}-x.md`);
+  fs.appendFileSync(file, '- **2026-06-13T12:40:00Z** `[branch]` set: someone-elses (auto)\n');
+  const result = archive(id, root);
+  assert.match(result.branchOutcome, /is not the branch this change declares/);
+  assert.ok(branches().includes('someone-elses'));
+});
+
+test('20261020-172221 CR8: the branch of the current checkout is never deleted', () => {
+  const { root, id, branch, branches } = archivableOnBranch({ merged: true });
+  git(root, ['checkout', '-q', branch]);
+  const result = archive(id, root);
+  assert.match(result.branchOutcome, /is the current checkout/);
+  assert.ok(branches().includes(branch));
+});
+
+// `archive` had no config dependency before this change. A type whose
+// `integrates_into` names a retired `git.release_branch` makes the lookup
+// throw, and that must never cost an archive that has already landed:
+// terminal changes are history (20261012-174310).
+test('20261020-172221 CR8: an unresolvable integration branch never costs the archive', () => {
+  const { root, id } = archivableOnBranch({ merged: true });
+  const file = path.join(root, '.changeledger', 'changes', `${id}-x.md`);
+  fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('type: feature', 'type: hotfix'));
+  const result = archive(id, root);
+  assert.match(result.branchOutcome, /could not be resolved/);
+  assert.match(fs.readFileSync(file, 'utf8'), /archived: true/, 'the archive still landed');
 });
 
 test('20261020-172221 CR8: --keep-branch keeps a merged branch', () => {

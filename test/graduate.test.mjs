@@ -14,7 +14,7 @@ import { newChange } from '../src/commands/new.mjs';
 import { VERSION } from '../src/framing.mjs';
 import { loadRepo } from '../src/repo.mjs';
 import { parseSpec } from '../src/spec.mjs';
-import { STATE_REF, STATE_ROOT, writeActivation } from '../src/state-store.mjs';
+import { mutateState, STATE_REF, STATE_ROOT, writeActivation } from '../src/state-store.mjs';
 import { stampVersion } from '../src/writer.mjs';
 import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
@@ -1186,4 +1186,31 @@ test('20261020-172221 CR5: the epic itself graduates like any other change', () 
   const { root } = childOf('20260613-110000');
   assert.doesNotThrow(() => scaffoldSpec('20260613-110000', 'flujo', root));
   assert.ok(fs.existsSync(path.join(root, '.changeledger', 'specs', 'flujo.md')));
+});
+
+// The activated seat has its own `requireSpecLinkAllowed` call, and the shared
+// fixture never gives a change a `parent` — so a regression there would land
+// silently. This is the layout asymmetry that already cost this change three
+// defects; the guard is pinned on both sides now.
+test('20261020-172221 CR5: an activated repo refuses a child linking a spec too', () => {
+  const parentId = '20260613-110000';
+  const { root } = activatedRepo({
+    specName: 'architecture.md',
+    specBody: '\nArch truth.\n',
+    prepare: (text) => text.replace('depends_on: []', `depends_on: []\nparent: "${parentId}"`),
+  });
+  // The epic has to exist for `check` to accept the child, and it lands on the
+  // same ref the activated repo reads from.
+  const parentText = `---\nid: "${parentId}"\ntitle: Épica\ntype: epic\nstatus: done\ncreated: 2026-06-13T11:00:00Z\ndepends_on: []\n---\n\n## Request\n\nObjetivo.\n\n## Proposal\n\nFrontera.\n\n## Log\n\n- **2026-06-13T11:00:00Z** \`[note]\` created\n`;
+  mutateState(root, { expectedRevision: stateRefTip(root), message: 'chore: epic' }, (stage) => {
+    stage.write(`changes/${parentId}-epic.md`, parentText);
+  });
+
+  assert.throws(
+    () => graduate('20260613-120000', 'architecture', root, { into: true }),
+    (error) => {
+      assert.match(error.message, new RegExp(`belongs to epic ${parentId}`));
+      return true;
+    },
+  );
 });

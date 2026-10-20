@@ -209,7 +209,18 @@ export function assertStatusDestinationAllowed(config, newStatus, actor) {
 // only trace a rejection leaves now that acceptance is derived from the merge.
 export function statusMutation(
   newStatus,
-  { config, repoRoot, gitCwd, name, warnings, events, reason, actor = 'human', channel = 'viewer' },
+  {
+    config,
+    repoRoot,
+    gitCwd,
+    name,
+    warnings,
+    events,
+    reason,
+    changes,
+    actor = 'human',
+    channel = 'viewer',
+  },
   {
     ownerHandle = defaultOwnerHandle,
     checkoutBranch = defaultCheckoutBranch,
@@ -235,8 +246,12 @@ export function statusMutation(
     // An epic delivers when its children do. Checked before the transition so a
     // refusal leaves the document byte-for-byte unchanged, and read through
     // `loadRepo` for the same reason `assertNotShipped` is.
+    // `changes` when the caller has a candidate in flight (`apply` resolves a
+    // child and its epic in one manifest), the stored ledger otherwise. Reading
+    // the store there would both refuse a batch that resolves the child first
+    // and let one that creates a child in the same batch slip past.
     if (newStatus === 'done') {
-      assertChildrenResolved(loadRepo(repoRoot).changes, fm.id);
+      assertChildrenResolved(changes ?? loadRepo(repoRoot).changes, fm.id);
     }
     if (fm.status === 'in-review' && newStatus === 'done') {
       throw new Error(
@@ -543,6 +558,24 @@ export function discard(id, reason, cwd = process.cwd(), { usage } = {}) {
   return target.file;
 }
 
+// Everything the branch deletion needs, resolved inside one try: a type whose
+// `integrates_into` names a retired `git.release_branch` makes
+// `changeIntegrationBranch` throw, and that must never cost an archive that has
+// already landed. Terminal changes are history (20261012-174310).
+function pruneChangeBranch(repoRoot, config, change, gitRun) {
+  try {
+    return deleteMergedBranch(
+      repoRoot,
+      recordedBranch(change),
+      changeIntegrationBranch(config, change.frontmatter?.type),
+      renderChangeBranch(config, change.frontmatter ?? {}),
+      gitRun ?? defaultGitRun,
+    );
+  } catch (error) {
+    return `the branch could not be resolved (${error.message})`;
+  }
+}
+
 export function archive(id, cwd = process.cwd(), { keepBranch = false, gitRun } = {}) {
   const { repo, target, config, repoRoot } = locate(cwd, id);
   // Read through `locate`'s own target, the one seat that answers in both
@@ -562,12 +595,7 @@ export function archive(id, cwd = process.cwd(), { keepBranch = false, gitRun } 
   const branch = recordedBranch(change);
   const branchOutcome = keepBranch
     ? 'kept on request'
-    : deleteMergedBranch(
-        repoRoot,
-        branch,
-        changeIntegrationBranch(config, change.frontmatter?.type),
-        gitRun ?? defaultGitRun,
-      );
+    : pruneChangeBranch(repoRoot, config, change, gitRun);
   return { file: target.file, branch, branchOutcome };
 }
 

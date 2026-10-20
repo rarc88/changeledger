@@ -380,6 +380,26 @@ test('20261020-172221 CR2: a third level and a cycle are rejected, and told apar
   // Told apart: the cycle must not be reported as a third level, which would
   // send the human to split a hierarchy that is actually contradictory.
   assert.ok(!msgs(cycle).some((m) => /two levels/.test(m)));
+
+  // Any length, not just two: a three-link cycle is still a cycle. The first
+  // implementation reported it as three third-level errors, because its depth
+  // counter had already passed the threshold before it could look.
+  const long = run([
+    epic('20260613-110000', { parent: '20260613-130000' }),
+    epic('20260613-120000', { parent: '20260613-110000' }),
+    epic('20260613-130000', { parent: '20260613-120000' }),
+  ]).errors;
+  assert.ok(
+    msgs(long).some((m) => /^parent cycle: /.test(m)),
+    `expected a parent-cycle message for a 3-cycle, got: ${msgs(long).join(' | ')}`,
+  );
+  assert.ok(!msgs(long).some((m) => /two levels/.test(m)));
+});
+
+test('20261020-172221 CR1: a malformed parent is named as such, not called a list', () => {
+  const errors = msgs(run([epic('20260613-120000', { parent: 'not-an-id' })]).errors);
+  assert.ok(errors.includes('parent "not-an-id" is not a change id'), errors.join(' | '));
+  assert.ok(!errors.some((m) => /not a list/.test(m)));
 });
 
 test('20261020-172221 CR3: sharing a parent connects nothing and needs no backlink', () => {

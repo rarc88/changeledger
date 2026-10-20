@@ -571,8 +571,21 @@ export function gitRefs(repoRoot, id, run = defaultRun) {
 // This exists so the tool stops adding to that pile, not to drain it.
 //
 // Returns why it did nothing, or null when it deleted.
-export function deleteMergedBranch(repoRoot, branch, integration, run = defaultRun) {
+export function deleteMergedBranch(repoRoot, branch, integration, expected, run = defaultRun) {
   if (!branch) return 'the change records no branch';
+  // Being an ancestor of the integration branch is NOT enough to identify the
+  // change's own branch: `isAncestor(dev, dev)` is trivially true, so a change
+  // whose Log records `dev` — which `changeledger branch <id> dev` accepts, and
+  // which the drift warning itself suggests when the checkout has moved — would
+  // otherwise have the shared integration branch deleted under it. The branch is
+  // this change's only when it is the one `change_branch_format` renders for it;
+  // without that format a change has no branch of its own and nothing is deleted.
+  if (branch === integration) return `branch "${branch}" is the integration branch`;
+  if (expected === undefined)
+    return 'no `git.change_branch_format` declares a branch for this change';
+  if (branch !== expected) {
+    return `branch "${branch}" is not the branch this change declares ("${expected}")`;
+  }
   if (!refExists(repoRoot, `refs/heads/${branch}`, run))
     return `branch "${branch}" no longer exists`;
   if (!integration || !refExists(repoRoot, `refs/heads/${integration}`, run)) {

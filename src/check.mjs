@@ -252,8 +252,11 @@ export function checkRepo({ config, changes, specs = [], releases = [], usage = 
     }
     if ('depends_on' in fm && !Array.isArray(fm.depends_on)) err(c, 'depends_on must be a list');
     if ('related_to' in fm && !Array.isArray(fm.related_to)) err(c, 'related_to must be a list');
-    if ('parent' in fm && (typeof fm.parent !== 'string' || !/^\d{8}-\d{6}$/.test(fm.parent))) {
-      err(c, 'parent must be a single change id, not a list');
+    if ('parent' in fm) {
+      if (Array.isArray(fm.parent)) err(c, 'parent must be a single change id, not a list');
+      else if (typeof fm.parent !== 'string' || !/^\d{8}-\d{6}$/.test(fm.parent)) {
+        err(c, `parent "${fm.parent}" is not a change id`);
+      }
     }
     if ('archived' in fm && typeof fm.archived !== 'boolean') err(c, 'archived must be a boolean');
     if ('reviewed' in fm && typeof fm.reviewed !== 'boolean') err(c, 'reviewed must be a boolean');
@@ -473,24 +476,25 @@ function checkParents(changes, ids, err) {
       err(c, `parent references missing change "${parent}"`);
       continue;
     }
-    const seenHere = new Set([id]);
+    if (!parentOf.has(parent)) continue;
+    // The parent has a parent of its own, which breaks the two levels. Which
+    // way it breaks them is decided by where the walk upward ends: back at this
+    // change is a cycle of any length, anywhere else is a third level. The two
+    // need different fixes — a cycle is a contradiction, a third level is a
+    // modelling choice — so they are never reported as each other.
+    const chain = new Set([id]);
     let cursor = parent;
-    let depth = 1;
-    while (parentOf.has(cursor)) {
-      if (seenHere.has(cursor)) {
-        err(c, `parent cycle: ${[...seenHere, cursor].join(' → ')}`);
-        break;
-      }
-      seenHere.add(cursor);
+    while (cursor !== undefined && !chain.has(cursor)) {
+      chain.add(cursor);
       cursor = parentOf.get(cursor);
-      depth += 1;
-      if (depth > 1 && !seenHere.has(cursor)) {
-        err(
-          c,
-          `parent "${parent}" declares a parent of its own: the hierarchy is two levels, an epic and its children`,
-        );
-        break;
-      }
+    }
+    if (cursor === id) {
+      err(c, `parent cycle: ${[...chain, id].join(' → ')}`);
+    } else {
+      err(
+        c,
+        `parent "${parent}" declares a parent of its own: the hierarchy is two levels, an epic and its children`,
+      );
     }
   }
 }
