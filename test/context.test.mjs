@@ -2162,14 +2162,16 @@ test('20260728-212043 CR1: every lines ceiling is exactly its tokens ceiling div
   );
 });
 
-// 20260728-212043 CR7: the token ceilings themselves are a few decided values —
-// core, contexts, everything else — not eleven independent numbers.
+// 20261020-130304 CR5 retired the "a few decided values, shared by class"
+// doctrine the earlier comment here described: every ceiling is now a round
+// number chosen for its own entry, pinned by value in `PINNED_CEILINGS` above,
+// and a ceiling may only decrease — raising one is a human decision recorded in
+// a change, which shows up as an edit to that pin. Headroom under a ceiling is
+// still never licence to spend it.
 //
-// 20260730-002908 removed the last exception: `base.spec` sat on a 3450 scaffold
-// whose exit condition was the authoring pack's refactor, and that refactor landed.
-// 20260811-122030 (human decision, 2026-08-11): the authoring and execution packs
-// — spec and implement — sat at 11 tokens of headroom, so both moved to a decided
-// 3000 while review/release keep 2500; headroom is still never licence to spend.
+// 20260730-002908 removed the last scaffold exception: `base.spec` sat on a 3450
+// provisional whose exit condition was the authoring pack's refactor, and that
+// refactor landed.
 // There is no scaffold key left in the file and no entry outside the decided
 // values — the loop below sweeps every context including spec, so a future
 // widening cannot reintroduce a private number without failing here.
