@@ -4900,10 +4900,10 @@ test('20261019-184719 CR1: the same delivery recorded as a [review] verdict exit
 // --- 20261019-184719 CR3: the pending-acceptance warning reaches archived ---
 
 // A Log that lived through a retired status is the population CR1 was written
-// for: the two consuming repos hold 20 in-flight changes whose Logs already
-// name `in-validation` or `blocked`. The replay abandons at the first
-// non-canonical status, so a gate that sat below that check was void in
-// exactly those documents.
+// for: in the two consuming repos most of what is not archived names
+// `in-validation` or `blocked` somewhere in its Log. The replay abandons at
+// the first non-canonical status, so a gate that sat below that check was void
+// in exactly those documents.
 test('20261019-184719 CR1: a retired status earlier in the Log does not mask the delivery', () => {
   const root = verdictRepo('- **2026-10-19T00:06:00Z** `[status]` in-review → done', [
     '- **2026-10-19T00:04:00Z** `[status]` in-review → in-validation',

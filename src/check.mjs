@@ -776,6 +776,10 @@ const CANONICAL = new Set(CANONICAL_STATUSES);
 // the replay this gate was void in every such document, which is most of what
 // is still in flight in the repos that lived through the retirement.
 function checkDeliveryVerdict(c, fm, err) {
+  // Only a delivered document, which is CR1's own Given. Wider, the diagnostic
+  // would name `review <id> pass` on a change that is no longer in review, so
+  // the remedy it prints could not be taken.
+  if (fm.status !== 'done') return;
   let inLog = false;
   const lines = (c.text ?? '').split('\n');
   for (let i = 0; i < lines.length; i++) {

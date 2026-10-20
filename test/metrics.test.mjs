@@ -299,6 +299,25 @@ test('20261018-131621 CR28: the retired validation gate records rejections too',
   assert.equal(computeMetrics([historical]).rejectionCount, 2);
 });
 
+// The retirement's premise for the arm above — that a return at the retired
+// gate was a human's by definition — is false over the archive it was written
+// for: 104 of the 318 such returns in the consuming repos carry `(agent
+// rejected)`. An actorless return still counts, because it predates the detail
+// and that seat was the human's.
+test('20261019-184719 CR9: the agent returning its own work is not a rejection at either seat', () => {
+  const mixed = change({
+    id: 'h',
+    created: '2026-06-13T10:00:00Z',
+    logBody: `- **2026-06-13T11:00:00Z** \`[status]\` in-progress → in-validation
+- **2026-06-13T12:00:00Z** \`[validation]\` in-validation → in-progress (human rejected): incumple CR2
+- **2026-06-13T13:00:00Z** \`[status]\` in-progress → in-validation
+- **2026-06-13T14:00:00Z** \`[validation]\` in-validation → in-progress (agent rejected): bug propio en pruebas
+- **2026-06-13T15:00:00Z** \`[status]\` in-progress → in-validation
+- **2026-06-13T16:00:00Z** \`[validation]\` in-validation → in-progress: sin actor, histórico`,
+  });
+  assert.equal(computeMetrics([mixed]).rejectionCount, 2);
+});
+
 // The merge-derived acceptance arm of `[validation]` carries no `to`, so the
 // shared transition parser must drop it instead of seating an `undefined`
 // state in the timeline (residue noted by selection 6).
