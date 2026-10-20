@@ -159,10 +159,11 @@ moverlo obliga a re-registrar los cuatro y merece su propio change deliberado.
   - **Verify:** `node --test test/contract.test.mjs test/context.test.mjs`
   - **Criteria:** CR5
   - **Resolved:** `2026-10-20T14:18:28Z`
-- [ ] Separar el límite del bootstrap del techo de `core`
+- [x] Separar el límite del bootstrap del techo de `core`
   - **Target:** `src/contract.mjs`, `AGENTS.md`, `test/contract.test.mjs`
   - **Verify:** `node --test test/contract.test.mjs`
   - **Criteria:** CR7
+  - **Resolved:** `2026-10-20T14:18:29Z`
 
 ## Log
 - **2026-10-20T13:03:04Z** `[version]` 0.18.0
