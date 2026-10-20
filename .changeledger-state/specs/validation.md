@@ -7,7 +7,9 @@ graduated_from: ["20260616-151221", "20260616-162014", "20260616-162050", "20260
 
 ## Validación (`changeledger check`)
 
-`checkRepo` es puro (sin IO) y valida changes y, en modo repo completo, también
+`checkRepo` no escribe nada ni carga el repo —su único subproceso es el
+`check-ref-format` que valida el nombre de rama de cada change— y valida
+changes y, en modo repo completo, también
 la capa de specs y sus enlaces: marcadores de conflicto de merge, etapas
 duplicadas, enlaces change↔spec rotos (error), specs huérfanos y `updated`
 desfasado respecto a la actividad de un change enlazado (warning). Los enlaces
