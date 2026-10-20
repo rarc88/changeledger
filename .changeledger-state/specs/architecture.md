@@ -500,7 +500,7 @@ resolución la coordina el humano (el fragmento de contrato de `20260811-151427`
 posee los puntos estratégicos y el protocolo). Byte-idéntico en ambos lados
 no es colisión.
 
-Nunca bloqueante y desacoplado: sin remoto es no-op informativo; un fallo de
+Nunca bloqueante y desacoplado: sin remoto no transporta nada; un fallo de
 red es aviso con exit 0 (el push rechazado por carrera sí es exit distinto de
 cero: el remoto está vivo y la orden es re-ejecutar, sin pérdida local);
 ningún otro comando consulta ni espera a sync. En un repo activado,
@@ -517,14 +517,35 @@ de creación contra ausencia con el árbol leído y validado ANTES de que la
 ref exista. `sync` en un repo con la ref presente y sin activar es no-op que
 nombra `activate`. En un repo sin activar al que le falta la ref local pero
 tiene la copia remote-tracking del remoto que resuelve `resolveRemote` —el mismo
-que usa `activate`—, `sync` y `sync --status` también son no-op que nombran
-`activate` y dicen que ese remoto publica estado global (`publishedTrackingRef`,
-`src/commands/sync.mjs`); sólo leen refs locales, sin fetch ni escrituras de
-refs o ficheros. Si no hay remoto, si hay varios y ninguno es `origin` o si
+que usa `activate`—, `sync` y `sync --status` también nombran `activate` y
+dicen que ese remoto publica estado global (`publishedTrackingRef`,
+`src/commands/sync.mjs`); no mueven ninguna ref, no hacen fetch y sólo leen
+refs locales. Si no hay remoto, si hay varios y ninguno es `origin` o si
 falla `git remote`, conservan el mensaje de que no hay nada que sincronizar; una
 copia que sólo existe bajo otro remoto no produce aviso. Así el paso
 manual único por clon nunca es invisible y un fetch jamás cambia el modo de
 operación de un repo.
+
+El sello de aceptación pendiente (`sealPendingAcceptances`,
+`20261019-184719`) es la única escritura de `sync` que no es transporte, y
+corre POR ENCIMA de la puerta de activación. `sealAcceptance` consulta el merge
+en el instante de la graduación y nada lo reintenta, así que una rama que
+aterriza después deja `accepted_at` sin estampar para siempre y `check` avisa
+sin que ninguna sede pueda limpiarlo; `sync` es el único comando que corre para
+el ledger entero y no para avanzar un change concreto, así que el reintento es
+suyo. Que esté por encima de la puerta es deliberado: el defecto es del ledger
+y no del transporte, y un repo en layout de worktree —el que nunca hizo
+`cutover`— sería si no el único layout donde el aviso no se puede limpiar;
+`writeLedgerFiles` ya enruta la escritura a los ficheros del worktree cuando no
+hay snapshot. Dos exclusiones: `--status`, que por definición no escribe, y un
+checkout que tiene la ref de estado sin haberla adoptado, donde el worktree y
+el snapshot son dos candidatos a sede de la escritura y nada dice todavía cuál
+es la verdad. La detección (`pendingAcceptances`, `src/check.mjs`, autoridad
+única compartida con `check`) resuelve toda incertidumbre de git a «no
+pendiente», así que un repo no sella en vez de fallar, y lee sólo refs locales:
+un repo sin remoto publica un no-op y sella igual. Alcanza a los archivados,
+porque en el caso para el que existe el merge aterriza después del archivo: el
+sello añade un hecho derivado de git, no reescribe una deliberación cerrada.
 
 El invariante del store es uno y ahora es uniforme (`20260811-163205`): la
 ref nunca apunta a una revisión que ningún lector pueda cargar — todo camino
