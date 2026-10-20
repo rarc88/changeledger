@@ -121,10 +121,11 @@ moverlo obliga a re-registrar los cuatro y merece su propio change deliberado.
 
 ## Plan
 
-- [ ] Retirar el rol `post-review` del contrato, la CLI y los tests
+- [x] Retirar el rol `post-review` del contrato, la CLI y los tests
   - **Target:** `templates/contract/agent-contexts/post-review.md`, `templates/contract/agent-prompts/post-review.md`, `src/commands/agent-context.mjs`, `src/commands/agent-prompt.mjs`, `bin/changeledger.mjs`, `templates/contract/core.md`
   - **Verify:** `node --test test/agent-context.test.mjs test/agent-prompt.test.mjs test/contract.test.mjs`
   - **Criteria:** CR2
+  - **Resolved:** `2026-10-20T13:18:50Z`
 - [ ] Cortar la verdad duplicada, cada obligación con su hogar comprobado por grep
   - **Target:** `templates/contract/implement.md`, `templates/contract/review.md`, `templates/contract/core.md`, `templates/contract/delegation.md`, `templates/contract/close.md`, `templates/contract/handoff.md`
   - **Verify:** `node --test test/contract.test.mjs test/context.test.mjs`
