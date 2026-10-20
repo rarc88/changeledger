@@ -2087,15 +2087,15 @@ function declaredCeilings() {
 // exists to prevent. This object is the one sede: a new group widens it here,
 // not in a second copy.
 const PINNED_CEILINGS = {
-  'base.core': { tokens: 3250, lines: 325 },
+  'base.core': { tokens: 3000, lines: 300 },
   'base.spec': { tokens: 3000, lines: 300 },
-  'base.implement': { tokens: 3000, lines: 300 },
-  'base.review': { tokens: 2500, lines: 250 },
-  'base.release': { tokens: 2500, lines: 250 },
-  agent: { tokens: 1250, lines: 125 },
+  'base.implement': { tokens: 2800, lines: 280 },
+  'base.review': { tokens: 1500, lines: 150 },
+  'base.release': { tokens: 1000, lines: 100 },
+  agent: { tokens: 800, lines: 80 },
   'overlays.done': { tokens: 1250, lines: 125 },
-  'overlays.discarded': { tokens: 1250, lines: 125 },
-  'blocks.core-commits': { tokens: 1250, lines: 125 },
+  'overlays.discarded': { tokens: 250, lines: 25 },
+  'blocks.core-commits': { tokens: 1000, lines: 100 },
 };
 
 test('195445 CR1: every declared ceiling is pinned by value', () => {
@@ -2141,7 +2141,11 @@ test('20260728-212043 CR1: every lines ceiling is exactly its tokens ceiling div
       `${path} lines ceiling is not derived from tokens: tokens=${budget.tokens} lines=${budget.lines} expected=${expectedLines}`,
     );
   }
-  assert.equal(contextBudgets.base.core.lines, 325, 'base.core.lines must derive to 325');
+  assert.equal(
+    contextBudgets.base.core.lines,
+    PINNED_CEILINGS['base.core'].lines,
+    'base.core.lines must match its pinned value',
+  );
 });
 
 // 20260728-212043 CR7: the token ceilings themselves are a few decided values —
@@ -2155,23 +2159,9 @@ test('20260728-212043 CR1: every lines ceiling is exactly its tokens ceiling div
 // There is no scaffold key left in the file and no entry outside the decided
 // values — the loop below sweeps every context including spec, so a future
 // widening cannot reintroduce a private number without failing here.
-test('20260728-212043 CR7: token ceilings are the decided values, with no scaffolded exception', () => {
-  assert.equal(contextBudgets.base.core.tokens, 3250, 'core token ceiling moved');
-  for (const context of ['spec', 'implement']) {
-    assert.equal(contextBudgets.base[context].tokens, 3000, `${context} token ceiling moved`);
-  }
-  for (const context of ['review', 'release']) {
-    assert.equal(contextBudgets.base[context].tokens, 2500, `${context} token ceiling moved`);
-  }
-  assert.equal(contextBudgets.agent.tokens, 1250, 'agent token ceiling moved');
-  for (const [status, budget] of Object.entries(contextBudgets.overlays)) {
-    assert.equal(budget.tokens, 1250, `${status} overlay token ceiling moved`);
-  }
-  assert.equal(
-    contextBudgets.blocks['core-commits'].tokens,
-    1250,
-    'core-commits block token ceiling moved',
-  );
+// The decided values live in `PINNED_CEILINGS` above and are asserted there,
+// once. This criterion keeps the half that pin cannot express.
+test('20260728-212043 CR7: no budget entry carries a scaffolded exception', () => {
   // No entry may carry a scaffold marker any more, and the file must not regrow the
   // word: an exception announced only in prose is how 3450 outlived its exit condition.
   for (const [path, budget] of Object.entries(declaredCeilings())) {
@@ -2628,15 +2618,16 @@ test('124837 CR7 / 212043 CR2: the core pack line ceiling equals the bootstrap c
     commitsBlockLines().join('\n'),
     contextBudgets.blocks['core-commits'],
   );
-  // The two numbers are the same by design: base.core.lines can never diverge
-  // from the bootstrap's head cut in either direction, or either a consuming
-  // repo's capture truncates early (cut too low) or the declared ceiling stops
-  // meaning what it claims (cut too high).
+  // 20261020-130304 CR7 retired the equality these two numbers used to hold.
+  // They answer different questions — the cut guarantees a complete capture,
+  // the ceiling disciplines the pack's weight — and tying them meant every
+  // edit to the contract's weight invalidated the bootstrap of every consuming
+  // repo. What must still hold is that the cut cannot truncate a pack that
+  // legally filled its budget.
   const headCut = bootstrapHeadCut();
-  assert.equal(
-    contextBudgets.base.core.lines,
-    headCut,
-    `base.core.lines (${contextBudgets.base.core.lines}) must equal the bootstrap's head -${headCut} cut`,
+  assert.ok(
+    headCut >= contextBudgets.base.core.lines,
+    `the bootstrap cuts at ${headCut} lines but core may occupy ${contextBudgets.base.core.lines}`,
   );
 });
 

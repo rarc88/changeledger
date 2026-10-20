@@ -113,14 +113,11 @@ Every selection is committed before the review is delegated, so `baseline..HEAD`
 review is delegated: the reviewer inspects a fixed range and the deliverable cannot change between the
 report and history.
 
-Granularity follows one test: whether the unit will be reverted, referenced or implemented independently.
-A lifecycle transition is not — the Log already records it, so its commit would only duplicate that — and
-is never a commit of its own; it travels inside the next real class. A change document is: a later
-implementation branch builds on it, `changeledger check --commits` references it by id, and it can be
-discarded alone. A resolved selection of work is too: it reverts on its own, and better than the whole
-change would. A single Plan task on its own is not: alone it is reverted, referenced and implemented with
-the rest of its selection. So a change yields one commit per resolved selection, one more per confirmed
-correction and one per handoff, never one per transition.
+Granularity follows one test: whether the unit will be reverted, referenced or implemented
+independently. A change document and a resolved selection pass it; a single Plan task and a lifecycle
+transition do not — a transition travels inside the next real class, since the Log already records it.
+So a change yields one commit per resolved selection, one more per confirmed correction and one per
+handoff, never one per transition.
 
 Subjects follow `type(scope): description [#<id>]` with the real id and conventional type. One change keeps
 its marker at the end of the subject; two or more keep the subject clean and use one canonical body line,
@@ -133,9 +130,6 @@ subject is not conventional. Run `changeledger check --commits [<base>]` before 
 A combined commit is legitimate only when separation is impossible: several changes share the same files.
 Record in the Log what was combined and why, naming every change that shares the surface. Plan tasks are
 never a reason — separating them is always possible, since each resolved selection is committed on its own.
-A failed `pre-commit` hook leaves the index staged, so inspect the staged set
-(`git diff --cached --name-only`) before retrying: fixing the cause is not enough if the index kept the
-previous attempt's files.
 
 ## Lifecycle
 

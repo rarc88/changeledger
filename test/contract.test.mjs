@@ -9,8 +9,14 @@ import { fileURLToPath } from 'node:url';
 import { marked } from 'marked';
 import { init } from '../src/commands/init.mjs';
 import { registerRepo } from '../src/commands/register.mjs';
-import { checkContract, REFERENCE, removeLegacyContract } from '../src/contract.mjs';
+import {
+  BOOTSTRAP_CAPTURE_LINES,
+  checkContract,
+  REFERENCE,
+  removeLegacyContract,
+} from '../src/contract.mjs';
 import { LOG_EVENT_DEFINITIONS, LOG_EVENT_TYPES, parseLogEvent } from '../src/lifecycle.mjs';
+import { contextBudgets } from './budget-support.mjs';
 import { sanitizedEnv } from './helpers/git-env.mjs';
 
 const BIN = fileURLToPath(new URL('../bin/changeledger.mjs', import.meta.url));
@@ -78,7 +84,12 @@ test('212659 CR1/CR2: init installs an optional bootstrap without hiding real fa
   assert.equal(fs.existsSync(path.join(dir, '.changeledger', 'AGENTS.md')), false);
   assert.equal(fs.existsSync(path.join(dir, '.gitignore')), false);
   const agents = fs.readFileSync(path.join(dir, 'AGENTS.md'), 'utf8');
-  assert.match(agents, /run exactly this[\s\S]*`changeledger context 2>&1 \| head -325`/);
+  assert.match(
+    agents,
+    new RegExp(
+      `run exactly this[\\s\\S]*\`changeledger context 2>&1 \\| head -${BOOTSTRAP_CAPTURE_LINES}\``,
+    ),
+  );
   assert.match(agents, /Command not installed[\s\S]*continue the task normally/i);
   assert.match(agents, /Command present but failing[\s\S]*report the captured error[\s\S]*human/i);
   assert.match(agents, /human, and wait\s+>?\s*for their decision/i);
@@ -151,7 +162,7 @@ test('124834 CR1: the bootstrap publishes the exact bounded capture command', ()
   init(dir);
   const prose = flatten(bootstrapProse(dir));
   assert.ok(
-    prose.includes('`changeledger context 2>&1 | head -325`'),
+    prose.includes(`\`changeledger context 2>&1 | head -${BOOTSTRAP_CAPTURE_LINES}\``),
     'the block must publish the bounded command literally',
   );
   assert.ok(
@@ -302,7 +313,10 @@ test('124834 CR7: semantic equivalence survives the bullet list', () => {
 });
 
 test('124834 CR8: drift in the bounded command is still outdated', () => {
-  rejects((text) => text.replace('head -325', 'head -500'), 'a changed capture bound is drift');
+  rejects(
+    (text) => text.replace(`head -${BOOTSTRAP_CAPTURE_LINES}`, 'head -999'),
+    'a changed capture bound is drift',
+  );
 });
 
 // 20260728-212043 CR3: `124834 CR8` above only ever mutated the bound upward.
@@ -311,7 +325,10 @@ test('124834 CR8: drift in the bounded command is still outdated', () => {
 // through undetected. This is the direction this change's own edit takes, so
 // it is the one this test must prove the guard was never blind to.
 test('20260728-212043 CR3: drift lowering the bounded command is outdated too', () => {
-  rejects((text) => text.replace('head -325', 'head -300'), 'a lowered capture bound is drift too');
+  rejects(
+    (text) => text.replace(`head -${BOOTSTRAP_CAPTURE_LINES}`, 'head -300'),
+    'a lowered capture bound is drift too',
+  );
 });
 
 // Enumerate the bullets with the same parser the projection uses, so the test's
@@ -672,15 +689,18 @@ test('20260728-170429 CR2/CR6: the AGENTS.md budgets paragraph names the tokeniz
   const normalized = fs.readFileSync(new URL('AGENTS.md', repoRoot), 'utf8').replace(/\s+/g, ' ');
 
   const expectedParagraph =
-    'Each entry in `templates/contract/budgets.yml` declares a `tokens` ceiling and ' +
-    'a `lines` ceiling: tokens are counted by a pinned reference tokenizer, not by ' +
-    'what a particular model consumes, and lines bound what the bootstrap `head` ' +
-    'must carry. A ceiling is never a goal: never remove normative prose to fit ' +
-    'one, and headroom under a ceiling is never permission to spend it — every ' +
-    'entry into a context is deliberate and optimized. A rule may leave a fragment ' +
-    'only when its new home is named and a grep of the obligation itself — not of ' +
-    'similar words — finds it there. If correct content does not fit, stop and ask ' +
-    'the human.';
+    'Each entry in `templates/contract/budgets.yml` declares a `tokens` ceiling ' +
+    'and a `lines` ceiling: tokens are counted by a pinned reference tokenizer, ' +
+    'not by what a particular model consumes. Neither is derived from what the ' +
+    "content currently measures, and neither is the bootstrap's `head` cut, which " +
+    'is a fixed bound of its own. A ceiling is never a goal: never remove ' +
+    'normative prose to fit one, and headroom under a ceiling is never permission ' +
+    'to spend it — every entry into a context is deliberate and optimized. A ' +
+    'ceiling may only decrease; raising one is a human decision recorded in a ' +
+    'change, and every move shows up as an edit to the pinned values in ' +
+    '`test/context.test.mjs`. A rule may leave a fragment only when its new home ' +
+    'is named and a grep of the obligation itself — not of similar words — finds ' +
+    'it there. If correct content does not fit, stop and ask the human.';
 
   // Exact match, not a partial regex: any wording drift on the tokenizer unit
   // (CR2) or on the kept/added budgets rules (CR6) fails this on its own.
@@ -696,19 +716,33 @@ test('20260728-170429 CR2/CR6: the AGENTS.md budgets paragraph names the tokeniz
   assert.doesNotMatch(normalized, /publishes its occupancy of both/);
 });
 
-// 20260728-212043 CR2: the `head -325` literal lives in two production places —
-// this repo's own `AGENTS.md` and the `REFERENCE` block `src/contract.mjs`
-// publishes to every consuming repo — and they must never read a different
-// number. Byte equality of the whole block is what proves they agree, not just
-// a shared substring: a `.trim()` because `AGENTS.md` wraps `REFERENCE` with a
-// leading marker line and a trailing blank line that are not part of the block.
-test("20260728-212043 CR2: this repo's own AGENTS.md bootstrap matches the published REFERENCE, and both say head -325", () => {
+// 20260728-212043 CR2: the capture bound lives in two production places — this
+// repo's own `AGENTS.md` and the `REFERENCE` block `src/contract.mjs` publishes
+// to every consuming repo — and they must never read a different number. Byte
+// equality of the whole block is what proves they agree, not just a shared
+// substring: a `.trim()` because `AGENTS.md` wraps `REFERENCE` with a leading
+// marker line and a trailing blank line that are not part of the block.
+test("20260728-212043 CR2: this repo's own AGENTS.md bootstrap matches the published REFERENCE", () => {
   const repoRoot = new URL('../', import.meta.url);
   const agents = fs.readFileSync(new URL('AGENTS.md', repoRoot), 'utf8');
-  assert.match(REFERENCE, /head -325/);
-  assert.match(agents, /head -325/);
+  const bound = new RegExp(`head -${BOOTSTRAP_CAPTURE_LINES}\\b`);
+  assert.match(REFERENCE, bound);
+  assert.match(agents, bound);
   assert.ok(
     agents.includes(REFERENCE.trim()),
     "AGENTS.md's installed bootstrap block must be byte-identical to the published REFERENCE",
+  );
+});
+
+// 20261020-130304 CR7: the bound no longer tracks the ceiling, so the one
+// relation that still has to hold is asserted directly. Below the ceiling, a
+// core context that legally filled its budget would be truncated by the very
+// command the bootstrap mandates — recoverable through the `END` sentinel, but
+// a silent cost on every capture until someone noticed.
+test('20261020-130304 CR7: the bootstrap bound is never smaller than the core line ceiling', () => {
+  const ceiling = contextBudgets.base.core.lines;
+  assert.ok(
+    BOOTSTRAP_CAPTURE_LINES >= ceiling,
+    `the bootstrap captures ${BOOTSTRAP_CAPTURE_LINES} lines but core may occupy ${ceiling}`,
   );
 });

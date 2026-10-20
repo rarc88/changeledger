@@ -28,22 +28,17 @@ by the change context exactly. The convention is opt-in: absent or null does
 not impose a change-branch name. Do not substitute mutable metadata for the
 configured `{type}` and `{id}` placeholders.
 
-Between `changeledger status <id> in-progress` and the implementation commits, the
-change document stays modified and uncommitted — its `status` field and every
-`[status]` line the window accumulated, at least the entry into `in-progress` and
-the exit into `in-review` — and so do the change's own code and tests, which those
-commits are the first to carry. Together they are the only expected delta, and
-"unrelated changes" above means a path belonging to neither the change document nor
-the change's authorized scope. The window is not one event: core's Implementation class
-governs when each selection is committed, so the expected delta shrinks selection by
-selection and what stays uncommitted is what no selection has resolved yet. Core's commit classes
-carry those transitions inside the implementation commits rather than a commit of
-their own, so a clean worktree is not a valid precondition anywhere in that window,
-and a delegation baseline states this expected set instead of demanding a clean tree.
+Between `changeledger status <id> in-progress` and the implementation commits the
+expected uncommitted delta is the change document — status field and the
+`[status]` lines the window accumulates — plus the change's own code and tests.
+"Unrelated changes" above means any path outside that set, and the set shrinks
+selection by selection as each is committed. A clean worktree is never a valid
+precondition in that window, and a delegation baseline states this expected set
+instead of demanding one.
 
 Implement one change at a time, even while another already-delivered change waits in
-`done`. An impediment is not a status: record it as a `[!]` Plan task with its reason,
-and resolve it within authorized scope or ask the human.
+`done`. Record an impediment as a `[!]` Plan task with its reason, and resolve it
+within authorized scope or ask the human.
 
 ## Execute the Plan
 
