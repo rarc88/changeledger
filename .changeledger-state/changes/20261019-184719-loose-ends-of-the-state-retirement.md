@@ -67,6 +67,7 @@ que es una capacidad que falta y no un cabo suelto de este trabajo.
 - **Then** sale con código distinto de cero
 - **And** el mensaje nombra que la entrega desde `in-review` la registra `changeledger review <id> pass`
 - **And** el mismo documento con `[review]` in-review → done` en su lugar sale con código 0
+- **And** un Log que nombre antes un estado retirado —el caso de los changes en vuelo de los repos consumidores— no enmascara el rechazo
 
 ### CR2 — `sync` sella la aceptación que la graduación no alcanzó
 - **Given** un change `done` sin `accepted_at`, ya graduado, cuya rama se fusionó en la rama de integración después de la graduación
@@ -85,7 +86,7 @@ que es una capacidad que falta y no un cabo suelto de este trabajo.
 ### CR4 — La ayuda no declara falsedades sobre quién escribe `[validation]`
 - **Given** la salida de `changeledger log --help`
 - **When** se lee la línea del tipo `validation`
-- **Then** nombra `changeledger graduate` como productor de su arma de aceptación
+- **Then** nombra toda sede de comando que escriba el arma de aceptación, derivada del código y no de una lista fija
 - **And** no afirma que ningún comando lo escriba
 
 ### CR5 — `apply` no cita comandos retirados
