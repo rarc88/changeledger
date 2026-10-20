@@ -143,10 +143,11 @@ que es una capacidad que falta y no un cabo suelto de este trabajo.
   - **Verify:** `node --test test/agent-context.test.mjs`
   - **Criteria:** CR8
   - **Resolved:** `2026-10-19T19:40:52Z`
-- [ ] Documentar en la spec de métricas que el filtro de actor difiere entre rechazo y retrabajo
+- [x] Documentar en la spec de métricas que el filtro de actor difiere entre rechazo y retrabajo
   - **Support:**
   - **Target:** `.changeledger/specs/metrics.md`
   - **Verify:** `node bin/changeledger.mjs check`
+  - **Resolved:** `2026-10-20T11:15:31Z`
 - [ ] Rectificar en la spec de arquitectura que el sello es la única escritura de `sync` por encima de la puerta de activación
   - **Support:**
   - **Target:** `.changeledger/specs/architecture.md`
