@@ -91,18 +91,25 @@ export function checkUsageGitConfig(repoRoot, run) {
   }
 }
 
-// Acceptance is telemetry, not a gate: `graduate` stamps `accepted_at` from
-// the merge, and `check` only ever says it is missing. It must stay a WARNING
-// that never writes — `check` runs inside the versioned `hooks/pre-commit` and
-// in CI, where a document rewrite is not an option and a non-zero exit would
-// turn a merge that simply has not been graduated yet into a broken build.
+// Every `done` change whose acceptance git already proves while `accepted_at`
+// is still unstamped, paired with the merge that proves it. Single authority
+// for the predicate: `check` turns each entry into a warning and `sync` turns
+// each into the stamp, so the two can never disagree about which changes are
+// pending.
 //
 // Like `checkUsageGitConfig`, this needs the filesystem, so it stays out of
-// the pure `checkRepo`: the `check` command feeds it the repo it loaded. The
-// branch comes from the change's own `[branch]` record, never from the
-// checkout, and every uncertainty (no branch, no declared integration branch,
-// a branch deleted or never fetched) resolves to silence.
-export function checkPendingAcceptance(repoRoot, { config, changes = [] }, run) {
+// the pure `checkRepo`: the callers feed it the repo they loaded. The branch
+// comes from the change's own `[branch]` record, never from the checkout, and
+// every uncertainty (no branch, no declared integration branch, a branch
+// deleted or never fetched) resolves to "not pending".
+//
+// Archived changes are subjects here, unlike in the per-document loop
+// (20261019-184719 CR3). The frozen-history rule exempts what could only be
+// "fixed" by rewriting finished work; this is the opposite case — the merge
+// that proves acceptance routinely lands AFTER the graduation that archived
+// the change, so the datum is new, derived from git, and append-only.
+// Skipping them would make the warning permanently unclearable.
+export function pendingAcceptances(repoRoot, { config, changes = [] }, run) {
   let integration;
   try {
     integration = integrationBranch(config);
@@ -113,19 +120,29 @@ export function checkPendingAcceptance(repoRoot, { config, changes = [] }, run) 
   // authority on what counts as undetectable, and an undeclared integration
   // branch resolves there without a subprocess.
 
-  const warnings = [];
-  for (const c of changes) {
-    const fm = c.frontmatter ?? {};
+  const pending = [];
+  for (const change of changes) {
+    const fm = change.frontmatter ?? {};
     if (fm.status !== 'done' || fm.accepted_at) continue;
-    if (frozenReason(c)) continue; // same subject rule as the per-document loop
-    const record = mergeRecord(repoRoot, recordedBranch(c), integration, run);
-    if (!record) continue;
-    warnings.push({
-      file: c.name ?? '(repo)',
-      message: `accepted in ${integration} (merged ${record.sha}) but accepted_at is not stamped — run \`changeledger graduate ${fm.id}\``,
-    });
+    const record = mergeRecord(repoRoot, recordedBranch(change), integration, run);
+    if (record) pending.push({ change, record, integration });
   }
-  return warnings;
+  return pending;
+}
+
+// Acceptance is telemetry, not a gate: `graduate` stamps `accepted_at` from
+// the merge and `sync` seals what it could not reach, while `check` only ever
+// says it is missing. It must stay a WARNING that never writes — `check` runs
+// inside the versioned `hooks/pre-commit` and in CI, where a document rewrite
+// is not an option and a non-zero exit would turn a merge that simply has not
+// been graduated yet into a broken build.
+export function checkPendingAcceptance(repoRoot, repo, run) {
+  return pendingAcceptances(repoRoot, repo, run).map(({ change, record, integration }) => ({
+    file: change.name ?? '(repo)',
+    // `sync` is the seat that clears this for every subject, graduated or not;
+    // `graduate` can only seal a change whose graduation is still pending.
+    message: `accepted in ${integration} (merged ${record.sha}) but accepted_at is not stamped — run \`changeledger sync\``,
+  }));
 }
 
 // The branch a change was worked on, as its Log records it: the LAST
@@ -282,6 +299,7 @@ export function checkRepo({ config, changes, specs = [], releases = [], usage = 
     }
 
     checkCoverage(c, fm, active, config, { warn, err, asStatus: opts.asStatus });
+    checkDeliveryVerdict(c, fm, err);
     checkLifecycleSequence(c, fm, err);
     checkUnclassifiedMentions(c, knownIds, incomingRelations, warn);
   }
@@ -732,14 +750,55 @@ function checkConflictMarkers(c, err) {
 // `in-validation` became the universal human gate) stays readable without
 // relaxing the current graph for new work (20260630-225210 CR3). Two bounded
 // allowances, both covered by fixtures mirroring real history:
-// - LEGACY_EDGES: closing/skipping edges old flows wrote literally.
+// - LEGACY_EDGES: skipping edges old flows wrote literally and `TRANSITIONS`
+//   still refuses. An edge the graph has since adopted does no work here and
+//   only hides which of the two authorities admitted a replay, so it is
+//   removed: `in-review → done` and `in-progress → done` both became canonical
+//   with the retirement of `in-validation` (20261019-184719 CR7).
 // - Gap resync: old writers did not log every early move (draft → approved,
 //   approved → in-progress). An explicit `status:` origin may fast-forward the
 //   reconstruction, but only forward and only across pre-review states —
 //   implied review/validation origins always require the exact sequence.
-const LEGACY_EDGES = new Set(['in-review→done', 'in-progress→done', 'draft→in-progress']);
+export const LEGACY_EDGES = new Set(['draft→in-progress']);
 const LEGACY_RESYNC_RANK = { draft: 0, approved: 1, 'in-progress': 2 };
 const CANONICAL = new Set(CANONICAL_STATUSES);
+
+// The exit from review belongs to the reviewer's verdict. `review pass` made
+// `in-review → done` canonical (20261018-131621), which cost the replay its
+// only way to tell a reviewed delivery from a `[status]` one. The command
+// seats refuse the `[status]` form (`statusMutation`); this is the same
+// refusal for the hand-edited document `spec.md` declares a legitimate path,
+// and the normal one in the consuming repos.
+//
+// Its own pass, not a step of the replay: the replay abandons the document at
+// the first status it cannot model, and a Log that lived through
+// `in-validation` is exactly where a hand-edited delivery would hide. Inside
+// the replay this gate was void in every such document, which is most of what
+// is still in flight in the repos that lived through the retirement.
+function checkDeliveryVerdict(c, fm, err) {
+  // Only a delivered document, which is CR1's own Given. Wider, the diagnostic
+  // would name `review <id> pass` on a change that is no longer in review, so
+  // the remedy it prints could not be taken.
+  if (fm.status !== 'done') return;
+  let inLog = false;
+  const lines = (c.text ?? '').split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    if (/^##\s/.test(lines[i])) {
+      inLog = /^##\s+Log\s*$/.test(lines[i]);
+      continue;
+    }
+    if (!inLog) continue;
+    const event = parseLogEvent(lines[i]);
+    if (!event || event.type === 'review') continue;
+    if (event.from === 'in-review' && event.to === 'done') {
+      err(
+        c,
+        `Log line ${i + 1}: the review verdict delivers a change in review: use \`changeledger review ${fm.id} pass\``,
+      );
+      return;
+    }
+  }
+}
 
 // Replays `## Log` lifecycle events from `draft` against the transition graph
 // in lifecycle.mjs. Stops at the first inconsistency to avoid cascading noise.

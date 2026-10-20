@@ -295,10 +295,16 @@ test('CR4: human-owned transitions never travel in a batch', () => {
     () => apply({ from: manifest(root, [{ op: 'status', id, to: 'approved' }]) }, root),
     /`changeledger approve`/,
   );
-  assert.throws(
-    () => apply({ from: manifest(root, [{ op: 'validation', id, verdict: 'pass' }]) }, root),
-    /"validation".*`changeledger validation`/s,
-  );
+  for (const op of ['validation', 'reopen']) {
+    assert.throws(
+      () => apply({ from: manifest(root, [{ op, id }]) }, root),
+      (error) => {
+        assert.match(error.message, new RegExp(`"${op}"`));
+        assert.doesNotMatch(error.message, /changeledger (validation|reopen)\b/);
+        return true;
+      },
+    );
+  }
   assert.throws(
     () => apply({ from: manifest(root, [{ op: 'discard', id, reason: 'x' }]) }, root),
     /"discard".*`changeledger discard`/s,

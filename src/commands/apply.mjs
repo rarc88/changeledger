@@ -43,18 +43,19 @@ const SPEC_PREFIX = 'spec:';
 // The four the agent owns, and the ONLY four a manifest may carry.
 const BATCH_OPS = new Set(['status', 'log', 'task', 'owner']);
 
-// Every other lifecycle op, mapped to the individual command that owns it. A
-// batch entry naming one of these is refused with that command's name so the
-// caller learns where the move belongs instead of only that it was rejected.
+// Every other lifecycle op, mapped to what owns it now. A batch entry naming
+// one of these is refused with that pointer so the caller learns where the move
+// belongs instead of only that it was rejected. `validation` and `reopen` are
+// retired verbs: they point at what does the job today, never at a command.
 const OPS_OWNED_ELSEWHERE = {
-  approve: 'changeledger approve',
-  validation: 'changeledger validation',
-  review: 'changeledger review',
-  discard: 'changeledger discard',
-  reopen: 'changeledger reopen',
-  archive: 'changeledger archive',
-  branch: 'changeledger branch',
-  graduate: 'changeledger graduate',
+  approve: '`changeledger approve`',
+  validation: 'the human verdicts left are `changeledger approve` and `changeledger discard`',
+  review: '`changeledger review`',
+  discard: '`changeledger discard`',
+  reopen: 'a return from done is `changeledger status <id> in-progress "<reason>" --human`',
+  archive: '`changeledger archive`',
+  branch: '`changeledger branch`',
+  graduate: '`changeledger graduate`',
 };
 
 // Longest commit subject the summary is allowed to reach before it starts
@@ -209,7 +210,7 @@ function applyEvent(entry, { repo, candidate, pending, descriptors, statusWarnin
   const ownedElsewhere = OPS_OWNED_ELSEWHERE[op];
   if (ownedElsewhere) {
     throw new Error(
-      `op "${op}" never travels in a batch — it stays an individual, auditable command: \`${ownedElsewhere}\``,
+      `op "${op}" never travels in a batch — it stays an individual, auditable move: ${ownedElsewhere}`,
     );
   }
   if (!BATCH_OPS.has(op)) {
@@ -250,8 +251,9 @@ function eventMutation(op, entry, { id, config, repoRoot, name, statusWarnings, 
   if (op === 'status') {
     const to = String(entry.to ?? '');
     // A batch is executed by an agent, never by a human: this is the seat that
-    // turns `approved`, `done` and `discarded` into a refusal naming their own
-    // command (CR4), and it is `status`'s own guard, not a copy of it.
+    // turns `approved` and `discarded` into a refusal naming their own command
+    // (CR4), and it is `status`'s own guard, not a copy of it. `done` is not
+    // refused here: `statusMutation` refuses the `in-review` origin.
     assertStatusDestinationAllowed(config, to, 'agent');
     return {
       mutate: statusMutation(to, {

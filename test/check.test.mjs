@@ -6,7 +6,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { parse as parseYaml } from 'yaml';
 import { parseChange } from '../src/change.mjs';
-import { checkRepo, checkUsageGitConfig } from '../src/check.mjs';
+import { checkRepo, checkUsageGitConfig, LEGACY_EDGES } from '../src/check.mjs';
 import { check } from '../src/commands/check.mjs';
 import { init as initializeRepo } from '../src/commands/init.mjs';
 import {
@@ -17,7 +17,7 @@ import {
 } from '../src/config.mjs';
 import { ensureReference } from '../src/contract.mjs';
 import { VERSION } from '../src/framing.mjs';
-import { LOG_EVENT_TYPES } from '../src/lifecycle.mjs';
+import { CANONICAL_STATUSES, canTransition, LOG_EVENT_TYPES } from '../src/lifecycle.mjs';
 import { templatesDir } from '../src/paths.mjs';
 import { RELEASE_IMPACTS } from '../src/release.mjs';
 import { loadRepo } from '../src/repo.mjs';
@@ -2578,18 +2578,12 @@ test('20261018-131621: a live Log naming a retired status is tolerated, not diag
   );
 });
 
-test('225210 CR3: bounded legacy closes stay readable, not errors', () => {
-  const legacyReviewClose = seqChange('done', [
-    '- **2026-06-13T12:10:00Z** `[status]` draft → approved',
-    '- **2026-06-13T12:20:00Z** `[status]` approved → in-progress',
-    '- **2026-06-13T12:30:00Z** `[status]` in-progress → in-review',
-    '- **2026-06-13T12:40:00Z** `[status]` in-review → done',
-  ]);
-  assert.deepEqual(
-    msgs(covResult(legacyReviewClose).errors).filter((m) => /Log/.test(m)),
-    [],
-  );
-
+// The review close this used to admit is now the defect 20261019-184719 CR1
+// names: `in-review → done` is canonical, so a `[status]` form is a delivery
+// that skipped the verdict, not readable history. The direct close is still
+// legal history — and canonical today, which is why it no longer needs
+// `LEGACY_EDGES` either.
+test('225210 CR3: the bounded legacy direct close stays readable, not an error', () => {
   const legacyDirectClose = seqChange('done', [
     '- **2026-06-13T12:10:00Z** `[status]` draft → approved',
     '- **2026-06-13T12:20:00Z** `[status]` approved → in-progress',
@@ -4693,22 +4687,6 @@ test('20261018-131621 CR22: a change with no [branch] entry draws no acceptance 
   assert.deepEqual(out.diagnostics, []);
 });
 
-test('20261018-131621 CR22: frozen history is never told to stamp acceptance', () => {
-  // Every archived change in a long-lived ledger was merged at some point;
-  // reporting them would bury the one live subject the warning is for, and
-  // the fix it names (`graduate`) is refused on frozen history anyway.
-  const { root } = acceptFixture({
-    doc: acceptDoc().replace('status: done', 'status: done\narchived: true'),
-  });
-
-  const out = captureOutput();
-  check([ACCEPT_ID], root, out);
-  assert.deepEqual(
-    out.diagnostics.filter((d) => d.includes('accepted')),
-    [],
-  );
-});
-
 test('20261018-131621 CR22: a rebound branch is read from the last [branch] entry', () => {
   // The change started on `feature/abandoned`, which did land on dev, and was
   // rebound to `feature/<id>`, which did not. Acceptance belongs to the branch
@@ -4826,4 +4804,165 @@ test('20261018-131621 CR10: an accepted validation entry does not abandon the li
     ).join('\n'),
     /invalid lifecycle transition "done → approved"/,
   );
+});
+
+// --- 20261019-184719 CR1: delivery from in-review needs a verdict ----------
+//
+// `review pass` made `in-review → done` a canonical edge, so the graph alone
+// can no longer tell a reviewed delivery from a hand-written `[status]` one.
+// These two documents differ in exactly that one tag.
+
+const VERDICT_ID = '20261019-000001';
+const VERDICT_CONFIG = `changes_dir: .changeledger/changes
+statuses: [draft, approved, in-progress, in-review, done, discarded]
+stages: [request, investigation, proposal, specification, plan, log]
+types:
+  feature:
+    stages: [request, specification, plan, log]
+    review_required: true
+`;
+
+function verdictDoc(deliveryLine, history = []) {
+  return [
+    '---',
+    `id: "${VERDICT_ID}"`,
+    'title: Delivery from review',
+    'type: feature',
+    'status: done',
+    'created: 2026-10-19T00:00:01Z',
+    'depends_on: []',
+    '---',
+    '',
+    '## Request',
+    '',
+    'r',
+    '',
+    '## Specification',
+    '',
+    '### CR1 — c',
+    '- **Given** a',
+    '- **When** b',
+    '- **Then** c',
+    '',
+    '## Plan',
+    '',
+    '- [x] Update `src/a.mjs`',
+    '  - **Target:** `src/a.mjs`',
+    '  - **Verify:** `node --test test/a.test.mjs`',
+    '  - **Criteria:** CR1',
+    '  - **Resolved:** `2026-10-19T00:10:00Z`',
+    '',
+    '## Log',
+    '',
+    '- **2026-10-19T00:01:00Z** `[status]` draft → approved',
+    '- **2026-10-19T00:02:00Z** `[status]` approved → in-progress',
+    '- **2026-10-19T00:03:00Z** `[status]` in-progress → in-review',
+    ...history,
+    deliveryLine,
+    '',
+  ].join('\n');
+}
+
+function verdictRepo(deliveryLine, history = []) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-verdict-'));
+  const changesDir = path.join(root, '.changeledger', 'changes');
+  fs.mkdirSync(changesDir, { recursive: true });
+  fs.writeFileSync(path.join(root, '.changeledger', 'config.yml'), VERDICT_CONFIG);
+  fs.writeFileSync(
+    path.join(changesDir, `${VERDICT_ID}-delivery.md`),
+    verdictDoc(deliveryLine, history),
+  );
+  return root;
+}
+
+test('20261019-184719 CR1: a [status] delivery from in-review fails check and names the verdict seat', () => {
+  const root = verdictRepo('- **2026-10-19T00:04:00Z** `[status]` in-review → done');
+
+  const out = captureOutput();
+  const code = check([VERDICT_ID], root, out);
+
+  assert.equal(code, 1, `expected a non-zero exit, got ${code}: ${out.diagnostics.join('\n')}`);
+  assert.ok(
+    out.diagnostics.some((d) => d.includes(`changeledger review ${VERDICT_ID} pass`)),
+    `expected the verdict seat to be named: ${out.diagnostics.join('\n')}`,
+  );
+});
+
+test('20261019-184719 CR1: the same delivery recorded as a [review] verdict exits 0', () => {
+  const root = verdictRepo('- **2026-10-19T00:04:00Z** `[review]` in-review → done');
+
+  const out = captureOutput();
+  const code = check([VERDICT_ID], root, out);
+
+  assert.equal(code, 0, out.diagnostics.join('\n'));
+});
+
+// --- 20261019-184719 CR3: the pending-acceptance warning reaches archived ---
+
+// A Log that lived through a retired status is the population CR1 was written
+// for: in the two consuming repos most of what is not archived names
+// `in-validation` or `blocked` somewhere in its Log. The replay abandons at
+// the first non-canonical status, so a gate that sat below that check was void
+// in exactly those documents.
+test('20261019-184719 CR1: a retired status earlier in the Log does not mask the delivery', () => {
+  const root = verdictRepo('- **2026-10-19T00:06:00Z** `[status]` in-review → done', [
+    '- **2026-10-19T00:04:00Z** `[status]` in-review → in-validation',
+    '- **2026-10-19T00:05:00Z** `[status]` in-validation → in-review',
+  ]);
+
+  const out = captureOutput();
+  const code = check([VERDICT_ID], root, out);
+
+  assert.equal(code, 1, `expected a non-zero exit, got ${code}: ${out.diagnostics.join('\n')}`);
+  assert.ok(
+    out.diagnostics.some((d) => d.includes(`changeledger review ${VERDICT_ID} pass`)),
+    `expected the verdict seat to be named: ${out.diagnostics.join('\n')}`,
+  );
+});
+
+test('20261019-184719 CR3: an archived done change with a merged branch is warned like a live one', () => {
+  const live = acceptFixture();
+  const liveOut = captureOutput();
+  check([ACCEPT_ID], live.root, liveOut);
+  const liveWarning = liveOut.diagnostics.find((d) => d.includes('accepted'));
+  assert.ok(liveWarning, 'the live subject must warn, otherwise this test proves nothing');
+
+  const archived = acceptFixture({
+    doc: acceptDoc().replace('status: done', 'status: done\narchived: true'),
+  });
+  const out = captureOutput();
+  check([ACCEPT_ID], archived.root, out);
+
+  const warning = out.diagnostics.find((d) => d.includes('accepted'));
+  assert.ok(warning, `expected the archived change to warn too: ${out.diagnostics.join('\n')}`);
+  // The two fixtures are independent git repos, so only the merge sha differs.
+  const withoutSha = (line) => line.replace(/merged [0-9a-f]{7,40}/, 'merged <sha>');
+  assert.equal(
+    withoutSha(warning),
+    withoutSha(liveWarning),
+    'the archived change must be named exactly as the live one',
+  );
+});
+
+// --- 20261019-184719 CR7: no legacy edge duplicates a canonical one --------
+//
+// The invariant, not the membership: `LEGACY_EDGES` exists only to tolerate
+// history the current graph refuses. An edge `TRANSITIONS` already allows does
+// no work there and hides which of the two authorities decided a replay.
+
+test('20261019-184719 CR7: every LEGACY_EDGES entry names canonical statuses and a non-canonical edge', () => {
+  const canonical = new Set(CANONICAL_STATUSES);
+  assert.ok(LEGACY_EDGES.size > 0, 'an empty allowance would make this vacuous');
+  for (const edge of LEGACY_EDGES) {
+    const [from, to] = edge.split('→');
+    assert.ok(
+      canonical.has(from) && canonical.has(to),
+      `legacy edge "${edge}" names a status the graph does not model`,
+    );
+    assert.equal(
+      canTransition(from, to),
+      false,
+      `legacy edge "${edge}" is already canonical in TRANSITIONS — it allows nothing`,
+    );
+  }
 });

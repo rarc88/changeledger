@@ -107,9 +107,14 @@ function configuredDomainsHelp() {
 const LOG_EVENT_PRODUCERS = Object.freeze({
   status: ['changeledger approve', 'changeledger status', 'changeledger discard'],
   review: ['changeledger review'],
-  // Retired as a lifecycle verb with `in-validation`; the definition stays so
-  // Logs written while it existed keep parsing.
-  validation: ['no command writes it; historical Log entries only'],
+  // The `in-validation → <to>` arm is retired with the status and survives only
+  // so Logs written while it existed keep parsing; the acceptance arm is live
+  // and has two seats, because a branch that lands after the graduation is
+  // stamped later by `sync`.
+  validation: [
+    'changeledger graduate (the accepted (merged <sha>) arm, at graduation)',
+    'changeledger sync (the same arm, when the merge lands after the graduation; no command writes the in-validation arm any more)',
+  ],
   owner: ['changeledger owner', 'changeledger status (automatic when work starts)'],
   branch: ['changeledger branch', 'changeledger status (automatic when work starts)'],
   graduation: ['changeledger graduate'],

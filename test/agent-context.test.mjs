@@ -11,6 +11,7 @@ import { buildAgentContext } from '../src/commands/agent-context.mjs';
 import { buildAgentPrompt } from '../src/commands/agent-prompt.mjs';
 import { init } from '../src/commands/init.mjs';
 import { VERSION } from '../src/framing.mjs';
+import { REVIEW_VERDICTS } from '../src/lifecycle.mjs';
 import { STATE_REF, writeActivation } from '../src/state-store.mjs';
 import { assertWithinBudget, contextBudgets } from './budget-support.mjs';
 import { initGitFixture } from './helpers/git-env.mjs';
@@ -400,7 +401,6 @@ test('201703 CR2: post-review never asks for a verdict or a lifecycle command', 
   const base = out.split('\n# Selected change')[0];
   assert.match(base, /findings and evidence/i);
   assert.doesNotMatch(base, /recommended (outcome|verdict)/i);
-  assert.doesNotMatch(base, /recommended outcome: pass/i);
   assert.doesNotMatch(
     base,
     /changeledger (status|task|log|review|graduate|archive|unarchive|validation)/,
@@ -444,7 +444,21 @@ test('201703 CR1/CR2: post-review requires in-validation and requires a change i
     /role review requires change status in-review; got in-validation/,
   );
   const reviewOut = buildAgentContext('review', inReview, root);
-  assert.match(reviewOut, /outcome: pass, or\s+fail with a reason/i);
+  // Guard the obligation, not its phrasing. Matching the prose failed in both
+  // directions: an anchor on the sentence's noun broke when the noun was
+  // renamed with the obligation intact, and a looser pattern was satisfied by
+  // "per-criterion PASS/FAIL evidence" while the capsule had stopped offering
+  // the verdicts at all. So the guard holds the two verdicts the CLI accepts,
+  // read from the CLI's own list and required as code spans — a convention the
+  // repo already applies to every literal. Rewriting the paragraph around them
+  // keeps this green; dropping or renaming a verdict does not. Scoped to the
+  // base, so the appended change document cannot satisfy it.
+  const base = reviewOut.split('\n# Selected change')[0];
+  const literals = new Set([...base.matchAll(/`([a-z][a-z-]*)`/g)].map((m) => m[1]));
+  for (const verdict of REVIEW_VERDICTS) {
+    assert.ok(literals.has(verdict), `the capsule must offer the \`${verdict}\` verdict`);
+  }
+  assert.doesNotMatch(base, /fail-(retry|block)|--retry|--block/i);
 });
 
 test('201703 CR3: post-review capsule fits the shared agent budget and lists in the CLI role set', () => {
