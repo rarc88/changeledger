@@ -126,10 +126,11 @@ moverlo obliga a re-registrar los cuatro y merece su propio change deliberado.
   - **Verify:** `node --test test/agent-context.test.mjs test/agent-prompt.test.mjs test/contract.test.mjs`
   - **Criteria:** CR2
   - **Resolved:** `2026-10-20T13:18:50Z`
-- [ ] Cortar la verdad duplicada, cada obligación con su hogar comprobado por grep
+- [x] Cortar la verdad duplicada, cada obligación con su hogar comprobado por grep
   - **Target:** `templates/contract/implement.md`, `templates/contract/review.md`, `templates/contract/core.md`, `templates/contract/delegation.md`, `templates/contract/close.md`, `templates/contract/handoff.md`
   - **Verify:** `node --test test/contract.test.mjs test/context.test.mjs`
   - **Criteria:** CR1
+  - **Resolved:** `2026-10-20T13:36:51Z`
 - [ ] Recortar la prosa que `--help` ya imprime, conservando lo que la ayuda no lleva
   - **Target:** `templates/contract/implement.md`, `templates/contract/core.md`, `templates/contract/close.md`, `templates/contract/delegation.md`, `templates/contract/spec.md`, `templates/contract/readiness.md`
   - **Verify:** `node --test test/contract.test.mjs test/cli-bin.test.mjs`
