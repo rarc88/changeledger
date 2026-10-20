@@ -106,12 +106,20 @@ moverlo obliga a re-registrar los cuatro y merece su propio change deliberado.
 - **Then** el mismo par mide 4.400 tokens o menos
 - **And** ningún contexto compuesto crece
 
-### CR5 — Los techos reflejan lo medido y sólo pueden bajar
+### CR5 — Los techos son números deliberados que sólo pueden bajar
 - **Given** los techos de `budgets.yml`, hoy de 2× a 7× su contenido
 - **When** se cierran los recortes
-- **Then** cada techo salvo el de `core` baja a lo medido más un margen declarado en el propio fichero
+- **Then** cada techo es un número redondo elegido como límite, no derivado del contenido medido
 - **And** `AGENTS.md` enuncia que un techo sólo puede bajar, y que subirlo exige una decisión del humano registrada en un change
-- **And** el techo de `core` no se toca, y el change dice por qué
+- **And** ningún techo queda por debajo de lo que hoy mide su contexto
+
+### CR7 — El límite del bootstrap deja de seguir al techo
+- **Given** que hoy el `head -N` del bootstrap y el techo de líneas de `core` se afirman por igualdad, de modo que recortar el contrato invalida el `AGENTS.md` de todos los repos consumidores
+- **When** se separan los dos números
+- **Then** el límite del bootstrap es una constante fija que no se deriva del techo
+- **And** un test asevera que ese límite es mayor o igual que el techo de líneas de `core`, para que la captura no pueda truncarse
+- **And** la condición de validez sigue siendo la línea `END`, no el número
+- **And** mover el techo de `core` ya no exige re-registrar ningún repo
 
 ### CR6 — La tabla de eventos deja de mantenerse a mano
 - **Given** `test/contract.test.mjs`, que hoy fija la tabla de `implement.md` contra `LOG_EVENT_DEFINITIONS`
@@ -145,10 +153,14 @@ moverlo obliga a re-registrar los cuatro y merece su propio change deliberado.
   - **Target:** `templates/contract/implement.md`, `templates/contract/core.md`, `templates/contract/handoff.md`
   - **Verify:** `node --test test/contract.test.mjs`
   - **Criteria:** CR4
-- [ ] Bajar los techos a lo medido y enunciar la regla de techo decreciente
+- [ ] Fijar techos deliberados y enunciar la regla de techo decreciente
   - **Target:** `templates/contract/budgets.yml`, `AGENTS.md`
   - **Verify:** `node --test test/contract.test.mjs test/context.test.mjs`
   - **Criteria:** CR5
+- [ ] Separar el límite del bootstrap del techo de `core`
+  - **Target:** `src/contract.mjs`, `AGENTS.md`, `test/contract.test.mjs`
+  - **Verify:** `node --test test/contract.test.mjs`
+  - **Criteria:** CR7
 
 ## Log
 - **2026-10-20T13:03:04Z** `[version]` 0.18.0
