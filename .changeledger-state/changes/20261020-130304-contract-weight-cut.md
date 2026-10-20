@@ -5,6 +5,7 @@ type: refactor
 status: done
 created: 2026-10-20T13:03:04Z
 depends_on: []
+archived: true
 reviewed: true
 branch: refactor/20261020-130304
 related_to: []
@@ -198,3 +199,4 @@ moverlo obliga a re-registrar los cuatro y merece su propio change deliberado.
 - **2026-10-20T16:24:42Z** `[graduation]` spec: `contract-discovery.md`
 - **2026-10-20T16:24:43Z** `[graduation]` spec: `lifecycle.md`
 - **2026-10-20T16:24:43Z** `[graduation]` spec: `git-traceability.md`
+- **2026-10-20T16:24:44Z** `[archive]` archived
