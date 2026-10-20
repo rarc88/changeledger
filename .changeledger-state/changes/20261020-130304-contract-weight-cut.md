@@ -2,7 +2,7 @@
 id: "20261020-130304"
 title: Recortar el peso del contrato por lo que un agente carga de verdad
 type: refactor
-status: draft
+status: approved
 created: 2026-10-20T13:03:04Z
 depends_on: []
 related_to: []
@@ -147,3 +147,4 @@ moverlo obliga a re-registrar los cuatro y merece su propio change deliberado.
 
 ## Log
 - **2026-10-20T13:03:04Z** `[version]` 0.18.0
+- **2026-10-20T13:06:55Z** `[status]` draft → approved (human via conversation)
