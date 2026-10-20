@@ -308,7 +308,7 @@ bootstrap mantiene un único punto de entrada: `changeledger context`.
 **El bootstrap manda un comando acotado, no una prohibición.** Desde el formato
 v4 no ordena "no recortes la salida" —una negación que el arnés incumple sin que
 el agente lo note— sino un comando exacto, `changeledger context 2>&1 |
-head -400`, más una **condición de validez positiva**: la captura vale sólo si su
+head -325`, más una **condición de validez positiva**: la captura vale sólo si su
 última línea contiene `CHANGELEDGER CONTEXT END`, y nada anterior a esa línea es
 accionable. Ese corte **no es un número elegido**: es exactamente el techo de
 `lines` del core, y los dos se afirman **por igualdad**, así que ninguno puede
