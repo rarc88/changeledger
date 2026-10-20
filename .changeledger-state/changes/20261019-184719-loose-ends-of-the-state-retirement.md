@@ -160,10 +160,11 @@ que es una capacidad que falta y no un cabo suelto de este trabajo.
   - **Target:** `.changeledger/specs/architecture.md`
   - **Verify:** `node bin/changeledger.mjs check`
   - **Resolved:** `2026-10-20T11:15:32Z`
-- [ ] Excluir la devolución del agente del arma histórica de `rejectionCount`
+- [x] Excluir la devolución del agente del arma histórica de `rejectionCount`
   - **Target:** `src/metrics.mjs`
   - **Verify:** `node --test test/metrics.test.mjs`
   - **Criteria:** CR9
+  - **Resolved:** `2026-10-20T11:46:32Z`
 
 ## Log
 - **2026-10-19T18:47:19Z** `[version]` 0.18.0
