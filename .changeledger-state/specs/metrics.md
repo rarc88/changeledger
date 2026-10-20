@@ -33,22 +33,33 @@ el único rastro de un rechazo, y cuenta por tres formas del Log:
 - `[status] done → in-progress (human reopened)`, la forma que llevan los
   Log de los repos consumidores.
 - `[validation] in-validation → in-progress`, la forma histórica de la puerta de
-  validación, que carga 258 de los 278 rechazos registrados en los repos que
-  usan ChangeLedger. Sin ella la métrica leería cero sobre casi todo el
-  histórico. `[validation] in-validation → done` es la aceptación y no suma.
+  validación, que carga la mayoría de los rechazos jamás registrados. Sin ella
+  la métrica leería casi cero sobre todo el histórico.
+  `[validation] in-validation → done` es la aceptación y no suma.
 
-Una devolución del agente (`(agent)` o `(agent reopened)`) no cuenta, y un
+Una devolución del agente no cuenta en ninguna de las dos formas, y un
 `review fail` tampoco: sale de `in-review`, no de `done`.
 
-El filtro de actor no es uniforme entre las dos lecturas del mismo Log, y la
-asimetría es deliberada. `rejectionCount` sólo cuenta las devoluciones del
-humano porque mide insatisfacción con lo entregado, y la vuelta que el agente
-toma por su cuenta es una segunda pasada suya. Las aristas de retrabajo de
-`usage-analysis.mjs` (`FAILED_VERDICT_EDGES`) no filtran por actor porque miden
-consumo, y un tramo rehecho cuesta lo mismo lo pidiera quien lo pidiera. De ahí
-que `[status] done → in-progress (agent)` sea retrabajo en el coste y no sea
-rechazo en la entrega: las dos cifras no tienen por qué cuadrar, y leerlas como
-si midieran lo mismo es el error que esta nota existe para evitar.
+Cómo se reconoce al agente difiere entre las dos formas, y la diferencia la
+impone el archivo, no una preferencia. En `[status] done → in-progress` el
+actor se exige en positivo (`(human)`, `(human reopened)`), porque todo escritor
+vigente lo estampa. En la forma histórica se excluye en negativo, contando todo
+lo que no sea `(agent …)`: de los 318 retornos de esa puerta en los dos repos
+consumidores, 104 son `(agent rejected)` —el agente devolviéndose su propio
+trabajo— y 214 no llevan actor porque son anteriores a que el detalle
+existiera. Exigir el actor en positivo allí descartaría esos 214 y volvería a
+dejar la métrica en casi cero. Esto corrige la premisa de `20261018-131621`,
+que dio por hecho que un retorno en esa puerta era humano por definición.
+
+`rejectionCount` no cuadra con las aristas de retrabajo de `usage-analysis.mjs`
+(`FAILED_VERDICT_EDGES`), y no debe cuadrar. Difieren en dos ejes. Por actor:
+el retrabajo no filtra ninguno, porque mide consumo y un tramo rehecho cuesta
+lo mismo lo pidiera quien lo pidiera, así que `[status] done → in-progress
+(agent)` es retrabajo y no es rechazo. Y por aristas: el retrabajo cuenta
+además `[review] in-review → in-progress` y `[review] in-review → blocked`, que
+son veredictos del revisor y no devoluciones del humano, así que
+`rejectionCount` no los cuenta nunca. Leer las dos cifras como si midieran lo
+mismo es el error que esta nota existe para evitar.
 
 `reviewRetries` cuenta esa otra arista, `[review] in-review → in-progress`: todo
 veredicto `fail` del revisor independiente. El veredicto no tiene clases, así que
