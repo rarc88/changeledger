@@ -30,7 +30,7 @@ const STATUS_CONTEXT = {
   discarded: { mode: 'discarded', fragments: ['discarded'] },
 };
 const INCREMENTAL_NOTICE = `This incremental context extends the complete core context already read.
-Its one-pass full-capture rule applies here; a partial view is invalid.`;
+Read it complete in one pass, to its END line; a partial view is invalid.`;
 
 function fragment(name) {
   return fs.readFileSync(path.join(contractTemplatesDir, `${name}.md`), 'utf8').trim();

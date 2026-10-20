@@ -29,6 +29,20 @@ import { contractFragmentNames } from './contract-support.mjs';
 import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
+function assertIncrementalNotice(output) {
+  assert.match(
+    output,
+    /\bincremental\b[^.]{0,80}\bcore\b/i,
+    'the notice must say the pack extends core',
+  );
+  assert.match(output, /\bone pass\b/i, 'the notice must require a single full capture');
+  assert.match(
+    output,
+    /\bpartial\b[^.]{0,30}\binvalid\b/i,
+    'the notice must reject a partial read',
+  );
+}
+
 process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'context-home-'));
 
 // The budget policy is observable in two ways at once — whether it throws and
@@ -419,9 +433,11 @@ test('CR2: change id infers implement and includes complete actionable stages', 
   const output = buildContext(id, root);
   assert.match(output, /mode: implement/);
   assert.doesNotMatch(output, /# ChangeLedger — Core Contract/);
-  assert.match(output, /This incremental context extends the complete core context already read/);
-  assert.match(output, /one-pass full-capture rule applies here/i);
-  assert.match(output, /a partial view is invalid/i);
+  // Guard the obligation the runtime notice carries, not its phrasing: the pack
+  // is incremental over a core already read, it must be read whole in one pass,
+  // and a partial read is invalid. Three literal pins on this sentence charged
+  // 20261020-130304 a retarget for a rewording that moved no obligation.
+  assertIncrementalNotice(output);
   assert.match(output, /# Implementing an Approved Change/);
   // 225213 CR5: implement carries the effective TDD signal, not the full DoR pack.
   assert.match(output, /Effective policy:.*tdd=(on|off)/);
@@ -682,9 +698,7 @@ test('CR3/CR4: explicit modes work and unknown input has the exact error', () =>
     assert.match(output, new RegExp(`mode: ${mode}`));
     assert.match(output, heading);
     assert.doesNotMatch(output, /# ChangeLedger — Core Contract/);
-    assert.match(output, /This incremental context extends the complete core context already read/);
-    assert.match(output, /one-pass full-capture rule applies here/i);
-    assert.match(output, /a partial view is invalid/i);
+    assertIncrementalNotice(output);
     assert.match(
       output.split('\n')[0],
       new RegExp(

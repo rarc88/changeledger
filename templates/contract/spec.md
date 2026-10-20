@@ -20,7 +20,7 @@ headings. Required and optional frontmatter:
 ---
 id: "20260613-134548"
 title: Short, clear title
-type: feature                  # one of core's effective types
+type: feature                  # a configured type; `new --help` lists them
 status: draft                  # lifecycle value
 created: 2026-06-13T13:45:48Z # full ISO 8601 UTC
 depends_on: []                 # change ids or external project:id refs
