@@ -29,7 +29,8 @@ El ciclo tiene **seis estados**: `draft`, `approved`, `in-progress`,
 `in-review`, `done` y `discarded`. `done` significa **entregado por el agente**.
 La aceptación humana no es un estado ni un comando: es el merge de la rama del
 change en la rama de integración. La graduación sella ese instante como
-`accepted_at`, que es telemetría y no condiciona ninguna transición.
+`accepted_at`, y `sync` sella después el que la graduación no alcanzó; es
+telemetría y no condiciona ninguna transición.
 
 **Un release registrado es la única frontera irreversible.** Mientras el change
 no figure en la lista `changes:` de un fichero de `.changeledger/releases/`,
@@ -239,9 +240,10 @@ ninguna historia ya escrita se invalida retroactivamente.
 así que la **vía genérica se estrecha donde el origen se conoce**: la propia
 transformación de `status` rechaza ese par nombrando `changeledger review <id>
 pass`. Al vivir en la transformación y no en una guarda pre-texto —que no puede
-leer el estado actual— cubre por construcción sus tres sedes: el CLI, el viewer
-y el batch de `apply`. Sin ella un agente entregaría sin veredicto su propio
-trabajo `review_required` y `check` no vería nada mal.
+leer el estado actual— cubre por construcción las tres sedes que transforman: el
+CLI, el viewer y el batch de `apply`. El documento editado a mano es una cuarta
+vía, que ninguna transformación alcanza, y la cierra una pasada propia de
+`check` descrita en la spec de validación.
 
 `discarded` es terminal. `done` vuelve a `in-progress` por acción humana o del
 agente, con motivo, salvo que el change figure en un release registrado: esa es
@@ -347,21 +349,24 @@ Son **errores**: una transición cuyo origen no coincide con el estado
 reconstruido (p.ej. un veredicto `review → done` duplicado), self-loops,
 aristas fuera del grafo y un `status` final incompatible con la secuencia. Dos
 compatibilidades **acotadas** mantienen legible el historial anterior sin
-relajar el grafo para trabajo nuevo: las aristas legacy literales
-(`in-review → done`, `in-progress → done`, `draft → in-progress`, de las que
-sólo la última sigue fuera del grafo canónico) y el *resync*
+relajar el grafo para trabajo nuevo: la única arista legacy literal que queda,
+`draft → in-progress` —`in-review → done` e `in-progress → done` pasaron a ser
+canónicas y salieron de la lista—, y el *resync*
 de huecos tempranos — solo un origen explícito `status:` puede adelantar la
 reconstrucción, solo hacia delante y solo entre `draft`/`approved`/`in-progress`;
 los orígenes implícitos de review exigen siempre la secuencia exacta.
 Statuses no canónicos desactivan la validación del change (el grafo no modela
 esos estados), y de ahí que el histórico siga siendo válido: cualquier evento
 que toque un estado retirado aborta el replay de ese change en vez de
-convertirse en error.
+convertirse en error. Por eso la entrega sin veredicto se comprueba en una
+pasada aparte y no dentro del replay: un solo estado retirado en el Log —lo
+normal en lo que quedó en vuelo tras la retirada— abandonaría la reconstrucción
+antes de llegar a la línea de entrega y la dejaría pasar.
 
 El tipo de evento `[validation]` sobrevive con dos armas. La histórica,
 `in-validation → <to>`, debe seguir parseando o cada aceptación del archivo se
 convertiría en un diagnóstico de evento inválido. La viva,
-`accepted (merged <sha>)`, es la que estampa la graduación; como no declara
+`accepted (merged <sha>)`, la escriben dos sedes, la graduación y `sync`; como no declara
 origen, el replay la **salta** explícitamente en vez de leerla como un estado
 no modelable, que abandonaría la reconstrucción de todo change graduado.
 
@@ -433,8 +438,21 @@ incertidumbre de git resuelve a nulo, así que la graduación puede fallar al
 sellar pero nunca falla por el sellado. Sin merge no se inventa aceptación y sin
 entrada `[branch]` la graduación procede igual. El sellado es idempotente: un
 change que enlaza varias specs con varios `--into` recibe una sola línea de
-aceptación. `changeledger check <id>` avisa —código 0, sin escribir— de un
-`done` fusionado al que todavía le falta el sello.
+aceptación.
+
+La graduación consulta el merge en su propio instante y no lo reintenta, así
+que una rama que aterriza después dejaría `accepted_at` sin estampar para
+siempre. El segundo asiento es `changeledger sync`, el único comando que corre
+para el ledger entero y no para avanzar un change concreto. Sella por encima de
+la puerta de activación, de modo que también escribe en un repo en layout de
+worktree sin ref de estado, y en un repo sin remoto, porque la detección del
+merge sólo lee refs locales. Dos exclusiones: `--status`, que por definición no
+escribe, y un checkout que tiene la ref de estado sin haberla adoptado, donde
+el worktree y la ref son dos candidatos a sede de la escritura. Alcanza a los
+archivados, porque en el caso para el que existe el merge aterriza después del
+archivo. `changeledger check <id>` avisa —código 0, sin escribir— de un `done`
+fusionado al que todavía le falta el sello, archivado o no, y el aviso nombra a
+`sync`, que es la sede capaz de limpiarlo.
 
 **Revisión de la reconciliación.** En un tipo con `review_required`, cuando el
 cierre crea, corrige o amplía specs, el orquestador delega el rol `graduation-review`
