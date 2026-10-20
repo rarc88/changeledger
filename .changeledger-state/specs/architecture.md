@@ -519,8 +519,9 @@ nombra `activate`. En un repo sin activar al que le falta la ref local pero
 tiene la copia remote-tracking del remoto que resuelve `resolveRemote` —el mismo
 que usa `activate`—, `sync` y `sync --status` también nombran `activate` y
 dicen que ese remoto publica estado global (`publishedTrackingRef`,
-`src/commands/sync.mjs`); no mueven ninguna ref, no hacen fetch y sólo leen
-refs locales. Si no hay remoto, si hay varios y ninguno es `origin` o si
+`src/commands/sync.mjs`); no mueven ninguna ref ni hacen fetch. `sync` sí
+escribe ahí el sello de aceptación pendiente del párrafo siguiente, sobre los
+ficheros del worktree; `sync --status` no escribe nada en ningún caso. Si no hay remoto, si hay varios y ninguno es `origin` o si
 falla `git remote`, conservan el mensaje de que no hay nada que sincronizar; una
 copia que sólo existe bajo otro remoto no produce aviso. Así el paso
 manual único por clon nunca es invisible y un fetch jamás cambia el modo de
@@ -543,7 +544,19 @@ el snapshot son dos candidatos a sede de la escritura y nada dice todavía cuál
 es la verdad. La detección (`pendingAcceptances`, `src/check.mjs`, autoridad
 única compartida con `check`) resuelve toda incertidumbre de git a «no
 pendiente», así que un repo no sella en vez de fallar, y lee sólo refs locales:
-un repo sin remoto publica un no-op y sella igual. Alcanza a los archivados,
+un repo sin remoto publica un no-op y sella igual.
+
+Dos consecuencias del sello que rompen descripciones anteriores de `sync` y
+que son deliberadas. Pasa a leer el ledger entero (`readableRepo` →
+`loadRepo`), cuando hasta ahora movía refs sin interpretar un solo documento;
+un ledger ilegible degrada a aviso —`could not read the ledger to seal pending
+acceptances`— y nunca impide que el journal viaje, que es la invariante de no
+bloquear. Y en un repo activado la escritura del sello es su propio CAS sobre
+la ref de estado (`writeLedgerFiles` → `mutateState`), anterior al fetch y a la
+comparación: `sync` puede por tanto avanzar la ref local antes de comparar
+nada. No contradice el «comparar primero», que gobierna la adopción de la
+revisión remota, pero sí obliga a releer el tip local después del sello, que es
+lo que se publica. Alcanza a los archivados,
 porque en el caso para el que existe el merge aterriza después del archivo: el
 sello añade un hecho derivado de git, no reescribe una deliberación cerrada.
 
