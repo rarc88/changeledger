@@ -6,17 +6,10 @@ import { contractTemplatesDir } from '../paths.mjs';
 import { loadRepo, resolveChangeInRepo } from '../repo.mjs';
 import { changeParseFailureMessage, transversalPolicy } from './context.mjs';
 
-export const AGENT_ROLES = [
-  'investigation',
-  'implementation',
-  'review',
-  'post-review',
-  'graduation-review',
-];
+export const AGENT_ROLES = ['investigation', 'implementation', 'review', 'graduation-review'];
 const ALLOWED_STATUSES = {
   implementation: ['approved', 'in-progress'],
   review: ['in-review'],
-  'post-review': ['in-validation'],
   'graduation-review': ['done'],
 };
 

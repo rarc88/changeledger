@@ -11,7 +11,7 @@ import { contractTemplatesDir } from '../src/paths.mjs';
 
 const execFileAsync = promisify(execFile);
 const bin = path.resolve('bin/changeledger.mjs');
-const ROLES = ['investigation', 'implementation', 'review', 'post-review', 'graduation-review'];
+const ROLES = ['investigation', 'implementation', 'review', 'graduation-review'];
 
 // npm ships as the `npm.cmd` shim on Windows; execFile does not resolve
 // shims through PATH the way a shell would, so the command must be
@@ -57,27 +57,29 @@ test('CR1: agent-prompt works outside an initialized repo (static package asset)
 test('CR2: an unknown role fails with a non-zero exit listing the valid roles', async () => {
   assert.throws(
     () => buildAgentPrompt('scaffolding'),
-    /valid roles: investigation, implementation, review, post-review, graduation-review$/,
+    new RegExp(`valid roles: ${ROLES.join(', ')}$`),
   );
   await assert.rejects(
     execFileAsync(process.execPath, [bin, 'agent-prompt', 'scaffolding']),
     (err) => {
       assert.notEqual(err.code, 0);
-      assert.match(
-        err.stderr,
-        /investigation, implementation, review, post-review, graduation-review/,
-      );
+      assert.match(err.stderr, /investigation, implementation, review, graduation-review/);
       return true;
     },
   );
 });
 
-test('20260726-141123 CR2: the retired role name audit never resolves, no alias', () => {
-  assert.throws(
-    () => buildAgentPrompt('audit'),
-    /^Error: Unknown role "audit" — valid roles: investigation, implementation, review, post-review, graduation-review$/,
-  );
-});
+// `audit` was retired in 20260726-141123; `post-review` in 20261020-130304, when
+// the status it required stopped being canonical. A retired role must stay
+// unresolvable rather than quietly aliasing onto a surviving one.
+for (const retired of ['audit', 'post-review']) {
+  test(`20261020-130304 CR2: the retired role "${retired}" never resolves, no alias`, () => {
+    assert.throws(
+      () => buildAgentPrompt(retired),
+      new RegExp(`^Error: Unknown role "${retired}" — valid roles: ${ROLES.join(', ')}$`),
+    );
+  });
+}
 
 test('CR3: every skeleton materializes the full delegation contract', () => {
   for (const role of ROLES) {
@@ -100,7 +102,7 @@ test('CR3: every skeleton materializes the full delegation contract', () => {
   }
 
   // Every read-only role forbids any write, by effect — no tool names.
-  for (const role of ['investigation', 'review', 'post-review', 'graduation-review']) {
+  for (const role of ['investigation', 'review', 'graduation-review']) {
     const body = prose(role);
     assert.match(body, /do not modify any file/i, `${role} must forbid file writes`);
     assert.match(body, /do not change Git state/i, `${role} must forbid git writes`);
@@ -192,7 +194,7 @@ test('CR4: each role loads available context without inventing a change', () => 
       `${role} must load its delegated capsule`,
     );
   }
-  for (const role of ['implementation', 'review', 'post-review', 'graduation-review']) {
+  for (const role of ['implementation', 'review', 'graduation-review']) {
     assert.match(
       prose(role),
       new RegExp(`changeledger agent-context ${role} \\{\\{change_id\\}\\}`),
@@ -205,9 +207,8 @@ test('CR4: each role loads available context without inventing a change', () => 
   const inv = prose('investigation');
   assert.match(inv, /\bno change\b[^.]{0,25}\bwork\b[^.]{0,30}\bwithout a change id\b/i);
   assert.match(inv, /\boptional id\b[^.]{0,25}\bempty\b[^.]{0,15}\bomit\b/i);
-  // Post-review never issues a verdict — the review gate already ran.
-  const postReview = prose('post-review');
-  assert.match(postReview, /never issues a verdict|do not issue a verdict/i);
+  // graduation-review inspects persistent truth and never moves the change.
+  assert.match(prose('graduation-review'), /never moves the change|do not .{0,20}move the change/i);
 });
 
 test('CR1: npm command selection picks the Windows shim only on win32', () => {

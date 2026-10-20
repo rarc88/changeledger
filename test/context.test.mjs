@@ -3147,7 +3147,6 @@ test('143656 CR4: retired phrases stay retired recursively and the fragment inve
     'graduation-review.md',
     'implementation.md',
     'investigation.md',
-    'post-review.md',
     'review.md',
   ]);
   const agentPrompts = inventory('agent-prompts/');
@@ -3155,7 +3154,6 @@ test('143656 CR4: retired phrases stay retired recursively and the fragment inve
     'graduation-review.md',
     'implementation.md',
     'investigation.md',
-    'post-review.md',
     'review.md',
   ]);
 
