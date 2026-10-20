@@ -56,7 +56,7 @@ repo. Los modos de migración de `fix` son mutuamente excluyentes, al igual que
 los de `graduate`; una combinación ambigua falla antes de escribir.
 La ayuda de `log` explica que el comando sólo escribe `note`, muestra un ejemplo
 concreto y enumera los nueve tipos válidos con sus payloads y comandos productores
-a partir de `LOG_EVENT_DEFINITIONS`. El flujo por lotes de `apply` se presenta
+a partir de `LOG_EVENT_PRODUCERS`. El flujo por lotes de `apply` se presenta
 por separado. La ayuda de cada comando marca con `(required)` las opciones
 obligatorias que el parser exige.
 
@@ -546,19 +546,18 @@ es la verdad. La detección (`pendingAcceptances`, `src/check.mjs`, autoridad
 pendiente», así que un repo no sella en vez de fallar, y lee sólo refs locales:
 un repo sin remoto publica un no-op y sella igual.
 
-Dos consecuencias del sello que rompen descripciones anteriores de `sync` y
-que son deliberadas. Pasa a leer el ledger entero (`readableRepo` →
-`loadRepo`), cuando hasta ahora movía refs sin interpretar un solo documento;
-un ledger ilegible degrada a aviso —`could not read the ledger to seal pending
-acceptances`— y nunca impide que el journal viaje, que es la invariante de no
-bloquear. Y en un repo activado la escritura del sello es su propio CAS sobre
-la ref de estado (`writeLedgerFiles` → `mutateState`), anterior al fetch y a la
-comparación: `sync` puede por tanto avanzar la ref local antes de comparar
-nada. No contradice el «comparar primero», que gobierna la adopción de la
-revisión remota, pero sí obliga a releer el tip local después del sello, que es
-lo que se publica. Alcanza a los archivados,
-porque en el caso para el que existe el merge aterriza después del archivo: el
-sello añade un hecho derivado de git, no reescribe una deliberación cerrada.
+El sello tiene dos consecuencias deliberadas sobre lo que `sync` es. Lee el
+ledger entero (`readableRepo` → `loadRepo`) y no sólo refs; un ledger ilegible
+degrada a aviso —`could not read the ledger to seal pending acceptances`— y
+nunca impide que el journal viaje, que es la invariante de no bloquear. Y en un
+repo activado su escritura es un CAS propio sobre la ref de estado
+(`writeLedgerFiles` → `mutateState`) anterior al fetch y a la comparación, así
+que `sync` avanza la ref local antes de comparar nada. No contradice el
+«comparar primero», que gobierna la adopción de la revisión remota, pero obliga
+a releer el tip local después del sello, que es lo que se publica. Alcanza a
+los archivados, porque en el caso para el que existe el merge aterriza después
+del archivo: el sello añade un hecho derivado de git, no reescribe una
+deliberación cerrada.
 
 El invariante del store es uno y ahora es uniforme (`20260811-163205`): la
 ref nunca apunta a una revisión que ningún lector pueda cargar — todo camino
