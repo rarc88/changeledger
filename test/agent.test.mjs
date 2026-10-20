@@ -3718,3 +3718,48 @@ test('20261018-131621 CR5: review fail returns to in-progress without a class fl
     /`\[review\]` in-review → in-progress: motivo/,
   );
 });
+
+// --- 20261020-172221 CR6: an epic delivers when its children do ----------
+//
+// Without this an epic is a label: it can be closed while the work it names is
+// still open, and nothing says so. `discarded` counts as resolved — a recorded
+// decision, not unfinished work.
+
+function epicWithChild(childStatus) {
+  const fixture = repoWithChange();
+  const dir = path.join(fixture.root, '.changeledger', 'changes');
+  const epicId = '20260613-110000';
+  fs.writeFileSync(
+    path.join(dir, `${epicId}-epic.md`),
+    `---\nid: "${epicId}"\ntitle: Épica\ntype: epic\nstatus: in-progress\ncreated: 2026-06-13T11:00:00Z\ndepends_on: []\n---\n\n## Request\n\nObjetivo.\n\n## Proposal\n\nFrontera.\n\n## Log\n\n- **2026-06-13T11:00:00Z** \`[status]\` draft → approved\n- **2026-06-13T11:05:00Z** \`[status]\` approved → in-progress\n`,
+  );
+  fs.writeFileSync(
+    path.join(dir, '20260613-130000-child.md'),
+    `---\nid: "20260613-130000"\ntitle: Hijo\ntype: quick\nstatus: ${childStatus}\ncreated: 2026-06-13T13:00:00Z\ndepends_on: []\nparent: "${epicId}"\n---\n\n## Request\n\nAlgo.\n\n## Log\n\n- **2026-06-13T13:00:00Z** \`[note]\` created\n`,
+  );
+  return { ...fixture, epicId };
+}
+
+test('20261020-172221 CR6: an epic with a live child cannot close, and the refusal names it', () => {
+  const { root, epicId } = epicWithChild('in-progress');
+  assert.throws(
+    () => status(epicId, 'done', root),
+    (error) => {
+      assert.match(error.message, /still has unresolved children/);
+      assert.match(error.message, /20260613-130000 \(in-progress\)/);
+      return true;
+    },
+  );
+  const text = fs.readFileSync(
+    path.join(root, '.changeledger', 'changes', `${epicId}-epic.md`),
+    'utf8',
+  );
+  assert.match(text, /status: in-progress/, 'a refused transition leaves the document untouched');
+});
+
+for (const resolved of ['done', 'discarded']) {
+  test(`20261020-172221 CR6: a ${resolved} child does not hold its epic open`, () => {
+    const { root, epicId } = epicWithChild(resolved);
+    assert.doesNotThrow(() => status(epicId, 'done', root));
+  });
+}

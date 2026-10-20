@@ -77,3 +77,34 @@ function splitStages(body) {
   for (const s of stages) s.body = s.body.trim();
   return stages;
 }
+
+// The two invariants the grouping parent imposes, pure over the changes handed
+// to them so the same answer holds in an activated repo and a worktree layout.
+
+// Persistent truth belongs to the epic, not to each child. Twenty children of
+// one effort reconcile the same spec twenty times otherwise, which is the
+// ceremony the grouping exists to remove: the parent reconciles once at
+// closure and a child resolves its own decision with `--skip`.
+export function assertParentOwnsGraduation(change) {
+  const parent = change?.frontmatter?.parent;
+  if (typeof parent !== 'string' || parent === '') return;
+  throw new Error(
+    `change ${change.frontmatter.id} belongs to epic ${parent}: persistent truth is reconciled by the parent — use \`changeledger graduate ${change.frontmatter.id} --skip\``,
+  );
+}
+
+// An epic that closes with live children is a label, not a grouping: the work
+// it names is still open and nothing says so. `discarded` counts as resolved —
+// it is a recorded decision, not unfinished work.
+export function assertChildrenResolved(changes, id) {
+  const wanted = String(id);
+  const open = (changes ?? [])
+    .filter((c) => String(c.frontmatter?.parent ?? '') === wanted)
+    .filter((c) => !['done', 'discarded'].includes(c.frontmatter?.status))
+    .map((c) => `${c.frontmatter.id} (${c.frontmatter.status})`);
+  if (open.length > 0) {
+    throw new Error(
+      `epic ${id} still has unresolved children: ${open.join(', ')} — close or discard them first`,
+    );
+  }
+}

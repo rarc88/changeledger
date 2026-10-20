@@ -25,10 +25,20 @@ status: draft                  # lifecycle value
 created: 2026-06-13T13:45:48Z # full ISO 8601 UTC
 depends_on: []                 # change ids or external project:id refs
 related_to: []                 # optional non-blocking discovery links
+parent: "<id>"                  # optional: the epic this change belongs to
 owner: ana                     # optional
 release_impact: minor          # optional: none | patch | minor | major
 ---
 ```
+
+A multi-change effort declares one epic — a change of a type that carries no
+implementation — and each child names it in `parent`. The edge is exclusive and
+deliberately outside the relation graph: sharing a parent connects nothing, and
+the hierarchy is two levels, never a tree. The epic is approved on objective and
+frontier and **never enumerates its children at approval**; they are created as
+the work discovers them, which is the same rule as not planning before
+investigating, one level up. It cannot reach `done` while a child is neither
+`done` nor `discarded`.
 
 Use `depends_on` only for execution prerequisites: dependencies can block
 lifecycle progress and cycles. Use optional `related_to` for useful context that

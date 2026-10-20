@@ -28,6 +28,9 @@ First decide whether accepted work changed persistent truth:
   correct or extend several specs; link each one individually with `--into` and
   do not archive until every affected spec is linked.
 - Use `--skip` only when no persistent truth changed.
+- A change with a `parent` never links a spec: its epic reconciles once at
+  closure, instead of every child reconciling the same spec over and over. The
+  child still records its own decision, with `--skip`.
 
 In a type with `review_required`, when closure creates, corrects or extends specs,
 delegate `graduation-review` once the reconciliation is drafted and before the

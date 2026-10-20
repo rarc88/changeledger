@@ -4,7 +4,7 @@
 
 import path from 'node:path';
 import { mutateFileAtomic } from '../atomic-write.mjs';
-import { parseChange } from '../change.mjs';
+import { assertChildrenResolved, parseChange } from '../change.mjs';
 import { mutateLedgerFile, repoIsActivated, writeLedgerFiles } from '../change-store.mjs';
 import { assertChangeTextValid, assertStagesNotEmpty } from '../check.mjs';
 import {
@@ -230,6 +230,12 @@ export function statusMutation(
     // `apply`'s batch alike. Without it an agent delivers its own
     // review_required work unreviewed and `check` sees nothing wrong
     // (20261018-131621 CR27).
+    // An epic delivers when its children do. Checked before the transition so a
+    // refusal leaves the document byte-for-byte unchanged, and read through
+    // `loadRepo` for the same reason `assertNotShipped` is.
+    if (newStatus === 'done') {
+      assertChildrenResolved(loadRepo(repoRoot).changes, fm.id);
+    }
     if (fm.status === 'in-review' && newStatus === 'done') {
       throw new Error(
         `the review verdict delivers a change in review: use \`changeledger review ${fm.id} pass\``,

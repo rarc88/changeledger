@@ -1135,3 +1135,53 @@ test('20261018-131621 CR12: a change with no recorded branch graduates all the s
   assert.deepEqual(acceptedLines(text), []);
   assert.equal(parseChange(text).frontmatter.reviewed, true);
 });
+
+// --- 20261020-172221 CR5: the epic reconciles, the children do not --------
+//
+// Twenty children of one effort would otherwise reconcile the same spec twenty
+// times. `--skip` stays open for the child: the decision still has to be
+// recorded on it, it just resolves to "the parent reconciles this".
+
+function childOf(parentId) {
+  const { root, file, id } = repo();
+  const text = fs.readFileSync(file, 'utf8').replace('depends_on: []', `depends_on: []\nparent: "${parentId}"`);
+  fs.writeFileSync(file, text);
+  const parentFile = path.join(root, '.changeledger', 'changes', `${parentId}-epic.md`);
+  fs.writeFileSync(
+    parentFile,
+    `---\nid: "${parentId}"\ntitle: Épica\ntype: epic\nstatus: done\ncreated: 2026-06-13T11:00:00Z\ndepends_on: []\n---\n\n## Request\n\nObjetivo.\n\n## Proposal\n\nFrontera.\n\n## Log\n\n- **2026-06-13T11:00:00Z** \`[note]\` created\n`,
+  );
+  return { root, file, id, parentId };
+}
+
+test('20261020-172221 CR5: a child cannot link a spec and the refusal names its epic', () => {
+  const { root, id, parentId } = childOf('20260613-110000');
+  for (const attempt of [
+    () => scaffoldSpec(id, 'alguna-spec', root),
+    () => graduate(id, 'alguna-spec', root, { into: true }),
+  ]) {
+    assert.throws(attempt, (error) => {
+      assert.match(error.message, new RegExp(`belongs to epic ${parentId}`));
+      assert.match(error.message, /--skip/);
+      return true;
+    });
+  }
+  assert.ok(
+    !fs.existsSync(path.join(root, '.changeledger', 'specs', 'alguna-spec.md')),
+    'a refused graduation must write nothing',
+  );
+});
+
+test('20261020-172221 CR5: the child still records its own decision with --skip', () => {
+  const { root, file, id } = childOf('20260613-110000');
+  skipGraduation(id, 'la reconcilia su épica', root);
+  const text = fs.readFileSync(file, 'utf8');
+  assert.match(text, /`\[graduation\]` skipped/);
+  assert.match(text, /reviewed: true/);
+});
+
+test('20261020-172221 CR5: the epic itself graduates like any other change', () => {
+  const { root } = childOf('20260613-110000');
+  assert.doesNotThrow(() => scaffoldSpec('20260613-110000', 'flujo', root));
+  assert.ok(fs.existsSync(path.join(root, '.changeledger', 'specs', 'flujo.md')));
+});

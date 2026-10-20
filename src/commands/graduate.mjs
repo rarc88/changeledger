@@ -5,7 +5,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { mutateFileAtomic, withFileLock, writeFileAtomic } from '../atomic-write.mjs';
-import { parseChange } from '../change.mjs';
+import { assertParentOwnsGraduation, parseChange } from '../change.mjs';
 import { mutateLedgerFile, repoIsActivated, writeLedgerFiles } from '../change-store.mjs';
 import { assertChangeTextValid, recordedBranch, specDurabilityIssue } from '../check.mjs';
 import { findChangeledgerDir, integrationBranch, resolveSpecsDir } from '../config.mjs';
@@ -144,6 +144,14 @@ function requireGraduationReady(config, changeName, changeText) {
   return change;
 }
 
+// The spec-linking modes only. `--skip` is the child's own path and must stay
+// open: the decision still has to be recorded on the child, it just resolves
+// to "the parent reconciles this" instead of to a spec.
+function requireSpecLinkAllowed(change) {
+  assertParentOwnsGraduation(change);
+  return change;
+}
+
 export function scaffoldSpec(id, slug, cwd = process.cwd()) {
   const { config, repo, specName, changeTarget, changeName, specTarget } = graduationTarget(
     id,
@@ -153,7 +161,9 @@ export function scaffoldSpec(id, slug, cwd = process.cwd()) {
   const changeText = changeTarget.file
     ? fs.readFileSync(changeTarget.file, 'utf8')
     : changeTarget.text;
-  const change = requireGraduationReady(config, changeName, changeText);
+  const change = requireSpecLinkAllowed(
+    requireGraduationReady(config, changeName, changeText),
+  );
   if (specTarget) throw new Error(`Spec "${specName}" already exists`);
 
   // A type may name the stage its seed comes from (`types.<type>.seed_stage`);
@@ -212,7 +222,9 @@ export function graduate(id, slug, cwd = process.cwd(), { into = false, fsImpl =
   );
 
   if (repo.state) {
-    const change = requireGraduationReady(config, changeName, changeTarget.text);
+    const change = requireSpecLinkAllowed(
+      requireGraduationReady(config, changeName, changeTarget.text),
+    );
     if (!specTarget) {
       throw new Error(`Spec "${specName}" does not exist — use --new to create a scaffold`);
     }
@@ -245,7 +257,9 @@ export function graduate(id, slug, cwd = process.cwd(), { into = false, fsImpl =
   }
 
   const changeFile = changeTarget.file;
-  requireGraduationReady(config, path.basename(changeFile), fs.readFileSync(changeFile, 'utf8'));
+  requireSpecLinkAllowed(
+    requireGraduationReady(config, path.basename(changeFile), fs.readFileSync(changeFile, 'utf8')),
+  );
 
   if (!specTarget) {
     throw new Error(`Spec "${specName}" does not exist — use --new to create a scaffold`);
