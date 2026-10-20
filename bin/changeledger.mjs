@@ -108,9 +108,12 @@ const LOG_EVENT_PRODUCERS = Object.freeze({
   status: ['changeledger approve', 'changeledger status', 'changeledger discard'],
   review: ['changeledger review'],
   // The `in-validation → <to>` arm is retired with the status and survives only
-  // so Logs written while it existed keep parsing; the acceptance arm is live.
+  // so Logs written while it existed keep parsing; the acceptance arm is live
+  // and has two seats, because a branch that lands after the graduation is
+  // stamped later by `sync`.
   validation: [
-    'changeledger graduate (the accepted (merged <sha>) arm; no command writes the in-validation arm any more)',
+    'changeledger graduate (the accepted (merged <sha>) arm, at graduation)',
+    'changeledger sync (the same arm, when the merge lands after the graduation; no command writes the in-validation arm any more)',
   ],
   owner: ['changeledger owner', 'changeledger status (automatic when work starts)'],
   branch: ['changeledger branch', 'changeledger status (automatic when work starts)'],

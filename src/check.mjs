@@ -299,6 +299,7 @@ export function checkRepo({ config, changes, specs = [], releases = [], usage = 
     }
 
     checkCoverage(c, fm, active, config, { warn, err, asStatus: opts.asStatus });
+    checkDeliveryVerdict(c, fm, err);
     checkLifecycleSequence(c, fm, err);
     checkUnclassifiedMentions(c, knownIds, incomingRelations, warn);
   }
@@ -762,6 +763,39 @@ export const LEGACY_EDGES = new Set(['draft→in-progress']);
 const LEGACY_RESYNC_RANK = { draft: 0, approved: 1, 'in-progress': 2 };
 const CANONICAL = new Set(CANONICAL_STATUSES);
 
+// The exit from review belongs to the reviewer's verdict. `review pass` made
+// `in-review → done` canonical (20261018-131621), which cost the replay its
+// only way to tell a reviewed delivery from a `[status]` one. The command
+// seats refuse the `[status]` form (`statusMutation`); this is the same
+// refusal for the hand-edited document `spec.md` declares a legitimate path,
+// and the normal one in the consuming repos.
+//
+// Its own pass, not a step of the replay: the replay abandons the document at
+// the first status it cannot model, and a Log that lived through
+// `in-validation` is exactly where a hand-edited delivery would hide. Inside
+// the replay this gate was void in every such document — twenty of them are
+// in flight in the consuming repos today.
+function checkDeliveryVerdict(c, fm, err) {
+  let inLog = false;
+  const lines = (c.text ?? '').split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    if (/^##\s/.test(lines[i])) {
+      inLog = /^##\s+Log\s*$/.test(lines[i]);
+      continue;
+    }
+    if (!inLog) continue;
+    const event = parseLogEvent(lines[i]);
+    if (!event || event.type === 'review') continue;
+    if (event.from === 'in-review' && event.to === 'done') {
+      err(
+        c,
+        `Log line ${i + 1}: the review verdict delivers a change in review: use \`changeledger review ${fm.id} pass\``,
+      );
+      return;
+    }
+  }
+}
+
 // Replays `## Log` lifecycle events from `draft` against the transition graph
 // in lifecycle.mjs. Stops at the first inconsistency to avoid cascading noise.
 // Changes using non-canonical statuses are left alone — the graph cannot
@@ -809,19 +843,6 @@ function checkLifecycleSequence(c, fm, err) {
         return;
       }
       current = event.from;
-    }
-    // The exit from review belongs to the reviewer's verdict. `review pass`
-    // made `in-review → done` canonical (20261018-131621), which cost the
-    // replay its only way to tell a reviewed delivery from a `[status]` one.
-    // The command seats refuse the `[status]` form (`statusMutation`); this is
-    // the same refusal for the hand-edited document `spec.md` declares a
-    // legitimate path, and the normal one in the consuming repos.
-    if (event.from === 'in-review' && event.to === 'done' && event.type !== 'review') {
-      err(
-        c,
-        `Log line ${i + 1}: the review verdict delivers a change in review: use \`changeledger review ${fm.id} pass\``,
-      );
-      return;
     }
     if (!canTransition(event.from, event.to) && !LEGACY_EDGES.has(`${event.from}→${event.to}`)) {
       err(c, `Log line ${i + 1}: invalid lifecycle transition "${event.from} → ${event.to}"`);

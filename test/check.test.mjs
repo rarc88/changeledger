@@ -4822,7 +4822,7 @@ types:
     review_required: true
 `;
 
-function verdictDoc(deliveryLine) {
+function verdictDoc(deliveryLine, history = []) {
   return [
     '---',
     `id: "${VERDICT_ID}"`,
@@ -4857,17 +4857,21 @@ function verdictDoc(deliveryLine) {
     '- **2026-10-19T00:01:00Z** `[status]` draft → approved',
     '- **2026-10-19T00:02:00Z** `[status]` approved → in-progress',
     '- **2026-10-19T00:03:00Z** `[status]` in-progress → in-review',
+    ...history,
     deliveryLine,
     '',
   ].join('\n');
 }
 
-function verdictRepo(deliveryLine) {
+function verdictRepo(deliveryLine, history = []) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-verdict-'));
   const changesDir = path.join(root, '.changeledger', 'changes');
   fs.mkdirSync(changesDir, { recursive: true });
   fs.writeFileSync(path.join(root, '.changeledger', 'config.yml'), VERDICT_CONFIG);
-  fs.writeFileSync(path.join(changesDir, `${VERDICT_ID}-delivery.md`), verdictDoc(deliveryLine));
+  fs.writeFileSync(
+    path.join(changesDir, `${VERDICT_ID}-delivery.md`),
+    verdictDoc(deliveryLine, history),
+  );
   return root;
 }
 
@@ -4894,6 +4898,27 @@ test('20261019-184719 CR1: the same delivery recorded as a [review] verdict exit
 });
 
 // --- 20261019-184719 CR3: the pending-acceptance warning reaches archived ---
+
+// A Log that lived through a retired status is the population CR1 was written
+// for: the two consuming repos hold 20 in-flight changes whose Logs already
+// name `in-validation` or `blocked`. The replay abandons at the first
+// non-canonical status, so a gate that sat below that check was void in
+// exactly those documents.
+test('20261019-184719 CR1: a retired status earlier in the Log does not mask the delivery', () => {
+  const root = verdictRepo('- **2026-10-19T00:06:00Z** `[status]` in-review → done', [
+    '- **2026-10-19T00:04:00Z** `[status]` in-review → in-validation',
+    '- **2026-10-19T00:05:00Z** `[status]` in-validation → in-review',
+  ]);
+
+  const out = captureOutput();
+  const code = check([VERDICT_ID], root, out);
+
+  assert.equal(code, 1, `expected a non-zero exit, got ${code}: ${out.diagnostics.join('\n')}`);
+  assert.ok(
+    out.diagnostics.some((d) => d.includes(`changeledger review ${VERDICT_ID} pass`)),
+    `expected the verdict seat to be named: ${out.diagnostics.join('\n')}`,
+  );
+});
 
 test('20261019-184719 CR3: an archived done change with a merged branch is warned like a live one', () => {
   const live = acceptFixture();

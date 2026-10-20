@@ -368,12 +368,24 @@ test('20260824-134716 CR7: log help derives the complete grammar without promisi
   );
 });
 
-test('20261019-184719 CR4: log help names graduate as the writer of the validation acceptance arm', () => {
+test('20261019-184719 CR4: log help names every live writer of the validation acceptance arm', () => {
   const { out } = run('log', '--help');
   const block = out.match(/^ {2}validation\n((?: {4}.*\n)+)/m);
   assert.ok(block, 'log help should list the validation type');
   const writers = block[1].split('Written by:')[1];
-  assert.match(writers, /changeledger graduate/);
+  // Derived from the source, not listed here: the help was falsified once by a
+  // change that added a second seat for the acceptance arm without touching
+  // this list, so the test asks the code who writes it.
+  const dir = new URL('../src/commands/', import.meta.url);
+  const seats = fs
+    .readdirSync(dir)
+    .filter((name) => name.endsWith('.mjs'))
+    .filter((name) => /outcome:\s*'accepted'/.test(fs.readFileSync(new URL(name, dir), 'utf8')))
+    .map((name) => name.replace(/\.mjs$/, ''));
+  assert.ok(seats.length > 0, 'the acceptance arm must have at least one command seat');
+  for (const seat of seats) {
+    assert.match(writers, new RegExp(`changeledger ${seat}\\b`), `unnamed writer: ${seat}`);
+  }
   // A "no command" claim is only true of the retired in-validation arm.
   for (const line of writers.split('\n').filter((l) => /no command/i.test(l))) {
     assert.match(line, /in-validation/);
