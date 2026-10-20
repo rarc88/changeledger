@@ -40,16 +40,21 @@ el único rastro de un rechazo, y cuenta por tres formas del Log:
 Una devolución del agente no cuenta en ninguna de las dos formas, y un
 `review fail` tampoco: sale de `in-review`, no de `done`.
 
-Cómo se reconoce al agente difiere entre las dos formas, y la diferencia la
-impone el archivo, no una preferencia. En `[status] done → in-progress` el
-actor se exige en positivo (`(human)`, `(human reopened)`), porque todo escritor
-vigente lo estampa. En la forma histórica se excluye en negativo, contando todo
-lo que no sea `(agent …)`: de los 318 retornos de esa puerta en los dos repos
-consumidores, 104 son `(agent rejected)` —el agente devolviéndose su propio
-trabajo— y 214 no llevan actor porque son anteriores a que el detalle
-existiera. Exigir el actor en positivo allí descartaría esos 214 y volvería a
-dejar la métrica en casi cero. Esto corrige la premisa de `20261018-131621`,
-que dio por hecho que un retorno en esa puerta era humano por definición.
+Cómo se reconoce al agente difiere entre las dos formas. En
+`[status] done → in-progress` el actor se exige en positivo (`(human)`,
+`(human reopened)`), porque el escritor está vivo y se sabe qué estampa. En la
+forma histórica se excluye en negativo —cuenta todo lo que no sea `(agent …)`—
+porque su escritor está retirado y los detalles que pudo estampar no se leen de
+ningún código vigente, así que lo no marcado como agente se toma como del
+humano. Ninguna de las dos reglas se comporta distinto sobre el archivo real:
+no existe ni un retorno en esa puerta sin actor.
+
+Que el agente use esa puerta corrige la premisa de `20261018-131621`, que dio
+por hecho que un retorno allí era humano por definición. De los 214 retornos
+que los dos repos consumidores tienen registrados en esa puerta, 111 son
+`(agent rejected)` —el agente devolviéndose su propio trabajo, con motivos como
+haberse autorrevisado o haber encontrado su propio bug en pruebas— y 103 son
+del humano. Contarlos todos inflaba la métrica alrededor del doble.
 
 `rejectionCount` no cuadra con las aristas de retrabajo de `usage-analysis.mjs`
 (`FAILED_VERDICT_EDGES`), y no debe cuadrar. Difieren en dos ejes. Por actor:
