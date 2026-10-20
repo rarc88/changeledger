@@ -15,7 +15,7 @@ métricas contaría pero que rompe la secuencia la señala `check` como error, n
 produce silenciosamente una timeline engañosa. Reconoce `status: from → estado`, `review → estado` y
 `validation → estado`;
 un evento sin estado de destino —la línea `[validation] accepted (merged <sha>)`
-que estampa la graduación— no siembra ningún tramo de la timeline, porque el
+que estampan la graduación y `sync`— no siembra ningún tramo de la timeline, porque el
 tramo exige `event.to`. De la timeline salen:
 cycle time (`done − created`), lead time por etapa, WIP actual sobre los tres
 estados vivos (`approved`, `in-progress`, `in-review`), aging de los
