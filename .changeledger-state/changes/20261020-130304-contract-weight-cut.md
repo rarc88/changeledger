@@ -136,10 +136,11 @@ moverlo obliga a re-registrar los cuatro y merece su propio change deliberado.
   - **Verify:** `node --test test/contract.test.mjs test/cli-bin.test.mjs`
   - **Criteria:** CR3
   - **Resolved:** `2026-10-20T14:02:59Z`
-- [ ] Retargetear la tabla de eventos del contrato a la salida generada
+- [x] Retargetear la tabla de eventos del contrato a la salida generada
   - **Target:** `test/contract.test.mjs`
   - **Verify:** `node --test test/contract.test.mjs`
   - **Criteria:** CR6
+  - **Resolved:** `2026-10-20T14:02:59Z`
 - [ ] Comprimir los cuatro pasajes largos sin perder obligación
   - **Target:** `templates/contract/implement.md`, `templates/contract/core.md`, `templates/contract/handoff.md`
   - **Verify:** `node --test test/contract.test.mjs`
