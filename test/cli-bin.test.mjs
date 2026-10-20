@@ -223,8 +223,8 @@ test('111457 CR5/CR6: fix help exposes the scoped graduation-links migration', (
 
 test('20260824-134716 CR2: static CLI domains are complete in help and invalid-value errors', () => {
   for (const [command, values] of [
-    ['agent-prompt', 'investigation | implementation | review | post-review | graduation-review'],
-    ['agent-context', 'investigation | implementation | review | post-review | graduation-review'],
+    ['agent-prompt', 'investigation | implementation | review | graduation-review'],
+    ['agent-context', 'investigation | implementation | review | graduation-review'],
     ['review', 'pass|fail'],
     ['task', 'done|block'],
   ]) {

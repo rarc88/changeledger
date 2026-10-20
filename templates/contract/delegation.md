@@ -26,15 +26,8 @@ you will integrate it, keep the work in the main thread or regroup it.
 
 ## Delegation prompt contract
 
-Every prompt states:
+The role skeleton core points you to carries a placeholder for every item a
+prompt must state. Fill all of them, and add the one it does not carry: for
+roles that write, the expected baseline (branch or commit) the delegate must
+verify it is working from.
 
-- why the work is delegated;
-- the owned files, area or investigation question;
-- the expected output;
-- the difficulty or risk that informed model choice;
-- the integration criterion;
-- for roles that write, the expected baseline (branch or commit) the delegate must verify it is working from.
-
-Tell coding delegates they share the codebase: stay inside assigned ownership,
-do not revert others' edits and report overlapping changes instead of silently
-resolving them.

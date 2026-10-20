@@ -45,10 +45,8 @@ checks, prefer the stable structural convention
 `verification_patterns: ["verify:"]`; start the `Verify` value with `verify:` and
 put the evidence there instead of listing every possible manual phrase in config.
 
-`changeledger check` reports missing Given/When/Then, uncovered or unknown CRs,
-tasks without traceability and CR-bearing tasks without configured target and
-verification. Every diagnostic is a warning in `draft` and an error in
-`approved` and `in-progress`, and `changeledger approve` judges the draft at
-that stricter severity: an unready draft is refused, exit non-zero, document
-untouched. Truly operational `Support` tasks are exempt; observable
+`changeledger check` names each readiness gap itself, as a warning in `draft`
+and an error in `approved` and `in-progress`. `changeledger approve` judges a
+draft at that stricter severity: an unready draft is refused, exit non-zero,
+document untouched. Truly operational `Support` tasks are exempt; observable
 implementation is not.

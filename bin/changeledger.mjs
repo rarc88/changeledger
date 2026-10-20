@@ -531,6 +531,10 @@ program
       '"ChangeLedger: none — <reason>". It never falls back to the in-progress',
       'change, and cannot be combined with --id.',
       '',
+      'A failed `pre-commit` hook leaves the index staged. Inspect the staged set',
+      'with `git diff --cached --name-only` before retrying: fixing the cause is not',
+      "enough if the index kept the previous attempt's files.",
+      '',
       'Examples:',
       '  changeledger commit -m "feat(cli): add helper"',
       '  changeledger commit -m "feat(cli): add helper" --id 20260711-000001',
@@ -701,10 +705,6 @@ program
       'Prints a fill-in-the-blanks delegation prompt for the given role. Works',
       'outside a ChangeLedger repo — the skeletons ship inside the package.',
       '',
-      '`post-review` is a read-only inspection of a change already in',
-      '`in-validation`, after review already passed; it never issues a verdict or',
-      'moves the change.',
-      '',
       '`graduation-review` is a read-only check of the spec reconciliation drafted',
       'for a change already `done`, before the first `--into`; it never moves the',
       'change.',
@@ -713,7 +713,6 @@ program
       '  changeledger agent-prompt investigation',
       '  changeledger agent-prompt implementation',
       '  changeledger agent-prompt review',
-      '  changeledger agent-prompt post-review',
       '  changeledger agent-prompt graduation-review',
     ].join('\n'),
   )
@@ -725,7 +724,7 @@ program
   .addArgument(closedArgument('<role>', AGENT_ROLES.join(' | '), AGENT_ROLES))
   .argument(
     '[change-id]',
-    'optional for investigation; required for implementation, review, post-review and graduation-review',
+    'optional for investigation; required for implementation, review and graduation-review',
   )
   .addHelpText(
     'after',
@@ -735,10 +734,6 @@ program
       'identifies you as that role. This replaces the normal core bootstrap for',
       'the delegated leaf; normal agents still run `changeledger context` first.',
       '',
-      '`post-review` requires a change in `in-validation`; it is read-only',
-      'inspection after review already passed, and never issues a verdict or',
-      'moves the change.',
-      '',
       '`graduation-review` requires a change in `done`; it is a read-only check of',
       'the spec reconciliation before the first `--into`, and never moves the change.',
       '',
@@ -747,7 +742,6 @@ program
       '  changeledger agent-context investigation <id>',
       '  changeledger agent-context implementation <id>',
       '  changeledger agent-context review <id>',
-      '  changeledger agent-context post-review <id>',
       '  changeledger agent-context graduation-review <id>',
     ].join('\n'),
   )

@@ -29,6 +29,20 @@ import { contractFragmentNames } from './contract-support.mjs';
 import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
+function assertIncrementalNotice(output) {
+  assert.match(
+    output,
+    /\bincremental\b[^.]{0,80}\bcore\b/i,
+    'the notice must say the pack extends core',
+  );
+  assert.match(output, /\bone pass\b/i, 'the notice must require a single full capture');
+  assert.match(
+    output,
+    /\bpartial\b[^.]{0,30}\binvalid\b/i,
+    'the notice must reject a partial read',
+  );
+}
+
 process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'context-home-'));
 
 // The budget policy is observable in two ways at once — whether it throws and
@@ -419,9 +433,11 @@ test('CR2: change id infers implement and includes complete actionable stages', 
   const output = buildContext(id, root);
   assert.match(output, /mode: implement/);
   assert.doesNotMatch(output, /# ChangeLedger — Core Contract/);
-  assert.match(output, /This incremental context extends the complete core context already read/);
-  assert.match(output, /one-pass full-capture rule applies here/i);
-  assert.match(output, /a partial view is invalid/i);
+  // Guard the obligation the runtime notice carries, not its phrasing: the pack
+  // is incremental over a core already read, it must be read whole in one pass,
+  // and a partial read is invalid. Three literal pins on this sentence charged
+  // 20261020-130304 a retarget for a rewording that moved no obligation.
+  assertIncrementalNotice(output);
   assert.match(output, /# Implementing an Approved Change/);
   // 225213 CR5: implement carries the effective TDD signal, not the full DoR pack.
   assert.match(output, /Effective policy:.*tdd=(on|off)/);
@@ -682,9 +698,7 @@ test('CR3/CR4: explicit modes work and unknown input has the exact error', () =>
     assert.match(output, new RegExp(`mode: ${mode}`));
     assert.match(output, heading);
     assert.doesNotMatch(output, /# ChangeLedger — Core Contract/);
-    assert.match(output, /This incremental context extends the complete core context already read/);
-    assert.match(output, /one-pass full-capture rule applies here/i);
-    assert.match(output, /a partial view is invalid/i);
+    assertIncrementalNotice(output);
     assert.match(
       output.split('\n')[0],
       new RegExp(
@@ -2087,15 +2101,15 @@ function declaredCeilings() {
 // exists to prevent. This object is the one sede: a new group widens it here,
 // not in a second copy.
 const PINNED_CEILINGS = {
-  'base.core': { tokens: 3250, lines: 325 },
+  'base.core': { tokens: 3000, lines: 300 },
   'base.spec': { tokens: 3000, lines: 300 },
-  'base.implement': { tokens: 3000, lines: 300 },
-  'base.review': { tokens: 2500, lines: 250 },
-  'base.release': { tokens: 2500, lines: 250 },
-  agent: { tokens: 1250, lines: 125 },
+  'base.implement': { tokens: 2800, lines: 280 },
+  'base.review': { tokens: 1500, lines: 150 },
+  'base.release': { tokens: 1000, lines: 100 },
+  agent: { tokens: 800, lines: 80 },
   'overlays.done': { tokens: 1250, lines: 125 },
-  'overlays.discarded': { tokens: 1250, lines: 125 },
-  'blocks.core-commits': { tokens: 1250, lines: 125 },
+  'overlays.discarded': { tokens: 250, lines: 25 },
+  'blocks.core-commits': { tokens: 1000, lines: 100 },
 };
 
 test('195445 CR1: every declared ceiling is pinned by value', () => {
@@ -2141,37 +2155,29 @@ test('20260728-212043 CR1: every lines ceiling is exactly its tokens ceiling div
       `${path} lines ceiling is not derived from tokens: tokens=${budget.tokens} lines=${budget.lines} expected=${expectedLines}`,
     );
   }
-  assert.equal(contextBudgets.base.core.lines, 325, 'base.core.lines must derive to 325');
+  assert.equal(
+    contextBudgets.base.core.lines,
+    PINNED_CEILINGS['base.core'].lines,
+    'base.core.lines must match its pinned value',
+  );
 });
 
-// 20260728-212043 CR7: the token ceilings themselves are a few decided values —
-// core, contexts, everything else — not eleven independent numbers.
+// 20261020-130304 CR5 retired the "a few decided values, shared by class"
+// doctrine the earlier comment here described: every ceiling is now a round
+// number chosen for its own entry, pinned by value in `PINNED_CEILINGS` above,
+// and a ceiling may only decrease — raising one is a human decision recorded in
+// a change, which shows up as an edit to that pin. Headroom under a ceiling is
+// still never licence to spend it.
 //
-// 20260730-002908 removed the last exception: `base.spec` sat on a 3450 scaffold
-// whose exit condition was the authoring pack's refactor, and that refactor landed.
-// 20260811-122030 (human decision, 2026-08-11): the authoring and execution packs
-// — spec and implement — sat at 11 tokens of headroom, so both moved to a decided
-// 3000 while review/release keep 2500; headroom is still never licence to spend.
+// 20260730-002908 removed the last scaffold exception: `base.spec` sat on a 3450
+// provisional whose exit condition was the authoring pack's refactor, and that
+// refactor landed.
 // There is no scaffold key left in the file and no entry outside the decided
 // values — the loop below sweeps every context including spec, so a future
 // widening cannot reintroduce a private number without failing here.
-test('20260728-212043 CR7: token ceilings are the decided values, with no scaffolded exception', () => {
-  assert.equal(contextBudgets.base.core.tokens, 3250, 'core token ceiling moved');
-  for (const context of ['spec', 'implement']) {
-    assert.equal(contextBudgets.base[context].tokens, 3000, `${context} token ceiling moved`);
-  }
-  for (const context of ['review', 'release']) {
-    assert.equal(contextBudgets.base[context].tokens, 2500, `${context} token ceiling moved`);
-  }
-  assert.equal(contextBudgets.agent.tokens, 1250, 'agent token ceiling moved');
-  for (const [status, budget] of Object.entries(contextBudgets.overlays)) {
-    assert.equal(budget.tokens, 1250, `${status} overlay token ceiling moved`);
-  }
-  assert.equal(
-    contextBudgets.blocks['core-commits'].tokens,
-    1250,
-    'core-commits block token ceiling moved',
-  );
+// The decided values live in `PINNED_CEILINGS` above and are asserted there,
+// once. This criterion keeps the half that pin cannot express.
+test('20260728-212043 CR7: no budget entry carries a scaffolded exception', () => {
   // No entry may carry a scaffold marker any more, and the file must not regrow the
   // word: an exception announced only in prose is how 3450 outlived its exit condition.
   for (const [path, budget] of Object.entries(declaredCeilings())) {
@@ -2628,15 +2634,16 @@ test('124837 CR7 / 212043 CR2: the core pack line ceiling equals the bootstrap c
     commitsBlockLines().join('\n'),
     contextBudgets.blocks['core-commits'],
   );
-  // The two numbers are the same by design: base.core.lines can never diverge
-  // from the bootstrap's head cut in either direction, or either a consuming
-  // repo's capture truncates early (cut too low) or the declared ceiling stops
-  // meaning what it claims (cut too high).
+  // 20261020-130304 CR7 retired the equality these two numbers used to hold.
+  // They answer different questions — the cut guarantees a complete capture,
+  // the ceiling disciplines the pack's weight — and tying them meant every
+  // edit to the contract's weight invalidated the bootstrap of every consuming
+  // repo. What must still hold is that the cut cannot truncate a pack that
+  // legally filled its budget.
   const headCut = bootstrapHeadCut();
-  assert.equal(
-    contextBudgets.base.core.lines,
-    headCut,
-    `base.core.lines (${contextBudgets.base.core.lines}) must equal the bootstrap's head -${headCut} cut`,
+  assert.ok(
+    headCut >= contextBudgets.base.core.lines,
+    `the bootstrap cuts at ${headCut} lines but core may occupy ${contextBudgets.base.core.lines}`,
   );
 });
 
@@ -3147,7 +3154,6 @@ test('143656 CR4: retired phrases stay retired recursively and the fragment inve
     'graduation-review.md',
     'implementation.md',
     'investigation.md',
-    'post-review.md',
     'review.md',
   ]);
   const agentPrompts = inventory('agent-prompts/');
@@ -3155,7 +3161,6 @@ test('143656 CR4: retired phrases stay retired recursively and the fragment inve
     'graduation-review.md',
     'implementation.md',
     'investigation.md',
-    'post-review.md',
     'review.md',
   ]);
 

@@ -39,7 +39,7 @@ only when trivially small.
 Every delegation is one level deep: a subagent never delegates further. One owner per write
 surface; concurrent subagents must not share files. Get the prompt skeleton from
 `changeledger agent-prompt <role>`
-(investigation | implementation | review | post-review | graduation-review);
+(investigation | implementation | review | graduation-review);
 the stage context owns what the prompt must contain. A subagent returns findings or a diff
 receipt, not narrative.
 
@@ -59,6 +59,9 @@ rework the orchestrator pays for twice.
 - No artifact without explicit human authorization, and none before there is
   enough clarity to document faithfully: a direct request such as “create the
   change” is authorization; never invent missing requirements.
+- One concern per change. Work necessary for the authorized objective stays in its
+  Specification, Plan and Log; if related work materially expands observable scope, get
+  explicit human authorization before adding it, and propose independent work separately.
 - Never implement a `draft`.
 - One change at a time, on a non-main branch.
 - Keep lifecycle, tasks, ownership and Log current.
@@ -113,14 +116,11 @@ Every selection is committed before the review is delegated, so `baseline..HEAD`
 review is delegated: the reviewer inspects a fixed range and the deliverable cannot change between the
 report and history.
 
-Granularity follows one test: whether the unit will be reverted, referenced or implemented independently.
-A lifecycle transition is not — the Log already records it, so its commit would only duplicate that — and
-is never a commit of its own; it travels inside the next real class. A change document is: a later
-implementation branch builds on it, `changeledger check --commits` references it by id, and it can be
-discarded alone. A resolved selection of work is too: it reverts on its own, and better than the whole
-change would. A single Plan task on its own is not: alone it is reverted, referenced and implemented with
-the rest of its selection. So a change yields one commit per resolved selection, one more per confirmed
-correction and one per handoff, never one per transition.
+Granularity follows one test: whether the unit will be reverted, referenced or implemented
+independently. A change document and a resolved selection pass it; a single Plan task and a lifecycle
+transition do not — a transition travels inside the next real class, since the Log already records it.
+So a change yields one commit per resolved selection, one more per confirmed correction and one per
+handoff, never one per transition.
 
 Subjects follow `type(scope): description [#<id>]` with the real id and conventional type. One change keeps
 its marker at the end of the subject; two or more keep the subject clean and use one canonical body line,
@@ -133,9 +133,6 @@ subject is not conventional. Run `changeledger check --commits [<base>]` before 
 A combined commit is legitimate only when separation is impossible: several changes share the same files.
 Record in the Log what was combined and why, naming every change that shares the surface. Plan tasks are
 never a reason — separating them is always possible, since each resolved selection is committed on its own.
-A failed `pre-commit` hook leaves the index staged, so inspect the staged set
-(`git diff --cached --name-only`) before retrying: fixing the cause is not enough if the index kept the
-previous attempt's files.
 
 ## Lifecycle
 
@@ -172,46 +169,29 @@ archive is undone by editing `archived: false`.
 
 ## Context modes
 
-Valid modes: implement, review, spec, release.
-
-Escalate to a mode before acting. Before documenting, run
-`changeledger context spec`. Before executing, run `changeledger context
-implement` or `changeledger context <change-id>`. Every context capture is read
-complete in one pass — core, mode and change-id alike; a partial view is
-invalid. Every mode and change-id context extends the core context already read;
-it never repeats it.
-
-- `changeledger context spec`: author or refine a change.
-- `changeledger context implement`: execute an approved change.
-- `changeledger context review`: independently verify completed work.
-- `changeledger context release`: plan portable delivery metadata.
-- `changeledger context <change-id>`: infer the correct context from lifecycle.
+Escalate to a mode before acting: `changeledger context spec` before
+documenting, `changeledger context implement` or `changeledger context
+<change-id>` before executing. `changeledger context --help` names what each
+mode is for.
 
 ## Synchronizing the global state
 
 A repo that is not yet activated adopts the global state once with
 `changeledger cutover` on its integration branch; every later clone joins with
-`changeledger activate`. In an activated repo with a remote, `changeledger
-sync` compares before it
-moves: fast-forward or publish when the histories are linear, automatic
-reconciliation when the divergent journals touch disjoint documents, and a
-fail-closed report when the same document changed on both sides — the human
-coordinates that resolution, and once resolved `sync` publishes. Run `sync` at the
-strategic points: when a session opens, before delegating a review, at durable
-closure (graduation or archive) and at every handoff. Sync never blocks the
-local flow: without a remote every point transports nothing, a network failure is a
-warning, and no other command waits for it. `sync --status` reports freshness
-offline at any time. The activation never travels — each clone runs
-`changeledger activate` once; `sync` reminds when the repo is inactive but the
-ref or the remote's fetched copy is present.
+`changeledger activate`. Run `sync` at the strategic points: when a session
+opens, before delegating a review, at durable closure (graduation or archive)
+and at every handoff. `changeledger sync --help` states what it does and why it
+never blocks the local flow; the one obligation it leaves to you is that the
+same document changed differently on both sides is reported, never resolved by
+inference — the human coordinates that resolution.
 
 ## Operational discovery
 
 Prefer structured CLI queries before scanning files:
 
 - `changeledger list --status approved`: find approved changes ready to implement.
-- `changeledger list --pending graduation`: find unresolved graduation decisions; add `--owner NAME` or `--unowned` to scope the query, then graduate every id individually.
-- `changeledger list --pending archive`: preview graduated or skipped changes; use the same optional owner filter on `archive --graduated` for an equivalent action.
+- `changeledger list --pending graduation`: find unresolved graduation decisions.
+- `changeledger list --pending archive`: preview graduated or skipped changes.
 - `changeledger search <terms...>`: find related changes (incl. archived) and specs by content before investigating from scratch.
 - `changeledger analyze [id]`: query recorded consumption and cost per change, segment, model or version instead of reading the usage records.
 

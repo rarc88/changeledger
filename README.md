@@ -154,10 +154,9 @@ output through the END sentinel. When the command is unavailable it continues
 normally without ChangeLedger; when the executable fails it reports the error
 for human direction.
 
-Roles are `investigation`, `implementation`, `review`, `post-review` and
-`graduation-review`. `post-review` is a read-only inspection that never moves a
-change or records a verdict; no lifecycle status reaches it now, so it is
-slated for retirement. `graduation-review` is a read-only check of the spec
+Roles are `investigation`, `implementation`, `review` and
+`graduation-review`; all but `implementation` are read-only.
+`graduation-review` is a read-only check of the spec
 reconciliation drafted for a change already `done`, before the first `--into`;
 it never moves the change either. Each generated
 delegation prompt explicitly replaces the bootstrap's default context load with
