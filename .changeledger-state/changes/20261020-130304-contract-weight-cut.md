@@ -93,6 +93,7 @@ moverlo obliga a re-registrar los cuatro y merece su propio change deliberado.
 - **Then** no quedan `templates/contract/agent-contexts/post-review.md` ni `agent-prompts/post-review.md`
 - **And** `agent-prompt --help` y `agent-context --help` no lo ofrecen
 - **And** `changeledger context core` no lo nombra en la lista de roles
+- **And** `README.md` tampoco lo publica: el criterio no lo nombró al redactarse y la graduation-review lo encontró como única falsedad de cara al usuario
 
 ### CR3 — Ningún fragmento enseña lo que `--help` imprime
 - **Given** los seis pasajes que duplican salida de ayuda
