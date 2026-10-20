@@ -59,6 +59,9 @@ rework the orchestrator pays for twice.
 - No artifact without explicit human authorization, and none before there is
   enough clarity to document faithfully: a direct request such as “create the
   change” is authorization; never invent missing requirements.
+- One concern per change. Work necessary for the authorized objective stays in its
+  Specification, Plan and Log; if related work materially expands observable scope, get
+  explicit human authorization before adding it, and propose independent work separately.
 - Never implement a `draft`.
 - One change at a time, on a non-main branch.
 - Keep lifecycle, tasks, ownership and Log current.

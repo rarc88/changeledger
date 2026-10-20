@@ -68,8 +68,8 @@ that a spec was created. It is not permission to stop a multi-spec reconciliatio
 before every affected spec is linked. `--into` records the same link in both
 directions: the change Log carries `graduado a spec`, and the target spec appends
 the change id to `graduated_from`. `changeledger check` requires both sides to
-agree. Repositories with legacy prose markers can migrate them deterministically with
-`changeledger fix --graduation-links` (or preview with `--dry-run`).
+agree. Repositories with legacy prose markers migrate them with
+`changeledger fix --graduation-links`, previewable with `--dry-run`.
 
 After `--into` or `--skip`, create one final closure commit that coalesces any
 pending `in-review → done` ledger updates with the graduation

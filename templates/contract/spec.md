@@ -2,20 +2,14 @@
 
 ## Repository layout and creation
 
-The project-owned `AGENTS.md` carries the bootstrap; run `changeledger context`
-before acting and `changeledger new` to create a change. The slug is structural
+The project-owned `AGENTS.md` carries the bootstrap; `changeledger new` creates
+a change. The slug is structural
 and must be English; title and narrative follow the configured language. Files
 remain the source of truth and may be edited directly, but prefer the CLI for
 timestamps, enums and markers that are easy to mistype.
 
-One concern per change. If a request mixes unrelated concerns, propose separate
-changes and create them only after explicit human authorization. Work necessary
-for an already authorized objective stays in that change's Specification, Plan
-and Log. If related work materially expands observable scope, obtain explicit
-human authorization; independent work belongs in a separate change.
-Approval in conversation must explicitly identify the draft and order approval;
-praise, a request to continue, or the agent's recommendation does not authorize
-`changeledger approve`.
+A request that mixes unrelated concerns becomes separate changes, created only
+after explicit human authorization.
 
 ## Change document
 
@@ -26,7 +20,7 @@ headings. Required and optional frontmatter:
 ---
 id: "20260613-134548"
 title: Short, clear title
-type: feature                  # feature | bug | hotfix | audit | refactor | chore | quick | documentation
+type: feature                  # one of core's effective types
 status: draft                  # lifecycle value
 created: 2026-06-13T13:45:48Z # full ISO 8601 UTC
 depends_on: []                 # change ids or external project:id refs
@@ -142,7 +136,8 @@ Markers encode state; structured children carry every trace, never a position:
 
 `Support` (value optional) marks operational work such as test suites, reading, blast-radius analysis or scaffolding. It needs no CR or target/verification readiness checks and cannot replace a criterion for observable behaviour.
 
-Pre-existing Plan tasks without structured children migrate to this grammar with `changeledger fix --plan-tags`, and legacy task metadata or Log events migrate with `changeledger fix --structured-sections` (both previewed with `--dry-run`).
+`changeledger fix --plan-tags` migrates Plan tasks without structured children; `--structured-sections` migrates legacy task metadata and Log events; preview either with `--dry-run`.
+
 
 ## IDs and language
 
