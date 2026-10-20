@@ -39,6 +39,11 @@ mide contra esta spec antes de crearse.
    descendiente, validado antes de confirmar.
 4. **Sincronización opcional, best-effort y gobernada por el contrato.** El
    transporte es `fetch`/`push` planos con compare-and-swap contra el remoto.
+   `sync` hace además una única escritura que no es transporte: sella la
+   aceptación derivada del merge que la graduación no alcanzó. Queda acotada a
+   eso — reconciliar telemetría que git ya tiene, sobre documentos del propio
+   repo, leyendo sólo refs locales — y no abre la puerta a que `sync` derive
+   nada más.
    No es automática por commit ni requisito de ninguna operación: sin remoto,
    o con el remoto caído, todo el flujo local funciona. Su cadencia es una
    obligación del contrato que el agente ejecuta en puntos estratégicos — al
@@ -56,8 +61,11 @@ mide contra esta spec antes de crearse.
    ref de estado se reporta y lo decide el humano. Undo disponible mientras el
    corte siga siendo reversible.
 6. **Inactivo por defecto.** Un repositorio sin activación explícita se
-   comporta idéntico a uno sin la capacidad; la activación es independiente
-   del checkout y de los ficheros del working tree.
+   comporta idéntico a uno sin la capacidad en todo lo que es transporte, y la
+   activación es independiente del checkout y de los ficheros del working
+   tree. La única diferencia es un checkout que ya tiene la ref de estado sin
+   haberla adoptado: ahí el sello del punto 4 no escribe, porque el worktree y
+   la ref serían dos candidatos a sede y nada dice todavía cuál es la verdad.
 
 ## Lo que la capacidad excluye
 
