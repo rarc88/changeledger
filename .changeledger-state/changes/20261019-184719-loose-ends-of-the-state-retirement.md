@@ -110,6 +110,13 @@ que es una capacidad que falta y no un cabo suelto de este trabajo.
 - **When** se reescribe la frase del veredicto de `agent-contexts/review.md` conservando su obligación — un veredicto `pass` o `fail`, y la clasificación del defecto como guía y no como segundo veredicto
 - **Then** el test sigue pasando
 - **And** no queda ninguna aserción subsumida por otra en ese bloque
+- **And** la guarda no la satisface prosa ajena a la oferta del veredicto: una cápsula que deja de ofrecer los veredictos que la CLI acepta se pone en rojo
+
+### CR9 — `rejectionCount` no cuenta como rechazo humano la devolución del agente
+- **Given** un change cuyo Log tiene tres retornos de la puerta retirada: uno `(human rejected)`, uno `(agent rejected)` y uno sin actor
+- **When** se calcula `rejectionCount`
+- **Then** vale 2
+- **And** la spec de métricas describe cómo se reconoce al agente en cada una de las dos formas y por qué difieren
 
 ## Plan
 
@@ -153,6 +160,10 @@ que es una capacidad que falta y no un cabo suelto de este trabajo.
   - **Target:** `.changeledger/specs/architecture.md`
   - **Verify:** `node bin/changeledger.mjs check`
   - **Resolved:** `2026-10-20T11:15:32Z`
+- [ ] Excluir la devolución del agente del arma histórica de `rejectionCount`
+  - **Target:** `src/metrics.mjs`
+  - **Verify:** `node --test test/metrics.test.mjs`
+  - **Criteria:** CR9
 
 ## Log
 - **2026-10-19T18:47:19Z** `[version]` 0.18.0
