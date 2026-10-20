@@ -122,13 +122,16 @@ function rejectionCount(change) {
     // is what separates them.
     //
     // That change assumed a return at this seat "was a human's by definition —
-    // the gate had no other actor". The archive says otherwise: 104 of the 318
-    // such returns in the two consuming repos carry `(agent rejected)` and
-    // their reasons are the agent catching its own defect. They are the same
-    // second pass the arm above excludes, so they are excluded here too. The
-    // 214 that carry no actor predate the detail and stay counted: that seat
-    // was the human's, and dropping them would re-zero the very signal this
-    // arm exists to keep.
+    // the gate had no other actor". The archive says otherwise: about half the
+    // returns at this seat carry `(agent rejected)`, and their reasons are the
+    // agent catching its own defect. They are the same second pass the arm
+    // above excludes, so they are excluded here too.
+    //
+    // Negatively, where the arm above matches the human positively: that
+    // writer is retired, so the details it could stamp cannot be read off any
+    // live code, and anything not stamped as the agent is taken as the
+    // human's. No archive holds a return here without an actor, so the two
+    // rules agree on every entry that exists today.
     if (
       event?.type === 'validation' &&
       event.from === 'in-validation' &&
