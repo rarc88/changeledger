@@ -671,6 +671,7 @@ export function list(
     type: byType,
     owner: byOwner,
     unowned = false,
+    parent: byParent,
     pending,
     archived = false,
     all = false,
@@ -696,6 +697,7 @@ export function list(
       if (byType && fm.type !== byType) return false;
       if (byOwner !== undefined && fm.owner !== byOwner) return false;
       if (unowned && fm.owner != null) return false;
+      if (byParent !== undefined && String(fm.parent ?? '') !== String(byParent)) return false;
       if (pending === 'graduation' && !isPendingGraduation(c)) return false;
       return true;
     })
@@ -707,18 +709,31 @@ export function list(
       owner: c.frontmatter.owner ?? null,
       branch: c.frontmatter.branch ?? null,
       archived: c.frontmatter.archived === true,
+      parent: c.frontmatter.parent ?? null,
       progress: c.progress,
     }));
 }
 
 export function show(id, cwd = process.cwd()) {
-  const c = loadRepo(cwd).changes.find((x) => String(x.frontmatter.id) === String(id));
+  const changes = loadRepo(cwd).changes;
+  const c = changes.find((x) => String(x.frontmatter.id) === String(id));
   if (!c) throw new Error(`No change with id "${id}"`);
+  // An epic's own document says nothing about its children — they name it, not
+  // the other way round, which is what keeps the edge exclusive. So the only
+  // place the grouping becomes visible is here, derived at read time.
+  const children = changes
+    .filter((x) => String(x.frontmatter.parent ?? '') === String(id))
+    .map((x) => ({
+      id: x.frontmatter.id,
+      title: x.frontmatter.title,
+      status: x.frontmatter.status,
+    }));
   return {
     id: c.frontmatter.id,
     frontmatter: c.frontmatter,
     stages: c.stages,
     tasks: c.tasks,
     progress: c.progress,
+    children,
   };
 }

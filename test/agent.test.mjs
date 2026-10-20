@@ -3763,3 +3763,72 @@ for (const resolved of ['done', 'discarded']) {
     assert.doesNotThrow(() => status(epicId, 'done', root));
   });
 }
+
+// --- 20261020-172221 CR7: the epic is visible from the CLI --------------
+//
+// The edge only points upward — a child names its epic, the epic's own
+// document says nothing — which is what keeps it exclusive. So the grouping
+// has to be derived at read time, and these are the three seats that do it.
+
+function epicWithChildren() {
+  const fixture = repoWithChange();
+  const epicId = '20260613-110000';
+  const dir = path.join(fixture.root, '.changeledger', 'changes');
+  fs.writeFileSync(
+    path.join(dir, `${epicId}-epic.md`),
+    `---\nid: "${epicId}"\ntitle: Épica\ntype: epic\nstatus: draft\ncreated: 2026-06-13T11:00:00Z\ndepends_on: []\n---\n\n## Request\n\nObjetivo.\n\n## Proposal\n\nFrontera.\n\n## Log\n`,
+  );
+  for (const [id, title] of [
+    ['20260613-140000', 'Hijo uno'],
+    ['20260613-150000', 'Hijo dos'],
+  ]) {
+    fs.writeFileSync(
+      path.join(dir, `${id}-child.md`),
+      `---\nid: "${id}"\ntitle: ${title}\ntype: quick\nstatus: draft\ncreated: 2026-06-13T14:00:00Z\ndepends_on: []\nparent: "${epicId}"\n---\n\n## Request\n\nAlgo.\n\n## Log\n`,
+    );
+  }
+  return { ...fixture, epicId };
+}
+
+test('20261020-172221 CR7: list --parent returns exactly the children of that epic', () => {
+  const { root, epicId, id: unrelated } = epicWithChildren();
+  const ids = list({ parent: epicId }, root).map((c) => c.id);
+  assert.deepEqual(ids, ['20260613-140000', '20260613-150000']);
+  assert.ok(!ids.includes(unrelated), 'an unrelated change must not appear');
+  assert.ok(!ids.includes(epicId), 'the epic is not its own child');
+  // An epic with no children answers empty, never "everything".
+  assert.deepEqual(list({ parent: '20260613-990000' }, root), []);
+});
+
+test('20261020-172221 CR7: show names the children and the parent, each with its status', () => {
+  const { root, epicId } = epicWithChildren();
+  const parentView = show(epicId, root);
+  assert.deepEqual(
+    parentView.children.map((c) => [c.id, c.status, c.title]),
+    [
+      ['20260613-140000', 'draft', 'Hijo uno'],
+      ['20260613-150000', 'draft', 'Hijo dos'],
+    ],
+  );
+  const childView = show('20260613-140000', root);
+  assert.equal(childView.frontmatter.parent, epicId);
+  assert.deepEqual(childView.children, [], 'a child of a two-level hierarchy has none of its own');
+});
+
+test('20261020-172221 CR7: new --parent writes the field into the scaffold', () => {
+  const { root, epicId } = epicWithChildren();
+  const created = newChange(
+    {
+      type: 'quick',
+      slug: 'nuevo',
+      title: 'Nuevo hijo',
+      parent: epicId,
+      now: '2026-06-13T16:00:00Z',
+    },
+    root,
+    { ownerHandle: () => '' },
+  );
+  const text = fs.readFileSync(created, 'utf8');
+  assert.match(text, new RegExp(`^parent: "${epicId}"$`, 'm'));
+  assert.equal(list({ parent: epicId }, root).length, 3);
+});

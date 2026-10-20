@@ -27,7 +27,7 @@ const LOCK_MTIME_STALE_MS = 30_000;
 // `slug` is the English filename slug (structure); `title` is the content title
 // (repo language). See `changeledger context spec`.
 export function newChange(
-  { type, slug, title, owner, now },
+  { type, slug, title, owner, parent, now },
   cwd = process.cwd(),
   { ownerHandle = defaultOwnerHandle, usage } = {},
 ) {
@@ -93,7 +93,15 @@ export function newChange(
       fs.writeFileSync(
         file,
         stampVersion(
-          render({ id, title, type, owner: resolvedOwner, stages: typeDef.stages, now: created }),
+          render({
+            id,
+            title,
+            type,
+            owner: resolvedOwner,
+            parent,
+            stages: typeDef.stages,
+            now: created,
+          }),
           created,
         ),
         { flag: 'wx' },
@@ -147,7 +155,7 @@ function requireCreatableType(config, type) {
 // not); the write path re-checks it, so this reservation is advisory by
 // design and never blocks.
 export function scaffoldChange(
-  { type, slug, title, owner, now },
+  { type, slug, title, owner, parent, now },
   cwd = process.cwd(),
   { ownerHandle = defaultOwnerHandle } = {},
 ) {
@@ -164,7 +172,15 @@ export function scaffoldChange(
   return {
     id,
     name: `${id}-${slugify(slug)}.md`,
-    text: render({ id, title, type, owner: resolvedOwner, stages: typeDef.stages, now: created }),
+    text: render({
+      id,
+      title,
+      type,
+      owner: resolvedOwner,
+      parent,
+      stages: typeDef.stages,
+      now: created,
+    }),
   };
 }
 
@@ -344,7 +360,7 @@ function heading(stageKey) {
   return stageKey.charAt(0).toUpperCase() + stageKey.slice(1);
 }
 
-function render({ id, title, type, owner, stages, now }) {
+function render({ id, title, type, owner, parent, stages, now }) {
   const fm = [
     '---',
     `id: "${id}"`,
@@ -354,6 +370,7 @@ function render({ id, title, type, owner, stages, now }) {
     `created: ${now}`,
     'depends_on: []',
     'related_to: []',
+    ...(parent ? [`parent: "${parent}"`] : []),
     ...(owner ? [`owner: ${serializeScalar(owner)}`] : []),
     '---',
     '',

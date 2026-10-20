@@ -161,9 +161,7 @@ export function scaffoldSpec(id, slug, cwd = process.cwd()) {
   const changeText = changeTarget.file
     ? fs.readFileSync(changeTarget.file, 'utf8')
     : changeTarget.text;
-  const change = requireSpecLinkAllowed(
-    requireGraduationReady(config, changeName, changeText),
-  );
+  const change = requireSpecLinkAllowed(requireGraduationReady(config, changeName, changeText));
   if (specTarget) throw new Error(`Spec "${specName}" already exists`);
 
   // A type may name the stage its seed comes from (`types.<type>.seed_stage`);

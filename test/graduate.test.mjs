@@ -1144,7 +1144,9 @@ test('20261018-131621 CR12: a change with no recorded branch graduates all the s
 
 function childOf(parentId) {
   const { root, file, id } = repo();
-  const text = fs.readFileSync(file, 'utf8').replace('depends_on: []', `depends_on: []\nparent: "${parentId}"`);
+  const text = fs
+    .readFileSync(file, 'utf8')
+    .replace('depends_on: []', `depends_on: []\nparent: "${parentId}"`);
   fs.writeFileSync(file, text);
   const parentFile = path.join(root, '.changeledger', 'changes', `${parentId}-epic.md`);
   fs.writeFileSync(
