@@ -10,7 +10,7 @@ graduated_from: ["20260613-205854", "20260616-151230", "20260616-162020", "20260
 - **change**: un archivo markdown. Frontmatter estructurado (`id`, `title`,
   `type`, `status`, `created`, `depends_on`, `related_to` opcional, `owner`
   opcional, `branch` opcional, `archived` opcional, `reviewed` opcional,
-  `release_impact` opcional) + etapas (`## Request`…`## Log`) según el tipo.
+  `release_impact` opcional, `accepted_at` opcional) + etapas (`## Request`…`## Log`) según el tipo.
   `branch` es un dato **por change** — la rama de implementación de ese change
   — y no debe confundirse con `config.git.integration_branch`, que es la rama
   de integración del repositorio entero. Tiene ciclo de vida (ver
@@ -93,7 +93,15 @@ sello o su último sello difiere textualmente de la versión instalada, de modo
 que una versión inferior permitida por el mínimo también queda registrada. Cada
 evento pertenece a la última versión sellada antes que él. `edit`, los
 documentos de `apply` sobre changes existentes, `fix` y `task` no escriben
-eventos y no sellan; los changes anteriores al sello no se rellenan.
+eventos y no sellan; los changes anteriores al sello no se rellenan. Como el
+sello de aceptación de `sync` pasa por `appendLogEvent` y alcanza a los
+archivados, un change archivado bajo una CLI anterior puede recibir su línea
+`version` junto con la de aceptación.
+
+`accepted_at` lleva el instante del commit de merge en ISO 8601 UTC. Es
+telemetría derivada de git —la aceptación humana es el merge, no un estado ni
+un comando— y no condiciona ninguna transición; lo escriben la graduación y
+`sync`.
 La migración desde la gramática anterior es explícita mediante
 `changeledger fix --structured-sections`, admite `--dry-run`, escribe de forma
 atómica por archivo y deja intacto cualquier documento que requiera una decisión
