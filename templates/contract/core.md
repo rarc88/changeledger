@@ -146,7 +146,7 @@ previous attempt's files.
 - `done`: delivered by the agent. Human acceptance is the merge of the change's branch
   into the integration branch; graduation stamps that instant as `accepted_at`
   telemetry, which gates nothing. A branch that lands after the graduation is
-  stamped by the next `changeledger sync`, in any layout and with no remote.
+  stamped by the next `changeledger sync`.
 - `discarded`: terminal tombstone; never reopen it.
 
 Who owns each transition and how it is performed:

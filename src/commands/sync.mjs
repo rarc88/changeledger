@@ -329,7 +329,10 @@ function readableRepo(cwd, output, run) {
 // Archived changes are sealed too, by the same reasoning `pendingAcceptances`
 // documents: in the very case this exists for, the merge lands after the
 // archive, so the stamp records a new, git-derived fact instead of rewriting
-// a finished deliberation.
+// a finished deliberation. It appends, never rewrites — but `appendLogEvent`
+// also stamps the CLI version when the document's last one is older, so a
+// change sealed under a newer CLI gains that line too, exactly as it would at
+// graduation.
 function sealPendingAcceptances(cwd, output, run) {
   const repo = readableRepo(cwd, output, run);
   if (repo === null) return;

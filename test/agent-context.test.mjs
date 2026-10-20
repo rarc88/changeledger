@@ -445,12 +445,14 @@ test('201703 CR1/CR2: post-review requires in-validation and requires a change i
   const reviewOut = buildAgentContext('review', inReview, root);
   // Guard the obligation, not its phrasing: the capsule must offer exactly the two
   // verdicts the CLI accepts, and must not resurrect a class flag as a third one.
-  // Anchored to the verdict sentence: the capsule also asks for "per-criterion
-  // PASS/FAIL evidence", which satisfies a bare /pass/ whatever verdicts the
-  // sentence goes on to offer — a mutation that dropped `pass` survived that.
-  const verdict = reviewOut.match(/\boutcome\b[^.]*\./i)?.[0] ?? '';
-  assert.match(verdict, /\bpass\b/i);
-  assert.match(verdict, /\bfail\b[^.]{0,40}\breason\b/i);
+  // Case-sensitive, deliberately: the capsule also asks for "per-criterion
+  // PASS/FAIL evidence", and the case is the only thing separating that prose
+  // from the two lowercase tokens the CLI accepts — a case-insensitive /pass/
+  // matched the prose and let a capsule that stopped offering `pass` through.
+  // Anchoring on the sentence's noun instead would pin a word the fragment is
+  // free to rename, which is the cost CR8 exists to remove.
+  assert.match(reviewOut, /\bpass\b/);
+  assert.match(reviewOut, /\bfail\b[^.]{0,40}\breason\b/);
   assert.doesNotMatch(reviewOut, /fail-(retry|block)|--retry|--block/i);
 });
 

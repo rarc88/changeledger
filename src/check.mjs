@@ -773,8 +773,8 @@ const CANONICAL = new Set(CANONICAL_STATUSES);
 // Its own pass, not a step of the replay: the replay abandons the document at
 // the first status it cannot model, and a Log that lived through
 // `in-validation` is exactly where a hand-edited delivery would hide. Inside
-// the replay this gate was void in every such document — twenty of them are
-// in flight in the consuming repos today.
+// the replay this gate was void in every such document, which is most of what
+// is still in flight in the repos that lived through the retirement.
 function checkDeliveryVerdict(c, fm, err) {
   let inLog = false;
   const lines = (c.text ?? '').split('\n');
