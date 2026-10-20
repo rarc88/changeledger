@@ -252,6 +252,9 @@ export function checkRepo({ config, changes, specs = [], releases = [], usage = 
     }
     if ('depends_on' in fm && !Array.isArray(fm.depends_on)) err(c, 'depends_on must be a list');
     if ('related_to' in fm && !Array.isArray(fm.related_to)) err(c, 'related_to must be a list');
+    if ('parent' in fm && (typeof fm.parent !== 'string' || !/^\d{8}-\d{6}$/.test(fm.parent))) {
+      err(c, 'parent must be a single change id, not a list');
+    }
     if ('archived' in fm && typeof fm.archived !== 'boolean') err(c, 'archived must be a boolean');
     if ('reviewed' in fm && typeof fm.reviewed !== 'boolean') err(c, 'reviewed must be a boolean');
     if ('release_impact' in fm && !RELEASE_IMPACTS.includes(fm.release_impact)) {
@@ -351,6 +354,8 @@ export function checkRepo({ config, changes, specs = [], releases = [], usage = 
     }
   }
 
+  checkParents(changes, ids, err);
+
   const cycle = findCycle(graph);
   if (cycle) err(null, `dependency cycle: ${cycle.join(' → ')}`);
 
@@ -436,6 +441,60 @@ export function specDurabilityIssue(body) {
   return `spec contains change-local criterion heading "${criterion}"; rewrite it as durable current truth`;
 }
 
+// `parent` is the grouping edge, and it is deliberately NOT a second entry into
+// the relation graph above. `depends_on` and `related_to` are transitive by
+// nature — chained, `related_to` collapses two thirds of a real repo into one
+// component, which is why asking what belongs to an epic has no answer today.
+// So this edge is validated on its own and never joins `graph`: sharing a
+// parent connects nothing, and a parent needs no backlink.
+//
+// Two levels, not a tree. A parent that may itself have a parent is the same
+// transitive structure again, one field along. Walking upward catches both
+// defects with one traversal, and the two are reported apart because the fix
+// differs: a cycle is a contradiction, a third level is a modelling choice the
+// human has to make.
+function checkParents(changes, ids, err) {
+  const parentOf = new Map();
+  for (const c of changes) {
+    const id = c.frontmatter?.id;
+    const parent = c.frontmatter?.parent;
+    if (id && typeof parent === 'string') parentOf.set(String(id), String(parent));
+  }
+  for (const c of changes) {
+    if (frozenReason(c) !== null) continue;
+    const id = String(c.frontmatter?.id ?? '');
+    const parent = parentOf.get(id);
+    if (parent === undefined) continue;
+    if (parent === id) {
+      err(c, `parent cannot reference its own change "${parent}"`);
+      continue;
+    }
+    if (!ids.has(parent)) {
+      err(c, `parent references missing change "${parent}"`);
+      continue;
+    }
+    const seenHere = new Set([id]);
+    let cursor = parent;
+    let depth = 1;
+    while (parentOf.has(cursor)) {
+      if (seenHere.has(cursor)) {
+        err(c, `parent cycle: ${[...seenHere, cursor].join(' → ')}`);
+        break;
+      }
+      seenHere.add(cursor);
+      cursor = parentOf.get(cursor);
+      depth += 1;
+      if (depth > 1 && !seenHere.has(cursor)) {
+        err(
+          c,
+          `parent "${parent}" declares a parent of its own: the hierarchy is two levels, an epic and its children`,
+        );
+        break;
+      }
+    }
+  }
+}
+
 function checkUnclassifiedMentions(change, knownIds, incomingRelations, warn) {
   const fm = change.frontmatter ?? {};
   if (frozenReason(change) !== null) return;
@@ -445,6 +504,7 @@ function checkUnclassifiedMentions(change, knownIds, incomingRelations, warn) {
     [
       ...(Array.isArray(fm.depends_on) ? fm.depends_on : []),
       ...(Array.isArray(fm.related_to) ? fm.related_to : []),
+      ...(typeof fm.parent === 'string' ? [fm.parent] : []),
       ...(incomingRelations.get(ownId) ?? []),
     ].map(String),
   );
