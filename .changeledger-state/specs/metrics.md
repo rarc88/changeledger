@@ -47,7 +47,7 @@ forma histórica se excluye en negativo —cuenta todo lo que no sea `(agent …
 porque su escritor está retirado y los detalles que pudo estampar no se leen de
 ningún código vigente, así que lo no marcado como agente se toma como del
 humano. Ninguna de las dos reglas se comporta distinto sobre el archivo real:
-no existe ni un retorno en esa puerta sin actor.
+no existe ni un retorno `[validation]` en esa puerta sin actor.
 
 Que el agente use esa puerta corrige la premisa de `20261018-131621`, que dio
 por hecho que un retorno allí era humano por definición. De los 214 retornos
