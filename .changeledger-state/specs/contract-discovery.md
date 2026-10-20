@@ -23,6 +23,14 @@ competidoras; el resumen debe leerse como mínimo con puntero al pack propietari
 ("at least ..."), nunca como lista exhaustiva ni como regla absoluta que
 contradiga la excepción que el pack define.
 
+Ningún fragmento enseña lo que un `--help` imprime. El contrato se carga
+siempre; la ayuda se carga cuando hace falta, así que un pasaje sale del
+contrato en cuanto la ayuda del comando correspondiente lo cubre, y la
+obligación que esa ayuda NO lleva se queda en el fragmento. La comprobación es
+ejecutar la ayuda y comparar, no suponerlo: en `20261020-130304` un recorte se
+revirtió al descubrir que `check` reporta los errores que provocan las formas
+antiguas de Plan pero no nombra el remedio en ningún diagnóstico.
+
 `changeledger context` los compone de forma determinista:
 
 - sin argumento entrega sólo el núcleo no negociable;
@@ -48,8 +56,10 @@ delegado, un dueño por superficie, la definición de `selection of work`) tiene
 una sola sede: el core. La regla de sede única rige en las dos direcciones —el
 core no duplica al overlay y el overlay amplía o especifica lo puntual de su
 etapa sin repetir ni contradecir al core—. `delegation.md` conserva solo lo que
-no tiene otra sede: el contrato de campos del prompt, los disparadores por
-etapa, y la guía de no sobre-fragmentar. Las obligaciones de evidencia viven en
+no tiene otra sede: los disparadores por etapa, la guía de no sobre-fragmentar
+y el único campo del prompt que el esqueleto no lleva —la línea base esperada
+para un rol que escribe—; los demás campos son placeholders del propio
+esqueleto, así que enumerarlos aquí era repetirlos. Las obligaciones de evidencia viven en
 `implement.md` (sección `## Evidence obligations`) para el
 implementador/corrector y en `review.md` para el revisor, servidas cada una al
 pack que las consume. La obligación sobre prosa entregable cubre documentación,
@@ -78,7 +88,7 @@ ningún tipo, así que el filtro no la alcanza.
 La delegación portable separa el contrato del orquestador del de sus hojas:
 `changeledger agent-prompt <role>` entrega un esqueleto para cada rol de
 `AGENT_ROLES` (`src/commands/agent-context.mjs`) —`investigation`,
-`implementation`, `review`, `post-review` y `graduation-review`—, y el delegado
+`implementation`, `review` y `graduation-review`—, y el delegado
 identificado carga únicamente `changeledger agent-context <role> [change-id]`.
 Las cápsulas delimitan su responsabilidad y autoridad; todas salvo
 `implementation` son de solo lectura y ninguna recibe comandos de lifecycle.
@@ -138,8 +148,10 @@ convención interna de test. Cada umbral queda fijado en su límite exacto y con
 texto del fallo comprobado, y **ningún techo de tamaño vive fuera del fichero de
 presupuestos**: el techo operativo de líneas del core y el del bloque `## Commits`
 del core dejaron de ser literales en un test y son entradas declaradas, la segunda
-bajo un grupo `blocks`. El techo de líneas del core se compara además contra el
-corte que declara el propio bootstrap, así que no puede rebasarlo en silencio.
+bajo un grupo `blocks`. El corte del bootstrap no es un techo sino un límite de
+transporte, y por eso vive aparte, en `src/contract.mjs`; lo único que se afirma
+entre ambos es que el corte no es menor que el techo de líneas del core, de modo
+que una captura legal no puede truncarse.
 
 **El techo de `lines` no se fija a mano: se deriva del de `tokens`.** Es
 `tokens ÷ 10` en toda entrada, redondeado hacia abajo. Los tokens son la dimensión
@@ -153,12 +165,17 @@ De ahí que **el suelo de densidad sea normativo**: si un pack cae por debajo de
 tokens por línea, es el techo de líneas el que muerde primero, y eso es la señal de
 subir el corte a propósito en vez de descubrir un truncamiento en un repo consumidor.
 
-Los techos de tokens son **pocos y decididos**, no uno por pack: el core paga más que
-cualquier otro contexto, los demás contextos comparten un mismo valor, y todo lo que
-no es un contexto —cápsulas de delegación, overlays de lifecycle, bloques con techo
-propio— comparte otro. Desde `20260730-002908` **ningún techo está en andamio** — el
-último (spec, 3450 provisional) salió con el refactor del pack de autoría a 2403
-medidos bajo su 2500 decidido — y el barrido de forma exige que ninguna entrada
+Cada techo de tokens es un **número redondo elegido como límite**, no derivado de
+lo que el contenido mide hoy ni compartido por clase: core 3000, spec 3000,
+implement 2800, review 1500, release 1000, cápsulas 800, overlay `done` 1250,
+overlay `discarded` 250 y el bloque `core-commits` 1000. Y **un techo sólo puede
+bajar**: subirlo es una decisión del humano registrada en un change, visible como
+una edición de los valores fijados en `test/context.test.mjs`, que son su única
+sede. Derivar un techo de la medida del momento obliga a reeditarlo cada vez que
+el contenido respira, que es como un techo deja de significar nada. Desde
+`20260730-002908` **ningún techo está en andamio** — el último (spec, 3450
+provisional) salió con el refactor del pack de autoría a 2403 medidos bajo su
+techo decidido — y el barrido de forma exige que ninguna entrada
 declare la marca `scaffold`. La doctrina para una excepción futura sigue en pie: un
 valor que excede su clase se marca en el propio fichero como andamio temporal con su
 condición de salida nombrada, y quien lo haga retargetea deliberadamente ese barrido,
@@ -241,6 +258,15 @@ inyectarlo no invalida la medida. El cruce de 999 a 1000 líneas está fijado po
 tests, y el propio `lines:<N>` no crea escenario de pipe cerrado: el consumidor
 que pasa el `N` exacto agota la salida.
 
+Un fragmento tampoco mantiene a mano una copia de algo que el producto genera.
+La tabla de los nueve tipos de evento del Log vivía duplicada en `implement.md`
+y hoy la imprime `log --help`, generada desde `LOG_EVENT_DEFINITIONS` con su
+propia comprobación fail-closed; la aserción del contrato lee esa salida
+generada, así que la superficie a la que se manda al agente es la que está bajo
+test. Y ningún test nuevo fija una frase literal de un fragmento: se vigila la
+obligación, nunca su redacción, porque un pin literal le cobra un retarget a
+toda reescritura posterior aunque no mueva ninguna obligación.
+
 La regresión contractual se protege en tres niveles, ninguno un pin de hash:
 una matriz semántica exige cada regla, comando, ejemplo y antipatrón en su
 output propietario y rechaza packs ajenos; guards de obligación por grep
@@ -308,13 +334,16 @@ bootstrap mantiene un único punto de entrada: `changeledger context`.
 **El bootstrap manda un comando acotado, no una prohibición.** Desde el formato
 v4 no ordena "no recortes la salida" —una negación que el arnés incumple sin que
 el agente lo note— sino un comando exacto, `changeledger context 2>&1 |
-head -325`, más una **condición de validez positiva**: la captura vale sólo si su
+head -400`, más una **condición de validez positiva**: la captura vale sólo si su
 última línea contiene `CHANGELEDGER CONTEXT END`, y nada anterior a esa línea es
-accionable. Ese corte **no es un número elegido**: es exactamente el techo de
-`lines` del core, y los dos se afirman **por igualdad**, así que ninguno puede
-moverse sin el otro. No lleva reserva por encima a propósito — una reserva
-implicaría que el `head` informa del tamaño, y la condición de validez es la línea
-`END`, no el número. Cuando la salida supera el corte, el reintento no se adivina: la línea
+accionable. Ese corte es una **constante fija de transporte**
+(`BOOTSTRAP_CAPTURE_LINES`, `src/contract.mjs`), deliberadamente independiente de
+cualquier techo, y lo único que se afirma es que no es menor que el techo de
+`lines` del core, así que una captura legal no puede truncarse. Lleva reserva a
+propósito, y la reserva es justo el punto: atarlo al techo por igualdad hacía que
+cada edición del peso del contrato invalidara el bloque de bootstrap de todos los
+repos consumidores y exigiera un `register` allí, por un número que a sus agentes
+no les dice nada —la condición de validez es la línea `END`, nunca el valor—. Cuando la salida supera el corte, el reintento no se adivina: la línea
 BEGIN publica `lines:<N>` y se re-ejecuta con `head -<N>`. La completitud se
 verifica por centinela: toda salida de `context` abre con
 `===== CHANGELEDGER CONTEXT BEGIN — mode: <mode> [— change: #<id>] —
