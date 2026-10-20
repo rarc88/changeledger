@@ -335,8 +335,7 @@ test('105456 CR1/CR3: related_to is non-blocking and permits external references
 // keep it from becoming a third way to build that same blob: it is validated
 // outside the relation graph, and the hierarchy is two levels deep.
 
-const epic = (id, over = {}) =>
-  change({ frontmatter: { id, type: 'feature', ...over } });
+const epic = (id, over = {}) => change({ frontmatter: { id, type: 'feature', ...over } });
 
 test('20261020-172221 CR1: parent must be a single existing id, never the change itself', () => {
   assert.ok(
