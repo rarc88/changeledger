@@ -1,36 +1,53 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 import { marked } from 'marked';
 import { init } from '../src/commands/init.mjs';
 import { registerRepo } from '../src/commands/register.mjs';
 import { checkContract, REFERENCE, removeLegacyContract } from '../src/contract.mjs';
 import { LOG_EVENT_DEFINITIONS, LOG_EVENT_TYPES, parseLogEvent } from '../src/lifecycle.mjs';
+import { sanitizedEnv } from './helpers/git-env.mjs';
 
-test('20260824-134716 CR1: implement contract exposes every executable Log event and payload', () => {
-  const implement = fs.readFileSync(
-    new URL('../templates/contract/implement.md', import.meta.url),
-    'utf8',
-  );
-  const declared = implement
-    .match(/^Types are (.+)\.$/m)?.[1]
-    .match(/`([^`]+)`/g)
-    ?.map((value) => value.slice(1, -1));
-  assert.deepEqual(declared, LOG_EVENT_TYPES);
+const BIN = fileURLToPath(new URL('../bin/changeledger.mjs', import.meta.url));
+
+// 20261020-130304 CR6 retargeted this. The contract used to carry a
+// hand-maintained copy of the event table, so this test checked the copy
+// against the parser. `log --help` prints the same table and more — which
+// command writes each type — and GENERATES it from `LOG_EVENT_DEFINITIONS`
+// with its own fail-closed consistency check, so the copy was pure cost. The
+// assertion now reads the generated output: the surface an agent is sent to
+// is the surface under test, and the contract keeps only the obligation.
+test('20261020-130304 CR6: the generated Log help exposes every executable event and payload', () => {
+  const { stdout } = spawnSync(process.execPath, [BIN, 'log', '--help'], {
+    encoding: 'utf8',
+    env: sanitizedEnv(),
+  });
+  for (const type of LOG_EVENT_TYPES) {
+    assert.match(stdout, new RegExp(`^ {2}${type}$`, 'm'), `log --help omits the "${type}" type`);
+  }
   for (const [type, definition] of Object.entries(LOG_EVENT_DEFINITIONS)) {
-    assert.ok(implement.includes(`- ${type}: ${definition.form}`), `${type}: ${definition.form}`);
+    // The help renders a multi-arm form as `Payload:` plus one `Or:` per arm,
+    // so each arm is asserted on its own rather than the joined string.
+    for (const arm of definition.form.split(' | ')) {
+      assert.ok(stdout.includes(arm), `log --help omits a payload arm of "${type}": ${arm}`);
+    }
     assert.ok(
       parseLogEvent(`- **2026-08-24T16:00:00Z** \`[${type}]\` ${definition.canonicalPayload}`),
       `${type} documented form is disconnected from its parser`,
     );
   }
-  assert.match(
-    implement,
-    /Each transition event \(`status`, `review`, `validation`\) records exactly one transition/,
+  // What the contract still owns, because the help does not carry it.
+  const implement = fs.readFileSync(
+    new URL('../templates/contract/implement.md', import.meta.url),
+    'utf8',
   );
+  assert.match(implement, /Each transition event records exactly one transition/);
+  assert.match(implement, /every top-level `- ` line must be a valid typed event/);
 });
 
 process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'contract-home-'));

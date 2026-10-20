@@ -172,38 +172,21 @@ archive is undone by editing `archived: false`.
 
 ## Context modes
 
-Valid modes: implement, review, spec, release.
-
-Escalate to a mode before acting. Before documenting, run
-`changeledger context spec`. Before executing, run `changeledger context
-implement` or `changeledger context <change-id>`. Every context capture is read
-complete in one pass — core, mode and change-id alike; a partial view is
-invalid. Every mode and change-id context extends the core context already read;
-it never repeats it.
-
-- `changeledger context spec`: author or refine a change.
-- `changeledger context implement`: execute an approved change.
-- `changeledger context review`: independently verify completed work.
-- `changeledger context release`: plan portable delivery metadata.
-- `changeledger context <change-id>`: infer the correct context from lifecycle.
+Escalate to a mode before acting: `changeledger context spec` before
+documenting, `changeledger context implement` or `changeledger context
+<change-id>` before executing. `changeledger context --help` names what each
+mode is for.
 
 ## Synchronizing the global state
 
 A repo that is not yet activated adopts the global state once with
 `changeledger cutover` on its integration branch; every later clone joins with
-`changeledger activate`. In an activated repo with a remote, `changeledger
-sync` compares before it
-moves: fast-forward or publish when the histories are linear, automatic
-reconciliation when the divergent journals touch disjoint documents, and a
-fail-closed report when the same document changed on both sides — the human
-coordinates that resolution, and once resolved `sync` publishes. Run `sync` at the
-strategic points: when a session opens, before delegating a review, at durable
-closure (graduation or archive) and at every handoff. Sync never blocks the
-local flow: without a remote every point transports nothing, a network failure is a
-warning, and no other command waits for it. `sync --status` reports freshness
-offline at any time. The activation never travels — each clone runs
-`changeledger activate` once; `sync` reminds when the repo is inactive but the
-ref or the remote's fetched copy is present.
+`changeledger activate`. Run `sync` at the strategic points: when a session
+opens, before delegating a review, at durable closure (graduation or archive)
+and at every handoff. `changeledger sync --help` states what it does and why it
+never blocks the local flow; the one obligation it leaves to you is that the
+same document changed differently on both sides is reported, never resolved by
+inference — the human coordinates that resolution.
 
 ## Operational discovery
 

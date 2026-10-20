@@ -57,14 +57,10 @@ Useful mutation commands:
 - `changeledger task <id> done|block <n> [reason]`
 - `changeledger log <id> "<message>"`
 - `changeledger owner <id> <name|->`
-- `changeledger edit <change-id|spec:slug> --from <file|->` — replaces the whole
-  document (content only, never lifecycle fields); the sole body-write path in
-  an activated repo
-- `changeledger apply --from <file|-> [--dry-run]` — lands one JSON manifest of
-  whole documents and agent-owned events as a single journal entry, all or
-  nothing; compose against `--dry-run` until clean, then land once
-- `changeledger sync [--status]` — compare-first fetch/publish of the state
-  ref; core's sync section owns the strategic points and conflict protocol
+- `changeledger edit <change-id|spec:slug> --from <file|->` — the sole
+  body-write path in an activated repo
+- `changeledger apply --from <file|-> [--dry-run]`
+- `changeledger sync [--status]`
 - `changeledger review <id> pass|fail`
 - `changeledger check [id]`
 - `changeledger commit -m "<type>(<scope>): <desc>" [--id <id>]...`
@@ -79,20 +75,7 @@ Every top-level Log entry has a strict ISO UTC timestamp and canonical type:
 - **2026-06-13T14:30:00Z** `[note]` arbitrary text — even `[status]` and `|`
 ```
 
-Types are `status`, `review`, `validation`, `owner`, `branch`, `graduation`, `archive`, `note`, `version`.
-Each transition event (`status`, `review`, `validation`) records exactly one transition, with the payload form for its type:
-
-- status: <from> → <to> [(detail)] [: reason]
-- review: in-review → <to> [(detail)] [: reason]
-- validation: in-validation → <to> [(detail)] [: reason] | accepted (merged <sha>)
-- owner: set: <owner> [(auto)] | cleared
-- branch: set: <branch> [(auto)] | cleared
-- graduation: spec: `<file>` [(detail)] | skipped [: reason]
-- archive: archived
-- note: <non-empty text>
-- version: <semver> | <semver> → <semver>
-
-Lifecycle commands write their type, and stamp `version` whenever the installed version differs from the last one stamped; `changeledger log` writes an opaque `note` that cannot simulate an operational event. Continuation prose is allowed, but every top-level `- ` line must be a valid typed event.
+`changeledger log --help` prints every type, its payload forms and the command that writes each, generated from the parser's own definitions. Each transition event records exactly one transition. Continuation prose is allowed, but every top-level `- ` line must be a valid typed event.
 
 When implementation and every task are complete, move to `in-review` if the type
 requires independent review by running this ordered gate — do not reconstruct it from memory:
