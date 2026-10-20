@@ -192,3 +192,4 @@ que es una capacidad que falta y no un cabo suelto de este trabajo.
 - **2026-10-20T12:33:29Z** `[graduation]` spec: `lifecycle.md`
 - **2026-10-20T12:33:30Z** `[graduation]` spec: `validation.md`
 - **2026-10-20T12:33:31Z** `[graduation]` spec: `architecture.md`
+- **2026-10-20T12:33:31Z** `[graduation]` spec: `metrics.md`
