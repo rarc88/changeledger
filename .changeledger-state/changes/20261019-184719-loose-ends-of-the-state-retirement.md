@@ -148,10 +148,11 @@ que es una capacidad que falta y no un cabo suelto de este trabajo.
   - **Target:** `.changeledger/specs/metrics.md`
   - **Verify:** `node bin/changeledger.mjs check`
   - **Resolved:** `2026-10-20T11:15:31Z`
-- [ ] Rectificar en la spec de arquitectura que el sello es la única escritura de `sync` por encima de la puerta de activación
+- [x] Rectificar en la spec de arquitectura que el sello es la única escritura de `sync` por encima de la puerta de activación
   - **Support:**
   - **Target:** `.changeledger/specs/architecture.md`
   - **Verify:** `node bin/changeledger.mjs check`
+  - **Resolved:** `2026-10-20T11:15:32Z`
 
 ## Log
 - **2026-10-19T18:47:19Z** `[version]` 0.18.0
