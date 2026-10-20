@@ -557,3 +557,37 @@ export function gitRefs(repoRoot, id, run = defaultRun) {
 
   return refs;
 }
+
+// Deletes a local branch, and only when its tip is already an ancestor of
+// `integration`. That proof is the whole safety of this: every commit on the
+// branch is reachable from the integration branch, so dropping the ref loses
+// nothing. `-D` rather than `-d` because the proof is this one, against the
+// branch that matters, where `-d` would judge against HEAD instead and refuse
+// a branch that is merged where it had to be.
+//
+// Never touches a remote. The 1,298 dead branches in the consuming repos are
+// overwhelmingly not ChangeLedger's — a tool rule reaches about 5% of them,
+// and the repository's own `delete_branch_on_merge` is what reaches the rest.
+// This exists so the tool stops adding to that pile, not to drain it.
+//
+// Returns why it did nothing, or null when it deleted.
+export function deleteMergedBranch(repoRoot, branch, integration, run = defaultRun) {
+  if (!branch) return 'the change records no branch';
+  if (!refExists(repoRoot, `refs/heads/${branch}`, run))
+    return `branch "${branch}" no longer exists`;
+  if (!integration || !refExists(repoRoot, `refs/heads/${integration}`, run)) {
+    return `integration branch "${integration}" is not present here`;
+  }
+  if (currentBranch(repoRoot, run) === branch) {
+    return `branch "${branch}" is the current checkout`;
+  }
+  if (!isAncestor(repoRoot, `refs/heads/${branch}`, `refs/heads/${integration}`, run)) {
+    return `branch "${branch}" is not merged into "${integration}"`;
+  }
+  try {
+    run(['branch', '-D', branch], repoRoot);
+    return null;
+  } catch (error) {
+    return `branch "${branch}" could not be deleted (${error.message})`;
+  }
+}

@@ -921,9 +921,14 @@ program
   .option('--graduated', 'archive every done change already graduated or skipped (takes no id)')
   .option('--owner <name>', 'with --graduated, filter by exact owner name')
   .option('--unowned', 'with --graduated, filter changes without an owner')
+  .option('--keep-branch', 'do not delete the local branch even when it is merged')
   .addHelpText(
     'after',
     [
+      '',
+      'Archiving deletes the local branch the change recorded, but only once that',
+      'branch is already merged into the integration branch — never an unmerged one,',
+      'and never a remote reference.',
       '',
       'Examples:',
       '  changeledger archive <id>',
@@ -950,8 +955,12 @@ program
         return;
       }
       if (!id) throw new Error('archive requires <id> or --graduated');
-      archive(id);
+      const { branch, branchOutcome } = archive(id, process.cwd(), {
+        keepBranch: options.keepBranch,
+      });
       console.log(`#${id} archived`);
+      if (branchOutcome === null) console.log(`Deleted local branch ${branch}.`);
+      else if (branch) console.log(`Local branch not deleted: ${branchOutcome}.`);
     }),
   );
 

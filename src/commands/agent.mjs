@@ -2,11 +2,12 @@
 // (list/show). Files remain the source of truth; these are optional helpers
 // that inject correct timestamps/markers and validate transitions.
 
+import fs from 'node:fs';
 import path from 'node:path';
 import { mutateFileAtomic } from '../atomic-write.mjs';
 import { assertChildrenResolved, parseChange } from '../change.mjs';
 import { mutateLedgerFile, repoIsActivated, writeLedgerFiles } from '../change-store.mjs';
-import { assertChangeTextValid, assertStagesNotEmpty } from '../check.mjs';
+import { assertChangeTextValid, assertStagesNotEmpty, recordedBranch } from '../check.mjs';
 import {
   changeIntegrationBranch,
   findChangeledgerDir,
@@ -19,6 +20,7 @@ import {
   checkoutBranch as defaultCheckoutBranch,
   defaultRun as defaultGitRun,
   ownerHandle as defaultOwnerHandle,
+  deleteMergedBranch,
   isAncestor,
   mergeBases,
   refExists,
@@ -541,8 +543,11 @@ export function discard(id, reason, cwd = process.cwd(), { usage } = {}) {
   return target.file;
 }
 
-export function archive(id, cwd = process.cwd()) {
-  const { repo, target } = locate(cwd, id);
+export function archive(id, cwd = process.cwd(), { keepBranch = false, gitRun } = {}) {
+  const { repo, target, config, repoRoot } = locate(cwd, id);
+  // Read through `locate`'s own target, the one seat that answers in both
+  // layouts: an activated repo carries the text, a worktree one the path.
+  const change = parseChange(target.text ?? fs.readFileSync(target.file, 'utf8'));
   mutateLedgerFile(
     repo,
     target,
@@ -552,7 +557,18 @@ export function archive(id, cwd = process.cwd()) {
     },
     { message: `archive: ${id}` },
   );
-  return target.file;
+  // After the ledger write, never before: the archive is the point of this
+  // command and a branch that cannot be deleted must not cost it.
+  const branch = recordedBranch(change);
+  const branchOutcome = keepBranch
+    ? 'kept on request'
+    : deleteMergedBranch(
+        repoRoot,
+        branch,
+        changeIntegrationBranch(config, change.frontmatter?.type),
+        gitRun ?? defaultGitRun,
+      );
+  return { file: target.file, branch, branchOutcome };
 }
 
 function assertOwnerFilter({ owner: byOwner, unowned = false } = {}) {

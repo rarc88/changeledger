@@ -3832,3 +3832,78 @@ test('20261020-172221 CR7: new --parent writes the field into the scaffold', () 
   assert.match(text, new RegExp(`^parent: "${epicId}"$`, 'm'));
   assert.equal(list({ parent: epicId }, root).length, 3);
 });
+
+// --- 20261020-172221 CR8: archiving deletes its own merged branch --------
+//
+// This reaches about 5% of the dead branches in the consuming repos — the rest
+// were never created by ChangeLedger and the repository's own
+// `delete_branch_on_merge` is what reaches those. It exists so the tool stops
+// adding to that pile. The safety is the merge proof, not the flag: every
+// commit is already reachable from the integration branch, so dropping the ref
+// loses nothing.
+
+function archivableOnBranch({ merged }) {
+  const fixture = repoWithChange();
+  const { root, id } = fixture;
+  configureChangeBranches(root, { integration: 'dev', format: '"{type}/{id}"' });
+  git(root, ['init', '-q', '-b', 'dev']);
+  git(root, ['config', 'user.email', 't@e.com']);
+  git(root, ['config', 'user.name', 'T']);
+  git(root, ['add', '-A']);
+  git(root, ['commit', '-qm', 'seed']);
+  const branch = `feature/${id}`;
+  git(root, ['checkout', '-q', '-b', branch, 'dev']);
+  fs.writeFileSync(path.join(root, 'work.txt'), 'work\n');
+  git(root, ['add', 'work.txt']);
+  git(root, ['commit', '-qm', 'work']);
+  git(root, ['checkout', '-q', 'dev']);
+  if (merged) git(root, ['merge', '--no-ff', '-q', '-m', 'merge', branch]);
+  // The branch event is what `recordedBranch` reads; the change's own Log is
+  // the record, never the current checkout.
+  const file = path.join(root, '.changeledger', 'changes', `${id}-x.md`);
+  fs.appendFileSync(file, `- **2026-06-13T12:30:00Z** \`[branch]\` set: ${branch} (auto)\n`);
+  const branches = () =>
+    git(root, ['branch', '--format=%(refname:short)']).split('\n').filter(Boolean);
+  return { root, id, branch, branches };
+}
+
+test('20261020-172221 CR8: a merged branch is deleted and the result says so', () => {
+  const { root, id, branch, branches } = archivableOnBranch({ merged: true });
+  const result = archive(id, root);
+  assert.equal(result.branchOutcome, null, 'a merged branch must be deleted');
+  assert.equal(result.branch, branch);
+  assert.ok(!branches().includes(branch), `branch survived: ${branches().join(', ')}`);
+});
+
+test('20261020-172221 CR8: an unmerged branch survives and the result explains why', () => {
+  const { root, id, branch, branches } = archivableOnBranch({ merged: false });
+  const result = archive(id, root);
+  assert.match(result.branchOutcome, /is not merged into "dev"/);
+  assert.ok(branches().includes(branch), 'an unmerged branch must never be deleted');
+});
+
+test('20261020-172221 CR8: --keep-branch keeps a merged branch', () => {
+  const { root, id, branch, branches } = archivableOnBranch({ merged: true });
+  const result = archive(id, root, { keepBranch: true });
+  assert.match(result.branchOutcome, /kept on request/);
+  assert.ok(branches().includes(branch));
+});
+
+test('20261020-172221 CR8: no remote reference is touched, and the archive still lands', () => {
+  const { root, id } = archivableOnBranch({ merged: true });
+  const argv = [];
+  archive(id, root, {
+    gitRun: (args, cwd) => {
+      argv.push(args);
+      return git(cwd, args);
+    },
+  });
+  assert.ok(
+    !argv.some(
+      (a) => a.includes('push') || a.some((token) => String(token).startsWith('refs/remotes')),
+    ),
+    `a remote was touched: ${JSON.stringify(argv)}`,
+  );
+  const text = fs.readFileSync(path.join(root, '.changeledger', 'changes', `${id}-x.md`), 'utf8');
+  assert.match(text, /archived: true/, 'the archive is the point of the command');
+});
