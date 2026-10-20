@@ -7,7 +7,7 @@ graduated_from: ["20260616-151221", "20260616-162014", "20260616-162050", "20260
 
 ## Validación (`changeledger check`)
 
-`check.mjs` es puro (sin IO) y valida changes y, en modo repo completo, también
+`checkRepo` es puro (sin IO) y valida changes y, en modo repo completo, también
 la capa de specs y sus enlaces: marcadores de conflicto de merge, etapas
 duplicadas, enlaces change↔spec rotos (error), specs huérfanos y `updated`
 desfasado respecto a la actividad de un change enlazado (warning). Los enlaces
@@ -28,6 +28,17 @@ duplicados, el grafo de `depends_on` y su búsqueda de ciclos, la reconstrucció
 de graduaciones de `checkSpecs`, `checkReleases`, y tanto `knownIds` como los
 backlinks de `related_to`. El predicado vive en un único sitio exportado y la
 capa CLI lo consume en vez de re-derivarlo.
+
+El aviso de aceptación pendiente es la excepción deliberada a esa exención: sí
+toma como sujeto a un archivado. En el caso para el que existe, el merge
+aterriza después del archivo, así que el dato es nuevo y derivado de git en vez
+de una reescritura de deliberación cerrada; y exceptuarlo dejaría el aviso
+imposible de limpiar para siempre, que es justo el diagnóstico sin salida que
+la doctrina de congelado existe para evitar.
+
+Junto a ese núcleo puro viven las pasadas que sí tocan git: `pendingAcceptances`,
+exportada como autoridad única que `sync` comparte para que aviso y sello no
+diverjan, y la comprobación de configuración de `usage`.
 
 Congelado no es lo mismo que cerrado. Un `done` sin archivar sí se valida:
 es trabajo vivo pendiente de graduación o archive, y sus defectos son
@@ -82,7 +93,17 @@ changes. La **puerta de entrega** aplica esa validación scoped en las dos sedes
 que llevan a `done`: `changeledger review <id> pass` para un tipo con revisión y
 `changeledger status <id> done` para uno sin ella, en ambos casos sobre el texto
 ya volcado a `done`, porque las reglas que importan allí —tareas sin cerrar, un
-Log que no reconstruye el frontmatter— sólo aplican a un change entregado. Los
+Log que no reconstruye el frontmatter— sólo aplican a un change entregado.
+
+Ninguna de esas dos sedes alcanza el documento editado a mano, que la spec de
+arquitectura declara vía legítima y es la normal en los repos en layout de
+worktree. Lo cubre una pasada propia de `check`: sobre un documento ya `done`,
+una línea de Log `[status] in-review → done` —la forma sin veredicto, frente a
+`[review]`— es error, y el mensaje nombra `changeledger review <id> pass`. Es
+una pasada aparte y no un paso del replay, porque el replay abandona el
+documento en el primer estado que no modela y eso la dejaría muerta justo en
+los Log que vivieron la retirada. Y se limita a `done`, que es el único estado
+donde el remedio que imprime se puede tomar. Los
 modos de graduación validan después el `done` seleccionado antes de tocar change
 o spec. Estas rutas resuelven y parsean únicamente el
 archivo seleccionado; incluso un sibling ilegible queda fuera del gate scoped.
@@ -94,10 +115,12 @@ posterior exoneraría al propio candidato bajo juicio.
 
 Sobre un change `done` sin `accepted_at` cuya rama ya está fusionada en la rama
 de integración, `check` emite un **aviso** —nunca un error— que nombra el change
-y la aceptación pendiente, y no escribe nada: el sellado pertenece a la
-graduación, y un merge sin graduar no es un repositorio roto. El aviso respeta
-el predicado de congelado, así que no lanza un subproceso git por cada documento
-archivado.
+y la aceptación pendiente, y no escribe nada: un merge sin graduar no es un
+repositorio roto. El sellado tiene dos sedes —la graduación al cerrar y
+`changeledger sync` para la rama que aterriza después—, y el aviso nombra a
+`sync`, que es la que puede limpiarlo en cualquier caso, incluido un archivado.
+Por eso resuelve el merge de cada `done` sin sellar, archivado o no, y no
+exceptúa a los congelados.
 
 Con el `tdd` efectivo del tipo encendido (`effectiveTdd`: `types.<tipo>.tdd`
 sobre el `tdd` global; ver Definition of Ready), `approved` e `in-progress`
@@ -119,7 +142,7 @@ listos para implementar. En `draft`, esos mismos huecos son warnings para no
 bloquear la autoría temprana; con el `tdd` efectivo apagado no se evalúan.
 
 Las entradas superiores de Log que incumplen la gramática reciben un
-diagnóstico con archivo, línea, forma canónica y los ocho tipos válidos. El
+diagnóstico con archivo, línea, forma canónica y los nueve tipos válidos. El
 diagnóstico no promete que `fix --structured-sections` pueda reparar una forma
 que ese migrador no reconoce.
 
