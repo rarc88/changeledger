@@ -100,11 +100,22 @@ moverlo obliga a re-registrar los cuatro y merece su propio change deliberado.
 - **Then** por cada uno, la salida del `--help` correspondiente cubre lo recortado
 - **And** sobrevive la obligación que la ayuda no lleva: tipar todo evento del Log, escalar a modo antes de actuar, los cuatro puntos estratégicos de `sync`, que la graduación no es una mutación masiva, y la línea base de una delegación que escribe
 
-### CR4 — El camino de implementación adelgaza al menos un 25%
+### CR4 — El camino de implementación adelgaza y queda fijado para que no vuelva a crecer
 - **Given** `core` + `implement` en 5.853 tokens medidos con el tokenizador de referencia
 - **When** se aplican todos los recortes
-- **Then** el mismo par mide 4.400 tokens o menos
+- **Then** el mismo par mide 5.000 tokens o menos
 - **And** ningún contexto compuesto crece
+
+> El umbral original de este criterio eran 4.400 tokens, un −25%, tomado de la
+> proyección del análisis previo. Esa proyección descansaba en recortar 176
+> palabras de `Correction isolation` de `implement.md` por duplicadas, y la
+> verificación de ese recorte demostró que no lo son: `review.md` sólo cubre
+> tres de sus siete obligaciones, y quien corrige carga `implement.md` y no
+> `review.md`. Con esa premisa caída, bajar de 4.400 exigía unas 400 palabras
+> más de `core` e `implement` sin ninguna obligación de sobra que quitar, que es
+> lo que `AGENTS.md` prohíbe hacer para encajar en un número. El umbral pasa a
+> ser una guarda contra el recrecimiento al valor realmente alcanzado, no un
+> objetivo cumplido.
 
 ### CR5 — Los techos son números deliberados que sólo pueden bajar
 - **Given** los techos de `budgets.yml`, hoy de 2× a 7× su contenido
