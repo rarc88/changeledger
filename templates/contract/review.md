@@ -47,8 +47,7 @@ reviewer — fails once the candidate already reached `in-review`, return it wit
 `changeledger status <id> in-progress`, the no-verdict path, and
 never `changeledger review <id> fail` for a failure no reviewer emitted. After
 recording any verdict, apply the formatter again and repeat affected checks,
-always including `changeledger check`, before commit or handoff. ChangeLedger
-runs no configurable formatter, hook or external command as a mutation side effect.
+always including `changeledger check`, before commit or handoff.
 
 A pass leaves the change `done` for closure unless it confirms uncommitted
 correction; then correction, tests and ledger form a commit. A correction keeps the diff
@@ -62,10 +61,3 @@ an actor the tool trusts by design — whoever can already commit to the
 repository, INTENT.md's trust model — is reported as an observation measured
 against that model, never recorded as a defect.
 
-After `fail`, the correction remains uncommitted until another fresh
-reviewer passes it. After the transition, run `changeledger context <id>` before
-modifying implementation. After pass, commit correction + ledger before handing the
-delivered change to the human.
-
-Types without `review_required` move directly from `in-progress` to `done`; do not
-invent a review gate for them.

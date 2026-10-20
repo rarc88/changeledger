@@ -17,6 +17,5 @@ unfinished observations instead of silently mixing them into the active change:
   creating a file.
 
 Do not mix independent concerns into active work or hold up an otherwise-ready
-delivery. When a change reaches `done`, also share a brief retrospective about
-what went well and what caused friction. `discarded` records a decision, not a
+delivery. `discarded` records a decision, not a
 completed implementation cycle.

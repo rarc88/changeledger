@@ -35,6 +35,3 @@ Every prompt states:
 - the integration criterion;
 - for roles that write, the expected baseline (branch or commit) the delegate must verify it is working from.
 
-Tell coding delegates they share the codebase: stay inside assigned ownership,
-do not revert others' edits and report overlapping changes instead of silently
-resolving them.

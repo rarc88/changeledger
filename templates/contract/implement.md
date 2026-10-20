@@ -7,10 +7,7 @@ in its Specification, Plan and Log. If related work materially expands observabl
 authorization before adding it; propose independent work separately.
 
 Follow the Specification exactly: the approved change governs the code written
-within its scope, so never quietly drift that contract. A pre-existing
-divergence not introduced by the current work requires human resolution; if it
-affects the task, report it and wait, otherwise report it without expanding
-scope. Keep status, tasks, owner and Log current throughout execution.
+within its scope, so never quietly drift that contract.
 
 ## Git protects traceability
 
@@ -123,8 +120,9 @@ commands; ChangeLedger mutations never run configurable hooks or external format
 
 ## Correction isolation
 
-After review `fail`, keep the candidate correction uncommitted while a
-fresh clean-context reviewer checks it. Confirming it requires returning the
+After review `fail`, run `changeledger context <id>` before modifying
+implementation and keep the candidate correction uncommitted while a fresh
+clean-context reviewer checks it. Confirming it requires returning the
 change with `changeledger status <id> in-review` before that delegation: the
 transition re-validates the candidate and the review role loads nowhere else.
 If it fails again, iterate on that same diff. Do not start another task or
