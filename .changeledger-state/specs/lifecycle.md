@@ -99,18 +99,13 @@ vea, se repite toda verificación afectada. El núcleo no ejecuta hooks, formatt
 ni comandos externos configurables como efecto lateral; esos gates pertenecen al
 repositorio anfitrión.
 
-**Inspección post-review.** `changeledger agent-context post-review <id>` entrega
-una cápsula autocontenida y estrictamente read-only —el change, sus criterios y
-una frontera explícita de no mutación sobre archivos, Git y ledger— cuyo
-delegado devuelve hallazgos y evidencia, nunca un veredicto que mueva el
-lifecycle. El rol se llama `post-review`, no `audit`, y sin alias de
-compatibilidad: `audit` es además un **tipo** de change configurado, y compartir
-la cadena en dos espacios de nombres sin relación hacía que el error de puerta
-del rol se leyera como un fallo del tipo. Su puerta sigue exigiendo el estado
-`in-validation`, retirado del ciclo, de modo que **hoy ningún change la
-satisface y el rol es inalcanzable**; reasentarlo pertenece al trabajo de
-cápsulas. El contexto `review` conserva su restricción a `in-review` y su receta
-de veredicto única.
+**Roles delegados.** Son cuatro: `investigation`, `implementation`, `review` y
+`graduation-review`; todos salvo `implementation` son de sólo lectura. Hubo un
+quinto, `post-review`, cuya puerta exigía `in-validation`: al retirarse ese
+estado quedó inalcanzable y `20261020-130304` lo retiró del producto entero. Un
+nombre de rol retirado nunca vuelve a resolver, ni siquiera como alias. El
+contexto `review` conserva su restricción a `in-review` y su receta de veredicto
+única.
 
 El contrato canónico permite delegar cualquier etapa a subagentes cuando reduce
 presión de contexto, baja coste con un modelo suficiente, paraleliza trabajo
