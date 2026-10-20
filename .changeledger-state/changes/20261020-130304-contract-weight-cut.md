@@ -154,10 +154,11 @@ moverlo obliga a re-registrar los cuatro y merece su propio change deliberado.
   - **Verify:** `node --test test/contract.test.mjs`
   - **Criteria:** CR4
   - **Resolved:** `2026-10-20T14:18:28Z`
-- [ ] Fijar techos deliberados y enunciar la regla de techo decreciente
+- [x] Fijar techos deliberados y enunciar la regla de techo decreciente
   - **Target:** `templates/contract/budgets.yml`, `AGENTS.md`
   - **Verify:** `node --test test/contract.test.mjs test/context.test.mjs`
   - **Criteria:** CR5
+  - **Resolved:** `2026-10-20T14:18:28Z`
 - [ ] Separar el límite del bootstrap del techo de `core`
   - **Target:** `src/contract.mjs`, `AGENTS.md`, `test/contract.test.mjs`
   - **Verify:** `node --test test/contract.test.mjs`
