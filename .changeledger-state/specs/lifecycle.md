@@ -349,9 +349,9 @@ Son **errores**: una transición cuyo origen no coincide con el estado
 reconstruido (p.ej. un veredicto `review → done` duplicado), self-loops,
 aristas fuera del grafo y un `status` final incompatible con la secuencia. Dos
 compatibilidades **acotadas** mantienen legible el historial anterior sin
-relajar el grafo para trabajo nuevo: la única arista legacy literal que queda,
-`draft → in-progress` —`in-review → done` e `in-progress → done` pasaron a ser
-canónicas y salieron de la lista—, y el *resync*
+relajar el grafo para trabajo nuevo: una sola arista legacy literal,
+`draft → in-progress` —`in-review → done` e `in-progress → done` son canónicas
+y no necesitan compatibilidad—, y el *resync*
 de huecos tempranos — solo un origen explícito `status:` puede adelantar la
 reconstrucción, solo hacia delante y solo entre `draft`/`approved`/`in-progress`;
 los orígenes implícitos de review exigen siempre la secuencia exacta.
