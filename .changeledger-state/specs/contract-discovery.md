@@ -170,7 +170,7 @@ lo que el contenido mide hoy ni compartido por clase: core 3000, spec 3000,
 implement 2800, review 1500, release 1000, cápsulas 800, overlay `done` 1250,
 overlay `discarded` 250 y el bloque `core-commits` 1000. Y **un techo sólo puede
 bajar**: subirlo es una decisión del humano registrada en un change, visible como
-una edición de los valores fijados en `test/context.test.mjs`, que son su única
+una edición del pin de valores de `test/context.test.mjs`, que es su única
 sede. Derivar un techo de la medida del momento obliga a reeditarlo cada vez que
 el contenido respira, que es como un techo deja de significar nada. Desde
 `20260730-002908` **ningún techo está en andamio** — el último (spec, 3450
