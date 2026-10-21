@@ -445,6 +445,17 @@ test('20261020-172221 CR3: sharing a parent connects nothing and needs no backli
   // and no dependency cycle from a hierarchy that is legal.
   assert.deepEqual(run([parent, a, b]).errors, []);
 
+  // An empty error list stays empty whether or not `parent` is an edge, so it
+  // proves nothing on its own. This does: the parent depends on its own child,
+  // which is legal — the hierarchy is not a dependency — and becomes a cycle
+  // the moment `parent` joins the graph `check` walks.
+  const dependsOnItsChild = epic('20260613-110000', { depends_on: ['20260613-120000'] });
+  assert.deepEqual(
+    msgs(run([dependsOnItsChild, a]).errors),
+    [],
+    'a parent that depends on its child is not a cycle: `parent` is not an edge of that graph',
+  );
+
   // The parent is a declared link, so naming it in prose is not an undeclared
   // mention — the warning exists to catch ids that escape the model, and a
   // parent has not escaped it.

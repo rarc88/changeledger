@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { parseChange } from '../change.mjs';
 import { repoIsActivated, writeLedgerFiles } from '../change-store.mjs';
-import { checkRepo, frozenReason, newErrors } from '../check.mjs';
+import { checkRepo, newErrors } from '../check.mjs';
 import {
   findChangeledgerDir,
   loadConfig,
@@ -48,7 +48,6 @@ export function newChange(
   const config = loadConfig(changeledgerDir);
   assertSupportedSchema(config);
   const typeDef = requireCreatableType(config, type);
-  if (parent !== undefined) requireAcceptingParent(loadRepo(repoRoot).changes, parent);
 
   // Born with an owner: an explicit --owner always wins; otherwise resolve the
   // local git identity. Tolerant — an unresolvable identity (ownerHandle
@@ -89,24 +88,22 @@ export function newChange(
     }
 
     const file = path.join(changesDir, `${id}-${normalizedSlug}.md`);
+    const text = stampVersion(
+      render({
+        id,
+        title,
+        type,
+        owner: resolvedOwner,
+        parent,
+        stages: typeDef.stages,
+        now: created,
+      }),
+      created,
+    );
     let written = false;
     try {
-      fs.writeFileSync(
-        file,
-        stampVersion(
-          render({
-            id,
-            title,
-            type,
-            owner: resolvedOwner,
-            parent,
-            stages: typeDef.stages,
-            now: created,
-          }),
-          created,
-        ),
-        { flag: 'wx' },
-      );
+      assertScaffoldIntroducesNoErrors(repoRoot, { file, name: path.basename(file), text });
+      fs.writeFileSync(file, text, { flag: 'wx' });
       written = true;
     } catch (e) {
       if (e.code !== 'EEXIST') throw e;
@@ -148,21 +145,28 @@ function requireCreatableType(config, type) {
   return typeDef;
 }
 
-// The scaffold writes straight to the worktree and runs no candidate check, so
-// `--parent` landed documents that `--from` and `apply` refuse through
-// `prepareNewChange`'s repo-wide diff: the two creation paths disagreed on the
-// same document (20261020-172221 D4). Worded as a creation refusal here and as
-// a document defect there, exactly as `requireCreatableType` already is.
-// Frozen history is not a subject, as in `checkRepo`: a parent that is done
-// AND archived is out of the validator's reach, and refusing here alone would
-// just move the disagreement.
-function requireAcceptingParent(changes, parent) {
-  const target = changes.find((c) => String(c.frontmatter?.id) === String(parent));
-  if (!target) throw new Error(`parent "${parent}" is not a change in this repo`);
-  if (frozenReason(target) !== null) return;
-  if (target.frontmatter?.status === 'done') {
+// The scaffold used to write straight to the worktree with no candidate check,
+// so it landed `--parent` documents that `--from` and `apply` refuse through
+// `prepareNewChange`'s repo-wide diff (20261020-172221 D4). The first fix
+// restated the parent rules here and promptly diverged again: it never
+// replicated the two-level rule, so a third level still landed (D1 of the next
+// round). This runs the SAME diff instead of a second reading of it — the only
+// form that cannot disagree. Diffed against the repo's own current errors, so
+// a pre-existing break elsewhere never blocks an unrelated clean scaffold.
+function assertScaffoldIntroducesNoErrors(repoRoot, candidate) {
+  const repo = loadRepo(repoRoot, { isolateChangeErrors: true });
+  const introduced = newErrors(
+    checkRepo(repo).errors,
+    checkRepo({
+      ...repo,
+      changes: [...repo.changes, { ...parseChange(candidate.text), ...candidate }],
+    }).errors,
+  );
+  if (introduced.length) {
     throw new Error(
-      `parent "${parent}" is done: a change that has closed cannot gain children — reopen it or choose another parent`,
+      `the scaffold would not be valid in this repo, nothing was written:\n${introduced
+        .map((e) => `  ${e.file}: ${e.message}`)
+        .join('\n')}`,
     );
   }
 }

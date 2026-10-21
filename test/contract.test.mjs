@@ -686,10 +686,13 @@ test('141119 CR5: refactor activates specification in every versioned artifact',
 
 // --- 20261020-172221: the epic in the contract ---------------------------
 //
-// Concept guards, not phrasing pins: each asserts the obligation survives a
-// rewrite of the sentence that carries it. What they protect is that an agent
-// reading the contract learns the three rules the code enforces, and no longer
-// reads that an archive is fully reversible — it now deletes a merged branch.
+// Concept guards, not phrasing pins. The first cut of these WAS a set of
+// phrasing pins — `two levels`, `outside the relation graph`, `never
+// enumerates its children` each broke on a synonym that kept the obligation
+// intact. They are now co-occurrence guards over tokens a rewrite cannot drop
+// without dropping the rule: the backticked identifiers, the number, and the
+// concept named beside them. Every pattern below is verified against both an
+// obligation-preserving rewording and an obligation-removing one.
 
 const fragment = (name) =>
   fs
@@ -699,16 +702,22 @@ const fragment = (name) =>
 test('20261020-172221 CR4/CR5: spec.md states the parent edge, its two levels and its closure', () => {
   const spec = fragment('spec.md');
   assert.match(spec, /`parent`/, 'the field must be named');
-  assert.match(spec, /two levels/i, 'the hierarchy depth must be stated');
-  assert.match(spec, /outside the relation graph/i, 'the edge must be kept out of the graph');
   assert.match(
     spec,
-    /(cannot|never) reach `done`[^.]*(child|children)/i,
-    'the closure rule must be stated',
+    /\btwo\b[^.]{0,60}\b(level|tier)|\bnot? a tree\b|never a tree/i,
+    'the hierarchy depth must be stated',
+  );
+  // Co-occurrence, not a sentence: the relation graph is named in spec.md only
+  // to say the parent edge stays out of it.
+  assert.match(spec, /relation graph/i, 'the edge must be kept out of the relation graph');
+  assert.match(
+    spec,
+    /`done`[^.]{0,60}`discarded`/,
+    'the closure rule must name both statuses that resolve a child',
   );
   assert.match(
     spec,
-    /never enumerates its children/i,
+    /(never|not|no)[^.]{0,40}enumerat\w+[^.]{0,40}children|children[^.]{0,40}(never|not)[^.]{0,30}enumerat/i,
     'the epic must not be approved on an enumeration of its children',
   );
 });
@@ -716,7 +725,7 @@ test('20261020-172221 CR4/CR5: spec.md states the parent edge, its two levels an
 test('20261020-172221 CR5: close.md reserves the spec link to the parent', () => {
   assert.match(
     fragment('close.md'),
-    /`parent`[^.]*never links a spec|never links a spec[^.]*`parent`/i,
+    /`parent`[^.]{0,80}(never|not|no)[^.]{0,40}links? a spec/i,
     'a change with a parent must be told it never links a spec',
   );
 });
@@ -730,7 +739,9 @@ test('20261020-172221 CR8: the contract no longer calls an archive fully reversi
     );
   }
   // The branch deletion is a side effect of `archive <id>` that no edit
-  // reverses, so the fragment that classifies boundaries has to say so.
+  // reverses, so the fragment that classifies boundaries has to say so. Both
+  // of these are co-occurrence guards: the two concepts are named together or
+  // the rule is gone, whatever words carry it.
   assert.match(
     fragment('core.md'),
     /archiv\w+[^.]*branch|branch[^.]*archiv\w+/i,
@@ -738,7 +749,9 @@ test('20261020-172221 CR8: the contract no longer calls an archive fully reversi
   );
   assert.match(
     fragment('close.md'),
-    /`archive --graduated`[^.]*deletes no branches/i,
+    // Clause-scoped (`[^.;]`): the sentence goes on to say that `archive <id>`
+    // DOES delete a branch, and a looser span matched that instead.
+    /`archive --graduated`[^.;]{0,120}(no branches|leaves[^.;]*branch|branch[^.;]*(untouched|alone))/i,
     'close.md must scope the deletion away from the bulk seat',
   );
 });

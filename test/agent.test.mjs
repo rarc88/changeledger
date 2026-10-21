@@ -3828,6 +3828,15 @@ test('20261020-172221 CR6: the refusal does not call a non-epic parent an epic',
 // document says nothing — which is what keeps it exclusive. So the grouping
 // has to be derived at read time, and these are the three seats that do it.
 
+function patchChange(root, id, transform) {
+  const dir = path.join(root, '.changeledger', 'changes');
+  for (const name of fs.readdirSync(dir)) {
+    if (!name.startsWith(id)) continue;
+    const file = path.join(dir, name);
+    fs.writeFileSync(file, transform(fs.readFileSync(file, 'utf8')));
+  }
+}
+
 function epicWithChildren() {
   const fixture = repoWithChange();
   const epicId = '20260613-110000';
@@ -3911,82 +3920,128 @@ test('20261020-172221 CR7: new --parent writes the field into the scaffold', () 
   assert.equal(list({ parent: epicId }, root).length, 3);
 });
 
-// The scaffold writes to the worktree with no candidate check, so it accepted
-// documents that `--from` and `apply` refuse through `prepareNewChange`'s
-// repo-wide diff — the same rule enforced at one creation seat and not the
-// other (20261020-172221 D4). Both refusals are asserted against the same two
-// documents so the seats cannot drift apart again.
-test('20261020-172221 CR7: both creation seats refuse a parent that is missing or closed', () => {
+// Two creation seats, one rule. The first fix here restated the parent rules
+// instead of running the gate `--from` runs, and promptly diverged again on
+// the clause it had not restated: a third level landed through the scaffold
+// and `check` turned the repo red (20261020-172221 D4, then D1 of the next
+// round). So this asserts EQUIVALENCE, not messages — any rule either seat
+// gains or loses shows up here, including rules nobody has written yet.
+test('20261020-172221 CR7: the two creation seats accept and refuse the same documents', () => {
+  const outcome = (fn) => {
+    try {
+      fn();
+      return 'accept';
+    } catch {
+      return 'refuse';
+    }
+  };
+
+  const cases = {
+    missing: () => '20200101-000000',
+    live: (_root, epicId) => epicId,
+    closed: (root, epicId) => {
+      patchChange(root, epicId, (text) => text.replace('status: draft', 'status: done'));
+      return epicId;
+    },
+    'closed and archived': (root, epicId) => {
+      patchChange(root, epicId, (text) =>
+        text
+          .replace('status: draft', 'status: done')
+          .replace('depends_on: []', 'depends_on: []\narchived: true'),
+      );
+      return epicId;
+    },
+    'third level': () => '20260613-140000',
+  };
+
+  for (const [label, prepare] of Object.entries(cases)) {
+    const scaffoldFixture = epicWithChildren();
+    const parent = prepare(scaffoldFixture.root, scaffoldFixture.epicId);
+    const args = {
+      type: 'quick',
+      slug: 'candidato',
+      title: 'Candidato',
+      parent,
+      now: '2026-06-13T18:00:00Z',
+    };
+    const viaScaffold = outcome(() =>
+      newChange(args, scaffoldFixture.root, { ownerHandle: () => '' }),
+    );
+
+    const documentFixture = epicWithChildren();
+    prepare(documentFixture.root, documentFixture.epicId);
+    const printed = scaffoldChange(args, documentFixture.root, { ownerHandle: () => '' });
+    const source = path.join(documentFixture.root, 'candidato.md');
+    fs.writeFileSync(source, printed.text);
+    const viaDocument = outcome(() =>
+      newChangeFrom(
+        { type: 'quick', slug: 'candidato', title: 'Candidato', from: source },
+        documentFixture.root,
+      ),
+    );
+
+    assert.equal(
+      viaScaffold,
+      viaDocument,
+      `the seats disagree on a ${label} parent: scaffold ${viaScaffold}, document ${viaDocument}`,
+    );
+    if (viaScaffold === 'refuse') {
+      assert.ok(
+        !fs
+          .readdirSync(path.join(scaffoldFixture.root, '.changeledger', 'changes'))
+          .some((n) => n.includes('candidato')),
+        'a refused creation writes nothing',
+      );
+    }
+  }
+});
+
+// The gate diffs against the repo's OWN current errors, so an unrelated break
+// elsewhere never blocks a clean scaffold. Without that diff `new` would stop
+// working repo-wide the moment any document went red.
+test('20261020-172221 CR7: a pre-existing error elsewhere does not block a clean scaffold', () => {
   const { root, epicId } = epicWithChildren();
-  const dir = path.join(root, '.changeledger', 'changes');
-  for (const name of fs.readdirSync(dir)) {
-    if (!name.startsWith(epicId)) continue;
-    const file = path.join(dir, name);
-    fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('status: draft', 'status: done'));
-  }
-
-  for (const [parent, pattern] of [
-    ['20200101-000000', /is not a change in this repo/],
-    [epicId, /is done: a change that has closed cannot gain children/],
-  ]) {
-    assert.throws(
-      () =>
-        newChange(
-          {
-            type: 'quick',
-            slug: 'rechazado',
-            title: 'Rechazado',
-            parent,
-            now: '2026-06-13T18:00:00Z',
-          },
-          root,
-          { ownerHandle: () => '' },
-        ),
-      pattern,
-    );
-    const print = scaffoldChange(
-      { type: 'quick', slug: 'rechazado', title: 'Rechazado', parent, now: '2026-06-13T18:00:00Z' },
-      root,
-      { ownerHandle: () => '' },
-    );
-    const source = path.join(root, 'rechazado.md');
-    fs.writeFileSync(source, print.text);
-    assert.throws(
-      () =>
-        newChangeFrom({ type: 'quick', slug: 'rechazado', title: 'Rechazado', from: source }, root),
-      /the incoming document is invalid, nothing was written/,
-      `--from must refuse the same document as the scaffold (parent ${parent})`,
-    );
-  }
-  assert.ok(
-    !fs.readdirSync(dir).some((n) => n.includes('rechazado')),
-    'a refused creation writes nothing',
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'changes', '20260613-160000-roto.md'),
+    `---\nid: "20260613-160000"\ntitle: Roto\ntype: quick\nstatus: draft\ncreated: 2026-06-13T16:00:00Z\ndepends_on: []\nparent: "no-es-un-id"\n---\n\n## Request\n\nAlgo.\n\n## Log\n`,
   );
-
-  // Frozen history is not a subject: `checkRepo` skips a done+archived parent,
-  // so `--from` accepts a child under one. Refusing it here alone would move
-  // the disagreement instead of removing it.
-  for (const name of fs.readdirSync(dir)) {
-    if (!name.startsWith(epicId)) continue;
-    const file = path.join(dir, name);
-    fs.writeFileSync(
-      file,
-      fs.readFileSync(file, 'utf8').replace('depends_on: []', 'depends_on: []\narchived: true'),
-    );
-  }
+  assert.ok(checkRepo(loadRepo(root)).errors.length > 0, 'the fixture must start from a red repo');
   assert.doesNotThrow(() =>
     newChange(
       {
         type: 'quick',
-        slug: 'congelado',
-        title: 'Congelado',
+        slug: 'limpio',
+        title: 'Limpio',
         parent: epicId,
-        now: '2026-06-13T19:00:00Z',
+        now: '2026-06-13T20:00:00Z',
       },
       root,
       { ownerHandle: () => '' },
     ),
   );
+});
+
+// The matrix above only proves the seats agree; these pin WHAT they agree on,
+// so a regression that relaxes both at once is still caught.
+test('20261020-172221 CR7: neither seat creates a child of a missing, closed or second-level parent', () => {
+  const { root, epicId } = epicWithChildren();
+  patchChange(root, epicId, (text) => text.replace('status: draft', 'status: done'));
+  for (const [label, parent] of [
+    ['missing', '20200101-000000'],
+    ['closed', epicId],
+    ['second level', '20260613-140000'],
+  ]) {
+    assert.throws(
+      () =>
+        newChange(
+          { type: 'quick', slug: 'x', title: 'X', parent, now: '2026-06-13T18:00:00Z' },
+          root,
+          { ownerHandle: () => '' },
+        ),
+      /nothing was written/,
+      `a ${label} parent must be refused`,
+    );
+  }
 });
 
 // Archiving hides a document; it does not resolve the work, so an archived
