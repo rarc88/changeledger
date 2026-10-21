@@ -25,7 +25,7 @@ status: draft                  # lifecycle value
 created: 2026-06-13T13:45:48Z # full ISO 8601 UTC
 depends_on: []                 # change ids or external project:id refs
 related_to: []                 # optional non-blocking discovery links
-parent: "<id>"                  # optional: the epic this change belongs to
+parent: "<id>"                 # optional: the epic this change belongs to
 owner: ana                     # optional
 release_impact: minor          # optional: none | patch | minor | major
 ---

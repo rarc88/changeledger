@@ -651,6 +651,22 @@ test('105457 CR1/CR3: archive CLI transmits owner filters and rejects id combina
   assert.match(scopedId.err, /--owner and --unowned require --graduated/);
 });
 
+// The bulk seat deletes no branches, so `--keep-branch` there is a promise it
+// never made. `--owner`/`--unowned` were already refused out of scope; this one
+// was silently ignored, and the help attached to the whole command read as if
+// both seats pruned (20261020-172221 D3).
+test('20261020-172221 CR8: --keep-branch is refused with --graduated, and the help scopes pruning', () => {
+  const { root, env } = doneRepo();
+  const refused = runIn(root, env, 'archive', '--graduated', '--keep-branch');
+  assert.equal(refused.code, 1);
+  assert.match(refused.err, /--keep-branch takes an id/);
+
+  const { code, out } = run('archive', '-h');
+  assert.equal(code, 0);
+  assert.match(out, /Archiving one change by id deletes the local branch/);
+  assert.match(out, /--graduated archives in bulk and deletes no branches/);
+});
+
 test('131649 CR3/CR4/CR6/CR10: list help documents its complete filter domain', () => {
   const { code, out } = run('list', '-h');
   assert.equal(code, 0);

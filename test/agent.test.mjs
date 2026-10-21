@@ -3764,6 +3764,62 @@ for (const resolved of ['done', 'discarded']) {
   });
 }
 
+// `done` has two write seats and the guard was wired into one. `review pass`
+// is the only route for a review_required type, and nothing restricts `parent`
+// to the `epic` type — `--parent` and `check` both accept any id — so a
+// `documentation` parent walked in-review → done with a `draft` child. The
+// scoped validation that seat already runs cannot stand in for the guard: it
+// judges a one-change repo, where no child is visible (20261020-172221 D1).
+function reviewableParentWithChild(childStatus) {
+  const fixture = repoWithChange();
+  const dir = path.join(fixture.root, '.changeledger', 'changes');
+  const parentId = '20260613-110000';
+  fs.writeFileSync(
+    path.join(dir, `${parentId}-parent.md`),
+    `---\nid: "${parentId}"\ntitle: Padre\ntype: documentation\nstatus: in-review\ncreated: 2026-06-13T11:00:00Z\ndepends_on: []\n---\n\n## Request\n\nObjetivo.\n\n## Investigation\n\nIndagado.\n\n## Specification\n\n- [x] CR1 Given algo When algo Then algo\n\n## Log\n\n- **2026-06-13T11:00:00Z** \`[status]\` draft → approved\n- **2026-06-13T11:05:00Z** \`[status]\` approved → in-progress\n- **2026-06-13T11:10:00Z** \`[status]\` in-progress → in-review\n`,
+  );
+  fs.writeFileSync(
+    path.join(dir, '20260613-130000-child.md'),
+    `---\nid: "20260613-130000"\ntitle: Hijo\ntype: quick\nstatus: ${childStatus}\ncreated: 2026-06-13T13:00:00Z\ndepends_on: []\nparent: "${parentId}"\n---\n\n## Request\n\nAlgo.\n\n## Log\n\n- **2026-06-13T13:00:00Z** \`[note]\` created\n`,
+  );
+  return { ...fixture, parentId };
+}
+
+test('20261020-172221 CR6: review pass does not deliver a parent with a live child', () => {
+  const { root, parentId } = reviewableParentWithChild('in-progress');
+  assert.throws(
+    () => review(parentId, 'pass', {}, root),
+    (error) => {
+      assert.match(error.message, /still has unresolved children/);
+      assert.match(error.message, /20260613-130000 \(in-progress\)/);
+      return true;
+    },
+  );
+  const text = fs.readFileSync(
+    path.join(root, '.changeledger', 'changes', `${parentId}-parent.md`),
+    'utf8',
+  );
+  assert.match(text, /status: in-review/, 'a refused verdict leaves the document untouched');
+});
+
+test('20261020-172221 CR6: review pass delivers a parent whose children are resolved', () => {
+  const { root, parentId } = reviewableParentWithChild('done');
+  assert.doesNotThrow(() => review(parentId, 'pass', {}, root));
+});
+
+// The refusal names the subject by id. `epic` is a template type a repo may
+// rename or never adopt, and the guard fires on any change with children.
+test('20261020-172221 CR6: the refusal does not call a non-epic parent an epic', () => {
+  const { root, parentId } = reviewableParentWithChild('in-progress');
+  assert.throws(
+    () => review(parentId, 'pass', {}, root),
+    (error) => {
+      assert.doesNotMatch(error.message, /\bepic\b/);
+      return true;
+    },
+  );
+});
+
 // --- 20261020-172221 CR7: the epic is visible from the CLI --------------
 //
 // The edge only points upward — a child names its epic, the epic's own
@@ -3862,7 +3918,7 @@ test('20261020-172221 CR7: new --parent writes the field into the scaffold', () 
 // commit is already reachable from the integration branch, so dropping the ref
 // loses nothing.
 
-function archivableOnBranch({ merged }) {
+function archivableOnBranch({ merged, status = 'done' }) {
   const fixture = repoWithChange();
   const { root, id } = fixture;
   configureChangeBranches(root, { integration: 'dev', format: '"{type}/{id}"' });
@@ -3882,6 +3938,12 @@ function archivableOnBranch({ merged }) {
   // the record, never the current checkout.
   const file = path.join(root, '.changeledger', 'changes', `${id}-x.md`);
   fs.appendFileSync(file, `- **2026-06-13T12:30:00Z** \`[branch]\` set: ${branch} (auto)\n`);
+  // Only a terminal change has stopped needing its branch, so every fixture
+  // here is one unless it is testing that gate (20261020-172221 D4).
+  fs.writeFileSync(
+    file,
+    fs.readFileSync(file, 'utf8').replace(/^status: .*$/m, `status: ${status}`),
+  );
   const branches = () =>
     git(root, ['branch', '--format=%(refname:short)']).split('\n').filter(Boolean);
   return { root, id, branch, branches };
@@ -3946,6 +4008,26 @@ test('20261020-172221 CR8: an unresolvable integration branch never costs the ar
   const result = archive(id, root);
   assert.match(result.branchOutcome, /could not be resolved/);
   assert.match(fs.readFileSync(file, 'utf8'), /archived: true/, 'the archive still landed');
+});
+
+// `archived` hides a document in the viewer and says nothing about the work
+// being over. A live change still owns its branch, and the merge proof says
+// nothing here: a branch forked from the integration branch with no commits of
+// its own is trivially an ancestor of it, so the proof passes on exactly the
+// branch that is still being used (20261020-172221 D4).
+for (const status of ['draft', 'approved', 'in-progress', 'in-review']) {
+  test(`20261020-172221 CR8: archiving a ${status} change keeps its branch`, () => {
+    const { root, id, branch, branches } = archivableOnBranch({ merged: true, status });
+    const result = archive(id, root);
+    assert.match(result.branchOutcome, new RegExp(`is ${status}, not done or discarded`));
+    assert.ok(branches().includes(branch), 'the branch of a live change survives');
+  });
+}
+
+test('20261020-172221 CR8: a discarded change releases its branch like a done one', () => {
+  const { root, id, branch, branches } = archivableOnBranch({ merged: true, status: 'discarded' });
+  assert.equal(archive(id, root).branchOutcome, null);
+  assert.ok(!branches().includes(branch));
 });
 
 test('20261020-172221 CR8: --keep-branch keeps a merged branch', () => {

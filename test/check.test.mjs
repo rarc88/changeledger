@@ -397,9 +397,44 @@ test('20261020-172221 CR2: a third level and a cycle are rejected, and told apar
 });
 
 test('20261020-172221 CR1: a malformed parent is named as such, not called a list', () => {
-  const errors = msgs(run([epic('20260613-120000', { parent: 'not-an-id' })]).errors);
-  assert.ok(errors.includes('parent "not-an-id" is not a change id'), errors.join(' | '));
-  assert.ok(!errors.some((m) => /not a list/.test(m)));
+  for (const malformed of ['not-an-id', '']) {
+    const errors = msgs(run([epic('20260613-120000', { parent: malformed })]).errors);
+    assert.ok(errors.includes(`parent "${malformed}" is not a change id`), errors.join(' | '));
+    assert.ok(!errors.some((m) => /not a list/.test(m)));
+    // One defect, one diagnostic: reading a malformed value as a reference too
+    // reported the same field twice with two different fixes.
+    assert.ok(!errors.some((m) => /references missing change/.test(m)), errors.join(' | '));
+  }
+});
+
+// The closure invariant is a repo rule, not only a write-seat guard. `apply`
+// validates its accumulated candidate through `checkRepo`, so this is what
+// catches an entry order that closes the parent before the child exists, and
+// it is what a new route to `done` inherits for free (20261020-172221 D1/D2).
+test('20261020-172221 CR6: check reports a done parent whose children are still open', () => {
+  const parent = epic('20260613-110000', { status: 'done' });
+  const open = epic('20260613-120000', { parent: '20260613-110000', status: 'in-progress' });
+  const errors = msgs(run([parent, open]).errors);
+  assert.ok(
+    errors.some((m) => /still has unresolved children: 20260613-120000 \(in-progress\)/.test(m)),
+    errors.join(' | '),
+  );
+
+  for (const resolved of ['done', 'discarded']) {
+    const closed = epic('20260613-120000', { parent: '20260613-110000', status: resolved });
+    assert.ok(
+      !msgs(run([parent, closed]).errors).some((m) => /unresolved children/.test(m)),
+      `a ${resolved} child does not hold its parent open`,
+    );
+  }
+
+  // A live parent is not the subject: the rule is about closing, not about
+  // having children.
+  assert.ok(
+    !msgs(run([epic('20260613-110000', { status: 'in-progress' }), open]).errors).some((m) =>
+      /unresolved children/.test(m),
+    ),
+  );
 });
 
 test('20261020-172221 CR3: sharing a parent connects nothing and needs no backlink', () => {

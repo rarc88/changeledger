@@ -6,7 +6,7 @@
 // repository loading and printing.
 
 import { marked } from 'marked';
-import { parseChange } from './change.mjs';
+import { childrenOpenError, parseChange } from './change.mjs';
 import {
   changeBranchFormat,
   integrationBranch,
@@ -161,6 +161,8 @@ export function recordedBranch(c) {
 
 const TERMINAL_STATUSES = ['done', 'discarded'];
 
+const CHANGE_ID = /^\d{8}-\d{6}$/;
+
 // Statuses removed from the lifecycle (20261018-131621). Only a live document
 // can still carry one — frozen history is never a subject — so the diagnostic
 // names the hand edit that resolves it instead of a generic unknown status.
@@ -250,11 +252,20 @@ export function checkRepo({ config, changes, specs = [], releases = [], usage = 
       const requirement = releaseRequirementError(config, fm.type);
       if (requirement) err(c, requirement);
     }
+    // The closure invariant as a repo rule, not only as a write-seat guard:
+    // `apply` validates its accumulated candidate here, so an entry order that
+    // closes the parent before creating the child is caught all the same
+    // (20261020-172221 D2). The write seats keep their own fail-fast guard —
+    // it refuses before any in-memory mutation and names the fix.
+    if (fm.status === 'done') {
+      const openChildrenError = childrenOpenError(changes, fm.id);
+      if (openChildrenError) err(c, openChildrenError);
+    }
     if ('depends_on' in fm && !Array.isArray(fm.depends_on)) err(c, 'depends_on must be a list');
     if ('related_to' in fm && !Array.isArray(fm.related_to)) err(c, 'related_to must be a list');
     if ('parent' in fm) {
       if (Array.isArray(fm.parent)) err(c, 'parent must be a single change id, not a list');
-      else if (typeof fm.parent !== 'string' || !/^\d{8}-\d{6}$/.test(fm.parent)) {
+      else if (typeof fm.parent !== 'string' || !CHANGE_ID.test(fm.parent)) {
         err(c, `parent "${fm.parent}" is not a change id`);
       }
     }
@@ -468,6 +479,9 @@ function checkParents(changes, ids, err) {
     const id = String(c.frontmatter?.id ?? '');
     const parent = parentOf.get(id);
     if (parent === undefined) continue;
+    // A malformed value is already reported once as a shape error; reading it
+    // as a reference too would charge one defect two diagnostics.
+    if (!CHANGE_ID.test(parent)) continue;
     if (parent === id) {
       err(c, `parent cannot reference its own change "${parent}"`);
       continue;

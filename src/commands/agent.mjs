@@ -251,7 +251,7 @@ export function statusMutation(
     // the store there would both refuse a batch that resolves the child first
     // and let one that creates a child in the same batch slip past.
     if (newStatus === 'done') {
-      assertChildrenResolved(changes ?? loadRepo(repoRoot).changes, fm.id);
+      assertChildrenResolved(changes ?? siblingChanges(repoRoot), fm.id);
     }
     if (fm.status === 'in-review' && newStatus === 'done') {
       throw new Error(
@@ -419,6 +419,13 @@ export function approve(id, cwd = process.cwd(), { usage } = {}) {
 // change to `done`; `fail` routes it back to `in-progress` with its reason.
 // The failure class belongs in that reason, not in a flag. Requires the change
 // to be in-review.
+// The children lookup reads the whole ledger, so one unparseable document
+// elsewhere must not cost a lifecycle move that has nothing to do with it
+// (150231 CR6). `check` is the seat that reports the broken file.
+function siblingChanges(repoRoot) {
+  return loadRepo(repoRoot, { isolateChangeErrors: true }).changes;
+}
+
 export function review(id, verdict, { reason } = {}, cwd = process.cwd(), { usage } = {}) {
   const { config, repo, target, name, repoRoot } = locate(cwd, id);
   const events = [];
@@ -443,6 +450,12 @@ export function review(id, verdict, { reason } = {}, cwd = process.cwd(), { usag
       const at = nowUtc();
       let to;
       if (verdict === 'pass') {
+        // `review pass` is the second write seat for `done`, and the only one a
+        // review_required type can reach: `statusMutation`'s guard never runs
+        // for it. The scoped validation below cannot stand in — it judges a
+        // one-change repo, where a parent has no visible children
+        // (20261020-172221 D1).
+        assertChildrenResolved(siblingChanges(repoRoot), fm.id);
         assertTransition(current, 'done', opts);
         to = 'done';
         text = setStatus(text, 'done');
@@ -563,6 +576,15 @@ export function discard(id, reason, cwd = process.cwd(), { usage } = {}) {
 // `changeIntegrationBranch` throw, and that must never cost an archive that has
 // already landed. Terminal changes are history (20261012-174310).
 function pruneChangeBranch(repoRoot, config, change, gitRun) {
+  // A live change still owns its branch. `archived` only hides a document in
+  // the viewer and says nothing about the work being over, so archiving one
+  // mid-flight must not delete the branch its next lifecycle command will
+  // demand — a merge base proves nothing here, a branch with no commits of its
+  // own is trivially merged (20261020-172221 D4).
+  const status = change.frontmatter?.status;
+  if (!['done', 'discarded'].includes(status)) {
+    return `the change is ${status}, not done or discarded`;
+  }
   try {
     return deleteMergedBranch(
       repoRoot,

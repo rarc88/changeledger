@@ -95,16 +95,28 @@ export function assertParentOwnsGraduation(change) {
 
 // An epic that closes with live children is a label, not a grouping: the work
 // it names is still open and nothing says so. `discarded` counts as resolved —
-// it is a recorded decision, not unfinished work.
-export function assertChildrenResolved(changes, id) {
+// it is a recorded decision, not unfinished work. The predicate lives here and
+// nowhere else: `check` reads it as a repo invariant and the write seats read
+// it as a fail-fast guard, so a new route to `done` cannot disagree with the
+// rule (20261020-172221 D1/D2).
+export function openChildren(changes, id) {
   const wanted = String(id);
-  const open = (changes ?? [])
+  return (changes ?? [])
     .filter((c) => String(c.frontmatter?.parent ?? '') === wanted)
-    .filter((c) => !['done', 'discarded'].includes(c.frontmatter?.status))
-    .map((c) => `${c.frontmatter.id} (${c.frontmatter.status})`);
-  if (open.length > 0) {
-    throw new Error(
-      `epic ${id} still has unresolved children: ${open.join(', ')} — close or discard them first`,
-    );
-  }
+    .filter((c) => !['done', 'discarded'].includes(c.frontmatter?.status));
+}
+
+// Names the subject by id, never by type: nothing restricts `parent` to the
+// `epic` type and a message that asserts one lies about the document it names.
+export function childrenOpenError(changes, id) {
+  const open = openChildren(changes, id).map(
+    (c) => `${c.frontmatter.id} (${c.frontmatter.status})`,
+  );
+  if (open.length === 0) return null;
+  return `change ${id} still has unresolved children: ${open.join(', ')} — close or discard them first`;
+}
+
+export function assertChildrenResolved(changes, id) {
+  const message = childrenOpenError(changes, id);
+  if (message) throw new Error(message);
 }

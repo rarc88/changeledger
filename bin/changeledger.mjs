@@ -921,14 +921,15 @@ program
   .option('--graduated', 'archive every done change already graduated or skipped (takes no id)')
   .option('--owner <name>', 'with --graduated, filter by exact owner name')
   .option('--unowned', 'with --graduated, filter changes without an owner')
-  .option('--keep-branch', 'do not delete the local branch even when it is merged')
+  .option('--keep-branch', 'with an id, do not delete the local branch even when it is merged')
   .addHelpText(
     'after',
     [
       '',
-      'Archiving deletes the local branch the change recorded, but only once that',
-      'branch is already merged into the integration branch — never an unmerged one,',
-      'and never a remote reference.',
+      'Archiving one change by id deletes the local branch it recorded, but only',
+      'once that change is done or discarded and that branch is already merged into',
+      'the integration branch — never an unmerged one, and never a remote reference.',
+      '--graduated archives in bulk and deletes no branches.',
       '',
       'Examples:',
       '  changeledger archive <id>',
@@ -949,6 +950,11 @@ program
       }
       if (options.graduated) {
         if (id) throw new Error('archive --graduated does not take an id');
+        // Refused rather than ignored: --graduated deletes no branches, so the
+        // flag would read as a promise the bulk path never made.
+        if (options.keepBranch) {
+          throw new Error('--keep-branch takes an id: archive --graduated deletes no branches');
+        }
         const archived = archiveGraduated({ owner: options.owner, unowned: options.unowned });
         for (const c of archived) console.log(`#${c.id} ${c.title}`);
         console.log(`Archived ${archived.length} change(s)`);
