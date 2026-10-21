@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { parseChange } from '../change.mjs';
 import { repoIsActivated, writeLedgerFiles } from '../change-store.mjs';
-import { checkRepo, newErrors } from '../check.mjs';
+import { checkRepo, frozenReason, newErrors } from '../check.mjs';
 import {
   findChangeledgerDir,
   loadConfig,
@@ -48,6 +48,7 @@ export function newChange(
   const config = loadConfig(changeledgerDir);
   assertSupportedSchema(config);
   const typeDef = requireCreatableType(config, type);
+  if (parent !== undefined) requireAcceptingParent(loadRepo(repoRoot).changes, parent);
 
   // Born with an owner: an explicit --owner always wins; otherwise resolve the
   // local git identity. Tolerant — an unresolvable identity (ownerHandle
@@ -145,6 +146,25 @@ function requireCreatableType(config, type) {
   const requirement = releaseBranchRequirementError(config, type);
   if (requirement) throw new Error(requirement);
   return typeDef;
+}
+
+// The scaffold writes straight to the worktree and runs no candidate check, so
+// `--parent` landed documents that `--from` and `apply` refuse through
+// `prepareNewChange`'s repo-wide diff: the two creation paths disagreed on the
+// same document (20261020-172221 D4). Worded as a creation refusal here and as
+// a document defect there, exactly as `requireCreatableType` already is.
+// Frozen history is not a subject, as in `checkRepo`: a parent that is done
+// AND archived is out of the validator's reach, and refusing here alone would
+// just move the disagreement.
+function requireAcceptingParent(changes, parent) {
+  const target = changes.find((c) => String(c.frontmatter?.id) === String(parent));
+  if (!target) throw new Error(`parent "${parent}" is not a change in this repo`);
+  if (frozenReason(target) !== null) return;
+  if (target.frontmatter?.status === 'done') {
+    throw new Error(
+      `parent "${parent}" is done: a change that has closed cannot gain children — reopen it or choose another parent`,
+    );
+  }
 }
 
 // Renders the scaffold — id, frontmatter and the active stage headings — and

@@ -109,9 +109,14 @@ export function openChildren(changes, id) {
 // Names the subject by id, never by type: nothing restricts `parent` to the
 // `epic` type and a message that asserts one lies about the document it names.
 export function childrenOpenError(changes, id) {
-  const open = openChildren(changes, id).map(
-    (c) => `${c.frontmatter.id} (${c.frontmatter.status})`,
-  );
+  // An archived child still holds the parent open — archiving hides a
+  // document, it does not resolve the work — but `list --parent` hides it by
+  // default, so a bare id would name something the caller cannot find
+  // (20261020-172221 D3).
+  const open = openChildren(changes, id).map((c) => {
+    const hidden = c.frontmatter.archived === true ? ', archived: `list --parent --all`' : '';
+    return `${c.frontmatter.id} (${c.frontmatter.status}${hidden})`;
+  });
   if (open.length === 0) return null;
   return `change ${id} still has unresolved children: ${open.join(', ')} — close or discard them first`;
 }

@@ -684,6 +684,65 @@ test('141119 CR5: refactor activates specification in every versioned artifact',
   // there is no second copy left to drift from.
 });
 
+// --- 20261020-172221: the epic in the contract ---------------------------
+//
+// Concept guards, not phrasing pins: each asserts the obligation survives a
+// rewrite of the sentence that carries it. What they protect is that an agent
+// reading the contract learns the three rules the code enforces, and no longer
+// reads that an archive is fully reversible — it now deletes a merged branch.
+
+const fragment = (name) =>
+  fs
+    .readFileSync(new URL(`../templates/contract/${name}`, import.meta.url), 'utf8')
+    .replace(/\s+/g, ' ');
+
+test('20261020-172221 CR4/CR5: spec.md states the parent edge, its two levels and its closure', () => {
+  const spec = fragment('spec.md');
+  assert.match(spec, /`parent`/, 'the field must be named');
+  assert.match(spec, /two levels/i, 'the hierarchy depth must be stated');
+  assert.match(spec, /outside the relation graph/i, 'the edge must be kept out of the graph');
+  assert.match(
+    spec,
+    /(cannot|never) reach `done`[^.]*(child|children)/i,
+    'the closure rule must be stated',
+  );
+  assert.match(
+    spec,
+    /never enumerates its children/i,
+    'the epic must not be approved on an enumeration of its children',
+  );
+});
+
+test('20261020-172221 CR5: close.md reserves the spec link to the parent', () => {
+  assert.match(
+    fragment('close.md'),
+    /`parent`[^.]*never links a spec|never links a spec[^.]*`parent`/i,
+    'a change with a parent must be told it never links a spec',
+  );
+});
+
+test('20261020-172221 CR8: the contract no longer calls an archive fully reversible', () => {
+  for (const name of ['core.md', 'close.md']) {
+    const text = fragment(name);
+    assert.ok(
+      !/archive is undone by editing/i.test(text),
+      `${name} must not claim an archive is undone by editing the document alone`,
+    );
+  }
+  // The branch deletion is a side effect of `archive <id>` that no edit
+  // reverses, so the fragment that classifies boundaries has to say so.
+  assert.match(
+    fragment('core.md'),
+    /archiv\w+[^.]*branch|branch[^.]*archiv\w+/i,
+    'core.md must connect archiving to the branch it deletes',
+  );
+  assert.match(
+    fragment('close.md'),
+    /`archive --graduated`[^.]*deletes no branches/i,
+    'close.md must scope the deletion away from the bulk seat',
+  );
+});
+
 test('20260728-170429 CR2/CR6: the AGENTS.md budgets paragraph names the tokenizer unit, drops bytes/dual-publish and bans spending headroom', () => {
   const repoRoot = new URL('../', import.meta.url);
   const normalized = fs.readFileSync(new URL('AGENTS.md', repoRoot), 'utf8').replace(/\s+/g, ' ');

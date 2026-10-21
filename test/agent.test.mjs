@@ -10,6 +10,7 @@ import { promisify } from 'node:util';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import { parseChange } from '../src/change.mjs';
 import { writeLedgerFiles } from '../src/change-store.mjs';
+import { checkRepo } from '../src/check.mjs';
 import {
   approve,
   archive,
@@ -33,6 +34,7 @@ import { newChange, newChangeFrom, scaffoldChange } from '../src/commands/new.mj
 import { resolveRemote } from '../src/commands/sync.mjs';
 import { VERSION } from '../src/framing.mjs';
 import { capturedRun, defaultRun } from '../src/git.mjs';
+import { loadRepo } from '../src/repo.mjs';
 import {
   LedgerConflictError,
   mutateState,
@@ -3907,6 +3909,148 @@ test('20261020-172221 CR7: new --parent writes the field into the scaffold', () 
   const text = fs.readFileSync(created, 'utf8');
   assert.match(text, new RegExp(`^parent: "${epicId}"$`, 'm'));
   assert.equal(list({ parent: epicId }, root).length, 3);
+});
+
+// The scaffold writes to the worktree with no candidate check, so it accepted
+// documents that `--from` and `apply` refuse through `prepareNewChange`'s
+// repo-wide diff — the same rule enforced at one creation seat and not the
+// other (20261020-172221 D4). Both refusals are asserted against the same two
+// documents so the seats cannot drift apart again.
+test('20261020-172221 CR7: both creation seats refuse a parent that is missing or closed', () => {
+  const { root, epicId } = epicWithChildren();
+  const dir = path.join(root, '.changeledger', 'changes');
+  for (const name of fs.readdirSync(dir)) {
+    if (!name.startsWith(epicId)) continue;
+    const file = path.join(dir, name);
+    fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('status: draft', 'status: done'));
+  }
+
+  for (const [parent, pattern] of [
+    ['20200101-000000', /is not a change in this repo/],
+    [epicId, /is done: a change that has closed cannot gain children/],
+  ]) {
+    assert.throws(
+      () =>
+        newChange(
+          {
+            type: 'quick',
+            slug: 'rechazado',
+            title: 'Rechazado',
+            parent,
+            now: '2026-06-13T18:00:00Z',
+          },
+          root,
+          { ownerHandle: () => '' },
+        ),
+      pattern,
+    );
+    const print = scaffoldChange(
+      { type: 'quick', slug: 'rechazado', title: 'Rechazado', parent, now: '2026-06-13T18:00:00Z' },
+      root,
+      { ownerHandle: () => '' },
+    );
+    const source = path.join(root, 'rechazado.md');
+    fs.writeFileSync(source, print.text);
+    assert.throws(
+      () =>
+        newChangeFrom({ type: 'quick', slug: 'rechazado', title: 'Rechazado', from: source }, root),
+      /the incoming document is invalid, nothing was written/,
+      `--from must refuse the same document as the scaffold (parent ${parent})`,
+    );
+  }
+  assert.ok(
+    !fs.readdirSync(dir).some((n) => n.includes('rechazado')),
+    'a refused creation writes nothing',
+  );
+
+  // Frozen history is not a subject: `checkRepo` skips a done+archived parent,
+  // so `--from` accepts a child under one. Refusing it here alone would move
+  // the disagreement instead of removing it.
+  for (const name of fs.readdirSync(dir)) {
+    if (!name.startsWith(epicId)) continue;
+    const file = path.join(dir, name);
+    fs.writeFileSync(
+      file,
+      fs.readFileSync(file, 'utf8').replace('depends_on: []', 'depends_on: []\narchived: true'),
+    );
+  }
+  assert.doesNotThrow(() =>
+    newChange(
+      {
+        type: 'quick',
+        slug: 'congelado',
+        title: 'Congelado',
+        parent: epicId,
+        now: '2026-06-13T19:00:00Z',
+      },
+      root,
+      { ownerHandle: () => '' },
+    ),
+  );
+});
+
+// Archiving hides a document; it does not resolve the work, so an archived
+// child still holds its parent open. `list --parent` hides it by default, so
+// the refusal has to say where to find it (20261020-172221 D3).
+test('20261020-172221 CR6/CR7: the refusal says an unresolved child is archived', () => {
+  const { root, epicId } = epicWithChildren();
+  const dir = path.join(root, '.changeledger', 'changes');
+  const child = fs.readdirSync(dir).find((n) => n.startsWith('20260613-140000'));
+  const file = path.join(dir, child);
+  fs.writeFileSync(
+    file,
+    fs.readFileSync(file, 'utf8').replace('depends_on: []', 'depends_on: []\narchived: true'),
+  );
+  const other = fs.readdirSync(dir).find((n) => n.startsWith('20260613-150000'));
+  fs.writeFileSync(
+    path.join(dir, other),
+    fs.readFileSync(path.join(dir, other), 'utf8').replace('status: draft', 'status: done'),
+  );
+
+  const listed = list({ parent: epicId }, root).map((c) => String(c.id));
+  assert.ok(
+    !listed.includes('20260613-140000'),
+    'the child that holds the epic open is hidden from `list --parent` by default',
+  );
+  assert.throws(
+    () => status(epicId, 'done', root),
+    (error) => {
+      assert.match(error.message, /20260613-140000 \(draft, archived: `list --parent --all`\)/);
+      return true;
+    },
+  );
+});
+
+// The short cycle is a CLAIM about configuration until something walks it.
+// `test/config.test.mjs` pins the type's YAML; this executes the lifecycle it
+// is supposed to produce, which is what CR4's second and third clauses say.
+test('20261020-172221 CR4: an epic walks draft → approved → in-progress → done with no review and no criteria', () => {
+  const { root } = repoWithChange();
+  const file = newChange(
+    { type: 'epic', slug: 'epica', title: 'Épica', now: '2026-06-13T11:00:00Z' },
+    root,
+    { ownerHandle: () => '' },
+  );
+  const id = parseChange(fs.readFileSync(file, 'utf8')).frontmatter.id;
+  fs.writeFileSync(
+    file,
+    fs
+      .readFileSync(file, 'utf8')
+      .replace('## Request\n', '## Request\n\nObjetivo.\n')
+      .replace('## Proposal\n', '## Proposal\n\nFrontera.\n'),
+  );
+
+  approve(id, root);
+  status(id, 'in-progress', root);
+  // Straight to done: the delivery gate that would demand a review verdict is
+  // keyed on `review_required`, which this type does not declare.
+  status(id, 'done', root);
+  assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'done');
+
+  // No Specification stage, so nothing demands criteria coverage or readiness.
+  const { errors, warnings } = checkRepo(loadRepo(root));
+  const own = [...errors, ...warnings].filter((e) => e.file.startsWith(id));
+  assert.deepEqual(own, [], `an epic must raise nothing of its own: ${JSON.stringify(own)}`);
 });
 
 // --- 20261020-172221 CR8: archiving deletes its own merged branch --------
