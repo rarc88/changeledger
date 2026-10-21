@@ -396,7 +396,7 @@ estimación hasta hacer el corte.
 | 2 | **La poda de la suite**: ¿entra con el recorte o va aparte? | medida (§9); sin decidir |
 | 3 | **Secuencia** | **resuelta**: código y contrato viajan juntos en cada change, empezando por retirar `in-validation` y `blocked` |
 | 4 | **Cadencia de revisión**: una revisión por selección resuelta en vez de una sola puerta al final. | **decidida** pese a no tener dato que la respalde; change propio y con medición |
-| 5 | **Qué decide que un change lleve revisión** una vez retirado `review_required` por tipo (§2.3). Candidato: un ítem de riesgo nombrado — acción irreversible, superficie pública o verdad persistente (§15.1) — en vez de la categoría del change. | abierta |
+| 5 | **Qué decide que un change lleve revisión** una vez retirado `review_required` por tipo (§2.3) | **resuelta**: la revisión existe si el change toca código; el riesgo decide su profundidad, no su existencia (§15.4). El candidato inicial —un ítem de riesgo nombrado— se descarta con medición |
 
 ---
 
@@ -613,3 +613,38 @@ también cuando nadie necesita reanudarlo.
   se nombra en el Log. Eso no añade puerta ninguna.
 - No se adopta un documento por feature aparte del change: sería un artefacto
   nuevo con el plan entero quitando artefactos.
+
+### 15.4 La revisión no se decide por riesgo: corrección medida de §15.1
+
+§15.1 dice que el ceremonial lo decide el riesgo. Aplicado a la **revisión
+independiente** eso es un error de granularidad, y la medición sobre los 362
+changes del ledger de este repo lo dice sin ambigüedad:
+
+| tipo | done | rondas | fail | % fail |
+|---|---|---|---|---|
+| `feature` | 135 | 117 | 107 | 91 % |
+| `bug` | 128 | 94 | 60 | 64 % |
+| `refactor` | 32 | 28 | 15 | 54 % |
+| `quick` | 38 | 0 | 0 | — |
+| `chore` | 18 | 0 | 0 | — |
+| `audit` | 2 | 0 | 0 | — |
+| **total** | **353** | **239** | **182** | **76,2 %** |
+
+Tres de cada cuatro revisiones devuelven `fail`. Es la actividad con mejor
+rendimiento medido del flujo, así que estrechar **cuándo existe** recorta
+justamente lo que se paga solo.
+
+Un sesgo que la tabla no puede ocultar: los tres tipos con 0 rondas no tienen
+0 defectos, tienen **0 datos** — nunca se revisaron, por construcción. La
+pregunta abierta no es si la revisión encuentra cosas, sino si las encontraría
+donde hoy no corre, y eso no está medido.
+
+> La revisión **existe** si el change toca código. El **riesgo** decide su
+> profundidad —el pase adversarial sobre la acción irreversible—, nunca su
+> existencia.
+
+Dos ejes, no uno. Desaparece la matriz `review_required` por tipo sin que
+aparezca un juicio de riesgo por change, que sería ceremonia nueva disfrazada.
+Coste declarado: `quick` y `chore` ganarían revisión, 56 de 353 changes, un
+16 % más de rondas — transitorio, porque con los tipos en 6→2 esa categoría
+desaparece, pero es un aumento y va contra la dirección del recorte.
