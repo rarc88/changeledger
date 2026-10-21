@@ -13,6 +13,22 @@ branches cuyo nombre lo contiene; tolera repos no-git devolviendo vacío. El
 endpoint `GET /api/git?project=&id=` los sirve y el detalle muestra la sección
 **Git**. El lookup de PR (red/`gh`) queda fuera del visor local.
 
+**Archivar borra la rama propia.** `changeledger archive <id>` borra la rama
+local que el Log del change registra en su entrada `[branch]` —nunca el
+checkout actual, nunca una referencia remota— y la salida lo dice. Las cuatro
+negativas son acumulativas y cada una se comprueba antes de borrar: la rama de
+integración nunca se borra aunque sea trivialmente ancestro de sí misma; sólo
+se borra la rama que `change_branch_format` declara para ese change, así que
+una rama ajena que resulte estar fusionada sobrevive; una rama sin fusionar en
+la rama de integración sobrevive y la salida explica por qué; y un change que
+no está en `done` ni en `discarded` conserva la suya, porque una rama sin
+commits propios es trivialmente ancestro de la integración y la prueba de
+fusión no dice nada sobre una rama todavía en uso. `--keep-branch` la conserva
+en todos los casos. El archivado ya ha ocurrido cuando se intenta el borrado:
+una rama de integración irresoluble no lo cuesta. `archive --graduated` archiva
+en lote y **no borra ninguna rama**. A diferencia del documento, que se
+recupera editando `archived: false`, el borrado de la rama no se deshace.
+
 **Contrato de commits ejecutable.** `changeledger commit -m "<subject>"
 [--id <id>...]` deja un único `[#id]` al final del subject. Con varios ids
 mantiene el subject limpio y escribe una línea canónica en el cuerpo:
