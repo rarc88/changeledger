@@ -8,7 +8,8 @@ graduated_from: ["20260613-205854", "20260616-151230", "20260616-162020", "20260
 ## Modelo de datos
 
 - **change**: un archivo markdown. Frontmatter estructurado (`id`, `title`,
-  `type`, `status`, `created`, `depends_on`, `related_to` opcional, `owner`
+  `type`, `status`, `created`, `depends_on`, `related_to` opcional, `parent`
+  opcional, `owner`
   opcional, `branch` opcional, `archived` opcional, `reviewed` opcional,
   `release_impact` opcional, `accepted_at` opcional) + etapas (`## Request`…`## Log`) según el tipo.
   `branch` es un dato **por change** — la rama de implementación de ese change
@@ -113,6 +114,19 @@ Una entrada de `depends_on` con la forma `<proyecto>:<changeId>` es una
 dependencia **cross-proyecto**: `check` no la valida localmente (apunta a otro
 repo) ni la mete en el grafo de ciclos; el visor global la resuelve por id o
 nombre de proyecto y navega a ese change.
+
+`parent` es el tercer enlace estructural y el único jerárquico: un change
+declara como mucho uno, con el id de la épica a la que pertenece. Es
+**exclusivo y no transitivo** — compartir padre no conecta a dos hermanos — y
+deliberadamente queda fuera del grafo que `check` recorre para ciclos y
+backlinks de `depends_on` y `related_to`, que es lo que impide que la
+agrupación se convierta en una tercera vía de colapsar el repositorio en un
+solo componente. La jerarquía tiene **dos niveles**: `check` rechaza que el
+padre declare padre propio y distingue ese tercer nivel de un ciclo de
+cualquier longitud, porque un ciclo es una contradicción y un tercer nivel una
+decisión de modelado. Como los otros dos enlaces declarados, es exento del
+aviso de mención no clasificada **en ambas direcciones**: ni el hijo que nombra
+a su épica ni la épica que nombra a un hijo avisan.
 
 `depends_on` expresa un requisito de ejecución y participa en readiness y en el
 lifecycle. `related_to` expresa contexto compartido sin imponer orden: acepta
