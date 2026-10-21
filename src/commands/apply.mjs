@@ -225,6 +225,9 @@ function applyEvent(entry, { repo, candidate, pending, descriptors, statusWarnin
   const { mutate, descriptor } = eventMutation(op, entry, {
     id,
     config: candidate.config,
+    // The accumulated candidate, never the stored ledger: an epic and the
+    // child that resolves it can land in the same manifest.
+    changes: candidate.changes,
     repoRoot: repo.repoRoot,
     name: current.name,
     statusWarnings,
@@ -247,7 +250,7 @@ function applyEvent(entry, { repo, candidate, pending, descriptors, statusWarnin
   descriptors.push(descriptor);
 }
 
-function eventMutation(op, entry, { id, config, repoRoot, name, statusWarnings, events }) {
+function eventMutation(op, entry, { id, config, changes, repoRoot, name, statusWarnings, events }) {
   if (op === 'status') {
     const to = String(entry.to ?? '');
     // A batch is executed by an agent, never by a human: this is the seat that
@@ -258,6 +261,7 @@ function eventMutation(op, entry, { id, config, repoRoot, name, statusWarnings, 
     return {
       mutate: statusMutation(to, {
         config,
+        changes,
         repoRoot,
         gitCwd: repoRoot,
         name,

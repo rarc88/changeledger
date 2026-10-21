@@ -14,7 +14,7 @@ import { newChange } from '../src/commands/new.mjs';
 import { VERSION } from '../src/framing.mjs';
 import { loadRepo } from '../src/repo.mjs';
 import { parseSpec } from '../src/spec.mjs';
-import { STATE_REF, STATE_ROOT, writeActivation } from '../src/state-store.mjs';
+import { mutateState, STATE_REF, STATE_ROOT, writeActivation } from '../src/state-store.mjs';
 import { stampVersion } from '../src/writer.mjs';
 import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
@@ -1134,4 +1134,83 @@ test('20261018-131621 CR12: a change with no recorded branch graduates all the s
   assert.equal('accepted_at' in parseChange(text).frontmatter, false);
   assert.deepEqual(acceptedLines(text), []);
   assert.equal(parseChange(text).frontmatter.reviewed, true);
+});
+
+// --- 20261020-172221 CR5: the epic reconciles, the children do not --------
+//
+// Twenty children of one effort would otherwise reconcile the same spec twenty
+// times. `--skip` stays open for the child: the decision still has to be
+// recorded on it, it just resolves to "the parent reconciles this".
+
+function childOf(parentId) {
+  const { root, file, id } = repo();
+  const text = fs
+    .readFileSync(file, 'utf8')
+    .replace('depends_on: []', `depends_on: []\nparent: "${parentId}"`);
+  fs.writeFileSync(file, text);
+  const parentFile = path.join(root, '.changeledger', 'changes', `${parentId}-epic.md`);
+  fs.writeFileSync(
+    parentFile,
+    `---\nid: "${parentId}"\ntitle: Épica\ntype: epic\nstatus: done\ncreated: 2026-06-13T11:00:00Z\ndepends_on: []\n---\n\n## Request\n\nObjetivo.\n\n## Proposal\n\nFrontera.\n\n## Log\n\n- **2026-06-13T11:00:00Z** \`[note]\` created\n`,
+  );
+  return { root, file, id, parentId };
+}
+
+test('20261020-172221 CR5: a child cannot link a spec and the refusal names its parent', () => {
+  const { root, id, parentId } = childOf('20260613-110000');
+  for (const attempt of [
+    () => scaffoldSpec(id, 'alguna-spec', root),
+    () => graduate(id, 'alguna-spec', root, { into: true }),
+  ]) {
+    assert.throws(attempt, (error) => {
+      assert.match(error.message, new RegExp(`belongs to ${parentId}`));
+      assert.match(error.message, /--skip/);
+      return true;
+    });
+  }
+  assert.ok(
+    !fs.existsSync(path.join(root, '.changeledger', 'specs', 'alguna-spec.md')),
+    'a refused graduation must write nothing',
+  );
+});
+
+test('20261020-172221 CR5: the child still records its own decision with --skip', () => {
+  const { root, file, id } = childOf('20260613-110000');
+  skipGraduation(id, 'la reconcilia su épica', root);
+  const text = fs.readFileSync(file, 'utf8');
+  assert.match(text, /`\[graduation\]` skipped/);
+  assert.match(text, /reviewed: true/);
+});
+
+test('20261020-172221 CR5: the epic itself graduates like any other change', () => {
+  const { root } = childOf('20260613-110000');
+  assert.doesNotThrow(() => scaffoldSpec('20260613-110000', 'flujo', root));
+  assert.ok(fs.existsSync(path.join(root, '.changeledger', 'specs', 'flujo.md')));
+});
+
+// The activated seat has its own `requireSpecLinkAllowed` call, and the shared
+// fixture never gives a change a `parent` — so a regression there would land
+// silently. This is the layout asymmetry that already cost this change three
+// defects; the guard is pinned on both sides now.
+test('20261020-172221 CR5: an activated repo refuses a child linking a spec too', () => {
+  const parentId = '20260613-110000';
+  const { root } = activatedRepo({
+    specName: 'architecture.md',
+    specBody: '\nArch truth.\n',
+    prepare: (text) => text.replace('depends_on: []', `depends_on: []\nparent: "${parentId}"`),
+  });
+  // The epic has to exist for `check` to accept the child, and it lands on the
+  // same ref the activated repo reads from.
+  const parentText = `---\nid: "${parentId}"\ntitle: Épica\ntype: epic\nstatus: done\ncreated: 2026-06-13T11:00:00Z\ndepends_on: []\n---\n\n## Request\n\nObjetivo.\n\n## Proposal\n\nFrontera.\n\n## Log\n\n- **2026-06-13T11:00:00Z** \`[note]\` created\n`;
+  mutateState(root, { expectedRevision: stateRefTip(root), message: 'chore: epic' }, (stage) => {
+    stage.write(`changes/${parentId}-epic.md`, parentText);
+  });
+
+  assert.throws(
+    () => graduate('20260613-120000', 'architecture', root, { into: true }),
+    (error) => {
+      assert.match(error.message, new RegExp(`belongs to ${parentId}`));
+      return true;
+    },
+  );
 });

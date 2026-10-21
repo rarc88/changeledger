@@ -684,6 +684,71 @@ test('141119 CR5: refactor activates specification in every versioned artifact',
   // there is no second copy left to drift from.
 });
 
+// --- 20261020-172221: the epic in the contract ---------------------------
+//
+// Three attempts at guarding this prose with regexes produced three sets of
+// phrasing pins: `two levels` broke on `two tiers`, `outside the relation
+// graph` broke on `kept out of the graph depends_on and related_to build`,
+// and a rewrite that deleted the closure rule outright slipped past a pattern
+// built to catch it. The instrument is the problem — a regex tests tokens and
+// the obligation is semantics — and AGENTS.md rejects a pin on a literal
+// sentence precisely because it taxes every later rewrite without buying
+// enforcement.
+//
+// So the four epic rules are NOT guarded here. Each is enforced by code and
+// held by a falsifiable test: two levels and the cycle discrimination in
+// `test/check.test.mjs` (CR2), the relation-graph exclusion by the
+// `depends_on`-its-own-child fixture (CR3), the closure rule at three seats
+// (CR6), the short lifecycle by a walk (CR4). What remains below is the kind
+// of assertion a rewrite cannot break and a deletion cannot survive: the
+// identifier, a retired-phrase sweep, and co-occurrences each verified
+// against both an obligation-preserving and an obligation-removing rewrite.
+
+const fragment = (name) =>
+  fs
+    .readFileSync(new URL(`../templates/contract/${name}`, import.meta.url), 'utf8')
+    .replace(/\s+/g, ' ');
+
+test('20261020-172221 CR4/CR5: the contract names the grouping field', () => {
+  assert.match(fragment('spec.md'), /`parent`/, 'spec.md must name the field');
+  assert.match(
+    fragment('spec.md'),
+    /`parent`[^.]{0,200}`(epic|done)`|epic[^.]{0,200}`parent`/i,
+    'the field must be introduced with the grouping it declares, not listed bare',
+  );
+});
+
+test('20261020-172221 CR5: close.md reserves the spec link to the parent', () => {
+  assert.match(
+    fragment('close.md'),
+    /`parent`[^.]{0,80}(never|not|no)[^.]{0,40}links? a spec/i,
+    'a change with a parent must be told it never links a spec',
+  );
+});
+
+test('20261020-172221 CR8: the contract no longer calls an archive fully reversible', () => {
+  for (const name of ['core.md', 'close.md']) {
+    assert.ok(
+      !/archive is undone by editing/i.test(fragment(name)),
+      `${name} must not claim an archive is undone by editing the document alone`,
+    );
+  }
+  // Co-occurrence guards: the two concepts are named together or the rule is
+  // gone, whatever words carry it. Exactly one span in core.md matches.
+  assert.match(
+    fragment('core.md'),
+    /archiv\w+[^.]*branch|branch[^.]*archiv\w+/i,
+    'core.md must connect archiving to the branch it deletes',
+  );
+  assert.match(
+    fragment('close.md'),
+    // Clause-scoped (`[^.;]`): the sentence goes on to say that `archive <id>`
+    // DOES delete a branch, and a looser span matched that instead.
+    /`archive --graduated`[^.;]{0,120}(no branches|leaves[^.;]*branch|branch[^.;]*(untouched|alone))/i,
+    'close.md must scope the deletion away from the bulk seat',
+  );
+});
+
 test('20260728-170429 CR2/CR6: the AGENTS.md budgets paragraph names the tokenizer unit, drops bytes/dual-publish and bans spending headroom', () => {
   const repoRoot = new URL('../', import.meta.url);
   const normalized = fs.readFileSync(new URL('AGENTS.md', repoRoot), 'utf8').replace(/\s+/g, ' ');

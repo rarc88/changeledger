@@ -27,7 +27,7 @@ const LOCK_MTIME_STALE_MS = 30_000;
 // `slug` is the English filename slug (structure); `title` is the content title
 // (repo language). See `changeledger context spec`.
 export function newChange(
-  { type, slug, title, owner, now },
+  { type, slug, title, owner, parent, now },
   cwd = process.cwd(),
   { ownerHandle = defaultOwnerHandle, usage } = {},
 ) {
@@ -88,16 +88,22 @@ export function newChange(
     }
 
     const file = path.join(changesDir, `${id}-${normalizedSlug}.md`);
+    const text = stampVersion(
+      render({
+        id,
+        title,
+        type,
+        owner: resolvedOwner,
+        parent,
+        stages: typeDef.stages,
+        now: created,
+      }),
+      created,
+    );
     let written = false;
     try {
-      fs.writeFileSync(
-        file,
-        stampVersion(
-          render({ id, title, type, owner: resolvedOwner, stages: typeDef.stages, now: created }),
-          created,
-        ),
-        { flag: 'wx' },
-      );
+      assertScaffoldIntroducesNoErrors(repoRoot, { file, name: path.basename(file), text });
+      fs.writeFileSync(file, text, { flag: 'wx' });
       written = true;
     } catch (e) {
       if (e.code !== 'EEXIST') throw e;
@@ -139,6 +145,32 @@ function requireCreatableType(config, type) {
   return typeDef;
 }
 
+// The scaffold used to write straight to the worktree with no candidate check,
+// so it landed `--parent` documents that `--from` and `apply` refuse through
+// `prepareNewChange`'s repo-wide diff (20261020-172221 D4). The first fix
+// restated the parent rules here and promptly diverged again: it never
+// replicated the two-level rule, so a third level still landed (D1 of the next
+// round). This runs the SAME diff instead of a second reading of it — the only
+// form that cannot disagree. Diffed against the repo's own current errors, so
+// a pre-existing break elsewhere never blocks an unrelated clean scaffold.
+function assertScaffoldIntroducesNoErrors(repoRoot, candidate) {
+  const repo = loadRepo(repoRoot, { isolateChangeErrors: true });
+  const introduced = newErrors(
+    checkRepo(repo).errors,
+    checkRepo({
+      ...repo,
+      changes: [...repo.changes, { ...parseChange(candidate.text), ...candidate }],
+    }).errors,
+  );
+  if (introduced.length) {
+    throw new Error(
+      `the scaffold would not be valid in this repo, nothing was written:\n${introduced
+        .map((e) => `  ${e.file}: ${e.message}`)
+        .join('\n')}`,
+    );
+  }
+}
+
 // Renders the scaffold — id, frontmatter and the active stage headings — and
 // writes nothing anywhere. This is what `--print` emits so an author can
 // compose the whole document before it exists in either store, and what
@@ -147,7 +179,7 @@ function requireCreatableType(config, type) {
 // not); the write path re-checks it, so this reservation is advisory by
 // design and never blocks.
 export function scaffoldChange(
-  { type, slug, title, owner, now },
+  { type, slug, title, owner, parent, now },
   cwd = process.cwd(),
   { ownerHandle = defaultOwnerHandle } = {},
 ) {
@@ -164,7 +196,15 @@ export function scaffoldChange(
   return {
     id,
     name: `${id}-${slugify(slug)}.md`,
-    text: render({ id, title, type, owner: resolvedOwner, stages: typeDef.stages, now: created }),
+    text: render({
+      id,
+      title,
+      type,
+      owner: resolvedOwner,
+      parent,
+      stages: typeDef.stages,
+      now: created,
+    }),
   };
 }
 
@@ -344,7 +384,7 @@ function heading(stageKey) {
   return stageKey.charAt(0).toUpperCase() + stageKey.slice(1);
 }
 
-function render({ id, title, type, owner, stages, now }) {
+function render({ id, title, type, owner, parent, stages, now }) {
   const fm = [
     '---',
     `id: "${id}"`,
@@ -354,6 +394,7 @@ function render({ id, title, type, owner, stages, now }) {
     `created: ${now}`,
     'depends_on: []',
     'related_to: []',
+    ...(parent ? [`parent: "${parent}"`] : []),
     ...(owner ? [`owner: ${serializeScalar(owner)}`] : []),
     '---',
     '',

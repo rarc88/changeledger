@@ -28,6 +28,9 @@ First decide whether accepted work changed persistent truth:
   correct or extend several specs; link each one individually with `--into` and
   do not archive until every affected spec is linked.
 - Use `--skip` only when no persistent truth changed.
+- A change with a `parent` never links a spec: its epic reconciles once at
+  closure, instead of every child reconciling the same spec over and over. The
+  child still records its own decision, with `--skip`.
 
 In a type with `review_required`, when closure creates, corrects or extends specs,
 delegate `graduation-review` once the reconciliation is drafted and before the
@@ -79,10 +82,12 @@ or skip itself remains the meaningful closure evidence.
 Operational inspection and visibility:
 
 `changeledger list`, `show` and `archive`; each `--help` prints its filters.
-Two rules those filters do not carry: every id from `list --pending graduation`
+Three rules those filters do not carry: every id from `list --pending graduation`
 is resolved individually with `--new`, `--into` or `--skip`, because graduation
-is never a bulk mutation; and `archive --graduated` without a filter stays
-repository-wide.
+is never a bulk mutation; `archive --graduated` without a filter stays
+repository-wide and deletes no branches; and `archive <id>` deletes that
+change's own local branch once it is merged into the integration branch, which
+editing `archived: false` does not undo.
 
 Use Mermaid where it communicates persistent relationships better than prose.
 After closure, share a brief retrospective: what went well and what caused friction.

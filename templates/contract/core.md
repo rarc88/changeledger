@@ -164,8 +164,9 @@ are auditable transmitters, never permission to infer a human verdict.
 The discard reason is required and logged, and dependencies remain resolvable; `discarded` never reopens.
 A recorded release is the only irreversible boundary: a change listed in one refuses the
 return with `change <id> shipped in release <version>: new work needs a new change`.
-Graduation and archive are not boundaries — `--into` leaves the spec body alone and an
-archive is undone by editing `archived: false`.
+Graduation is not a boundary — `--into` leaves the spec body alone. Archiving one
+change by id is undone in the document by editing `archived: false`, but it also
+deletes that change's own local branch once merged, and that is not undone.
 
 ## Context modes
 

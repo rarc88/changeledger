@@ -10,6 +10,7 @@ import { promisify } from 'node:util';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import { parseChange } from '../src/change.mjs';
 import { writeLedgerFiles } from '../src/change-store.mjs';
+import { checkRepo } from '../src/check.mjs';
 import {
   approve,
   archive,
@@ -27,12 +28,13 @@ import {
 } from '../src/commands/agent.mjs';
 import { edit } from '../src/commands/edit.mjs';
 import { fix } from '../src/commands/fix.mjs';
-import { skipGraduation } from '../src/commands/graduate.mjs';
+import { scaffoldSpec, skipGraduation } from '../src/commands/graduate.mjs';
 import { init as initializeRepo } from '../src/commands/init.mjs';
 import { newChange, newChangeFrom, scaffoldChange } from '../src/commands/new.mjs';
 import { resolveRemote } from '../src/commands/sync.mjs';
 import { VERSION } from '../src/framing.mjs';
 import { capturedRun, defaultRun } from '../src/git.mjs';
+import { loadRepo } from '../src/repo.mjs';
 import {
   LedgerConflictError,
   mutateState,
@@ -3717,4 +3719,569 @@ test('20261018-131621 CR5: review fail returns to in-progress without a class fl
     c.stages.find((s) => s.key === 'log').body,
     /`\[review\]` in-review → in-progress: motivo/,
   );
+});
+
+// --- 20261020-172221 CR6: an epic delivers when its children do ----------
+//
+// Without this an epic is a label: it can be closed while the work it names is
+// still open, and nothing says so. `discarded` counts as resolved — a recorded
+// decision, not unfinished work.
+
+function epicWithChild(childStatus) {
+  const fixture = repoWithChange();
+  const dir = path.join(fixture.root, '.changeledger', 'changes');
+  const epicId = '20260613-110000';
+  fs.writeFileSync(
+    path.join(dir, `${epicId}-epic.md`),
+    `---\nid: "${epicId}"\ntitle: Épica\ntype: epic\nstatus: in-progress\ncreated: 2026-06-13T11:00:00Z\ndepends_on: []\n---\n\n## Request\n\nObjetivo.\n\n## Proposal\n\nFrontera.\n\n## Log\n\n- **2026-06-13T11:00:00Z** \`[status]\` draft → approved\n- **2026-06-13T11:05:00Z** \`[status]\` approved → in-progress\n`,
+  );
+  fs.writeFileSync(
+    path.join(dir, '20260613-130000-child.md'),
+    `---\nid: "20260613-130000"\ntitle: Hijo\ntype: quick\nstatus: ${childStatus}\ncreated: 2026-06-13T13:00:00Z\ndepends_on: []\nparent: "${epicId}"\n---\n\n## Request\n\nAlgo.\n\n## Log\n\n- **2026-06-13T13:00:00Z** \`[note]\` created\n`,
+  );
+  return { ...fixture, epicId };
+}
+
+test('20261020-172221 CR6: an epic with a live child cannot close, and the refusal names it', () => {
+  const { root, epicId } = epicWithChild('in-progress');
+  assert.throws(
+    () => status(epicId, 'done', root),
+    (error) => {
+      assert.match(error.message, /still has unresolved children/);
+      assert.match(error.message, /20260613-130000 \(in-progress\)/);
+      return true;
+    },
+  );
+  const text = fs.readFileSync(
+    path.join(root, '.changeledger', 'changes', `${epicId}-epic.md`),
+    'utf8',
+  );
+  assert.match(text, /status: in-progress/, 'a refused transition leaves the document untouched');
+});
+
+for (const resolved of ['done', 'discarded']) {
+  test(`20261020-172221 CR6: a ${resolved} child does not hold its epic open`, () => {
+    const { root, epicId } = epicWithChild(resolved);
+    assert.doesNotThrow(() => status(epicId, 'done', root));
+  });
+}
+
+// `done` has two write seats and the guard was wired into one. `review pass`
+// is the only route for a review_required type, and nothing restricts `parent`
+// to the `epic` type — `--parent` and `check` both accept any id — so a
+// `documentation` parent walked in-review → done with a `draft` child. The
+// scoped validation that seat already runs cannot stand in for the guard: it
+// judges a one-change repo, where no child is visible (20261020-172221 D1).
+function reviewableParentWithChild(childStatus) {
+  const fixture = repoWithChange();
+  const dir = path.join(fixture.root, '.changeledger', 'changes');
+  const parentId = '20260613-110000';
+  fs.writeFileSync(
+    path.join(dir, `${parentId}-parent.md`),
+    `---\nid: "${parentId}"\ntitle: Padre\ntype: documentation\nstatus: in-review\ncreated: 2026-06-13T11:00:00Z\ndepends_on: []\n---\n\n## Request\n\nObjetivo.\n\n## Investigation\n\nIndagado.\n\n## Specification\n\n- [x] CR1 Given algo When algo Then algo\n\n## Log\n\n- **2026-06-13T11:00:00Z** \`[status]\` draft → approved\n- **2026-06-13T11:05:00Z** \`[status]\` approved → in-progress\n- **2026-06-13T11:10:00Z** \`[status]\` in-progress → in-review\n`,
+  );
+  fs.writeFileSync(
+    path.join(dir, '20260613-130000-child.md'),
+    `---\nid: "20260613-130000"\ntitle: Hijo\ntype: quick\nstatus: ${childStatus}\ncreated: 2026-06-13T13:00:00Z\ndepends_on: []\nparent: "${parentId}"\n---\n\n## Request\n\nAlgo.\n\n## Log\n\n- **2026-06-13T13:00:00Z** \`[note]\` created\n`,
+  );
+  return { ...fixture, parentId };
+}
+
+test('20261020-172221 CR6: review pass does not deliver a parent with a live child', () => {
+  const { root, parentId } = reviewableParentWithChild('in-progress');
+  assert.throws(
+    () => review(parentId, 'pass', {}, root),
+    (error) => {
+      assert.match(error.message, /still has unresolved children/);
+      assert.match(error.message, /20260613-130000 \(in-progress\)/);
+      return true;
+    },
+  );
+  const text = fs.readFileSync(
+    path.join(root, '.changeledger', 'changes', `${parentId}-parent.md`),
+    'utf8',
+  );
+  assert.match(text, /status: in-review/, 'a refused verdict leaves the document untouched');
+});
+
+test('20261020-172221 CR6: review pass delivers a parent whose children are resolved', () => {
+  const { root, parentId } = reviewableParentWithChild('done');
+  assert.doesNotThrow(() => review(parentId, 'pass', {}, root));
+});
+
+// The refusal names the subject by id. `epic` is a template type a repo may
+// rename or never adopt, and the guard fires on any change with children.
+test('20261020-172221 CR6: the refusal does not call a non-epic parent an epic', () => {
+  const { root, parentId } = reviewableParentWithChild('in-progress');
+  assert.throws(
+    () => review(parentId, 'pass', {}, root),
+    (error) => {
+      assert.doesNotMatch(error.message, /\bepic\b/);
+      return true;
+    },
+  );
+});
+
+// --- 20261020-172221 CR7: the epic is visible from the CLI --------------
+//
+// The edge only points upward — a child names its epic, the epic's own
+// document says nothing — which is what keeps it exclusive. So the grouping
+// has to be derived at read time, and these are the three seats that do it.
+
+function patchChange(root, id, transform) {
+  const dir = path.join(root, '.changeledger', 'changes');
+  for (const name of fs.readdirSync(dir)) {
+    if (!name.startsWith(id)) continue;
+    const file = path.join(dir, name);
+    fs.writeFileSync(file, transform(fs.readFileSync(file, 'utf8')));
+  }
+}
+
+function epicWithChildren() {
+  const fixture = repoWithChange();
+  const epicId = '20260613-110000';
+  const dir = path.join(fixture.root, '.changeledger', 'changes');
+  fs.writeFileSync(
+    path.join(dir, `${epicId}-epic.md`),
+    `---\nid: "${epicId}"\ntitle: Épica\ntype: epic\nstatus: draft\ncreated: 2026-06-13T11:00:00Z\ndepends_on: []\n---\n\n## Request\n\nObjetivo.\n\n## Proposal\n\nFrontera.\n\n## Log\n`,
+  );
+  for (const [id, title] of [
+    ['20260613-140000', 'Hijo uno'],
+    ['20260613-150000', 'Hijo dos'],
+  ]) {
+    fs.writeFileSync(
+      path.join(dir, `${id}-child.md`),
+      `---\nid: "${id}"\ntitle: ${title}\ntype: quick\nstatus: draft\ncreated: 2026-06-13T14:00:00Z\ndepends_on: []\nparent: "${epicId}"\n---\n\n## Request\n\nAlgo.\n\n## Log\n`,
+    );
+  }
+  return { ...fixture, epicId };
+}
+
+test('20261020-172221 CR7: list --parent returns exactly the children of that epic', () => {
+  const { root, epicId, id: unrelated } = epicWithChildren();
+  const ids = list({ parent: epicId }, root).map((c) => c.id);
+  assert.deepEqual(ids, ['20260613-140000', '20260613-150000']);
+  assert.ok(!ids.includes(unrelated), 'an unrelated change must not appear');
+  assert.ok(!ids.includes(epicId), 'the epic is not its own child');
+  // An epic with no children answers empty, never "everything".
+  assert.deepEqual(list({ parent: '20260613-990000' }, root), []);
+});
+
+test('20261020-172221 CR7: show names the children and the parent, each with its status', () => {
+  const { root, epicId } = epicWithChildren();
+  const parentView = show(epicId, root);
+  assert.deepEqual(
+    parentView.children.map((c) => [c.id, c.status, c.title]),
+    [
+      ['20260613-140000', 'draft', 'Hijo uno'],
+      ['20260613-150000', 'draft', 'Hijo dos'],
+    ],
+  );
+  const childView = show('20260613-140000', root);
+  assert.equal(childView.frontmatter.parent, epicId);
+  assert.deepEqual(childView.children, [], 'a child of a two-level hierarchy has none of its own');
+});
+
+// `--print` is a SEPARATE seat (`scaffoldChange`) and it is the mandatory one
+// in an activated repo, where `new` refuses to write. The first cut of this
+// change dropped `parent` there and only an unrelated ReferenceError exposed
+// it; a silent drop would have been invisible to the whole suite.
+test('20261020-172221 CR7: the --print scaffold carries the parent too', () => {
+  const { root, epicId } = epicWithChildren();
+  const scaffold = scaffoldChange(
+    {
+      type: 'quick',
+      slug: 'impreso',
+      title: 'Hijo impreso',
+      parent: epicId,
+      now: '2026-06-13T17:00:00Z',
+    },
+    root,
+    { ownerHandle: () => '' },
+  );
+  assert.match(scaffold.text, new RegExp(`^parent: "${epicId}"$`, 'm'));
+});
+
+test('20261020-172221 CR7: new --parent writes the field into the scaffold', () => {
+  const { root, epicId } = epicWithChildren();
+  const created = newChange(
+    {
+      type: 'quick',
+      slug: 'nuevo',
+      title: 'Nuevo hijo',
+      parent: epicId,
+      now: '2026-06-13T16:00:00Z',
+    },
+    root,
+    { ownerHandle: () => '' },
+  );
+  const text = fs.readFileSync(created, 'utf8');
+  assert.match(text, new RegExp(`^parent: "${epicId}"$`, 'm'));
+  assert.equal(list({ parent: epicId }, root).length, 3);
+});
+
+// Two creation seats, one rule. The first fix here restated the parent rules
+// instead of running the gate `--from` runs, and promptly diverged again on
+// the clause it had not restated: a third level landed through the scaffold
+// and `check` turned the repo red (20261020-172221 D4, then D1 of the next
+// round). So this asserts EQUIVALENCE, not messages — any rule either seat
+// gains or loses shows up here, including rules nobody has written yet.
+test('20261020-172221 CR7: the two creation seats accept and refuse the same documents', () => {
+  const outcome = (fn) => {
+    try {
+      fn();
+      return 'accept';
+    } catch {
+      return 'refuse';
+    }
+  };
+
+  const cases = {
+    missing: () => '20200101-000000',
+    live: (_root, epicId) => epicId,
+    closed: (root, epicId) => {
+      patchChange(root, epicId, (text) => text.replace('status: draft', 'status: done'));
+      return epicId;
+    },
+    'closed and archived': (root, epicId) => {
+      patchChange(root, epicId, (text) =>
+        text
+          .replace('status: draft', 'status: done')
+          .replace('depends_on: []', 'depends_on: []\narchived: true'),
+      );
+      return epicId;
+    },
+    'third level': () => '20260613-140000',
+  };
+
+  for (const [label, prepare] of Object.entries(cases)) {
+    const scaffoldFixture = epicWithChildren();
+    const parent = prepare(scaffoldFixture.root, scaffoldFixture.epicId);
+    const args = {
+      type: 'quick',
+      slug: 'candidato',
+      title: 'Candidato',
+      parent,
+      now: '2026-06-13T18:00:00Z',
+    };
+    const viaScaffold = outcome(() =>
+      newChange(args, scaffoldFixture.root, { ownerHandle: () => '' }),
+    );
+
+    const documentFixture = epicWithChildren();
+    prepare(documentFixture.root, documentFixture.epicId);
+    const printed = scaffoldChange(args, documentFixture.root, { ownerHandle: () => '' });
+    const source = path.join(documentFixture.root, 'candidato.md');
+    fs.writeFileSync(source, printed.text);
+    const viaDocument = outcome(() =>
+      newChangeFrom(
+        { type: 'quick', slug: 'candidato', title: 'Candidato', from: source },
+        documentFixture.root,
+      ),
+    );
+
+    assert.equal(
+      viaScaffold,
+      viaDocument,
+      `the seats disagree on a ${label} parent: scaffold ${viaScaffold}, document ${viaDocument}`,
+    );
+    if (viaScaffold === 'refuse') {
+      assert.ok(
+        !fs
+          .readdirSync(path.join(scaffoldFixture.root, '.changeledger', 'changes'))
+          .some((n) => n.includes('candidato')),
+        'a refused creation writes nothing',
+      );
+    }
+  }
+});
+
+// The gate diffs against the repo's OWN current errors, so an unrelated break
+// elsewhere never blocks a clean scaffold. Without that diff `new` would stop
+// working repo-wide the moment any document went red.
+test('20261020-172221 CR7: a pre-existing error elsewhere does not block a clean scaffold', () => {
+  const { root, epicId } = epicWithChildren();
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'changes', '20260613-160000-roto.md'),
+    `---\nid: "20260613-160000"\ntitle: Roto\ntype: quick\nstatus: draft\ncreated: 2026-06-13T16:00:00Z\ndepends_on: []\nparent: "no-es-un-id"\n---\n\n## Request\n\nAlgo.\n\n## Log\n`,
+  );
+  assert.ok(checkRepo(loadRepo(root)).errors.length > 0, 'the fixture must start from a red repo');
+  assert.doesNotThrow(() =>
+    newChange(
+      {
+        type: 'quick',
+        slug: 'limpio',
+        title: 'Limpio',
+        parent: epicId,
+        now: '2026-06-13T20:00:00Z',
+      },
+      root,
+      { ownerHandle: () => '' },
+    ),
+  );
+});
+
+// The matrix above only proves the seats agree; these pin WHAT they agree on,
+// so a regression that relaxes both at once is still caught.
+test('20261020-172221 CR7: neither seat creates a child of a missing, closed or second-level parent', () => {
+  const { root, epicId } = epicWithChildren();
+  patchChange(root, epicId, (text) => text.replace('status: draft', 'status: done'));
+  for (const [label, parent] of [
+    ['missing', '20200101-000000'],
+    ['closed', epicId],
+    ['second level', '20260613-140000'],
+  ]) {
+    assert.throws(
+      () =>
+        newChange(
+          { type: 'quick', slug: 'x', title: 'X', parent, now: '2026-06-13T18:00:00Z' },
+          root,
+          { ownerHandle: () => '' },
+        ),
+      /nothing was written/,
+      `a ${label} parent must be refused`,
+    );
+  }
+});
+
+// Archiving hides a document; it does not resolve the work, so an archived
+// child still holds its parent open. `list --parent` hides it by default, so
+// the refusal has to say where to find it (20261020-172221 D3).
+// Three reading seats, one answer: `list --parent` hides an archived child,
+// `childrenOpenError` names it as hidden, and `show` used to list it with no
+// marker at all (20261020-172221 D3b).
+test('20261020-172221 CR7: show marks a child that `list --parent` hides', () => {
+  const { root, epicId } = epicWithChildren();
+  patchChange(root, '20260613-140000', (text) =>
+    text.replace('depends_on: []', 'depends_on: []\narchived: true'),
+  );
+  const children = show(epicId, root).children;
+  const archived = children.find((c) => String(c.id) === '20260613-140000');
+  const plain = children.find((c) => String(c.id) === '20260613-150000');
+  assert.equal(archived.archived, true, 'the hidden child is marked');
+  assert.equal(plain.archived, false, 'the listed one is not');
+});
+
+// `epic` is a template type a repo may rename or never adopt, and `parent`
+// accepts any id, so a refusal that asserts the type lies about the document
+// it names. The CR6 seat was taught this; the CR5 seat was not (D4 of round 5).
+test('20261020-172221 CR5: the graduation refusal does not call a non-epic parent an epic', () => {
+  const { root } = epicWithChildren();
+  patchChange(root, '20260613-140000', (text) => text.replace('status: draft', 'status: done'));
+  assert.throws(
+    () => scaffoldSpec('20260613-140000', 'alguna', root),
+    (error) => {
+      assert.match(error.message, /belongs to 20260613-110000/);
+      assert.doesNotMatch(error.message, /\bepic\b/);
+      return true;
+    },
+  );
+});
+
+test('20261020-172221 CR6/CR7: the refusal says an unresolved child is archived', () => {
+  const { root, epicId } = epicWithChildren();
+  const dir = path.join(root, '.changeledger', 'changes');
+  const child = fs.readdirSync(dir).find((n) => n.startsWith('20260613-140000'));
+  const file = path.join(dir, child);
+  fs.writeFileSync(
+    file,
+    fs.readFileSync(file, 'utf8').replace('depends_on: []', 'depends_on: []\narchived: true'),
+  );
+  const other = fs.readdirSync(dir).find((n) => n.startsWith('20260613-150000'));
+  fs.writeFileSync(
+    path.join(dir, other),
+    fs.readFileSync(path.join(dir, other), 'utf8').replace('status: draft', 'status: done'),
+  );
+
+  const listed = list({ parent: epicId }, root).map((c) => String(c.id));
+  assert.ok(
+    !listed.includes('20260613-140000'),
+    'the child that holds the epic open is hidden from `list --parent` by default',
+  );
+  assert.throws(
+    () => status(epicId, 'done', root),
+    (error) => {
+      assert.match(error.message, /20260613-140000 \(draft, archived: `list --parent --all`\)/);
+      return true;
+    },
+  );
+});
+
+// The short cycle is a CLAIM about configuration until something walks it.
+// `test/config.test.mjs` pins the type's YAML; this executes the lifecycle it
+// is supposed to produce, which is what CR4's second and third clauses say.
+test('20261020-172221 CR4: an epic walks draft → approved → in-progress → done with no review and no criteria', () => {
+  const { root } = repoWithChange();
+  const file = newChange(
+    { type: 'epic', slug: 'epica', title: 'Épica', now: '2026-06-13T11:00:00Z' },
+    root,
+    { ownerHandle: () => '' },
+  );
+  const id = parseChange(fs.readFileSync(file, 'utf8')).frontmatter.id;
+  fs.writeFileSync(
+    file,
+    fs
+      .readFileSync(file, 'utf8')
+      .replace('## Request\n', '## Request\n\nObjetivo.\n')
+      .replace('## Proposal\n', '## Proposal\n\nFrontera.\n'),
+  );
+
+  approve(id, root);
+  status(id, 'in-progress', root);
+  // Straight to done: the delivery gate that would demand a review verdict is
+  // keyed on `review_required`, which this type does not declare.
+  status(id, 'done', root);
+  assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'done');
+
+  // No Specification stage, so nothing demands criteria coverage or readiness.
+  const { errors, warnings } = checkRepo(loadRepo(root));
+  const own = [...errors, ...warnings].filter((e) => e.file.startsWith(id));
+  assert.deepEqual(own, [], `an epic must raise nothing of its own: ${JSON.stringify(own)}`);
+});
+
+// --- 20261020-172221 CR8: archiving deletes its own merged branch --------
+//
+// This reaches about 5% of the dead branches in the consuming repos — the rest
+// were never created by ChangeLedger and the repository's own
+// `delete_branch_on_merge` is what reaches those. It exists so the tool stops
+// adding to that pile. The safety is the merge proof, not the flag: every
+// commit is already reachable from the integration branch, so dropping the ref
+// loses nothing.
+
+function archivableOnBranch({ merged, status = 'done' }) {
+  const fixture = repoWithChange();
+  const { root, id } = fixture;
+  configureChangeBranches(root, { integration: 'dev', format: '"{type}/{id}"' });
+  git(root, ['init', '-q', '-b', 'dev']);
+  git(root, ['config', 'user.email', 't@e.com']);
+  git(root, ['config', 'user.name', 'T']);
+  git(root, ['add', '-A']);
+  git(root, ['commit', '-qm', 'seed']);
+  const branch = `feature/${id}`;
+  git(root, ['checkout', '-q', '-b', branch, 'dev']);
+  fs.writeFileSync(path.join(root, 'work.txt'), 'work\n');
+  git(root, ['add', 'work.txt']);
+  git(root, ['commit', '-qm', 'work']);
+  git(root, ['checkout', '-q', 'dev']);
+  if (merged) git(root, ['merge', '--no-ff', '-q', '-m', 'merge', branch]);
+  // The branch event is what `recordedBranch` reads; the change's own Log is
+  // the record, never the current checkout.
+  const file = path.join(root, '.changeledger', 'changes', `${id}-x.md`);
+  fs.appendFileSync(file, `- **2026-06-13T12:30:00Z** \`[branch]\` set: ${branch} (auto)\n`);
+  // Only a terminal change has stopped needing its branch, so every fixture
+  // here is one unless it is testing that gate (20261020-172221 D4).
+  fs.writeFileSync(
+    file,
+    fs.readFileSync(file, 'utf8').replace(/^status: .*$/m, `status: ${status}`),
+  );
+  const branches = () =>
+    git(root, ['branch', '--format=%(refname:short)']).split('\n').filter(Boolean);
+  return { root, id, branch, branches };
+}
+
+test('20261020-172221 CR8: a merged branch is deleted and the result says so', () => {
+  const { root, id, branch, branches } = archivableOnBranch({ merged: true });
+  const result = archive(id, root);
+  assert.equal(result.branchOutcome, null, 'a merged branch must be deleted');
+  assert.equal(result.branch, branch);
+  assert.ok(!branches().includes(branch), `branch survived: ${branches().join(', ')}`);
+});
+
+test('20261020-172221 CR8: an unmerged branch survives and the result explains why', () => {
+  const { root, id, branch, branches } = archivableOnBranch({ merged: false });
+  const result = archive(id, root);
+  assert.match(result.branchOutcome, /is not merged into "dev"/);
+  assert.ok(branches().includes(branch), 'an unmerged branch must never be deleted');
+});
+
+// The merge proof alone does NOT identify the change's own branch:
+// `isAncestor(dev, dev)` is trivially true, and `changeledger branch <id> dev`
+// is accepted — the drift warning itself suggests it when the checkout has
+// moved. Without these two guards `archive` deleted the shared integration
+// branch, reproduced end to end in both layouts.
+test('20261020-172221 CR8: the integration branch is never deleted', () => {
+  const { root, id, branches } = archivableOnBranch({ merged: true });
+  const file = path.join(root, '.changeledger', 'changes', `${id}-x.md`);
+  fs.appendFileSync(file, '- **2026-06-13T12:40:00Z** `[branch]` set: dev (auto)\n');
+  git(root, ['checkout', '-q', `feature/${id}`]);
+  const result = archive(id, root);
+  assert.match(result.branchOutcome, /is the integration branch/);
+  assert.ok(branches().includes('dev'), 'the integration branch must survive');
+});
+
+test('20261020-172221 CR8: only the branch this change declares is deleted', () => {
+  const { root, id, branches } = archivableOnBranch({ merged: true });
+  git(root, ['branch', 'someone-elses']);
+  const file = path.join(root, '.changeledger', 'changes', `${id}-x.md`);
+  fs.appendFileSync(file, '- **2026-06-13T12:40:00Z** `[branch]` set: someone-elses (auto)\n');
+  const result = archive(id, root);
+  assert.match(result.branchOutcome, /is not the branch this change declares/);
+  assert.ok(branches().includes('someone-elses'));
+});
+
+test('20261020-172221 CR8: the branch of the current checkout is never deleted', () => {
+  const { root, id, branch, branches } = archivableOnBranch({ merged: true });
+  git(root, ['checkout', '-q', branch]);
+  const result = archive(id, root);
+  assert.match(result.branchOutcome, /is the current checkout/);
+  assert.ok(branches().includes(branch));
+});
+
+// `archive` had no config dependency before this change. A type whose
+// `integrates_into` names a retired `git.release_branch` makes the lookup
+// throw, and that must never cost an archive that has already landed:
+// terminal changes are history (20261012-174310).
+test('20261020-172221 CR8: an unresolvable integration branch never costs the archive', () => {
+  const { root, id } = archivableOnBranch({ merged: true });
+  const file = path.join(root, '.changeledger', 'changes', `${id}-x.md`);
+  fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('type: feature', 'type: hotfix'));
+  const result = archive(id, root);
+  assert.match(result.branchOutcome, /could not be resolved/);
+  assert.match(fs.readFileSync(file, 'utf8'), /archived: true/, 'the archive still landed');
+});
+
+// `archived` hides a document in the viewer and says nothing about the work
+// being over. A live change still owns its branch, and the merge proof says
+// nothing here: a branch forked from the integration branch with no commits of
+// its own is trivially an ancestor of it, so the proof passes on exactly the
+// branch that is still being used (20261020-172221 D4).
+for (const status of ['draft', 'approved', 'in-progress', 'in-review']) {
+  test(`20261020-172221 CR8: archiving a ${status} change keeps its branch`, () => {
+    const { root, id, branch, branches } = archivableOnBranch({ merged: true, status });
+    const result = archive(id, root);
+    assert.match(result.branchOutcome, new RegExp(`is ${status}, not done or discarded`));
+    assert.ok(branches().includes(branch), 'the branch of a live change survives');
+  });
+}
+
+test('20261020-172221 CR8: a discarded change releases its branch like a done one', () => {
+  const { root, id, branch, branches } = archivableOnBranch({ merged: true, status: 'discarded' });
+  assert.equal(archive(id, root).branchOutcome, null);
+  assert.ok(!branches().includes(branch));
+});
+
+test('20261020-172221 CR8: --keep-branch keeps a merged branch', () => {
+  const { root, id, branch, branches } = archivableOnBranch({ merged: true });
+  const result = archive(id, root, { keepBranch: true });
+  assert.match(result.branchOutcome, /kept on request/);
+  assert.ok(branches().includes(branch));
+});
+
+test('20261020-172221 CR8: no remote reference is touched, and the archive still lands', () => {
+  const { root, id } = archivableOnBranch({ merged: true });
+  const argv = [];
+  archive(id, root, {
+    gitRun: (args, cwd) => {
+      argv.push(args);
+      return git(cwd, args);
+    },
+  });
+  assert.ok(
+    !argv.some(
+      (a) => a.includes('push') || a.some((token) => String(token).startsWith('refs/remotes')),
+    ),
+    `a remote was touched: ${JSON.stringify(argv)}`,
+  );
+  const text = fs.readFileSync(path.join(root, '.changeledger', 'changes', `${id}-x.md`), 'utf8');
+  assert.match(text, /archived: true/, 'the archive is the point of the command');
 });

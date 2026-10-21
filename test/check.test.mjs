@@ -327,6 +327,180 @@ test('105456 CR1/CR3: related_to is non-blocking and permits external references
   assert.deepEqual(run([a, b]).errors, []);
 });
 
+// --- 20261020-172221: the grouping edge ---------------------------------
+//
+// `parent` exists because `depends_on` + `related_to` collapse a real repo into
+// one component — 739 of 994 changes in one consuming repo — so asking what
+// belongs to an epic has no answer. These tests hold the two properties that
+// keep it from becoming a third way to build that same blob: it is validated
+// outside the relation graph, and the hierarchy is two levels deep.
+
+const epic = (id, over = {}) => change({ frontmatter: { id, type: 'feature', ...over } });
+
+test('20261020-172221 CR1: parent must be a single existing id, never the change itself', () => {
+  assert.ok(
+    msgs(run([epic('20260613-120000', { parent: ['20260613-130000'] })]).errors).includes(
+      'parent must be a single change id, not a list',
+    ),
+  );
+  assert.ok(
+    msgs(run([epic('20260613-120000', { parent: '20260613-130000' })]).errors).includes(
+      'parent references missing change "20260613-130000"',
+    ),
+  );
+  assert.ok(
+    msgs(run([epic('20260613-120000', { parent: '20260613-120000' })]).errors).includes(
+      'parent cannot reference its own change "20260613-120000"',
+    ),
+  );
+  const parent = epic('20260613-130000');
+  const child = epic('20260613-120000', { parent: '20260613-130000' });
+  assert.deepEqual(run([parent, child]).errors, []);
+});
+
+test('20261020-172221 CR2: a third level and a cycle are rejected, and told apart', () => {
+  const third = run([
+    epic('20260613-110000'),
+    epic('20260613-120000', { parent: '20260613-110000' }),
+    epic('20260613-130000', { parent: '20260613-120000' }),
+  ]).errors;
+  assert.ok(
+    msgs(third).some((m) => /declares a parent of its own: the hierarchy is two levels/.test(m)),
+    `expected the third-level message, got: ${msgs(third).join(' | ')}`,
+  );
+
+  const cycle = run([
+    epic('20260613-120000', { parent: '20260613-130000' }),
+    epic('20260613-130000', { parent: '20260613-120000' }),
+  ]).errors;
+  assert.ok(
+    msgs(cycle).some((m) => /^parent cycle: /.test(m)),
+    `expected a parent-cycle message, got: ${msgs(cycle).join(' | ')}`,
+  );
+  // Told apart: the cycle must not be reported as a third level, which would
+  // send the human to split a hierarchy that is actually contradictory.
+  assert.ok(!msgs(cycle).some((m) => /two levels/.test(m)));
+
+  // Any length, not just two: a three-link cycle is still a cycle. The first
+  // implementation reported it as three third-level errors, because its depth
+  // counter had already passed the threshold before it could look.
+  const long = run([
+    epic('20260613-110000', { parent: '20260613-130000' }),
+    epic('20260613-120000', { parent: '20260613-110000' }),
+    epic('20260613-130000', { parent: '20260613-120000' }),
+  ]).errors;
+  assert.ok(
+    msgs(long).some((m) => /^parent cycle: /.test(m)),
+    `expected a parent-cycle message for a 3-cycle, got: ${msgs(long).join(' | ')}`,
+  );
+  assert.ok(!msgs(long).some((m) => /two levels/.test(m)));
+});
+
+test('20261020-172221 CR1: a malformed parent is named as such, not called a list', () => {
+  for (const malformed of ['not-an-id', '']) {
+    const errors = msgs(run([epic('20260613-120000', { parent: malformed })]).errors);
+    assert.ok(errors.includes(`parent "${malformed}" is not a change id`), errors.join(' | '));
+    assert.ok(!errors.some((m) => /not a list/.test(m)));
+    // One defect, one diagnostic: reading a malformed value as a reference too
+    // reported the same field twice with two different fixes.
+    assert.ok(!errors.some((m) => /references missing change/.test(m)), errors.join(' | '));
+  }
+});
+
+// Archiving hides a document; it does not resolve the work its children carry.
+// The first cut put this clause in the per-document subject loop, where it
+// inherited the frozen-history exemption, so `archive <epic>` turned a red
+// repo green and every creation seat then accepted new children under it
+// (20261020-172221 D1 of round 5).
+test('20261020-172221 CR6: archiving the parent does not retire the closure rule', () => {
+  const open = epic('20260613-120000', { parent: '20260613-110000', status: 'in-progress' });
+  const reported = (parentOverrides) =>
+    msgs(run([epic('20260613-110000', parentOverrides), open]).errors).some((m) =>
+      /unresolved children/.test(m),
+    );
+
+  assert.ok(reported({ status: 'done' }), 'a done parent with a live child is an error');
+  assert.ok(
+    reported({ status: 'done', archived: true }),
+    'archiving the parent must not silence it: the fix is on the child, which is live',
+  );
+});
+
+// The closure invariant is a repo rule, not only a write-seat guard. `apply`
+// validates its accumulated candidate through `checkRepo`, so this is what
+// catches an entry order that closes the parent before the child exists, and
+// it is what a new route to `done` inherits for free (20261020-172221 D1/D2).
+test('20261020-172221 CR6: check reports a done parent whose children are still open', () => {
+  const parent = epic('20260613-110000', { status: 'done' });
+  const open = epic('20260613-120000', { parent: '20260613-110000', status: 'in-progress' });
+  const errors = msgs(run([parent, open]).errors);
+  assert.ok(
+    errors.some((m) => /still has unresolved children: 20260613-120000 \(in-progress\)/.test(m)),
+    errors.join(' | '),
+  );
+
+  for (const resolved of ['done', 'discarded']) {
+    const closed = epic('20260613-120000', { parent: '20260613-110000', status: resolved });
+    assert.ok(
+      !msgs(run([parent, closed]).errors).some((m) => /unresolved children/.test(m)),
+      `a ${resolved} child does not hold its parent open`,
+    );
+  }
+
+  // A live parent is not the subject: the rule is about closing, not about
+  // having children.
+  assert.ok(
+    !msgs(run([epic('20260613-110000', { status: 'in-progress' }), open]).errors).some((m) =>
+      /unresolved children/.test(m),
+    ),
+  );
+});
+
+test('20261020-172221 CR3: sharing a parent connects nothing and needs no backlink', () => {
+  const parent = epic('20260613-110000');
+  const a = epic('20260613-120000', { parent: '20260613-110000' });
+  const b = epic('20260613-130000', { parent: '20260613-110000' });
+  // No backlink obligation on the parent, no relation inferred between siblings,
+  // and no dependency cycle from a hierarchy that is legal.
+  assert.deepEqual(run([parent, a, b]).errors, []);
+
+  // An empty error list stays empty whether or not `parent` is an edge, so it
+  // proves nothing on its own. This does: the parent depends on its own child,
+  // which is legal — the hierarchy is not a dependency — and becomes a cycle
+  // the moment `parent` joins the graph `check` walks.
+  const dependsOnItsChild = epic('20260613-110000', { depends_on: ['20260613-120000'] });
+  assert.deepEqual(
+    msgs(run([dependsOnItsChild, a]).errors),
+    [],
+    'a parent that depends on its child is not a cycle: `parent` is not an edge of that graph',
+  );
+
+  // Both ends, like `related_to`: an epic naming its own child used to warn,
+  // and the remedy the warning names is `depends_on` or `related_to` — the
+  // transitive edge this grouping exists to avoid (20261020-172221 D3a).
+  const epicNamingItsChild = change({
+    frontmatter: { id: '20260613-110000' },
+    stages: [{ key: 'request', body: 'Incluye 20260613-120000.' }, { key: 'log' }],
+  });
+  assert.ok(
+    !msgs(run([epicNamingItsChild, a]).warnings).some((m) => /mentions change/.test(m)),
+    'a declared child must not warn on the parent end either',
+  );
+
+  // The parent is a declared link, so naming it in prose is not an undeclared
+  // mention — the warning exists to catch ids that escape the model, and a
+  // parent has not escaped it.
+  const naming = change({
+    frontmatter: { id: '20260613-120000', parent: '20260613-110000' },
+    stages: [{ key: 'request', body: 'Hijo de 20260613-110000.' }, { key: 'log' }],
+  });
+  const { warnings } = run([parent, naming]);
+  assert.ok(
+    !msgs(warnings).some((m) => /mentions change "20260613-110000"/.test(m)),
+    `a declared parent must not warn as an undeclared mention: ${msgs(warnings).join(' | ')}`,
+  );
+});
+
 test('105456 CR2: related_to validates list, local destination and self-reference', () => {
   const invalidList = change({ frontmatter: { related_to: '20260613-130000' } });
   assert.ok(msgs(run([invalidList]).errors).includes('related_to must be a list'));

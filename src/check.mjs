@@ -6,7 +6,7 @@
 // repository loading and printing.
 
 import { marked } from 'marked';
-import { parseChange } from './change.mjs';
+import { childrenOpenError, parseChange } from './change.mjs';
 import {
   changeBranchFormat,
   integrationBranch,
@@ -214,7 +214,7 @@ export function checkRepo({ config, changes, specs = [], releases = [], usage = 
   const counts = { validated: targets.length, notValidated: scoped.length - targets.length };
 
   const knownIds = new Set(changes.map((c) => String(c.frontmatter?.id ?? '')).filter(Boolean));
-  const incomingRelations = relatedBacklinks(changes);
+  const incomingRelations = declaredBacklinks(changes);
 
   for (const c of targets) {
     const fm = c.frontmatter ?? {};
@@ -252,6 +252,12 @@ export function checkRepo({ config, changes, specs = [], releases = [], usage = 
     }
     if ('depends_on' in fm && !Array.isArray(fm.depends_on)) err(c, 'depends_on must be a list');
     if ('related_to' in fm && !Array.isArray(fm.related_to)) err(c, 'related_to must be a list');
+    if ('parent' in fm) {
+      if (Array.isArray(fm.parent)) err(c, 'parent must be a single change id, not a list');
+      else if (typeof fm.parent !== 'string' || !ID_FORM.test(fm.parent)) {
+        err(c, `parent "${fm.parent}" is not a change id`);
+      }
+    }
     if ('archived' in fm && typeof fm.archived !== 'boolean') err(c, 'archived must be a boolean');
     if ('reviewed' in fm && typeof fm.reviewed !== 'boolean') err(c, 'reviewed must be a boolean');
     if ('release_impact' in fm && !RELEASE_IMPACTS.includes(fm.release_impact)) {
@@ -351,6 +357,9 @@ export function checkRepo({ config, changes, specs = [], releases = [], usage = 
     }
   }
 
+  checkParents(changes, ids, err);
+  checkChildrenResolved(changes, err);
+
   const cycle = findCycle(graph);
   if (cycle) err(null, `dependency cycle: ${cycle.join(' → ')}`);
 
@@ -395,18 +404,26 @@ function usageRecordIssue({ name, record, error }) {
   return null;
 }
 
-function relatedBacklinks(changes) {
+// Every declared structural link that points AT a change, so naming its own
+// counterpart in prose is not an undeclared mention. `related_to` was exempt
+// in both directions and `parent` only in the child's, so an epic naming its
+// own child warned — and the remedy the warning names is `depends_on` or
+// `related_to`, the transitive edge this grouping exists to avoid
+// (20261020-172221 D3a).
+function declaredBacklinks(changes) {
   const incoming = new Map();
+  const add = (target, source) => {
+    if (target.includes(':')) return;
+    if (!incoming.has(target)) incoming.set(target, new Set());
+    incoming.get(target).add(source);
+  };
   for (const change of changes) {
     const source = String(change.frontmatter?.id ?? '');
+    if (!source) continue;
     const relations = change.frontmatter?.related_to;
-    if (!source || !Array.isArray(relations)) continue;
-    for (const raw of relations) {
-      const target = String(raw);
-      if (target.includes(':')) continue;
-      if (!incoming.has(target)) incoming.set(target, new Set());
-      incoming.get(target).add(source);
-    }
+    if (Array.isArray(relations)) for (const raw of relations) add(String(raw), source);
+    const parent = change.frontmatter?.parent;
+    if (typeof parent === 'string') add(parent, source);
   }
   return incoming;
 }
@@ -436,6 +453,85 @@ export function specDurabilityIssue(body) {
   return `spec contains change-local criterion heading "${criterion}"; rewrite it as durable current truth`;
 }
 
+// `parent` is the grouping edge, and it is deliberately NOT a second entry into
+// the relation graph above. `depends_on` and `related_to` are transitive by
+// nature — chained, `related_to` collapses two thirds of a real repo into one
+// component, which is why asking what belongs to an epic has no answer today.
+// So this edge is validated on its own and never joins `graph`: sharing a
+// parent connects nothing, and a parent needs no backlink.
+//
+// Two levels, not a tree. A parent that may itself have a parent is the same
+// transitive structure again, one field along. Walking upward catches both
+// defects with one traversal, and the two are reported apart because the fix
+// differs: a cycle is a contradiction, a third level is a modelling choice the
+// human has to make.
+// The closure invariant as a repo rule, not only as a write-seat guard:
+// `apply` validates its accumulated candidate through `checkRepo`, so an entry
+// order that closes the parent before the child exists is caught all the same
+// (20261020-172221 D2). The write seats keep their own fail-fast guard, which
+// refuses before any in-memory mutation and names the fix.
+//
+// Repo-wide, NOT a per-document diagnostic: the first cut put it in the
+// subject loop, where it inherited the frozen-history exemption, so archiving
+// an epic turned a red repo green and every creation seat then accepted new
+// children under it. The exemption exists because a diagnostic about finished
+// work could only be fixed by rewriting it — and that is not this case: the
+// fix is to resolve the child, which is live. `frozenReason`'s own comment
+// already says a frozen change stays DATA for every repo-wide invariant.
+function checkChildrenResolved(changes, err) {
+  for (const c of changes) {
+    if (c.frontmatter?.status !== 'done') continue;
+    const message = childrenOpenError(changes, c.frontmatter.id);
+    if (message) err(c, message);
+  }
+}
+
+function checkParents(changes, ids, err) {
+  const parentOf = new Map();
+  for (const c of changes) {
+    const id = c.frontmatter?.id;
+    const parent = c.frontmatter?.parent;
+    if (id && typeof parent === 'string') parentOf.set(String(id), String(parent));
+  }
+  for (const c of changes) {
+    if (frozenReason(c) !== null) continue;
+    const id = String(c.frontmatter?.id ?? '');
+    const parent = parentOf.get(id);
+    if (parent === undefined) continue;
+    // A malformed value is already reported once as a shape error; reading it
+    // as a reference too would charge one defect two diagnostics.
+    if (!ID_FORM.test(parent)) continue;
+    if (parent === id) {
+      err(c, `parent cannot reference its own change "${parent}"`);
+      continue;
+    }
+    if (!ids.has(parent)) {
+      err(c, `parent references missing change "${parent}"`);
+      continue;
+    }
+    if (!parentOf.has(parent)) continue;
+    // The parent has a parent of its own, which breaks the two levels. Which
+    // way it breaks them is decided by where the walk upward ends: back at this
+    // change is a cycle of any length, anywhere else is a third level. The two
+    // need different fixes — a cycle is a contradiction, a third level is a
+    // modelling choice — so they are never reported as each other.
+    const chain = new Set([id]);
+    let cursor = parent;
+    while (cursor !== undefined && !chain.has(cursor)) {
+      chain.add(cursor);
+      cursor = parentOf.get(cursor);
+    }
+    if (cursor === id) {
+      err(c, `parent cycle: ${[...chain, id].join(' → ')}`);
+    } else {
+      err(
+        c,
+        `parent "${parent}" declares a parent of its own: the hierarchy is two levels, an epic and its children`,
+      );
+    }
+  }
+}
+
 function checkUnclassifiedMentions(change, knownIds, incomingRelations, warn) {
   const fm = change.frontmatter ?? {};
   if (frozenReason(change) !== null) return;
@@ -445,6 +541,7 @@ function checkUnclassifiedMentions(change, knownIds, incomingRelations, warn) {
     [
       ...(Array.isArray(fm.depends_on) ? fm.depends_on : []),
       ...(Array.isArray(fm.related_to) ? fm.related_to : []),
+      ...(typeof fm.parent === 'string' ? [fm.parent] : []),
       ...(incomingRelations.get(ownId) ?? []),
     ].map(String),
   );

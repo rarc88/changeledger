@@ -16,7 +16,13 @@ import { apply } from '../src/commands/apply.mjs';
 import { init as initializeRepo } from '../src/commands/init.mjs';
 import { newChange, scaffoldChange } from '../src/commands/new.mjs';
 import { VERSION } from '../src/framing.mjs';
-import { STATE_REF, STATE_ROOT, writeActivation } from '../src/state-store.mjs';
+import {
+  mutateState,
+  readStateRef,
+  STATE_REF,
+  STATE_ROOT,
+  writeActivation,
+} from '../src/state-store.mjs';
 import { encodeProjectPath } from '../src/usage-collector.mjs';
 import { appendLogEvent, setStatus } from '../src/writer.mjs';
 import { claudeRunner, ledgerUsageRecords, usageNamePattern } from './helpers/ccusage.mjs';
@@ -786,3 +792,81 @@ for (const activated of [false, true]) {
     assert.deepEqual(usageRecords(repo.root, repo.id), []);
   });
 }
+
+// --- 20261020-172221 CR6 on the batch seat ------------------------------
+//
+// `apply` validates every entry against ONE accumulated candidate, so a guard
+// that reads the stored ledger instead is wrong in both directions: it refuses
+// a batch that already resolved the child, and it lets a batch that creates
+// one slip past. `assertNotShipped` has the same shape and is sound only
+// because `apply` cannot write releases; it can write changes.
+
+// The guard reads the candidate AS ACCUMULATED, so it only sees a child an
+// earlier entry created. Reversing the two entries moved the creation past the
+// closure and the batch landed a `done` epic with a `draft` child
+// (20261020-172221 D2). The invariant is a repo rule now, so the final
+// `checkRepo(candidate)` catches it whatever the order.
+test('20261020-172221 CR6: a manifest that closes an epic cannot create a child, in any order', () => {
+  for (const reversed of [false, true]) {
+    const { root } = activatedRepo();
+    const epicId = '20260613-110000';
+    mutateState(root, { expectedRevision: readStateRef(root), message: 'chore: epic' }, (stage) => {
+      stage.write(
+        `changes/${epicId}-epic.md`,
+        `---\nid: "${epicId}"\ntitle: Épica\ntype: epic\nstatus: in-progress\ncreated: 2026-06-13T11:00:00Z\ndepends_on: []\n---\n\n## Request\n\nObjetivo.\n\n## Proposal\n\nFrontera.\n\n## Log\n\n- **2026-06-13T11:00:00Z** \`[status]\` draft → approved\n- **2026-06-13T11:05:00Z** \`[status]\` approved → in-progress\n`,
+      );
+    });
+    const child = filled(
+      scaffoldChange(
+        {
+          type: 'quick',
+          slug: 'hijo',
+          title: 'Hijo',
+          owner: 'rarc88',
+          now: '2026-08-11T10:00:00Z',
+          parent: epicId,
+        },
+        root,
+      ).text,
+      'Cuerpo del draft.',
+    );
+    const entries = [
+      { op: 'status', id: epicId, to: 'done' },
+      { target: 'new', slug: 'hijo', content: child },
+    ];
+    const tip = stateTip(root);
+
+    assert.throws(
+      () => apply({ from: manifest(root, reversed ? entries.toReversed() : entries) }, root),
+      /still has unresolved children/,
+      `order reversed: ${reversed}`,
+    );
+    assert.equal(stateTip(root), tip);
+  }
+});
+
+test('20261020-172221 CR6: one manifest may resolve a child and close its epic', () => {
+  const { root, id } = activatedRepo({
+    status: 'in-progress',
+    prepare: (text) => text.replace('depends_on: []', 'depends_on: []\nparent: "20260613-110000"'),
+  });
+  const epicId = '20260613-110000';
+  mutateState(root, { expectedRevision: readStateRef(root), message: 'chore: epic' }, (stage) => {
+    stage.write(
+      `changes/${epicId}-epic.md`,
+      `---\nid: "${epicId}"\ntitle: Épica\ntype: epic\nstatus: in-progress\ncreated: 2026-06-13T11:00:00Z\ndepends_on: []\n---\n\n## Request\n\nObjetivo.\n\n## Proposal\n\nFrontera.\n\n## Log\n\n- **2026-06-13T11:00:00Z** \`[status]\` draft → approved\n- **2026-06-13T11:05:00Z** \`[status]\` approved → in-progress\n`,
+    );
+  });
+
+  assert.doesNotThrow(() =>
+    apply(
+      {
+        from: manifest(root, [
+          { op: 'status', id, to: 'done' },
+          { op: 'status', id: epicId, to: 'done' },
+        ]),
+      },
+      root,
+    ),
+  );
+});

@@ -288,6 +288,7 @@ program
   .argument('<slug>', 'English filename slug, e.g. self-describing-cli-help')
   .argument('<title...>', 'content title, written in the repo language (config.yml: language)')
   .option('--owner <name>', 'set the initial owner (defaults to the local git identity)')
+  .option('--parent <id>', 'create this change as a child of that epic')
   .option('--print', 'emit the scaffold to stdout and write nothing, in either mode')
   .option('--from <file>', 'land this already composed document ("-" reads stdin)')
   .addHelpText(
@@ -302,6 +303,7 @@ program
       '  changeledger new feature self-describing-cli-help "Self-describing CLI help"',
       '  changeledger new feature seam "Costura" --print > draft.md',
       '  changeledger new feature seam "Costura" --from draft.md',
+      '  changeledger new bug leak "Fuga" --parent 20260613-110000',
     ].join('\n'),
   )
   .action(
@@ -311,15 +313,36 @@ program
       if (options.owner && options.from) {
         throw new Error('the document passed to --from declares its own owner; drop --owner');
       }
+      // Same rule as --owner: a field the incoming document owns is refused,
+      // never dropped. `--parent` used to vanish here, and since `--from` is
+      // the only way to create a change in an activated repo, that was the
+      // main path (20261020-172221 D2).
+      if (options.parent && options.from) {
+        throw new Error('the document passed to --from declares its own parent; drop --parent');
+      }
       if (options.print) {
         process.stdout.write(
-          scaffoldChange({ type, slug, title, owner: options.owner, now: nowUtc() }).text,
+          scaffoldChange({
+            type,
+            slug,
+            title,
+            owner: options.owner,
+            parent: options.parent,
+            now: nowUtc(),
+          }).text,
         );
         return;
       }
       const file = options.from
         ? newChangeFrom({ type, slug, title, from: options.from })
-        : newChange({ type, slug, title, owner: options.owner, now: nowUtc() });
+        : newChange({
+            type,
+            slug,
+            title,
+            owner: options.owner,
+            parent: options.parent,
+            now: nowUtc(),
+          });
       console.log(`Created ${file}`);
     }),
   );
@@ -905,9 +928,15 @@ program
   .option('--graduated', 'archive every done change already graduated or skipped (takes no id)')
   .option('--owner <name>', 'with --graduated, filter by exact owner name')
   .option('--unowned', 'with --graduated, filter changes without an owner')
+  .option('--keep-branch', 'with an id, do not delete the local branch even when it is merged')
   .addHelpText(
     'after',
     [
+      '',
+      'Archiving one change by id deletes the local branch it recorded, but only',
+      'once that change is done or discarded and that branch is already merged into',
+      'the integration branch — never an unmerged one, and never a remote reference.',
+      '--graduated archives in bulk and deletes no branches.',
       '',
       'Examples:',
       '  changeledger archive <id>',
@@ -928,14 +957,23 @@ program
       }
       if (options.graduated) {
         if (id) throw new Error('archive --graduated does not take an id');
+        // Refused rather than ignored: --graduated deletes no branches, so the
+        // flag would read as a promise the bulk path never made.
+        if (options.keepBranch) {
+          throw new Error('--keep-branch takes an id: archive --graduated deletes no branches');
+        }
         const archived = archiveGraduated({ owner: options.owner, unowned: options.unowned });
         for (const c of archived) console.log(`#${c.id} ${c.title}`);
         console.log(`Archived ${archived.length} change(s)`);
         return;
       }
       if (!id) throw new Error('archive requires <id> or --graduated');
-      archive(id);
+      const { branch, branchOutcome } = archive(id, process.cwd(), {
+        keepBranch: options.keepBranch,
+      });
       console.log(`#${id} archived`);
+      if (branchOutcome === null) console.log(`Deleted local branch ${branch}.`);
+      else if (branch) console.log(`Local branch not deleted: ${branchOutcome}.`);
     }),
   );
 
@@ -995,6 +1033,7 @@ program
   )
   .option('--owner <name>', 'filter by exact owner name; incompatible with --unowned')
   .option('--unowned', 'list changes without an owner; incompatible with --owner')
+  .option('--parent <id>', 'list the children of that epic')
   .option('--pending <kind>', 'filter pending work (graduation|archive)')
   .option('--archived', 'list only archived changes; incompatible with --all')
   .option('--all', 'include archived and non-archived changes; incompatible with --archived')
@@ -1008,6 +1047,7 @@ program
       '  changeledger list --owner "Roberto Ruiz" --status in-review',
       '  changeledger list --unowned',
       '  changeledger list --pending graduation',
+      '  changeledger list --parent 20260613-110000',
       '  changeledger list --pending archive',
       '  changeledger list --archived',
       '  changeledger list --type feature --json',
@@ -1020,6 +1060,7 @@ program
         type: options.type,
         owner: options.owner,
         unowned: options.unowned,
+        parent: options.parent,
         pending: options.pending,
         archived: options.archived,
         all: options.all,
@@ -1041,7 +1082,16 @@ program
     action((id, options) => {
       const c = show(id);
       if (options.json) console.log(JSON.stringify(c, null, 2));
-      else console.log(`#${c.id} ${c.frontmatter.title} [${c.frontmatter.status}]`);
+      else {
+        console.log(`#${c.id} ${c.frontmatter.title} [${c.frontmatter.status}]`);
+        if (c.frontmatter.parent) console.log(`  parent: #${c.frontmatter.parent}`);
+        for (const child of c.children) {
+          const hidden = child.archived ? ' (archived)' : '';
+          console.log(
+            `  child: ${String(child.status).padEnd(12)} #${child.id}  ${child.title}${hidden}`,
+          );
+        }
+      }
     }),
   );
 

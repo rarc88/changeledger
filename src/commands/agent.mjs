@@ -2,11 +2,12 @@
 // (list/show). Files remain the source of truth; these are optional helpers
 // that inject correct timestamps/markers and validate transitions.
 
+import fs from 'node:fs';
 import path from 'node:path';
 import { mutateFileAtomic } from '../atomic-write.mjs';
-import { parseChange } from '../change.mjs';
+import { assertChildrenResolved, parseChange } from '../change.mjs';
 import { mutateLedgerFile, repoIsActivated, writeLedgerFiles } from '../change-store.mjs';
-import { assertChangeTextValid, assertStagesNotEmpty } from '../check.mjs';
+import { assertChangeTextValid, assertStagesNotEmpty, recordedBranch } from '../check.mjs';
 import {
   changeIntegrationBranch,
   findChangeledgerDir,
@@ -19,6 +20,7 @@ import {
   checkoutBranch as defaultCheckoutBranch,
   defaultRun as defaultGitRun,
   ownerHandle as defaultOwnerHandle,
+  deleteMergedBranch,
   isAncestor,
   mergeBases,
   refExists,
@@ -207,7 +209,18 @@ export function assertStatusDestinationAllowed(config, newStatus, actor) {
 // only trace a rejection leaves now that acceptance is derived from the merge.
 export function statusMutation(
   newStatus,
-  { config, repoRoot, gitCwd, name, warnings, events, reason, actor = 'human', channel = 'viewer' },
+  {
+    config,
+    repoRoot,
+    gitCwd,
+    name,
+    warnings,
+    events,
+    reason,
+    changes,
+    actor = 'human',
+    channel = 'viewer',
+  },
   {
     ownerHandle = defaultOwnerHandle,
     checkoutBranch = defaultCheckoutBranch,
@@ -230,6 +243,16 @@ export function statusMutation(
     // `apply`'s batch alike. Without it an agent delivers its own
     // review_required work unreviewed and `check` sees nothing wrong
     // (20261018-131621 CR27).
+    // An epic delivers when its children do. Checked before the transition so a
+    // refusal leaves the document byte-for-byte unchanged, and read through
+    // `loadRepo` for the same reason `assertNotShipped` is.
+    // `changes` when the caller has a candidate in flight (`apply` resolves a
+    // child and its epic in one manifest), the stored ledger otherwise. Reading
+    // the store there would both refuse a batch that resolves the child first
+    // and let one that creates a child in the same batch slip past.
+    if (newStatus === 'done') {
+      assertChildrenResolved(changes ?? siblingChanges(repoRoot), fm.id);
+    }
     if (fm.status === 'in-review' && newStatus === 'done') {
       throw new Error(
         `the review verdict delivers a change in review: use \`changeledger review ${fm.id} pass\``,
@@ -396,6 +419,13 @@ export function approve(id, cwd = process.cwd(), { usage } = {}) {
 // change to `done`; `fail` routes it back to `in-progress` with its reason.
 // The failure class belongs in that reason, not in a flag. Requires the change
 // to be in-review.
+// The children lookup reads the whole ledger, so one unparseable document
+// elsewhere must not cost a lifecycle move that has nothing to do with it
+// (150231 CR6). `check` is the seat that reports the broken file.
+function siblingChanges(repoRoot) {
+  return loadRepo(repoRoot, { isolateChangeErrors: true }).changes;
+}
+
 export function review(id, verdict, { reason } = {}, cwd = process.cwd(), { usage } = {}) {
   const { config, repo, target, name, repoRoot } = locate(cwd, id);
   const events = [];
@@ -420,6 +450,12 @@ export function review(id, verdict, { reason } = {}, cwd = process.cwd(), { usag
       const at = nowUtc();
       let to;
       if (verdict === 'pass') {
+        // `review pass` is the second write seat for `done`, and the only one a
+        // review_required type can reach: `statusMutation`'s guard never runs
+        // for it. The scoped validation below cannot stand in — it judges a
+        // one-change repo, where a parent has no visible children
+        // (20261020-172221 D1).
+        assertChildrenResolved(siblingChanges(repoRoot), fm.id);
         assertTransition(current, 'done', opts);
         to = 'done';
         text = setStatus(text, 'done');
@@ -535,8 +571,38 @@ export function discard(id, reason, cwd = process.cwd(), { usage } = {}) {
   return target.file;
 }
 
-export function archive(id, cwd = process.cwd()) {
-  const { repo, target } = locate(cwd, id);
+// Everything the branch deletion needs, resolved inside one try: a type whose
+// `integrates_into` names a retired `git.release_branch` makes
+// `changeIntegrationBranch` throw, and that must never cost an archive that has
+// already landed. Terminal changes are history (20261012-174310).
+function pruneChangeBranch(repoRoot, config, change, gitRun) {
+  // A live change still owns its branch. `archived` only hides a document in
+  // the viewer and says nothing about the work being over, so archiving one
+  // mid-flight must not delete the branch its next lifecycle command will
+  // demand — a merge base proves nothing here, a branch with no commits of its
+  // own is trivially merged (20261020-172221 D4).
+  const status = change.frontmatter?.status;
+  if (!['done', 'discarded'].includes(status)) {
+    return `the change is ${status}, not done or discarded`;
+  }
+  try {
+    return deleteMergedBranch(
+      repoRoot,
+      recordedBranch(change),
+      changeIntegrationBranch(config, change.frontmatter?.type),
+      renderChangeBranch(config, change.frontmatter ?? {}),
+      gitRun ?? defaultGitRun,
+    );
+  } catch (error) {
+    return `the branch could not be resolved (${error.message})`;
+  }
+}
+
+export function archive(id, cwd = process.cwd(), { keepBranch = false, gitRun } = {}) {
+  const { repo, target, config, repoRoot } = locate(cwd, id);
+  // Read through `locate`'s own target, the one seat that answers in both
+  // layouts: an activated repo carries the text, a worktree one the path.
+  const change = parseChange(target.text ?? fs.readFileSync(target.file, 'utf8'));
   mutateLedgerFile(
     repo,
     target,
@@ -546,7 +612,13 @@ export function archive(id, cwd = process.cwd()) {
     },
     { message: `archive: ${id}` },
   );
-  return target.file;
+  // After the ledger write, never before: the archive is the point of this
+  // command and a branch that cannot be deleted must not cost it.
+  const branch = recordedBranch(change);
+  const branchOutcome = keepBranch
+    ? 'kept on request'
+    : pruneChangeBranch(repoRoot, config, change, gitRun);
+  return { file: target.file, branch, branchOutcome };
 }
 
 function assertOwnerFilter({ owner: byOwner, unowned = false } = {}) {
@@ -665,6 +737,7 @@ export function list(
     type: byType,
     owner: byOwner,
     unowned = false,
+    parent: byParent,
     pending,
     archived = false,
     all = false,
@@ -690,6 +763,7 @@ export function list(
       if (byType && fm.type !== byType) return false;
       if (byOwner !== undefined && fm.owner !== byOwner) return false;
       if (unowned && fm.owner != null) return false;
+      if (byParent !== undefined && String(fm.parent ?? '') !== String(byParent)) return false;
       if (pending === 'graduation' && !isPendingGraduation(c)) return false;
       return true;
     })
@@ -701,18 +775,35 @@ export function list(
       owner: c.frontmatter.owner ?? null,
       branch: c.frontmatter.branch ?? null,
       archived: c.frontmatter.archived === true,
+      parent: c.frontmatter.parent ?? null,
       progress: c.progress,
     }));
 }
 
 export function show(id, cwd = process.cwd()) {
-  const c = loadRepo(cwd).changes.find((x) => String(x.frontmatter.id) === String(id));
+  const changes = loadRepo(cwd).changes;
+  const c = changes.find((x) => String(x.frontmatter.id) === String(id));
   if (!c) throw new Error(`No change with id "${id}"`);
+  // An epic's own document says nothing about its children — they name it, not
+  // the other way round, which is what keeps the edge exclusive. So the only
+  // place the grouping becomes visible is here, derived at read time.
+  const children = changes
+    .filter((x) => String(x.frontmatter.parent ?? '') === String(id))
+    .map((x) => ({
+      id: x.frontmatter.id,
+      title: x.frontmatter.title,
+      status: x.frontmatter.status,
+      // `list --parent` hides an archived child by default, so a reader
+      // comparing the two seats would see this one appear and vanish. Same
+      // rule `childrenOpenError` already applies (20261020-172221 D3b).
+      archived: x.frontmatter.archived === true,
+    }));
   return {
     id: c.frontmatter.id,
     frontmatter: c.frontmatter,
     stages: c.stages,
     tasks: c.tasks,
     progress: c.progress,
+    children,
   };
 }
