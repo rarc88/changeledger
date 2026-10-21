@@ -396,6 +396,7 @@ estimación hasta hacer el corte.
 | 2 | **La poda de la suite**: ¿entra con el recorte o va aparte? | medida (§9); sin decidir |
 | 3 | **Secuencia** | **resuelta**: código y contrato viajan juntos en cada change, empezando por retirar `in-validation` y `blocked` |
 | 4 | **Cadencia de revisión**: una revisión por selección resuelta en vez de una sola puerta al final. | **decidida** pese a no tener dato que la respalde; change propio y con medición |
+| 5 | **Qué decide que un change lleve revisión** una vez retirado `review_required` por tipo (§2.3). Candidato: un ítem de riesgo nombrado — acción irreversible, superficie pública o verdad persistente (§15.1) — en vez de la categoría del change. | abierta |
 
 ---
 
@@ -418,7 +419,8 @@ Con 1 y 2: ~3.040. Con las tres: ~2.920. Recomendación: parar en 1 y 2.
    `validation` y el aislamiento de correcciones. Toca `lifecycle.mjs`,
    `agent.mjs`, `check.mjs`, el viewer y la CLI.
 2. **Tipos y config** — 6 tipos → 2, etapas → 3, fuera `readiness.*` y 21 claves.
-   Toca `config.mjs`, `new.mjs`, `check.mjs`.
+   Lo que sustituye al tipo como criterio está en §15.1: comprensión, riesgo y
+   reanudabilidad, nunca el tamaño. Toca `config.mjs`, `new.mjs`, `check.mjs`.
 3. **Contrato** — 22 fragmentos → 9, presupuestos nuevos, las tres reglas
    añadidas. Migración cero y reversible.
 4. **Cápsulas y prompts** — 10 → 2.
@@ -551,3 +553,63 @@ Modelo de datos (campo `parent`), CLI (`list` por épica, creación de hijos),
 viewer (agrupación) y configuración de ramas (`change_branch_format` necesita
 saber que el padre es la base). Es la razón de tratarlo como plan aparte: añade
 superficie mientras el recorte la quita.
+
+---
+
+## 15. El criterio que falta: qué decide el tamaño del ceremonial
+
+Contraste externo, octubre de 2026: `gentle-ai` v3.0.0 convirtió **Organic
+Driven Development** en el flujo por defecto de su orquestador y relegó su SDD a
+rama explícita, retirando *"ceremony that had become gatekeeping rather than
+value"*. No abandonaron SDD — sigue disponible y más ligero —, cambiaron cuál es
+el default. Las capacidades que quitaron de su ciclo son del mismo tipo que las
+de §2.3: la puerta de admisión a la investigación, la verificación como
+precondición del archivado, la atestación previa al cierre.
+
+Sirve porque resuelve un hueco que este plan deja abierto. §13.2 baja de 6 tipos
+a 2 y §2.3 retira `review_required` y `tdd` por tipo, pero **ninguno dice qué
+criterio ocupa su lugar**. Hoy el tipo es un proxy de tamaño: `quick` contra
+`feature` no distingue naturalezas, distingue volumen.
+
+### 15.1 La regla que se adopta
+
+> El ceremonial de un change lo deciden **comprensión, riesgo y
+> reanudabilidad**. Nunca el tamaño, ni el número de ficheros, ni el de tareas.
+
+Es falsable en los tres ejes, que es lo que le falta a «grande» y «pequeño»:
+
+- **Comprensión** — ¿hay que explorar el código antes de poder enunciar el
+  objetivo? Si no, no hay nada que planificar.
+- **Riesgo** — ¿toca una acción irreversible, superficie pública o verdad
+  persistente? Esa lista es objetiva, no un juicio por change.
+- **Reanudabilidad** — ¿se puede retomar esto **sólo con el diff**? Si no
+  —varias sesiones, esperas externas, requisitos que no sobreviven a una
+  compactación—, el documento existe para eso.
+
+Refuerza §7 por el otro lado: §7 impide que el **contrato** crezca; esto impide
+que crezca el **ceremonial por change**. Las dos recaídas son distintas.
+
+### 15.2 Dónde no aplica, y por qué importa
+
+Lo que ODD retiró son **puertas de admisión**: bloquean empezar o cerrar, no
+comprueban nada. Las caras de ChangeLedger también lo son — el DoR, el
+`approve` sobre Specification y Plan, planificar antes de investigar— y §3 ya
+las mueve o las mata.
+
+`check` no es una puerta de admisión: es validación determinista y barata, y es
+lo único que sostiene la verdad del repositorio cuando **sólo parte del equipo
+usa la herramienta**. Relajarlo no compra velocidad, retira la única garantía
+que no depende de disciplina humana. El recorte no lo toca.
+
+Por la misma razón, la reanudabilidad **no puede ser el único disparador** del
+documento, como lo es en ODD: allí el artefacto vive en la sesión del agente,
+aquí es historia del repositorio y lo lee quien no estuvo. Un change se escribe
+también cuando nadie necesita reanudarlo.
+
+### 15.3 Lo que no se importa
+
+- Test-first se mantiene como garantía (§4). Lo que cae es el flag `tdd` por
+  tipo (§2.3), no la obligación: por defecto, y cuando no aplica, la excepción
+  se nombra en el Log. Eso no añade puerta ninguna.
+- No se adopta un documento por feature aparte del change: sería un artefacto
+  nuevo con el plan entero quitando artefactos.
