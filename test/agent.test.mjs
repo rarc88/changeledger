@@ -28,7 +28,7 @@ import {
 } from '../src/commands/agent.mjs';
 import { edit } from '../src/commands/edit.mjs';
 import { fix } from '../src/commands/fix.mjs';
-import { skipGraduation } from '../src/commands/graduate.mjs';
+import { scaffoldSpec, skipGraduation } from '../src/commands/graduate.mjs';
 import { init as initializeRepo } from '../src/commands/init.mjs';
 import { newChange, newChangeFrom, scaffoldChange } from '../src/commands/new.mjs';
 import { resolveRemote } from '../src/commands/sync.mjs';
@@ -4047,6 +4047,37 @@ test('20261020-172221 CR7: neither seat creates a child of a missing, closed or 
 // Archiving hides a document; it does not resolve the work, so an archived
 // child still holds its parent open. `list --parent` hides it by default, so
 // the refusal has to say where to find it (20261020-172221 D3).
+// Three reading seats, one answer: `list --parent` hides an archived child,
+// `childrenOpenError` names it as hidden, and `show` used to list it with no
+// marker at all (20261020-172221 D3b).
+test('20261020-172221 CR7: show marks a child that `list --parent` hides', () => {
+  const { root, epicId } = epicWithChildren();
+  patchChange(root, '20260613-140000', (text) =>
+    text.replace('depends_on: []', 'depends_on: []\narchived: true'),
+  );
+  const children = show(epicId, root).children;
+  const archived = children.find((c) => String(c.id) === '20260613-140000');
+  const plain = children.find((c) => String(c.id) === '20260613-150000');
+  assert.equal(archived.archived, true, 'the hidden child is marked');
+  assert.equal(plain.archived, false, 'the listed one is not');
+});
+
+// `epic` is a template type a repo may rename or never adopt, and `parent`
+// accepts any id, so a refusal that asserts the type lies about the document
+// it names. The CR6 seat was taught this; the CR5 seat was not (D4 of round 5).
+test('20261020-172221 CR5: the graduation refusal does not call a non-epic parent an epic', () => {
+  const { root } = epicWithChildren();
+  patchChange(root, '20260613-140000', (text) => text.replace('status: draft', 'status: done'));
+  assert.throws(
+    () => scaffoldSpec('20260613-140000', 'alguna', root),
+    (error) => {
+      assert.match(error.message, /belongs to 20260613-110000/);
+      assert.doesNotMatch(error.message, /\bepic\b/);
+      return true;
+    },
+  );
+});
+
 test('20261020-172221 CR6/CR7: the refusal says an unresolved child is archived', () => {
   const { root, epicId } = epicWithChildren();
   const dir = path.join(root, '.changeledger', 'changes');

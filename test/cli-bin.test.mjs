@@ -651,6 +651,41 @@ test('105457 CR1/CR3: archive CLI transmits owner filters and rejects id combina
   assert.match(scopedId.err, /--owner and --unowned require --graduated/);
 });
 
+// `--from` owns every field of the document it carries, so a flag that would
+// contradict it is refused, never dropped. `--parent` used to vanish — and
+// since `--from` is the ONLY way to create a change in an activated repo,
+// that silent drop was the main path (20261020-172221 D2 of round 5).
+test('20261020-172221 CR7: --parent is refused with --from, like --owner, never dropped', () => {
+  const { root, env } = doneRepo();
+  const draft = path.join(root, 'draft.md');
+  fs.writeFileSync(
+    draft,
+    runIn(root, env, 'new', 'quick', 'hijo', 'Hijo', '--print', '--owner', 'Roberto Ruiz').out,
+  );
+
+  const refused = runIn(
+    root,
+    env,
+    'new',
+    'quick',
+    'hijo',
+    'Hijo',
+    '--from',
+    draft,
+    '--parent',
+    '20260613-110000',
+  );
+  assert.equal(refused.code, 1);
+  assert.match(refused.err, /declares its own parent; drop --parent/);
+  assert.ok(
+    !fs.readdirSync(path.join(root, '.changeledger', 'changes')).some((n) => n.includes('hijo')),
+    'a refused creation writes nothing',
+  );
+
+  // The flag is only refused next to `--from`; it still works on its own seat.
+  assert.equal(runIn(root, env, 'new', 'quick', 'hijo', 'Hijo', '--from', draft).code, 0);
+});
+
 // The bulk seat deletes no branches, so `--keep-branch` there is a promise it
 // never made. `--owner`/`--unowned` were already refused out of scope; this one
 // was silently ignored, and the help attached to the whole command read as if

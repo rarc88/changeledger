@@ -1156,14 +1156,14 @@ function childOf(parentId) {
   return { root, file, id, parentId };
 }
 
-test('20261020-172221 CR5: a child cannot link a spec and the refusal names its epic', () => {
+test('20261020-172221 CR5: a child cannot link a spec and the refusal names its parent', () => {
   const { root, id, parentId } = childOf('20260613-110000');
   for (const attempt of [
     () => scaffoldSpec(id, 'alguna-spec', root),
     () => graduate(id, 'alguna-spec', root, { into: true }),
   ]) {
     assert.throws(attempt, (error) => {
-      assert.match(error.message, new RegExp(`belongs to epic ${parentId}`));
+      assert.match(error.message, new RegExp(`belongs to ${parentId}`));
       assert.match(error.message, /--skip/);
       return true;
     });
@@ -1209,7 +1209,7 @@ test('20261020-172221 CR5: an activated repo refuses a child linking a spec too'
   assert.throws(
     () => graduate('20260613-120000', 'architecture', root, { into: true }),
     (error) => {
-      assert.match(error.message, new RegExp(`belongs to epic ${parentId}`));
+      assert.match(error.message, new RegExp(`belongs to ${parentId}`));
       return true;
     },
   );

@@ -313,6 +313,13 @@ program
       if (options.owner && options.from) {
         throw new Error('the document passed to --from declares its own owner; drop --owner');
       }
+      // Same rule as --owner: a field the incoming document owns is refused,
+      // never dropped. `--parent` used to vanish here, and since `--from` is
+      // the only way to create a change in an activated repo, that was the
+      // main path (20261020-172221 D2).
+      if (options.parent && options.from) {
+        throw new Error('the document passed to --from declares its own parent; drop --parent');
+      }
       if (options.print) {
         process.stdout.write(
           scaffoldChange({
@@ -1079,7 +1086,10 @@ program
         console.log(`#${c.id} ${c.frontmatter.title} [${c.frontmatter.status}]`);
         if (c.frontmatter.parent) console.log(`  parent: #${c.frontmatter.parent}`);
         for (const child of c.children) {
-          console.log(`  child: ${String(child.status).padEnd(12)} #${child.id}  ${child.title}`);
+          const hidden = child.archived ? ' (archived)' : '';
+          console.log(
+            `  child: ${String(child.status).padEnd(12)} #${child.id}  ${child.title}${hidden}`,
+          );
         }
       }
     }),

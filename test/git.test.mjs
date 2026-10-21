@@ -215,6 +215,11 @@ test('124836 CR7: no test creates a change without injecting an identity', () =>
         // right after `new`: a literal `--help` sitting in some other argument,
         // such as a fixture title, must not exempt a call that really creates.
         if (/'new',\s*'(-h|--help)'/.test(call.text)) continue;
+        // `new --from` lands a composed document and never resolves an
+        // identity: `newChangeFrom` takes the owner from the document, so it
+        // reaches no resolver and `--owner` beside it is refused outright
+        // (20261020-172221 D2). Exempt for the same reason as `--help`.
+        if (call.text.includes("'--from'")) continue;
         if (call.text.includes('--owner')) continue;
         offenders.push(`${suite}:${call.line} spawned \`new\` without --owner`);
       }

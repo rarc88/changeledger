@@ -793,6 +793,10 @@ export function show(id, cwd = process.cwd()) {
       id: x.frontmatter.id,
       title: x.frontmatter.title,
       status: x.frontmatter.status,
+      // `list --parent` hides an archived child by default, so a reader
+      // comparing the two seats would see this one appear and vanish. Same
+      // rule `childrenOpenError` already applies (20261020-172221 D3b).
+      archived: x.frontmatter.archived === true,
     }));
   return {
     id: c.frontmatter.id,

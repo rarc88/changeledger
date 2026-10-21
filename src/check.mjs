@@ -214,7 +214,7 @@ export function checkRepo({ config, changes, specs = [], releases = [], usage = 
   const counts = { validated: targets.length, notValidated: scoped.length - targets.length };
 
   const knownIds = new Set(changes.map((c) => String(c.frontmatter?.id ?? '')).filter(Boolean));
-  const incomingRelations = relatedBacklinks(changes);
+  const incomingRelations = declaredBacklinks(changes);
 
   for (const c of targets) {
     const fm = c.frontmatter ?? {};
@@ -249,15 +249,6 @@ export function checkRepo({ config, changes, specs = [], releases = [], usage = 
     if (statuses.includes(fm.status) && !TERMINAL_STATUSES.includes(fm.status)) {
       const requirement = releaseRequirementError(config, fm.type);
       if (requirement) err(c, requirement);
-    }
-    // The closure invariant as a repo rule, not only as a write-seat guard:
-    // `apply` validates its accumulated candidate here, so an entry order that
-    // closes the parent before creating the child is caught all the same
-    // (20261020-172221 D2). The write seats keep their own fail-fast guard —
-    // it refuses before any in-memory mutation and names the fix.
-    if (fm.status === 'done') {
-      const openChildrenError = childrenOpenError(changes, fm.id);
-      if (openChildrenError) err(c, openChildrenError);
     }
     if ('depends_on' in fm && !Array.isArray(fm.depends_on)) err(c, 'depends_on must be a list');
     if ('related_to' in fm && !Array.isArray(fm.related_to)) err(c, 'related_to must be a list');
@@ -367,6 +358,7 @@ export function checkRepo({ config, changes, specs = [], releases = [], usage = 
   }
 
   checkParents(changes, ids, err);
+  checkChildrenResolved(changes, err);
 
   const cycle = findCycle(graph);
   if (cycle) err(null, `dependency cycle: ${cycle.join(' → ')}`);
@@ -412,18 +404,26 @@ function usageRecordIssue({ name, record, error }) {
   return null;
 }
 
-function relatedBacklinks(changes) {
+// Every declared structural link that points AT a change, so naming its own
+// counterpart in prose is not an undeclared mention. `related_to` was exempt
+// in both directions and `parent` only in the child's, so an epic naming its
+// own child warned — and the remedy the warning names is `depends_on` or
+// `related_to`, the transitive edge this grouping exists to avoid
+// (20261020-172221 D3a).
+function declaredBacklinks(changes) {
   const incoming = new Map();
+  const add = (target, source) => {
+    if (target.includes(':')) return;
+    if (!incoming.has(target)) incoming.set(target, new Set());
+    incoming.get(target).add(source);
+  };
   for (const change of changes) {
     const source = String(change.frontmatter?.id ?? '');
+    if (!source) continue;
     const relations = change.frontmatter?.related_to;
-    if (!source || !Array.isArray(relations)) continue;
-    for (const raw of relations) {
-      const target = String(raw);
-      if (target.includes(':')) continue;
-      if (!incoming.has(target)) incoming.set(target, new Set());
-      incoming.get(target).add(source);
-    }
+    if (Array.isArray(relations)) for (const raw of relations) add(String(raw), source);
+    const parent = change.frontmatter?.parent;
+    if (typeof parent === 'string') add(parent, source);
   }
   return incoming;
 }
@@ -465,6 +465,27 @@ export function specDurabilityIssue(body) {
 // defects with one traversal, and the two are reported apart because the fix
 // differs: a cycle is a contradiction, a third level is a modelling choice the
 // human has to make.
+// The closure invariant as a repo rule, not only as a write-seat guard:
+// `apply` validates its accumulated candidate through `checkRepo`, so an entry
+// order that closes the parent before the child exists is caught all the same
+// (20261020-172221 D2). The write seats keep their own fail-fast guard, which
+// refuses before any in-memory mutation and names the fix.
+//
+// Repo-wide, NOT a per-document diagnostic: the first cut put it in the
+// subject loop, where it inherited the frozen-history exemption, so archiving
+// an epic turned a red repo green and every creation seat then accepted new
+// children under it. The exemption exists because a diagnostic about finished
+// work could only be fixed by rewriting it — and that is not this case: the
+// fix is to resolve the child, which is live. `frozenReason`'s own comment
+// already says a frozen change stays DATA for every repo-wide invariant.
+function checkChildrenResolved(changes, err) {
+  for (const c of changes) {
+    if (c.frontmatter?.status !== 'done') continue;
+    const message = childrenOpenError(changes, c.frontmatter.id);
+    if (message) err(c, message);
+  }
+}
+
 function checkParents(changes, ids, err) {
   const parentOf = new Map();
   for (const c of changes) {

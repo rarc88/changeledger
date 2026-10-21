@@ -89,7 +89,7 @@ export function assertParentOwnsGraduation(change) {
   const parent = change?.frontmatter?.parent;
   if (typeof parent !== 'string' || parent === '') return;
   throw new Error(
-    `change ${change.frontmatter.id} belongs to epic ${parent}: persistent truth is reconciled by the parent — use \`changeledger graduate ${change.frontmatter.id} --skip\``,
+    `change ${change.frontmatter.id} belongs to ${parent}: persistent truth is reconciled by the parent — use \`changeledger graduate ${change.frontmatter.id} --skip\``,
   );
 }
 

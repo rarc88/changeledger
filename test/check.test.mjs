@@ -407,6 +407,25 @@ test('20261020-172221 CR1: a malformed parent is named as such, not called a lis
   }
 });
 
+// Archiving hides a document; it does not resolve the work its children carry.
+// The first cut put this clause in the per-document subject loop, where it
+// inherited the frozen-history exemption, so `archive <epic>` turned a red
+// repo green and every creation seat then accepted new children under it
+// (20261020-172221 D1 of round 5).
+test('20261020-172221 CR6: archiving the parent does not retire the closure rule', () => {
+  const open = epic('20260613-120000', { parent: '20260613-110000', status: 'in-progress' });
+  const reported = (parentOverrides) =>
+    msgs(run([epic('20260613-110000', parentOverrides), open]).errors).some((m) =>
+      /unresolved children/.test(m),
+    );
+
+  assert.ok(reported({ status: 'done' }), 'a done parent with a live child is an error');
+  assert.ok(
+    reported({ status: 'done', archived: true }),
+    'archiving the parent must not silence it: the fix is on the child, which is live',
+  );
+});
+
 // The closure invariant is a repo rule, not only a write-seat guard. `apply`
 // validates its accumulated candidate through `checkRepo`, so this is what
 // catches an entry order that closes the parent before the child exists, and
@@ -454,6 +473,18 @@ test('20261020-172221 CR3: sharing a parent connects nothing and needs no backli
     msgs(run([dependsOnItsChild, a]).errors),
     [],
     'a parent that depends on its child is not a cycle: `parent` is not an edge of that graph',
+  );
+
+  // Both ends, like `related_to`: an epic naming its own child used to warn,
+  // and the remedy the warning names is `depends_on` or `related_to` — the
+  // transitive edge this grouping exists to avoid (20261020-172221 D3a).
+  const epicNamingItsChild = change({
+    frontmatter: { id: '20260613-110000' },
+    stages: [{ key: 'request', body: 'Incluye 20260613-120000.' }, { key: 'log' }],
+  });
+  assert.ok(
+    !msgs(run([epicNamingItsChild, a]).warnings).some((m) => /mentions change/.test(m)),
+    'a declared child must not warn on the parent end either',
   );
 
   // The parent is a declared link, so naming it in prose is not an undeclared
