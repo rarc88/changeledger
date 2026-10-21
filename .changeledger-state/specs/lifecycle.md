@@ -412,6 +412,24 @@ La discrepancia entre el checkout real y el `branch` registrado se reporta
 como un aviso no bloqueante en toda transición agent-owned (`20260808-141944`):
 nunca bloquea la transición ni reescribe el campo.
 
+**Cierre de una épica.** Un change con hijos —changes que lo declaran en
+`parent`— no alcanza `done` mientras alguno no esté en `done` o `discarded`;
+`discarded` cuenta como resuelto porque es una decisión registrada, no trabajo
+pendiente. El predicado vive en un solo sitio y lo leen tres asientos: los dos
+escritores de `done` (`status` y `review pass`) como guarda de fallo rápido,
+que rechaza antes de mutar el documento, y `checkRepo` como **invariante de
+repositorio**. Esa tercera lectura es la que hace que `apply` valide su
+candidato acumulado sea cual sea el orden de las entradas, que toda ruta futura
+a `done` herede la regla, y que ningún asiento de creación acepte un hijo bajo
+un padre ya cerrado. Es invariante de repositorio y no diagnóstico por
+documento **a propósito**: archivar la épica no retira la regla, porque archivar
+oculta un documento y no resuelve el trabajo de sus hijos, y el arreglo está en
+el hijo, que sigue vivo.
+
+La graduación a spec la posee el padre: un change con `parent` sólo resuelve la
+suya con `--skip`, y la reconciliación de verdad persistente del esfuerzo
+completo la hace la épica.
+
 ## Graduación
 
 El cierre de trabajo entregado reconcilia la verdad durable antes de archivar. Si
