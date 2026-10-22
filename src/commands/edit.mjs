@@ -22,7 +22,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { parseChange } from '../change.mjs';
 import { mutateLedgerFile } from '../change-store.mjs';
-import { checkRepo, newErrors } from '../check.mjs';
+import { introducedErrors } from '../check.mjs';
 import { assertSupportedSchema } from '../config-migration.mjs';
 import { loadRepo, resolveChangeInRepo } from '../repo.mjs';
 import { parseSpec } from '../spec.mjs';
@@ -94,13 +94,13 @@ export function prepareChangeEdit(repo, id, incoming) {
   // to one id, it stops before every aggregate check (duplicate ids, the
   // dependency graph, spec graduations), so a repo-wide break the edit
   // introduces used to land silently. Diffed against the repo's OWN current
-  // errors (`newErrors`) so a pre-existing, unrelated break elsewhere never
-  // bricks an edit that does not touch it — including the edit that would fix
-  // it.
+  // errors (`introducedErrors`) so a pre-existing, unrelated break elsewhere
+  // never bricks an edit that does not touch it — including the edit that
+  // would fix it.
   const changes = repo.changes.map((c) =>
     String(c.frontmatter?.id) === String(id) ? { ...c, text: incoming, ...parsed } : c,
   );
-  const introduced = newErrors(checkRepo(repo).errors, checkRepo({ ...repo, changes }).errors);
+  const introduced = introducedErrors(repo, { ...repo, changes });
   assertClean(id, introduced);
 
   return {
@@ -135,12 +135,12 @@ export function prepareSpecEdit(repo, slug, incoming) {
     owned: OWNED_SPEC_FIELDS,
   });
   // Specs have no per-document scope in `checkRepo`, so the whole repo is
-  // validated with the candidate in place and only the diagnostics attributed
-  // to this spec gate the write — a pre-existing error elsewhere is not this
-  // edit's to answer for.
+  // validated with the candidate in place and only the errors this edit
+  // introduces gate the write (20261022-213751) — the same rule as
+  // `prepareChangeEdit`. A pre-existing error, elsewhere or in this very spec,
+  // is not this edit's to answer for, so a broken spec can be fixed in parts.
   const specs = repo.specs.with(index, { ...current, ...parsed });
-  const errors = checkRepo({ ...repo, specs }).errors.filter((e) => e.file === name);
-  assertClean(subject, errors);
+  assertClean(subject, introducedErrors(repo, { ...repo, specs }));
 
   return {
     name,

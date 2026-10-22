@@ -58,7 +58,7 @@ function inactiveRepo() {
 // The worktree copy of the change is removed before activation, so any read or
 // write that fell back to disk fails outright instead of silently succeeding
 // against a stale document.
-function activatedRepo() {
+function activatedRepo({ extra = {} } = {}) {
   const { root, file, name, text, id } = inactiveRepo();
   const configText = fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8');
   fs.rmSync(file);
@@ -70,6 +70,9 @@ function activatedRepo() {
     '.changeledger-state/config.yml': configText,
     [`.changeledger-state/changes/${name}`]: text,
     [`.changeledger-state/specs/${SPEC_NAME}`]: specText(),
+    ...Object.fromEntries(
+      Object.entries(extra).map(([relPath, doc]) => [`.changeledger-state/${relPath}`, doc]),
+    ),
   });
   const revision = commitTree(root, tree, { message: 'chore: state' });
   updateRef(root, STATE_REF, revision);
@@ -418,6 +421,49 @@ test('CR7: the same spec edit is a plain atomic file replace when inactive', () 
 
   assert.equal(written.path, file);
   assert.equal(fs.readFileSync(file, 'utf8'), reconciled);
+});
+
+// 20261022-213751: `edit spec:` gates on the errors the edit introduces, the
+// same rule `edit <id>` follows, so a spec that already carries an error can be
+// rewritten in parts.
+// `check` names a spec's FIRST criterion heading only, so a heading an edit
+// adds is visible to it, and to the gate, when it leads.
+const verdadSpec = (paragraph, leadingHeading = '') =>
+  specText({
+    title: 'Verdad',
+    body: `${paragraph}\n\n${leadingHeading}### CR1 — una verdad\n\nTexto.`,
+  });
+
+test('20261022-213751 CR3: `edit spec:` accepts an edit that keeps its own pre-existing error and adds none', () => {
+  const { root } = activatedRepo({ extra: { 'specs/verdad.md': verdadSpec('Párrafo original.') } });
+  const tip = stateTip(root);
+  const next = verdadSpec('Párrafo distinto.');
+
+  const result = edit('spec:verdad', { from: source(root, next) }, root);
+
+  assert.equal(result.changed, true);
+  assert.notEqual(stateTip(root), tip);
+  assert.equal(stateDoc(root, 'specs/verdad.md'), next);
+});
+
+test('20261022-213751 CR4: `edit spec:` refuses only the error the edit introduces', () => {
+  const original = verdadSpec('Párrafo original.');
+  const { root } = activatedRepo({ extra: { 'specs/verdad.md': original } });
+  const tip = stateTip(root);
+  const next = verdadSpec('Párrafo original.', '### CR2 — otra\n\nMás.\n\n');
+
+  assert.throws(
+    () => edit('spec:verdad', { from: source(root, next) }, root),
+    (e) => {
+      assert.deepEqual(e.message.split('\n'), [
+        'edit spec:verdad refused, nothing was written — 1 validation error(s):',
+        '  verdad.md: spec contains change-local criterion heading "CR2"; rewrite it as durable current truth',
+      ]);
+      return true;
+    },
+  );
+  assert.equal(stateTip(root), tip);
+  assert.equal(stateDoc(root, 'specs/verdad.md'), original);
 });
 
 // 20260811-122031: `edit`'s candidate gate widens from the single document
