@@ -268,6 +268,13 @@ test('20261021-223918 CR1/CR2: the archive seats differ only in selection, and t
 // diverged again on the clause it had not copied. The inputs are the ones
 // that told those two apart.
 
+// Named once. Rounds 3, 4 and 6 each found a gap entry whose prose counted
+// these wrong, every time because a seat had landed and the sentence had
+// not been reread. A count that duplicates what the matrix knows goes stale;
+// this one is read from here.
+const ADMISSION_SEATS = ['scaffold', '--from', 'apply', 'edit', 'apply change:'];
+const ACTIVATED_REFUSES = ['scaffold'];
+
 const ADMISSION_INPUTS = [
   { input: 'a parent that does not exist', parent: '20200101-000000', expected: 'refuse' },
   { input: 'a parent that is itself a child', parent: '20260613-170000', expected: 'refuse' },
@@ -350,9 +357,10 @@ for (const { input, parent, expected } of ADMISSION_INPUTS) {
     answers.edit = outcome(() => edit('20260613-190000', { from: rewritten }, editRoot));
 
     // The fifth entry point: `apply` editing an existing document. It shares
-    // `prepareChangeEdit` with `edit` and adds `assertCandidateClean`, so it
-    // can refuse where `edit` accepts — which is exactly why it belongs in
-    // the matrix rather than in a gap.
+    // `prepareChangeEdit` with `edit` and adds `assertCandidateClean` on top,
+    // so on the parent rows the two agree — and on an input these rows do not
+    // carry they do not. That second half is gap 7, not this comment: the
+    // first wording claimed the matrix covered it, which it does not.
     const batchEditRoot = repo();
     hierarchy(batchEditRoot);
     const editManifest = path.join(batchEditRoot, 'batch-edit.json');
@@ -361,6 +369,12 @@ for (const { input, parent, expected } of ADMISSION_INPUTS) {
       JSON.stringify([{ target: 'change:20260613-190000', content: withParent }]),
     );
     answers['apply change:'] = outcome(() => apply({ from: editManifest }, batchEditRoot));
+
+    assert.deepEqual(
+      Object.keys(answers).sort(),
+      [...ADMISSION_SEATS].sort(),
+      'a seat was submitted or dropped without updating ADMISSION_SEATS, which the gap register reads',
+    );
 
     const verdicts = Object.fromEntries(
       Object.entries(answers).map(([seat, answer]) => [
@@ -442,7 +456,7 @@ const DECLARED_GAPS = [
     stillOpen: (body) => /if \(repo\.state\)/.test(body),
   },
   {
-    gap: 'every admission seat runs in the worktree layout; the scaffold is the only one an activated repo refuses, so `--from`, `apply` and `edit` all behave there untested by this matrix',
+    gap: `every admission seat runs in the worktree layout; an activated repo refuses ${ACTIVATED_REFUSES.join(', ')}, so the other ${ADMISSION_SEATS.length - ACTIVATED_REFUSES.length} — ${ADMISSION_SEATS.filter((seat) => !ACTIVATED_REFUSES.includes(seat)).join(', ')} — all behave there untested by this matrix`,
     in: ['src/commands/new.mjs', 'newChange'],
     stillOpen: (body) => /repoIsActivated\(repoRoot\)/.test(body),
   },
@@ -467,7 +481,17 @@ const DECLARED_GAPS = [
     stillOpen: (body) => /to = 'in-progress';/.test(body),
   },
   {
-    gap: 'admitting a SPEC document has two more seats, `edit spec:<slug>` and `apply --target spec:<slug>`; the admission matrix submits change documents only, and the two differ because `prepareSpecEdit` filters diagnostics to its own file while `assertCandidateClean` refuses on any candidate error',
+    // The same asymmetry as gap 6, one layer up and between two seats the
+    // matrix already submits — which is why it was easy to leave in a
+    // comment (round 6 D1). `assertCandidateClean` is the only thing that
+    // separates the two seats, and it could be deleted from production with
+    // every row here green.
+    gap: '`edit <id>` and `apply --target change:<id>` diverge on an input no row carries: with one pre-existing unrelated error in the repo, `edit` accepts a clean edit because `prepareChangeEdit` diffs with `newErrors`, and `apply` refuses because `assertCandidateClean` reads every candidate error',
+    in: ['src/commands/apply.mjs', 'assertCandidateClean'],
+    stillOpen: (body) => /errors\.length/.test(body),
+  },
+  {
+    gap: 'admitting a SPEC document — a caller handing over a whole document, which is what the other seats do, so `graduate --new` and `--into` are not seats of it — has two more, `edit spec:<slug>` and `apply --target spec:<slug>`; the admission matrix submits change documents only, and the two differ because `prepareSpecEdit` filters diagnostics to its own file while `assertCandidateClean` refuses on any candidate error',
     in: ['src/commands/edit.mjs', 'prepareSpecEdit'],
     stillOpen: (body) => /\.filter\(\(e\) => e\.file === name\)/.test(body),
   },
