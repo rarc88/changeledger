@@ -180,9 +180,10 @@ se fijan en los criterios.
   - **Verify:** `node --test test/apply.test.mjs`
   - **Criteria:** CR7
   - **Resolved:** `2026-10-22T23:14:32Z`
-- [ ] Suite completa y puertas del repo
+- [x] Suite completa y puertas del repo
   - **Support:**
   - **Verify:** `pnpm verify`
+  - **Resolved:** `2026-10-22T23:27:45Z`
 
 ## Log
 - **2026-10-22T21:37:51Z** `[version]` 0.18.0
