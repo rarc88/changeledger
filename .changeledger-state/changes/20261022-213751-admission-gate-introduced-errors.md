@@ -2,7 +2,7 @@
 id: "20261022-213751"
 title: Converger las puertas de admisión sobre los errores que la escritura introduce
 type: bug
-status: draft
+status: approved
 created: 2026-10-22T21:37:51Z
 depends_on: []
 related_to: ["20261021-223918", "20260811-122031"]
@@ -179,3 +179,4 @@ se fijan en los criterios.
 
 ## Log
 - **2026-10-22T21:37:51Z** `[version]` 0.18.0
+- **2026-10-22T21:44:58Z** `[status]` draft → approved (human via conversation)
