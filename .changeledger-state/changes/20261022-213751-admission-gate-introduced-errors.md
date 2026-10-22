@@ -2,7 +2,7 @@
 id: "20261022-213751"
 title: Converger las puertas de admisión sobre los errores que la escritura introduce
 type: bug
-status: in-progress
+status: in-review
 created: 2026-10-22T21:37:51Z
 depends_on: ["20261021-223918"]
 branch: bug/20261022-213751
@@ -195,3 +195,4 @@ se fijan en los criterios.
 - **2026-10-22T23:15:05Z** `[note]` Corrección de la nota anterior: aquella enmienda NO aterrizó (el script de reemplazo falló en la primera sustitución y edit reportó byte-idéntico), aunque la nota se escribió después como si hubiera ocurrido. La enmienda descrita aterriza en esta edición: CR2, CR4, Verify de la tarea 1, depends_on, CR6 ampliado y tareas 3 y 4 desbloqueadas. El commit de la selección A es correcto y no se ve afectado.
 - **2026-10-22T23:25:30Z** `[note]` Selección B verde (11/11 en test/seats-matrix.test.mjs, cero 'still diverge'; mutante por sede: cada sustitución de introducedErrors por la forma de todos-los-errores pone en rojo la fila nueva exactamente en las sedes que corren esa llamada). Corrección de alcance sobre mi enmienda anterior: 'ninguna entrada alcanza assertCandidateClean' era falso. Ejecutado: un manifiesto [{op:'task', action:'block', n:1}] sobre un change done con todas las tareas hechas se rechaza en ese guard, en ambos modos, con 'the resulting candidate carries 1 validation error(s): … status is "done" but 1 task(s) are not done'. CR2 y CR6 se estrechan a lo ejecutado: ninguna entrada de DOCUMENTO lo alcanza; las de evento sí. Divergencia nueva, fuera de alcance por la cláusula 'cualquier otra sede': la sede suelta task <id> block escribe ese mismo bloqueo y deja el repo con ese error de check, mientras apply {op:task} lo rechaza. Se propone como follow-up; no se toca aquí. Residual del implementador: edit spec: y apply --target spec: no son sedes de la matriz de admisión, así que el mutante de prepareSpecEdit sobrevive a este fichero; la rotura previa ajena para specs queda cubierta solo por CR1 y CR3 en test/apply.test.mjs y test/edit.test.mjs.
 - **2026-10-22T23:27:46Z** `[note]` Tarea 6: pnpm verify — biome limpio (134 ficheros), suite 2123/2124; el único fallo es 'CR6: the skeletons ship in the publishable package' en test/agent-prompt.test.mjs, preexistente en dev y ajeno a este change (npm 12 imprime npm pack --json como objeto por nombre de paquete y el test lee [0].files); changeledger check en verde por separado.
+- **2026-10-22T23:27:46Z** `[status]` in-progress → in-review
