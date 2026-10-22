@@ -137,8 +137,8 @@ export function prepareSpecEdit(repo, slug, incoming) {
   // Specs have no per-document scope in `checkRepo`, so the whole repo is
   // validated with the candidate in place and only the errors this edit
   // introduces gate the write (20261022-213751) — the same rule as
-  // `prepareChangeEdit`. A pre-existing error, elsewhere or in this very spec,
-  // is not this edit's to answer for, so a broken spec can be fixed in parts.
+  // `prepareChangeEdit`: an error `check` already reported before the edit, in
+  // this spec or elsewhere, does not refuse an edit that adds no new one.
   const specs = repo.specs.with(index, { ...current, ...parsed });
   assertClean(subject, introducedErrors(repo, { ...repo, specs }));
 

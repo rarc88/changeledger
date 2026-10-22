@@ -11,12 +11,14 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { parseChange } from '../src/change.mjs';
+import { checkRepo } from '../src/check.mjs';
 import { show } from '../src/commands/agent.mjs';
 import { apply } from '../src/commands/apply.mjs';
 import { scaffoldSpec } from '../src/commands/graduate.mjs';
 import { init as initializeRepo } from '../src/commands/init.mjs';
 import { newChange, scaffoldChange } from '../src/commands/new.mjs';
 import { VERSION } from '../src/framing.mjs';
+import { loadRepo } from '../src/repo.mjs';
 import {
   mutateState,
   readStateRef,
@@ -502,7 +504,20 @@ test('CR7: dry-run stays clean when the candidate carries only warnings', () => 
 // already in the ledger BEFORE the batch. A manifest that does not touch it
 // does not introduce it, so it does not refuse that manifest (CR1).
 const erroringSpec = specText('## CR1 — criterio local\n\nTexto.');
+const INHERITED_ERROR = `${SPEC_NAME}: spec contains change-local criterion heading "CR1"; rewrite it as durable current truth`;
 const MISSING_DEP = '20200101-000001';
+
+// Guard of every test whose point is an error the ledger already carries: the
+// fixture must really carry it before the operation, or the test passes for a
+// reason that has nothing to do with the gate.
+function assertCarries(root, error) {
+  assert.ok(
+    checkRepo(loadRepo(root))
+      .errors.map((e) => `${e.file}: ${e.message}`)
+      .includes(error),
+    `the fixture does not carry ${error}`,
+  );
+}
 
 // The change entry that introduces exactly one error of its own: a dependency
 // on a change this ledger does not hold.
@@ -511,6 +526,7 @@ const withMissingDependency = (text) =>
 
 test('20261022-213751 CR1: apply lands a clean change entry past an error the repo already carries', () => {
   const { root, name, text, id } = activatedRepo({ spec: erroringSpec });
+  assertCarries(root, INHERITED_ERROR);
   const tip = stateTip(root);
   const edited = filled(text, 'Otro cuerpo.');
   const from = manifest(root, [{ target: `change:${id}`, content: edited }]);
@@ -532,6 +548,7 @@ test('20261022-213751 CR1: apply lands a clean spec entry past an error another 
     spec: erroringSpec,
     extra: { 'specs/otra-spec.md': specText('Contrato limpio.', 'Otra spec') },
   });
+  assertCarries(root, INHERITED_ERROR);
   const tip = stateTip(root);
   const next = specText('Contrato limpio, párrafo reescrito.', 'Otra spec');
   const from = manifest(root, [{ target: 'spec:otra-spec', content: next }]);
@@ -551,11 +568,12 @@ test('20261022-213751 CR1: apply lands a clean spec entry past an error another 
 // The entry's own seat refuses first, so the refusal is `apply`'s entry
 // envelope around it; what it lists is the one error the batch introduces and
 // not the inherited `demo-spec.md` one.
-const REFUSED_ENTRY =
-  /^apply refused, nothing was written — entry 1 \(.+\): .+ 1 validation error\(s\):$/;
+const missingDependencyRefusal = (id, name) =>
+  `apply refused, nothing was written — entry 1 (change:${id}): edit ${id} refused, nothing was written — 1 validation error(s):\n  ${name}: depends_on references missing change "${MISSING_DEP}"`;
 
 function assertRefusesIntroducedOnly(dryRun) {
   const { root, name, text, id } = activatedRepo({ spec: erroringSpec });
+  assertCarries(root, INHERITED_ERROR);
   const tip = stateTip(root);
 
   assert.throws(
@@ -568,11 +586,7 @@ function assertRefusesIntroducedOnly(dryRun) {
         root,
       ),
     (e) => {
-      const [first, ...details] = e.message.split('\n');
-      assert.match(first, REFUSED_ENTRY);
-      assert.deepEqual(details, [
-        `  ${name}: depends_on references missing change "${MISSING_DEP}"`,
-      ]);
+      assert.equal(e.message, missingDependencyRefusal(id, name));
       return true;
     },
   );
@@ -594,6 +608,7 @@ test('20261022-213751 CR2: landing still refuses the error the batch introduces,
 
 test('20261022-213751 CR2: the CLI exits non-zero in both modes on an error the batch introduces', () => {
   const { root, name, text, id } = activatedRepo({ spec: erroringSpec });
+  assertCarries(root, INHERITED_ERROR);
   const tip = stateTip(root);
   const bin = fileURLToPath(new URL('../bin/changeledger.mjs', import.meta.url));
   const batch = JSON.stringify([{ target: `change:${id}`, content: withMissingDependency(text) }]);
@@ -611,10 +626,7 @@ test('20261022-213751 CR2: the CLI exits non-zero in both modes on an error the 
   ]) {
     const result = run(args);
     assert.notEqual(result.status, 0, args.join(' '));
-    assert.match(
-      result.stderr,
-      new RegExp(`depends_on references missing change "${MISSING_DEP}"`),
-    );
+    assert.equal(result.stderr, `Error: ${missingDependencyRefusal(id, name)}\n`, args.join(' '));
   }
   assert.equal(stateTip(root), tip);
   assert.equal(stateDoc(root, `changes/${name}`), text);
@@ -625,9 +637,14 @@ test('20261022-213751 CR2: the CLI exits non-zero in both modes on an error the 
 // adds is visible to it, and to the gate, when it leads.
 const verdadSpec = (paragraph, leadingHeading = '') =>
   specText(`${paragraph}\n\n${leadingHeading}### CR1 — una verdad\n\nTexto.`, 'Verdad');
+const VERDAD_CR1_ERROR =
+  'verdad.md: spec contains change-local criterion heading "CR1"; rewrite it as durable current truth';
+const specRefusal = (detail) =>
+  `apply refused, nothing was written — entry 1 (spec:verdad): edit spec:verdad refused, nothing was written — 1 validation error(s):\n  ${detail}`;
 
 test('20261022-213751 CR3: apply accepts a spec edit that keeps its own pre-existing error and adds none', () => {
   const { root } = activatedRepo({ extra: { 'specs/verdad.md': verdadSpec('Párrafo original.') } });
+  assertCarries(root, VERDAD_CR1_ERROR);
   const tip = stateTip(root);
   const next = verdadSpec('Párrafo distinto.');
 
@@ -641,17 +658,45 @@ test('20261022-213751 CR3: apply accepts a spec edit that keeps its own pre-exis
 test('20261022-213751 CR4: apply refuses only the error the spec edit introduces', () => {
   const original = verdadSpec('Párrafo original.');
   const { root } = activatedRepo({ extra: { 'specs/verdad.md': original } });
+  assertCarries(root, VERDAD_CR1_ERROR);
   const tip = stateTip(root);
   const next = verdadSpec('Párrafo original.', '### CR2 — otra\n\nMás.\n\n');
 
   assert.throws(
     () => apply({ from: manifest(root, [{ target: 'spec:verdad', content: next }]) }, root),
     (e) => {
-      const [first, ...details] = e.message.split('\n');
-      assert.match(first, REFUSED_ENTRY);
-      assert.deepEqual(details, [
-        '  verdad.md: spec contains change-local criterion heading "CR2"; rewrite it as durable current truth',
-      ]);
+      assert.equal(
+        e.message,
+        specRefusal(
+          'verdad.md: spec contains change-local criterion heading "CR2"; rewrite it as durable current truth',
+        ),
+      );
+      return true;
+    },
+  );
+  assert.equal(stateTip(root), tip);
+  assert.equal(stateDoc(root, 'specs/verdad.md'), original);
+});
+
+// The CR4 fixture cannot tell "only the introduced error" from "every error":
+// the leading CR2 heading hides CR1 from `check`, so the candidate carries one
+// error either way. Here the pre-existing error is in the frontmatter, which
+// the edit keeps, so it is still in the candidate when the gate runs.
+const STALE_UPDATED_ERROR = 'verdad.md: updated not ISO 8601 UTC: ayer';
+const staleVerdadSpec = (body) =>
+  specText(body, 'Verdad').replace('updated: 2026-08-08T00:00:00Z', 'updated: ayer');
+
+test('20261022-213751 CR4: apply refuses only the introduced error while the spec keeps a pre-existing one', () => {
+  const original = staleVerdadSpec('Párrafo original.');
+  const { root } = activatedRepo({ extra: { 'specs/verdad.md': original } });
+  assertCarries(root, STALE_UPDATED_ERROR);
+  const tip = stateTip(root);
+  const next = staleVerdadSpec('Párrafo original.\n\n### CR1 — una verdad\n\nTexto.');
+
+  assert.throws(
+    () => apply({ from: manifest(root, [{ target: 'spec:verdad', content: next }]) }, root),
+    (e) => {
+      assert.equal(e.message, specRefusal(VERDAD_CR1_ERROR));
       return true;
     },
   );
@@ -660,8 +705,8 @@ test('20261022-213751 CR4: apply refuses only the error the spec edit introduces
 });
 
 // The day after a `graduate --new`: its seed still carries the change's own
-// criterion heading, so `check` reports it until the human rewrites it. The
-// rest of the ledger keeps moving meanwhile.
+// criterion heading, so `check` reports it until the human rewrites it. A
+// batch on another change still lands meanwhile.
 const DONE_ID = '20260601-100000';
 const DONE_NAME = `${DONE_ID}-graduable.md`;
 const doneChange = `---
@@ -739,6 +784,48 @@ test('20261022-213751 CR7: a pending `graduate --new` scaffold does not block th
   const after = check();
   assert.equal(after.status, 1);
   assert.match(after.stdout + after.stderr, scaffoldError);
+});
+
+// `apply`'s own candidate gate, `assertCandidateClean`: every per-entry seat
+// passes, and the error only exists once the event has rewritten the document.
+// Blocking the only task of a `done` change is such an event: the `task` seat
+// does not refuse it, so the refusal is the candidate's, in both modes, and
+// names only that one error.
+const doneWithResolvedTask = doneChange.replace(
+  '## Plan\n',
+  '## Plan\n\n- [x] Hacer la verdad\n  - **Criteria:** CR1\n  - **Resolved:** `2026-06-01T10:00:00Z`\n',
+);
+
+function assertCandidateGateRefuses(dryRun) {
+  const { root } = activatedRepo({ extra: { [`changes/${DONE_NAME}`]: doneWithResolvedTask } });
+  assert.deepEqual(
+    checkRepo(loadRepo(root)).errors.map((e) => `${e.file}: ${e.message}`),
+    [],
+    'the fixture must start clean, so the one error below is the batch’s own',
+  );
+  const tip = stateTip(root);
+  const from = manifest(root, [{ op: 'task', id: DONE_ID, action: 'block', n: 1, reason: 'r' }]);
+
+  assert.throws(
+    () => apply({ dryRun, from }, root),
+    (e) => {
+      assert.equal(
+        e.message,
+        `${dryRun ? 'apply dry run' : 'apply'} refused, nothing was written — the resulting candidate carries 1 validation error(s):\n  ${DONE_NAME}: status is "done" but 1 task(s) are not done`,
+      );
+      return true;
+    },
+  );
+  assert.equal(stateTip(root), tip);
+  assert.equal(stateDoc(root, `changes/${DONE_NAME}`), doneWithResolvedTask);
+}
+
+test('20261022-213751 CR2: the candidate gate refuses the error an event entry leaves behind, landing', () => {
+  assertCandidateGateRefuses(false);
+});
+
+test('20261022-213751 CR2: the candidate gate refuses the error an event entry leaves behind, dry run', () => {
+  assertCandidateGateRefuses(true);
 });
 
 test('CR1/CR7: the CLI reads the manifest from stdin and refuses to land a dry run', () => {

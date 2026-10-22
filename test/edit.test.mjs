@@ -12,10 +12,12 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { parseChange } from '../src/change.mjs';
+import { checkRepo } from '../src/check.mjs';
 import { show } from '../src/commands/agent.mjs';
 import { edit } from '../src/commands/edit.mjs';
 import { init as initializeRepo } from '../src/commands/init.mjs';
 import { newChange, newChangeFrom, scaffoldChange } from '../src/commands/new.mjs';
+import { loadRepo } from '../src/repo.mjs';
 import { readSnapshot, STATE_REF, STATE_ROOT, writeActivation } from '../src/state-store.mjs';
 import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
@@ -424,8 +426,8 @@ test('CR7: the same spec edit is a plain atomic file replace when inactive', () 
 });
 
 // 20261022-213751: `edit spec:` gates on the errors the edit introduces, the
-// same rule `edit <id>` follows, so a spec that already carries an error can be
-// rewritten in parts.
+// same rule `edit <id>` follows: an error `check` already reported before the
+// edit, in this spec or elsewhere, does not refuse an edit that adds no new one.
 // `check` names a spec's FIRST criterion heading only, so a heading an edit
 // adds is visible to it, and to the gate, when it leads.
 const verdadSpec = (paragraph, leadingHeading = '') =>
@@ -433,9 +435,23 @@ const verdadSpec = (paragraph, leadingHeading = '') =>
     title: 'Verdad',
     body: `${paragraph}\n\n${leadingHeading}### CR1 — una verdad\n\nTexto.`,
   });
+const VERDAD_CR1_ERROR =
+  'verdad.md: spec contains change-local criterion heading "CR1"; rewrite it as durable current truth';
+
+// The fixture must really carry the pre-existing error before the edit, or the
+// test passes for a reason that has nothing to do with the gate.
+function assertCarries(root, error) {
+  assert.ok(
+    checkRepo(loadRepo(root))
+      .errors.map((e) => `${e.file}: ${e.message}`)
+      .includes(error),
+    `the fixture does not carry ${error}`,
+  );
+}
 
 test('20261022-213751 CR3: `edit spec:` accepts an edit that keeps its own pre-existing error and adds none', () => {
   const { root } = activatedRepo({ extra: { 'specs/verdad.md': verdadSpec('Párrafo original.') } });
+  assertCarries(root, VERDAD_CR1_ERROR);
   const tip = stateTip(root);
   const next = verdadSpec('Párrafo distinto.');
 
@@ -449,6 +465,7 @@ test('20261022-213751 CR3: `edit spec:` accepts an edit that keeps its own pre-e
 test('20261022-213751 CR4: `edit spec:` refuses only the error the edit introduces', () => {
   const original = verdadSpec('Párrafo original.');
   const { root } = activatedRepo({ extra: { 'specs/verdad.md': original } });
+  assertCarries(root, VERDAD_CR1_ERROR);
   const tip = stateTip(root);
   const next = verdadSpec('Párrafo original.', '### CR2 — otra\n\nMás.\n\n');
 
@@ -459,6 +476,35 @@ test('20261022-213751 CR4: `edit spec:` refuses only the error the edit introduc
         'edit spec:verdad refused, nothing was written — 1 validation error(s):',
         '  verdad.md: spec contains change-local criterion heading "CR2"; rewrite it as durable current truth',
       ]);
+      return true;
+    },
+  );
+  assert.equal(stateTip(root), tip);
+  assert.equal(stateDoc(root, 'specs/verdad.md'), original);
+});
+
+// The CR4 fixture cannot tell "only the introduced error" from "every error":
+// the leading CR2 heading hides CR1 from `check`, so the candidate carries one
+// error either way. Here the pre-existing error is in the frontmatter, which
+// the edit keeps, so it is still in the candidate when the gate runs.
+const STALE_UPDATED_ERROR = 'verdad.md: updated not ISO 8601 UTC: ayer';
+const staleVerdadSpec = (body) =>
+  specText({ title: 'Verdad', body }).replace('updated: 2026-08-08T00:00:00Z', 'updated: ayer');
+
+test('20261022-213751 CR4: `edit spec:` refuses only the introduced error while the spec keeps a pre-existing one', () => {
+  const original = staleVerdadSpec('Párrafo original.');
+  const { root } = activatedRepo({ extra: { 'specs/verdad.md': original } });
+  assertCarries(root, STALE_UPDATED_ERROR);
+  const tip = stateTip(root);
+  const next = staleVerdadSpec('Párrafo original.\n\n### CR1 — una verdad\n\nTexto.');
+
+  assert.throws(
+    () => edit('spec:verdad', { from: source(root, next) }, root),
+    (e) => {
+      assert.equal(
+        e.message,
+        `edit spec:verdad refused, nothing was written — 1 validation error(s):\n  ${VERDAD_CR1_ERROR}`,
+      );
       return true;
     },
   );
