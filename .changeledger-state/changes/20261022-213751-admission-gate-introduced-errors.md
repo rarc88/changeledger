@@ -2,7 +2,7 @@
 id: "20261022-213751"
 title: Converger las puertas de admisión sobre los errores que la escritura introduce
 type: bug
-status: in-review
+status: in-progress
 created: 2026-10-22T21:37:51Z
 depends_on: ["20261021-223918"]
 branch: bug/20261022-213751
@@ -197,3 +197,4 @@ se fijan en los criterios.
 - **2026-10-22T23:27:46Z** `[note]` Tarea 6: pnpm verify — biome limpio (134 ficheros), suite 2123/2124; el único fallo es 'CR6: the skeletons ship in the publishable package' en test/agent-prompt.test.mjs, preexistente en dev y ajeno a este change (npm 12 imprime npm pack --json como objeto por nombre de paquete y el test lee [0].files); changeledger check en verde por separado.
 - **2026-10-22T23:27:46Z** `[status]` in-progress → in-review
 - **2026-10-22T23:27:51Z** `[note]` Mandato de la revisión (ronda 1): auditoría completa del diff dev..HEAD de la rama bug/20261022-213751 —dos commits, src/check.mjs, src/commands/{apply,edit,new}.mjs, test/{apply,edit,seats-matrix}.test.mjs— contra CR1-CR7 y contra la superficie que el change gobierna: las cinco sedes de admisión y su regla única. Fuera del mandato se reporta sin inspeccionar.
+- **2026-10-22T23:42:33Z** `[review]` in-review → in-progress: ronda 1 (auditoría completa): comportamiento de las cinco sedes correcto y confirmado con mutantes por sede; cinco defectos de verificación y prosa. D1: assertCandidateClean se quedó sin ningún test (convertirlo en no-op deja 0 fallos; en dev 3), regresión de cobertura al retargetear los tests antiguos; la cláusula And de CR2 (task block sobre done) no la ejercita nadie. D2: el comentario de edit.mjs 'a broken spec can be fixed in parts' es falso — con CR1 y CR2 en la spec, reescribir CR1 primero se rechaza por CR2 porque check solo nombra el primer heading; misma exageración en la Investigation. D3: los tests de CR4 no discriminan — con el heading delante, el error previo CR1 desaparece del candidato y 'only' se cumple también con la forma de todos-los-errores y con el filtro antiguo. D4: CR2 y la mitad apply de CR4 fijan la primera línea con una regex que sobrevive a cambiar el texto de la envoltura. D5: el Given de CR5 nombra repoWithUnrelatedBreak, borrado por este change (ahora unrelatedBreak). Clasificación: enumeración incompleta dentro de la estrategia verificada; corrección normal sobre el mismo diff.
