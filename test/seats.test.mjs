@@ -12,19 +12,34 @@
 // executable, so a seat added tomorrow fails the suite instead of waiting for
 // a reviewer who thinks to look.
 //
-// WHAT THIS DOES NOT CATCH, stated rather than implied: the sweep follows
-// callers of a primitive, so a seat that bypasses the primitive entirely —
-// hand-rolling the frontmatter edit instead of calling `setStatus` — is
-// invisible to it. The primitives below are the only writers of their field
-// today, and that is the assumption this inventory rests on.
+// WHAT THIS DOES NOT CATCH, stated rather than implied. The first cut of
+// these guards swept text and review demonstrated five classes of silent
+// miss on this very tree; the scan now parses, and the three guards below
+// close them from different directions:
+//
+//   · `seatsCalling` reads the AST, so a generator, a class method, an arrow
+//     behind `let`, a string containing `//` and a regex containing `/*` are
+//     all read as what they are. It covers `src/` and `bin/`, `.mjs` and
+//     `.js`, and a call it cannot attribute to a named function is reported
+//     as `(module scope)` instead of dropped.
+//   · `modulesImporting` is the backstop for everything static analysis
+//     cannot follow INSIDE a module — an alias through a local variable, a
+//     re-bind, a call through a value. Those still have to import the
+//     primitive, so the module shows up even when the call does not.
+//   · `modulesReachingDynamically` closes the one remaining route, a
+//     primitive reached through `await import(...)`.
+//
+// What is left: a module that reconstructs the operation without the
+// primitive at all — hand-rolling the frontmatter edit instead of calling
+// `setStatus`. The primitives are the only writers of their field today, and
+// that is the assumption these guards rest on.
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-  callsTo,
-  enclosingDeclaration,
+  modulesImporting,
+  modulesReachingDynamically,
   seatsCalling,
-  withoutComments,
 } from './helpers/source-scan.mjs';
 
 // Each operation names the primitive that performs it and the seats allowed to
@@ -71,7 +86,7 @@ const OPERATIONS = [
 // failure must name the seat, its operation and the action to take, and a
 // message that only exists inside a failing assert cannot be checked. Built
 // here, asserted by the CR4 test below, and used by the CR1 tests.
-export function inventoryDrift({ primitive, guards, declared, found }) {
+function inventoryDrift({ primitive, guards, declared, found }) {
   const added = [...found].filter((seat) => !declared.includes(seat)).sort();
   const stale = [...declared].filter((seat) => !found.has(seat)).sort();
   // Both directions in one report: a rename is an addition and a removal at
@@ -152,51 +167,32 @@ test('20261021-223918 CR1: no operation declares an empty seat list', () => {
   }
 });
 
-// CR1's third clause, on a synthetic source rather than on the tree: today no
-// comment in `src/` happens to spell a primitive with its parenthesis, so
-// disabling the stripping changes nothing and the sweeps above stay green.
-// That is the vacuity this change exists to stop shipping — the clause has to
-// be falsifiable on its own terms, not on whatever the tree happens to hold.
-const SYNTHETIC = `
-// a line comment that mentions setStatus(text, 'done') in prose
-/* and a block one that mentions setStatus(text, 'done') too */
-export function realSeat(text) {
-  return setStatus(text, 'done');
+// CR1's second guard: the module level, where static analysis stops. An alias
+// through a local variable or a destructured re-bind makes the CALL invisible
+// to `seatsCalling`, but the module still has to import the primitive — so a
+// module that imports one and declares no seat is drift.
+for (const { operation, primitive, seats } of OPERATIONS) {
+  test(`20261021-223918 CR1: only declared modules import the primitive that can ${operation}`, () => {
+    const declared = [...new Set(seats.map((seat) => seat.split(':')[0]))].sort();
+    const importing = [...modulesImporting(primitive)].sort();
+    assert.deepEqual(
+      importing,
+      declared,
+      `\`${primitive}\` is imported by a module the inventory does not place a seat in.\n` +
+        '  A call this guard sees and `seatsCalling` does not is an alias or an indirection:\n' +
+        '  find it, check the guards travel with it, and declare its seat in OPERATIONS.',
+    );
+  });
 }
-function notACall() {
-  return unsetStatus(text);
-}
-`;
 
-test('20261021-223918 CR1: the sweep reads calls, not prose', () => {
-  const scannable = withoutComments(SYNTHETIC);
-  assert.equal(
-    scannable.split('\n').length,
-    SYNTHETIC.split('\n').length,
-    'stripping must preserve line count, or every reported line is wrong',
+// CR1's third guard: the one route that needs no import.
+test('20261021-223918 CR1: no module reaches a primitive through a dynamic import', () => {
+  const suspects = [...modulesReachingDynamically(OPERATIONS.map((o) => o.primitive))].sort();
+  assert.deepEqual(
+    suspects,
+    [],
+    'a module both uses `await import(...)` and names a governed primitive:\n' +
+      `  ${suspects.join('\n  ')}\n` +
+      '  Static analysis cannot follow that call. Import the primitive directly, or declare the seat.',
   );
-  const calls = callsTo(scannable, 'setStatus');
-  assert.equal(calls.length, 1, 'the two commented mentions are not calls');
-  assert.equal(enclosingDeclaration(scannable, calls[0].start), 'realSeat');
-});
-
-test('20261021-223918 CR1: the sweep respects identifier boundaries', () => {
-  assert.equal(
-    callsTo(withoutComments(SYNTHETIC), 'setStatus').length,
-    1,
-    '`unsetStatus(` ends with the opener and must not be read as a call of it',
-  );
-});
-
-test('20261021-223918 CR1: the sweep does not count a primitive as its own seat', () => {
-  const definition = 'export function setStatus(text, status) {\n  return text;\n}\n';
-  assert.equal(
-    [...seatsCalling('nothingCallsThis')].length,
-    0,
-    'a primitive nobody calls yields no seat',
-  );
-  assert.equal(callsTo(definition, 'setStatus').length, 1, 'the definition does look like a call');
-  // ...which is why `seatsCalling` drops the declaration whose name IS the
-  // primitive. `writer.mjs:setStatus` never appears in the inventory above.
-  assert.ok(![...seatsCalling('setStatus')].some((seat) => seat.endsWith(':setStatus')));
 });

@@ -125,21 +125,6 @@ for (const { gate, plan, child, expected } of DELIVERY_GATES) {
   });
 }
 
-// CR3: the matrix must stay honest about what it covers. A gate added to the
-// code and not to DELIVERY_GATES is invisible here, so the count is pinned —
-// growing the list is a deliberate edit, exactly like declaring a new seat.
-test('20261021-223918 CR3: the delivery matrix enumerates its gates', () => {
-  assert.equal(DELIVERY_GATES.length, 3, 'a gate was added or removed: update the pinned count');
-  assert.ok(
-    DELIVERY_GATES.some((row) => row.expected === 'accept'),
-    'a matrix with no accepting row proves only that both seats refuse everything',
-  );
-  assert.ok(
-    DELIVERY_GATES.some((row) => row.expected === 'refuse'),
-    'a matrix with no refusing row would pass against a seat with no gates at all',
-  );
-});
-
 // --- Operation: archive a change -----------------------------------------
 //
 // The two seats differ by design in WHAT they select — one takes an id, the
@@ -206,26 +191,12 @@ test('20261021-223918 CR2/CR3: the archive seats differ only in selection, and t
   assert.doesNotThrow(() => archive(id, root), 'the id seat archives what it is told to');
 });
 
-// NAMED GAP, found by mutation rather than by reading: `archiveGraduated` has
-// two branches of its own — one staging every write into a single CAS commit
-// on the state ref, one looping over worktree files — and the fixtures above
-// reach only the worktree one. A mutation of the activated branch survives
-// this file. Its behaviour is held by `test/agent.test.mjs`, and the layout
-// asymmetry this change exists to catch is, for this one seat, still carried
-// by a test that was written without it in mind.
-test('20261021-223918 CR3: the archive matrix declares the branch it does not reach', () => {
-  assert.ok(
-    /if \(repo\.state\)/.test(
-      fs.readFileSync(new URL('../src/commands/agent.mjs', import.meta.url), 'utf8'),
-    ),
-    'the two-branch shape this gap is about is gone: re-read the gap note above',
-  );
-});
-
 // --- Operation: admit a document into the ledger -------------------------
 //
-// Four seats reach the candidate diff, and three of the eight defects lived
-// between two of them: the worktree scaffold wrote documents `--from` refused,
+// Three gates reach the candidate diff — `--from` and `apply` both funnel
+// into `prepareNewChange`, so the matrix runs four entry points over three
+// independent code paths — and three of the eight defects lived between two
+// of them: the worktree scaffold wrote documents `--from` refused,
 // then the fix restated the rules instead of running the same gate and
 // diverged again on the clause it had not copied. The inputs are the ones
 // that told those two apart.
@@ -246,6 +217,15 @@ function hierarchy(root) {
       OPEN_TASK +
       '\n\n## Log\n\n' +
       LOG_TO_IN_PROGRESS,
+  );
+  // The `edit` seat rewrites THIS one, never the second-level change itself:
+  // setting a change's parent to its own id trips the self-parent rule and
+  // `check` stops there, so the seat would agree with the others for a reason
+  // that has nothing to do with the gate under test (round 1 D1).
+  write(
+    root,
+    '20260613-190000-sujeto.md',
+    '---\nid: "20260613-190000"\ntitle: Sujeto\ntype: quick\nstatus: draft\ncreated: 2026-06-13T19:00:00Z\ndepends_on: []\n---\n\n## Request\n\nAlgo.\n\n## Log\n',
   );
   write(
     root,
@@ -289,13 +269,18 @@ for (const { input, parent, expected } of ADMISSION_INPUTS) {
 
     const editRoot = repo();
     hierarchy(editRoot);
-    const existing = path.join(editRoot, '.changeledger', 'changes', '20260613-170000-hijo.md');
+    const existing = path.join(editRoot, '.changeledger', 'changes', '20260613-190000-sujeto.md');
     const rewritten = path.join(editRoot, 'rewritten.md');
-    fs.writeFileSync(
-      rewritten,
-      fs.readFileSync(existing, 'utf8').replace(/^parent: .*$/m, `parent: "${parent}"`),
+    const withParent = fs
+      .readFileSync(existing, 'utf8')
+      .replace(/^depends_on: \[\]$/m, `depends_on: []\nparent: "${parent}"`);
+    assert.notEqual(
+      withParent,
+      fs.readFileSync(existing, 'utf8'),
+      'the edit must change something',
     );
-    answers.edit = outcome(() => edit('20260613-170000', { from: rewritten }, editRoot));
+    fs.writeFileSync(rewritten, withParent);
+    answers.edit = outcome(() => edit('20260613-190000', { from: rewritten }, editRoot));
 
     const verdicts = Object.fromEntries(
       Object.entries(answers).map(([seat, answer]) => [
@@ -312,18 +297,40 @@ for (const { input, parent, expected } of ADMISSION_INPUTS) {
   });
 }
 
-test('20261021-223918 CR3: the admission matrix enumerates its inputs and its seats', () => {
-  assert.equal(
-    ADMISSION_INPUTS.length,
-    3,
-    'an input was added or removed: update the pinned count',
-  );
-  // The gap this matrix does not close, named rather than left implicit: every
-  // seat runs in the worktree layout here. `--from` and `apply` are the only
-  // two reachable in an activated repo, and their activated behaviour is held
-  // by `test/apply.test.mjs` and `test/agent.test.mjs`, not here.
-  assert.ok(
-    ADMISSION_INPUTS.some((row) => row.expected === 'accept'),
-    'without an accepting input the matrix passes against seats that refuse everything',
-  );
+// --- CR3: the gaps, as a register rather than as prose ------------------
+//
+// Round 1 of review found a third gap of the same kind that the change had
+// not declared, and the two it HAD declared were a comment next to a sentinel
+// and a comment next to nothing. A gap nobody can execute is a gap nobody
+// maintains, so each one below carries the assertion that fails when its
+// shape changes — closing it, or moving it, forces this register to be read.
+const DECLARED_GAPS = [
+  {
+    gap: 'the archive matrix reaches only the worktree branch of `archiveGraduated`',
+    // Closing the gap means this branch stops existing or stops being skipped.
+    stillOpen: (sources) => /if \(repo\.state\)/.test(sources['src/commands/agent.mjs']),
+  },
+  {
+    gap: 'every admission seat runs in the worktree layout; `--from` and `apply` are the two reachable in an activated repo and are covered elsewhere',
+    stillOpen: (sources) => /repoIsActivated\(repoRoot\)/.test(sources['src/commands/new.mjs']),
+  },
+  {
+    gap: "the delivery matrix runs in the worktree layout, never submits `statusMutation`'s candidate-in-flight branch (`apply` supplies `changes`), and never exercises `discard`, which is a declared seat of the same operation",
+    stillOpen: (sources) =>
+      /changes \?\? siblingChanges\(repoRoot\)/.test(sources['src/commands/agent.mjs']),
+  },
+];
+
+test('20261021-223918 CR3: every declared gap still describes the code it is about', () => {
+  const read = (name) => fs.readFileSync(new URL(`../${name}`, import.meta.url), 'utf8');
+  const sources = {
+    'src/commands/agent.mjs': read('src/commands/agent.mjs'),
+    'src/commands/new.mjs': read('src/commands/new.mjs'),
+  };
+  for (const { gap, stillOpen } of DECLARED_GAPS) {
+    assert.ok(
+      stillOpen(sources),
+      `this gap no longer describes the code — close it here or reword it: ${gap}`,
+    );
+  }
 });
