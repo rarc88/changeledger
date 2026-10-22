@@ -165,10 +165,11 @@ se fijan en los criterios.
   - **Verify:** `node --test test/apply.test.mjs test/edit.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4
   - **Resolved:** `2026-10-22T23:14:31Z`
-- [ ] Fila de rotura previa ajena en la matriz de admisión y retirada de las dos reproducciones
+- [x] Fila de rotura previa ajena en la matriz de admisión y retirada de las dos reproducciones
   - **Target:** `test/seats-matrix.test.mjs`
   - **Verify:** `node --test test/seats-matrix.test.mjs`
   - **Criteria:** CR5
+  - **Resolved:** `2026-10-22T23:25:31Z`
 - [ ] Reescribir las entradas de `graduate --new`, `review fail` y el guard final de `apply` del registro
   - **Target:** `test/seats-matrix.test.mjs`
   - **Verify:** `node --test test/seats-matrix.test.mjs`
