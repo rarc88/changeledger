@@ -2,9 +2,10 @@
 id: "20261022-213751"
 title: Converger las puertas de admisión sobre los errores que la escritura introduce
 type: bug
-status: approved
+status: in-progress
 created: 2026-10-22T21:37:51Z
 depends_on: []
+branch: bug/20261022-213751
 related_to: ["20261021-223918", "20260811-122031"]
 owner: raruiz-hiberuscom
 ---
@@ -180,3 +181,5 @@ se fijan en los criterios.
 ## Log
 - **2026-10-22T21:37:51Z** `[version]` 0.18.0
 - **2026-10-22T21:44:58Z** `[status]` draft → approved (human via conversation)
+- **2026-10-22T21:46:10Z** `[status]` approved → in-progress
+- **2026-10-22T21:46:10Z** `[branch]` set: bug/20261022-213751 (auto)
