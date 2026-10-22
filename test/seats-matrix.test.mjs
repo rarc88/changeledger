@@ -456,6 +456,21 @@ const DECLARED_GAPS = [
     in: ['src/commands/agent.mjs', 'discard'],
     stillOpen: (body) => /setStatus\(text, 'discarded'\)/.test(body),
   },
+  {
+    // Restored: this entry was dropped when the register was restructured,
+    // silently and without being asked (round 5 D1) — a declared hole deleted
+    // while refactoring the hole register, which is the shape the register is
+    // for. The divergence it points at is real: `review <id> fail` demands a
+    // reason and `status <id> in-progress` from the same status does not.
+    gap: '`in-review → in-progress` has two seats — `review fail` and `status <id> in-progress` — and no matrix submits either; they already answer differently to the same input',
+    in: ['src/commands/agent.mjs', 'review'],
+    stillOpen: (body) => /to = 'in-progress';/.test(body),
+  },
+  {
+    gap: 'admitting a SPEC document has two more seats, `edit spec:<slug>` and `apply --target spec:<slug>`; the admission matrix submits change documents only, and the two differ because `prepareSpecEdit` filters diagnostics to its own file while `assertCandidateClean` refuses on any candidate error',
+    in: ['src/commands/edit.mjs', 'prepareSpecEdit'],
+    stillOpen: (body) => /\.filter\(\(e\) => e\.file === name\)/.test(body),
+  },
 ];
 
 test('20261021-223918 CR2: every declared gap still describes the code it is about', () => {
