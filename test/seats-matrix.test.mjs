@@ -184,7 +184,11 @@ test('20261021-223918 CR2/CR3: the archive seats differ only in selection, and t
   write(
     root,
     `${id}-sin-graduar.md`,
-    `---\nid: "${id}"\ntitle: Sin graduar\ntype: chore\nstatus: done\ncreated: 2026-06-13T16:00:00Z\ndepends_on: []\n---\n\n## Request\n\nAlgo.\n\n## Plan\n\n${RESOLVED_TASK}\n\n## Log\n\n${LOG_TO_IN_PROGRESS}- **2026-06-13T16:40:00Z** \`[status]\` in-progress → done\n`,
+    // `reviewed: true` on purpose: without it the selector stops at the review
+    // flag and never reaches the graduation clause, so the row agreed with the
+    // gate deleted (round 2 D1). The ONE thing missing here must be the
+    // graduation resolution.
+    `---\nid: "${id}"\ntitle: Sin graduar\ntype: chore\nstatus: done\ncreated: 2026-06-13T16:00:00Z\ndepends_on: []\nreviewed: true\n---\n\n## Request\n\nAlgo.\n\n## Plan\n\n${RESOLVED_TASK}\n\n## Log\n\n${LOG_TO_IN_PROGRESS}- **2026-06-13T16:40:00Z** \`[status]\` in-progress → done\n`,
   );
 
   assert.deepEqual(archiveGraduated({}, root), [], 'the bulk seat skips an unresolved graduation');
@@ -299,12 +303,23 @@ for (const { input, parent, expected } of ADMISSION_INPUTS) {
 
 // --- CR3: the gaps, as a register rather than as prose ------------------
 //
-// Round 1 of review found a third gap of the same kind that the change had
-// not declared, and the two it HAD declared were a comment next to a sentinel
-// and a comment next to nothing. A gap nobody can execute is a gap nobody
-// maintains, so each one below carries the assertion that fails when its
-// shape changes — closing it, or moving it, forces this register to be read.
+// Two rounds of review each found a gap of the same kind that was not
+// declared, and the first two declared ones were a comment beside a sentinel
+// and a comment beside nothing. A gap nobody can execute is a gap nobody
+// maintains, so each one carries a predicate over the code it is about.
+//
+// What the predicates do and do not do, since the first wording of this
+// comment overstated them (round 2 D10): each fails when the SOURCE shape its
+// gap names disappears, so moving or rewriting that code forces the register
+// to be read. None of them fails when the gap is closed from the TEST side —
+// adding the missing coverage here leaves the register green and asserting a
+// gap that no longer exists. Closing a gap therefore means deleting its entry
+// by hand, in the same edit.
 const DECLARED_GAPS = [
+  {
+    gap: '`review fail` writes a status like `review pass` does, and no matrix submits it; its only lifecycle guard can be deleted with every test here green',
+    stillOpen: (sources) => /to = 'in-progress';/.test(sources['src/commands/agent.mjs']),
+  },
   {
     gap: 'the archive matrix reaches only the worktree branch of `archiveGraduated`',
     // Closing the gap means this branch stops existing or stops being skipped.
