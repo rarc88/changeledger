@@ -2,7 +2,7 @@
 id: "20261022-213751"
 title: Converger las puertas de admisión sobre los errores que la escritura introduce
 type: bug
-status: in-review
+status: done
 created: 2026-10-22T21:37:51Z
 depends_on: ["20261021-223918"]
 branch: bug/20261022-213751
@@ -203,3 +203,4 @@ se fijan en los criterios.
 - **2026-10-22T23:43:31Z** `[note]` D5 y D2 (parte documento) corregidos en el documento: el Given de CR5 nombra el ayudante real unrelatedBreak; la Investigation deja de afirmar que la regla permite arreglar una spec por partes y nombra la causa (check solo ve el primer heading CRn). Follow-up fuera de alcance: specDurabilityIssue en src/check.mjs nombra solo el primer heading CRn de una spec, lo que hace que CR4 dependa del orden y que una spec con varios CR no pueda reescribirse de uno en uno.
 - **2026-10-22T23:54:09Z** `[note]` Corrección de la ronda 1, sin commit hasta confirmación. D1: dos tests nuevos en test/apply.test.mjs (task block sobre un change done, aterrizaje y dry run) fijan el mensaje completo de assertCandidateClean; con el guard anulado fallan con 'Missing expected exception'. D4: REFUSED_ENTRY retirado; CR2 y la mitad apply de CR4 comparan el mensaje completo contra el literal construido con id/target, incluido el stderr del bin; un mutante que inserta texto dentro de la envoltura pone cinco tests en rojo. D3: tests discriminantes nuevos para edit spec: y apply --target spec: con un error previo que persiste en el candidato (updated: ayer → 'updated not ISO 8601 UTC: ayer') más un heading CR1 introducido; la forma de todos-los-errores y el filtro antiguo por fichero los ponen en rojo listando dos líneas; los tests originales de CR4 se conservan y siguen sin discriminar, como dijo la revisión. D2: el comentario de prepareSpecEdit se estrecha a 'un error que check ya reportaba antes de la edición no rechaza una edición que no añade ninguno', con su borde ejecutado (CR1+CR2: reescribir CR1 primero se rechaza por CR2). En clase: guard assertCarries en los tests de CR1-CR4 para que el fixture demuestre su error previo antes de operar. Decisiones no especificadas: manifiesto de D1 con id obligatorio; fixture de D1 de tipo feature porque quick no tiene Plan; error persistente de D3 en updated. Residual: el comentario de apply.mjs no dice que introducedErrors compara por fichero+mensaje, así que un error previo cuyo texto cambia cuenta como introducido.
 - **2026-10-22T23:54:09Z** `[status]` in-progress → in-review
+- **2026-10-22T23:59:10Z** `[review]` in-review → done (delegated subagent, clean context)
