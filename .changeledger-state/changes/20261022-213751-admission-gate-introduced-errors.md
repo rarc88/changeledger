@@ -118,7 +118,7 @@ se fijan en los criterios.
 - **Given** el mismo repo de CR1
 - **When** la entrada `change:<id>` lleva `depends_on: ["20200101-000001"]`
 - **Then** rechaza, con y sin `--dry-run`, con la primera línea `apply refused, nothing was written — entry 1 (change:<id>): edit <id> refused, nothing was written — 1 validation error(s):` y una única línea de detalle `  <fichero del change>: depends_on references missing change "20200101-000001"`, sin ninguna línea sobre `demo-spec.md`; el tip no se mueve y el documento almacenado es byte-idéntico
-- **And** la línea es la misma en ambos modos porque la entrada se rechaza en su propia sede antes de que `apply` llegue a su guard de candidato, `assertCandidateClean`, que ninguna entrada alcanza hoy: queda como respaldo y se declara en el registro de huecos (CR6)
+- **And** la línea es la misma en ambos modos porque una entrada de documento se rechaza en su propia sede antes de que `apply` llegue a su guard de candidato, `assertCandidateClean`; ese guard sigue respondiendo por lo que una entrada de evento deja detrás —`{"op": "task", "action": "block"}` sobre un change `done` se rechaza ahí con `the resulting candidate carries 1 validation error(s):`— y se declara en el registro de huecos (CR6)
 - **And** el `bin` sale con código distinto de cero en los dos modos
 
 ### CR3 — `edit spec:` acepta una edición que conserva un error previo del propio spec y no añade ninguno
@@ -144,7 +144,7 @@ se fijan en los criterios.
 - **When** se lee el registro
 - **Then** el test `gap — \`graduate --new\` still admits a spec \`edit spec:\` refuses` ya no existe y en su lugar hay una entrada cuyo texto declara la graduación en dos fases como decisión y cuyo predicado lee el cuerpo de `scaffoldSpec` en `src/commands/graduate.mjs` buscando `SPEC_SCAFFOLD_MARKER`
 - **And** la entrada de `in-review → in-progress` dice que las dos sedes difieren por contrato, nombrando `templates/contract/review.md` como el texto que reserva `review fail` a la razón del revisor y `status <id> in-progress` a la vía sin veredicto, y ya no afirma que no esté escrito
-- **And** una entrada nueva declara el guard final de `apply`, `assertCandidateClean`, como respaldo que ninguna entrada alcanza hoy, con predicado sobre el cuerpo de `apply` en `src/commands/apply.mjs`
+- **And** una entrada nueva declara el guard final de `apply`, `assertCandidateClean`, como puerta que ninguna matriz alcanza: las entradas de documento que la matriz rechaza paran antes en su sede, y la puerta responde por lo que una entrada de evento deja detrás; predicado sobre el cuerpo de `apply` en `src/commands/apply.mjs`
 - **And** `node --test test/seats-matrix.test.mjs` pasa
 
 ### CR7 — El día después: un scaffold pendiente no bloquea el resto del ledger
