@@ -364,8 +364,9 @@ for (const { input, parent, expected } of ADMISSION_INPUTS) {
     // The fifth entry point: `apply` editing an existing document. It shares
     // `prepareChangeEdit` with `edit` and adds `assertCandidateClean` on top,
     // so on the parent rows the two agree — and on an input these rows do not
-    // carry they do not. That second half is gap 7, not this comment: the
-    // first wording claimed the matrix covered it, which it does not.
+    // carry they do not. That second half is the change-document divergence
+    // reproduced in the register below, not this comment: the first wording
+    // claimed the matrix covered it, which it does not.
     const batchEditRoot = repo();
     hierarchy(batchEditRoot);
     const editManifest = path.join(batchEditRoot, 'batch-edit.json');
@@ -405,7 +406,7 @@ for (const { input, parent, expected } of ADMISSION_INPUTS) {
 //
 // The predicates read the BODY of the function each gap names, not the whole
 // file: a whole-file regex stayed green when the activation gate moved from
-// `newChange` into `newChangeFrom` — which inverts gap 3's claim outright —
+// `newChange` into `newChangeFrom` — which inverts the activation entry's claim outright —
 // and when the matched text survived only inside a comment (round 4 D1).
 // Line comments are stripped from the slice for the same reason.
 //
@@ -422,7 +423,7 @@ for (const { input, parent, expected } of ADMISSION_INPUTS) {
 //
 // A DIVERGENCE gap says "these two seats answer differently on an input no
 // row carries". That IS a claim about the code, so it is not grepped — it is
-// reproduced. Round 7 found both of the first cut's divergence predicates
+// reproduced. The first cut grepped both divergence predicates, and they were
 // unsound in exactly the ways above: one matched a second occurrence inside
 // an error-message template, and both pinned one side of a two-function
 // divergence while the realistic fix lives in the other. An executed
@@ -519,8 +520,8 @@ test('20261021-223918 CR2: every coverage gap still describes the code it is abo
 // input no matrix row carries. That is a claim about the code, so the entry
 // IS the reproduction: close the divergence by any route — either side, any
 // function — and the assertion fails, which is this register asking for the
-// entry to be deleted. Round 7 found the grepped version of the first two
-// unsound in both of the ways that matters: one predicate matched a second
+// entry to be deleted. The grepped first cut of the first two was unsound in
+// both of the ways that matter: one predicate matched a second
 // occurrence inside an error-message template, and both pinned one side of a
 // two-function divergence while the realistic fix lives in the other.
 
@@ -615,7 +616,7 @@ test('20261021-223918 CR2: gap — `edit spec:` and `apply --target spec:` still
   );
 });
 
-// Round 7 D2: gap 7's first wording ruled `graduate --new` out of the
+// The spec entry's first wording ruled `graduate --new` out of the
 // admission operation because it "composes rather than receives" a document
 // — but so does `scaffold` (`newChange`), which IS in the matrix. It is the
 // spec-side analogue of that seat, and unlike it, it runs no repo-wide
@@ -640,17 +641,27 @@ test('20261021-223918 CR2: gap — `graduate --new` still admits a spec `edit sp
     'the gap says what it admits is not valid; `check` must disagree with the write',
   );
 
-  // The same document through the seat gap 6 declares.
+  // The same document through the `edit spec:` seat the spec entry declares.
   const from = path.join(root, 'in.md');
   fs.writeFileSync(from, fs.readFileSync(written, 'utf8'));
   fs.rmSync(written);
+  // The pre-existing spec carries `graduated_from` so that `edit spec:` can only
+  // refuse for the content error: the field is owned by `graduate`, and a file
+  // without it made the seat refuse for ownership while this row read "refuse"
+  // and stayed green with the content filter removed (round 7).
   fs.writeFileSync(
     written,
-    '---\ntitle: Verdad\nupdated: 2026-06-13T23:50:00Z\ntags: [ x ]\n---\n\n## Verdad\n\nAlgo duradero.\n',
+    '---\ntitle: Verdad\nupdated: 2026-06-13T23:50:00Z\ntags: [ x ]\ngraduated_from: []\n---\n\n## Verdad\n\nAlgo duradero.\n',
   );
+  let viaEdit = 'accept';
+  try {
+    edit('spec:verdad', { from }, root);
+  } catch (error) {
+    viaEdit = `refuse: ${error.message}`;
+  }
   assert.match(
-    outcome(() => edit('spec:verdad', { from }, root)),
-    /^refuse:/,
-    '`edit spec:` must refuse what `graduate --new` wrote, or the gap has closed',
+    viaEdit,
+    /verdad\.md: spec contains change-local criterion heading "CR1"/,
+    `\`edit spec:\` must refuse what \`graduate --new\` wrote for the error \`check\` reports, or the gap has closed; it answered: ${viaEdit}`,
   );
 });
