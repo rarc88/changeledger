@@ -162,10 +162,11 @@ se fijan en los criterios.
   - **Target:** `test/apply.test.mjs`, `test/edit.test.mjs`
   - **Verify:** `node --test test/apply.test.mjs test/edit.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4
-- [ ] Fila de rotura previa ajena en la matriz de admisión y retirada de las dos reproducciones
+- [!] Fila de rotura previa ajena en la matriz de admisión y retirada de las dos reproducciones
   - **Target:** `test/seats-matrix.test.mjs`
   - **Verify:** `node --test test/seats-matrix.test.mjs`
   - **Criteria:** CR5
+  - **Blocked:** test/seats-matrix.test.mjs no existe en dev: vive en la rama de #20261021-223918 (PR 18, sin fusionar). La fila y el registro solo pueden escribirse cuando esa rama esté en dev o esta rama se apile sobre ella.
 - [ ] Reescribir las entradas de `graduate --new` y `review fail` del registro
   - **Target:** `test/seats-matrix.test.mjs`
   - **Verify:** `node --test test/seats-matrix.test.mjs`
