@@ -1,19 +1,24 @@
-// --- 20261021-223918 CR2/CR3: equivalence between the seats of one operation
+// --- 20261021-223918 CR1/CR2: equivalence between the seats of one operation
 //
-// The sweep in `seats.test.mjs` proves the inventory is complete. It cannot
-// prove the seats AGREE, and disagreement is what the eight defects actually
-// were: `review pass` reached `done` without the children guard that
-// `statusMutation` had, `archive --graduated` ignored `--keep-branch` that
-// `archive <id>` honoured, the worktree scaffold admitted documents `--from`
-// refused.
+// Eight of the fourteen defects in `20261020-172221` were one shape: a rule
+// installed at some seats of an operation and not at all of them. `review
+// pass` reached `done` without the children guard that `statusMutation` had,
+// `archive --graduated` ignored the `--keep-branch` that `archive <id>`
+// honoured, the worktree scaffold admitted documents `--from` refused.
 //
-// So each matrix below submits the SAME input to every seat of one operation
-// and fails when they answer differently. The inputs are enumerated by name,
-// never generated, so the coverage of the matrix is readable from the test
-// (CR3) — and a gate no seat exercises is named as a gap instead of passing in
-// silence.
+// Each matrix below submits the SAME input to every seat of one operation and
+// fails naming both answers. The inputs are enumerated by name, never
+// generated, so the coverage is readable from the test — and what no seat
+// exercises is declared in DECLARED_GAPS at the end of this file, with a
+// predicate over the code it is about, never in prose.
+//
+// A sibling guard that swept the tree for undeclared seats was part of this
+// change and was withdrawn: two independent reviews demonstrated ten classes
+// of silent miss across a text version and an AST version. The Proposal
+// records why. Nothing here depends on it.
 
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -23,6 +28,7 @@ import { apply } from '../src/commands/apply.mjs';
 import { edit } from '../src/commands/edit.mjs';
 import { init } from '../src/commands/init.mjs';
 import { newChange, newChangeFrom, scaffoldChange } from '../src/commands/new.mjs';
+import { sanitizedEnv } from './helpers/git-env.mjs';
 
 function repo() {
   const root = fs.realpathSync.native(
@@ -99,7 +105,7 @@ const DELIVERY_GATES = [
 ];
 
 for (const { gate, plan, child, expected } of DELIVERY_GATES) {
-  test(`20261021-223918 CR2: both seats that deliver agree on ${gate}`, () => {
+  test(`20261021-223918 CR1: both seats that deliver agree on ${gate}`, () => {
     const generic = repo();
     const genericId = choreAt(generic, { plan, extra: child ? liveChild('20260613-120000') : '' });
     const viaStatus = outcome(() => status(genericId, 'done', generic));
@@ -129,12 +135,14 @@ for (const { gate, plan, child, expected } of DELIVERY_GATES) {
 //
 // The two seats differ by design in WHAT they select — one takes an id, the
 // other sweeps every graduated `done` change — and in one documented effect:
-// the bulk seat deletes no branch. That difference needs no matrix here: the
-// inventory already pins `deleteMergedBranch` to a single seat reached only
-// from `archive <id>`, so teaching the bulk path to prune fails there first.
+// the bulk seat deletes no branch, which the CLI help and `close.md` both
+// state. That difference used to be waved away here in prose, on the strength
+// of a sibling guard that this change withdrew; with the guard gone, teaching
+// the bulk seat to prune failed nothing at all (round 3 D1). A difference
+// between two seats is asserted or it is a gap — never a paragraph.
 //
-// What this asserts is the part that must NOT differ: for a change both seats
-// select, the document they leave behind is byte-for-byte the same.
+// So both are asserted below: the document they leave behind must NOT differ,
+// and the branch outcome MUST, in exactly the declared direction.
 
 function graduatedDone(root, id) {
   write(
@@ -150,7 +158,7 @@ function graduatedDone(root, id) {
 // with it blanked keeps the assertion about the SEATS instead of the clock.
 const withoutInstants = (text) => text.replace(/\*\*[0-9T:Z.-]+\*\*/g, '**<at>**');
 
-test('20261021-223918 CR2: both archive seats leave the same document', () => {
+test('20261021-223918 CR1: both archive seats leave the same document', () => {
   const single = repo();
   const id = graduatedDone(single, '20260613-150000');
   archive(id, single);
@@ -174,11 +182,65 @@ test('20261021-223918 CR2: both archive seats leave the same document', () => {
   assert.match(read(single), /^archived: true$/m, 'and both must actually archive it');
 });
 
+// Three of the eight defects this change answers were in branch deletion, the
+// one irreversible action in the tool. `archive <id>` prunes the change's own
+// merged branch; `archive --graduated` prunes nothing, and that asymmetry is
+// load-bearing — the bulk seat takes no id, so it would be deleting branches
+// for a sweep the caller never enumerated.
+test('20261021-223918 CR1: only the id seat deletes a branch; the bulk seat deletes none', () => {
+  const onBranch = (root, id) => {
+    const config = path.join(root, '.changeledger', 'config.yml');
+    fs.writeFileSync(
+      config,
+      fs
+        .readFileSync(config, 'utf8')
+        .replace(/^ {2}integration_branch:.*$/m, '  integration_branch: dev')
+        .replace(/^ {2}change_branch_format:.*$/m, '  change_branch_format: "work/{id}"'),
+    );
+    const run = (args) =>
+      execFileSync('git', args, { cwd: root, env: sanitizedEnv(), encoding: 'utf8' });
+    run(['init', '-q', '-b', 'dev']);
+    run(['config', 'user.email', 't@e.com']);
+    run(['config', 'user.name', 'T']);
+    run(['add', '-A']);
+    run(['commit', '-qm', 'seed']);
+    const branch = `work/${id}`;
+    run(['checkout', '-q', '-b', branch, 'dev']);
+    fs.writeFileSync(path.join(root, 'work.txt'), 'work\n');
+    run(['add', 'work.txt']);
+    run(['commit', '-qm', 'work']);
+    run(['checkout', '-q', 'dev']);
+    run(['merge', '--no-ff', '-q', '-m', 'merge', branch]);
+    // `recordedBranch` reads the Log, never the checkout.
+    const file = path.join(root, '.changeledger', 'changes', `${id}-hecho.md`);
+    fs.appendFileSync(file, `- **2026-06-13T12:50:00Z** \`[branch]\` set: ${branch} (auto)\n`);
+    return {
+      branch,
+      branches: () => run(['branch', '--format=%(refname:short)']).split('\n').filter(Boolean),
+    };
+  };
+
+  const single = repo();
+  const id = graduatedDone(single, '20260613-150000');
+  const fromId = onBranch(single, id);
+  archive(id, single);
+  assert.ok(!fromId.branches().includes(fromId.branch), 'the id seat deletes its merged branch');
+
+  const bulk = repo();
+  graduatedDone(bulk, '20260613-150000');
+  const fromBulk = onBranch(bulk, '20260613-150000');
+  assert.equal(archiveGraduated({}, bulk).length, 1, 'the bulk seat selects the same change');
+  assert.ok(
+    fromBulk.branches().includes(fromBulk.branch),
+    'the bulk seat takes no id and must delete no branch, however merged',
+  );
+});
+
 // The selection difference is declared, not accidental: the bulk seat skips a
 // change that has not resolved its graduation, and the id seat does not. Pin
 // it, so a change of selection policy is a deliberate edit here rather than a
 // silent widening of a sweep that deletes nothing but hides everything.
-test('20261021-223918 CR2/CR3: the archive seats differ only in selection, and the difference is declared', () => {
+test('20261021-223918 CR1/CR2: the archive seats differ only in selection, and the difference is declared', () => {
   const root = repo();
   const id = '20260613-160000';
   write(
@@ -239,7 +301,7 @@ function hierarchy(root) {
 }
 
 for (const { input, parent, expected } of ADMISSION_INPUTS) {
-  test(`20261021-223918 CR2: every admission seat answers the same for ${input}`, () => {
+  test(`20261021-223918 CR1: every admission seat answers the same for ${input}`, () => {
     const answers = {};
 
     const scaffoldRoot = repo();
@@ -326,7 +388,7 @@ const DECLARED_GAPS = [
     stillOpen: (sources) => /if \(repo\.state\)/.test(sources['src/commands/agent.mjs']),
   },
   {
-    gap: 'every admission seat runs in the worktree layout; `--from` and `apply` are the two reachable in an activated repo and are covered elsewhere',
+    gap: 'every admission seat runs in the worktree layout; the scaffold is the only one an activated repo refuses, so `--from`, `apply` and `edit` all behave there untested by this matrix',
     stillOpen: (sources) => /repoIsActivated\(repoRoot\)/.test(sources['src/commands/new.mjs']),
   },
   {
@@ -336,7 +398,7 @@ const DECLARED_GAPS = [
   },
 ];
 
-test('20261021-223918 CR3: every declared gap still describes the code it is about', () => {
+test('20261021-223918 CR2: every declared gap still describes the code it is about', () => {
   const read = (name) => fs.readFileSync(new URL(`../${name}`, import.meta.url), 'utf8');
   const sources = {
     'src/commands/agent.mjs': read('src/commands/agent.mjs'),

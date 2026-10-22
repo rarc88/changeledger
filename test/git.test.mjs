@@ -21,7 +21,6 @@ import {
   ownerHandle,
 } from '../src/git.mjs';
 import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
-import { callsTo } from './helpers/source-scan.mjs';
 
 const SEP = String.fromCharCode(31);
 const RECORD_SEP = String.fromCharCode(30);
@@ -87,6 +86,32 @@ test('220545 CR2: gitPrefix removes only Git record terminator', () => {
     },
   ]);
 });
+
+// Extracts the full text of every `<name>(` call in `source`, balancing
+// parentheses so a call spread over several lines is read whole. Returns
+// `{ line, text }` per call, so a violation can be reported where it lives.
+function callsTo(source, name) {
+  const calls = [];
+  const opener = `${name}(`;
+  for (let at = source.indexOf(opener); at !== -1; at = source.indexOf(opener, at + 1)) {
+    let depth = 0;
+    let end = at + opener.length - 1;
+    for (; end < source.length; end += 1) {
+      if (source[end] === '(') depth += 1;
+      else if (source[end] === ')') {
+        depth -= 1;
+        if (depth === 0) break;
+      }
+    }
+    calls.push({
+      start: at,
+      end,
+      line: source.slice(0, at).split('\n').length,
+      text: source.slice(at, end + 1),
+    });
+  }
+  return calls;
+}
 
 // Counts arguments at the call's top level, ignoring commas nested in objects,
 // arrays or inner calls. Empty segments do not count: a trailing comma is style,
