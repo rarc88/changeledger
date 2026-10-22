@@ -4,9 +4,9 @@ title: Converger las puertas de admisión sobre los errores que la escritura int
 type: bug
 status: in-progress
 created: 2026-10-22T21:37:51Z
-depends_on: []
+depends_on: ["20261021-223918"]
 branch: bug/20261022-213751
-related_to: ["20261021-223918", "20260811-122031"]
+related_to: ["20260811-122031"]
 owner: raruiz-hiberuscom
 ---
 
@@ -117,8 +117,8 @@ se fijan en los criterios.
 ### CR2 — `apply` sigue rechazando el error que el lote introduce, en ambos modos
 - **Given** el mismo repo de CR1
 - **When** la entrada `change:<id>` lleva `depends_on: ["20200101-000001"]`
-- **Then** sin `--dry-run` rechaza con la primera línea `apply refused, nothing was written — the resulting candidate carries 1 validation error(s):` y una línea `  <fichero del change>: depends_on references missing change "20200101-000001"`, sin ninguna línea sobre `demo-spec.md`; el tip no se mueve y el documento almacenado es byte-idéntico
-- **And** con `--dry-run` rechaza con la primera línea `apply dry run refused, nothing was written — the resulting candidate carries 1 validation error(s):` y la misma segunda línea
+- **Then** rechaza, con y sin `--dry-run`, con la primera línea `apply refused, nothing was written — entry 1 (change:<id>): edit <id> refused, nothing was written — 1 validation error(s):` y una única línea de detalle `  <fichero del change>: depends_on references missing change "20200101-000001"`, sin ninguna línea sobre `demo-spec.md`; el tip no se mueve y el documento almacenado es byte-idéntico
+- **And** la línea es la misma en ambos modos porque la entrada se rechaza en su propia sede antes de que `apply` llegue a su guard de candidato, `assertCandidateClean`, que ninguna entrada alcanza hoy: queda como respaldo y se declara en el registro de huecos (CR6)
 - **And** el `bin` sale con código distinto de cero en los dos modos
 
 ### CR3 — `edit spec:` acepta una edición que conserva un error previo del propio spec y no añade ninguno
@@ -129,9 +129,9 @@ se fijan en los criterios.
 
 ### CR4 — `edit spec:` rechaza solo el error que la edición introduce
 - **Given** el repo de CR3
-- **When** el documento entrante añade un segundo heading `### CR2 — otra`
+- **When** el documento entrante añade un heading `### CR2 — otra` **antes** de `### CR1 — una verdad`, porque `check` nombra solo el primer heading `CRn` de una spec y uno añadido detrás no cambia el conjunto de errores
 - **Then** rechaza con la primera línea `edit spec:verdad refused, nothing was written — 1 validation error(s):` y una única línea de detalle `  verdad.md: spec contains change-local criterion heading "CR2"; rewrite it as durable current truth`, sin mención a `"CR1"`; el tip no se mueve
-- **And** `apply --from` con la misma entrada rechaza con la primera línea de CR2 y la misma línea de detalle
+- **And** `apply --from` con la misma entrada rechaza con la primera línea `apply refused, nothing was written — entry 1 (spec:verdad): edit spec:verdad refused, nothing was written — 1 validation error(s):` y la misma línea de detalle
 
 ### CR5 — La rotura previa ajena es una fila de la matriz de admisión y todas las sedes la aceptan
 - **Given** el repo del ayudante `repoWithUnrelatedBreak` de `test/seats-matrix.test.mjs`, con un change que `check` reporta como `20260613-200000-roto.md: parent references missing change "20200101-000000"`
@@ -144,6 +144,7 @@ se fijan en los criterios.
 - **When** se lee el registro
 - **Then** el test `gap — \`graduate --new\` still admits a spec \`edit spec:\` refuses` ya no existe y en su lugar hay una entrada cuyo texto declara la graduación en dos fases como decisión y cuyo predicado lee el cuerpo de `scaffoldSpec` en `src/commands/graduate.mjs` buscando `SPEC_SCAFFOLD_MARKER`
 - **And** la entrada de `in-review → in-progress` dice que las dos sedes difieren por contrato, nombrando `templates/contract/review.md` como el texto que reserva `review fail` a la razón del revisor y `status <id> in-progress` a la vía sin veredicto, y ya no afirma que no esté escrito
+- **And** una entrada nueva declara el guard final de `apply`, `assertCandidateClean`, como respaldo que ninguna entrada alcanza hoy, con predicado sobre el cuerpo de `apply` en `src/commands/apply.mjs`
 - **And** `node --test test/seats-matrix.test.mjs` pasa
 
 ### CR7 — El día después: un scaffold pendiente no bloquea el resto del ledger
@@ -156,7 +157,7 @@ se fijan en los criterios.
 
 - [x] Ayudante `introducedErrors` en `src/check.mjs` y las cinco sedes sobre él, conservando cada mensaje
   - **Target:** `src/check.mjs`, `src/commands/apply.mjs`, `src/commands/edit.mjs`, `src/commands/new.mjs`
-  - **Verify:** `node --test test/apply.test.mjs test/edit.test.mjs test/new.test.mjs`
+  - **Verify:** `node --test test/apply.test.mjs test/edit.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4
   - **Resolved:** `2026-10-22T23:14:31Z`
 - [x] Retargetear los dos tests de `test/apply.test.mjs` que fijaban la regla amplia a un error introducido por el lote, y añadir los de `edit spec:`
@@ -164,16 +165,14 @@ se fijan en los criterios.
   - **Verify:** `node --test test/apply.test.mjs test/edit.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4
   - **Resolved:** `2026-10-22T23:14:31Z`
-- [!] Fila de rotura previa ajena en la matriz de admisión y retirada de las dos reproducciones
+- [ ] Fila de rotura previa ajena en la matriz de admisión y retirada de las dos reproducciones
   - **Target:** `test/seats-matrix.test.mjs`
   - **Verify:** `node --test test/seats-matrix.test.mjs`
   - **Criteria:** CR5
-  - **Blocked:** test/seats-matrix.test.mjs no existe en dev: vive en la rama de #20261021-223918 (PR 18, sin fusionar). La fila y el registro solo pueden escribirse cuando esa rama esté en dev o esta rama se apile sobre ella.
-- [!] Reescribir las entradas de `graduate --new` y `review fail` del registro
+- [ ] Reescribir las entradas de `graduate --new`, `review fail` y el guard final de `apply` del registro
   - **Target:** `test/seats-matrix.test.mjs`
   - **Verify:** `node --test test/seats-matrix.test.mjs`
   - **Criteria:** CR6
-  - **Blocked:** Misma causa que la tarea 3: el fichero objetivo no está en la base de esta rama.
 - [x] Recorrido del día después con un scaffold pendiente
   - **Target:** `test/apply.test.mjs`
   - **Verify:** `node --test test/apply.test.mjs`
