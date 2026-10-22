@@ -170,10 +170,11 @@ se fijan en los criterios.
   - **Verify:** `node --test test/seats-matrix.test.mjs`
   - **Criteria:** CR5
   - **Resolved:** `2026-10-22T23:25:31Z`
-- [ ] Reescribir las entradas de `graduate --new`, `review fail` y el guard final de `apply` del registro
+- [x] Reescribir las entradas de `graduate --new`, `review fail` y el guard final de `apply` del registro
   - **Target:** `test/seats-matrix.test.mjs`
   - **Verify:** `node --test test/seats-matrix.test.mjs`
   - **Criteria:** CR6
+  - **Resolved:** `2026-10-22T23:25:31Z`
 - [x] Recorrido del día después con un scaffold pendiente
   - **Target:** `test/apply.test.mjs`
   - **Verify:** `node --test test/apply.test.mjs`
