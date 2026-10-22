@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "change": "20261021-223918",
+  "at": "2026-10-22T17:00:39Z",
+  "event": "status",
+  "from": "in-progress",
+  "to": "in-review",
+  "recorded_by": "raruiz-hiberuscom",
+  "collector": {
+    "name": "ccusage",
+    "version": "20.0.26",
+    "pricing": null
+  },
+  "sessions": [],
+  "excluded": [],
+  "error": "ccusage claude session --json --offline timed out after 10 s"
+}
