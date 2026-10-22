@@ -88,7 +88,9 @@ conserva íntegro.
 - `prepareSpecEdit` abandona el filtro por fichero. Cambia un caso observable:
   una edición que conserva un error previo del propio spec y no añade ninguno
   pasa a aceptarse. Es la misma regla que `edit <id>` aplica desde
-  `#20260811-122031`, y la que permite escribir el arreglo por partes.
+  `#20260811-122031`. No garantiza arreglar una spec por partes: `check`
+  nombra solo el primer heading `CRn`, así que reescribir el primero destapa
+  el siguiente como error nuevo (follow-up registrado en el Log).
 - `apply` devuelve en `errors` los errores introducidos, que son los que
   gatean; `warnings` no cambia.
 - En `test/seats-matrix.test.mjs` la rotura previa ajena pasa de hueco a
@@ -134,7 +136,7 @@ se fijan en los criterios.
 - **And** `apply --from` con la misma entrada rechaza con la primera línea `apply refused, nothing was written — entry 1 (spec:verdad): edit spec:verdad refused, nothing was written — 1 validation error(s):` y la misma línea de detalle
 
 ### CR5 — La rotura previa ajena es una fila de la matriz de admisión y todas las sedes la aceptan
-- **Given** el repo del ayudante `repoWithUnrelatedBreak` de `test/seats-matrix.test.mjs`, con un change que `check` reporta como `20260613-200000-roto.md: parent references missing change "20200101-000000"`
+- **Given** un repo sembrado por el ayudante `unrelatedBreak` de `test/seats-matrix.test.mjs`, con un change que `check` reporta como `20260613-200000-roto.md: parent references missing change "20200101-000000"`
 - **When** un documento limpio se somete a cada sede de `ADMISSION_SEATS` como una fila más de `ADMISSION_INPUTS`
 - **Then** todas responden `accept` y la fila es falsable por sede: anular el ayudante en una sola sede la pone en rojo nombrando esa sede
 - **And** los tests `gap — \`edit <id>\` and \`apply --target change:<id>\` still diverge` y `gap — \`edit spec:\` and \`apply --target spec:\` still diverge` ya no existen: `grep -c "still diverge" test/seats-matrix.test.mjs` imprime `0`
