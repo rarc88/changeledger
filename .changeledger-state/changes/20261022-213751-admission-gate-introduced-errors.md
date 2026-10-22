@@ -167,10 +167,11 @@ se fijan en los criterios.
   - **Verify:** `node --test test/seats-matrix.test.mjs`
   - **Criteria:** CR5
   - **Blocked:** test/seats-matrix.test.mjs no existe en dev: vive en la rama de #20261021-223918 (PR 18, sin fusionar). La fila y el registro solo pueden escribirse cuando esa rama esté en dev o esta rama se apile sobre ella.
-- [ ] Reescribir las entradas de `graduate --new` y `review fail` del registro
+- [!] Reescribir las entradas de `graduate --new` y `review fail` del registro
   - **Target:** `test/seats-matrix.test.mjs`
   - **Verify:** `node --test test/seats-matrix.test.mjs`
   - **Criteria:** CR6
+  - **Blocked:** Misma causa que la tarea 3: el fichero objetivo no está en la base de esta rama.
 - [ ] Recorrido del día después con un scaffold pendiente
   - **Target:** `test/apply.test.mjs`
   - **Verify:** `node --test test/apply.test.mjs`
