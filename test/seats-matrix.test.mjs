@@ -182,7 +182,7 @@ test('20261021-223918 CR1: both archive seats leave the same document', () => {
   assert.match(read(single), /^archived: true$/m, 'and both must actually archive it');
 });
 
-// Three of the eight defects this change answers were in branch deletion, the
+// Two of the eight defects this change answers were in branch deletion, the
 // one irreversible action in the tool. `archive <id>` prunes the change's own
 // merged branch; `archive --graduated` prunes nothing, and that asymmetry is
 // load-bearing — the bulk seat takes no id, so it would be deleting branches
@@ -259,10 +259,11 @@ test('20261021-223918 CR1/CR2: the archive seats differ only in selection, and t
 
 // --- Operation: admit a document into the ledger -------------------------
 //
-// Three gates reach the candidate diff — `--from` and `apply` both funnel
-// into `prepareNewChange`, so the matrix runs four entry points over three
-// independent code paths — and three of the eight defects lived between two
-// of them: the worktree scaffold wrote documents `--from` refused,
+// Five entry points over four gates: `--from` and `apply --target new` both
+// funnel into `prepareNewChange`, while `apply --target change:<id>` reaches
+// `prepareChangeEdit` like `edit` does and then adds `assertCandidateClean`
+// of its own — review found that fifth one submitted by nothing (round 4
+// D2). Three of the eight defects lived between two of these: the worktree scaffold wrote documents `--from` refused,
 // then the fix restated the rules instead of running the same gate and
 // diverged again on the clause it had not copied. The inputs are the ones
 // that told those two apart.
@@ -348,6 +349,19 @@ for (const { input, parent, expected } of ADMISSION_INPUTS) {
     fs.writeFileSync(rewritten, withParent);
     answers.edit = outcome(() => edit('20260613-190000', { from: rewritten }, editRoot));
 
+    // The fifth entry point: `apply` editing an existing document. It shares
+    // `prepareChangeEdit` with `edit` and adds `assertCandidateClean`, so it
+    // can refuse where `edit` accepts — which is exactly why it belongs in
+    // the matrix rather than in a gap.
+    const batchEditRoot = repo();
+    hierarchy(batchEditRoot);
+    const editManifest = path.join(batchEditRoot, 'batch-edit.json');
+    fs.writeFileSync(
+      editManifest,
+      JSON.stringify([{ target: 'change:20260613-190000', content: withParent }]),
+    );
+    answers['apply change:'] = outcome(() => apply({ from: editManifest }, batchEditRoot));
+
     const verdicts = Object.fromEntries(
       Object.entries(answers).map(([seat, answer]) => [
         seat,
@@ -363,51 +377,97 @@ for (const { input, parent, expected } of ADMISSION_INPUTS) {
   });
 }
 
-// --- CR3: the gaps, as a register rather than as prose ------------------
+// --- CR2: the gaps, as a register rather than as prose ------------------
 //
-// Two rounds of review each found a gap of the same kind that was not
+// Three rounds of review each found a gap of the same kind that was not
 // declared, and the first two declared ones were a comment beside a sentinel
 // and a comment beside nothing. A gap nobody can execute is a gap nobody
-// maintains, so each one carries a predicate over the code it is about.
+// maintains, so each carries a predicate over the code it is about.
 //
-// What the predicates do and do not do, since the first wording of this
-// comment overstated them (round 2 D10): each fails when the SOURCE shape its
-// gap names disappears, so moving or rewriting that code forces the register
-// to be read. None of them fails when the gap is closed from the TEST side —
-// adding the missing coverage here leaves the register green and asserting a
-// gap that no longer exists. Closing a gap therefore means deleting its entry
-// by hand, in the same edit.
+// The predicates read the BODY of the function each gap names, not the whole
+// file: a whole-file regex stayed green when the activation gate moved from
+// `newChange` into `newChangeFrom` — which inverts gap 3's claim outright —
+// and when the matched text survived only inside a comment (round 4 D1).
+// Line comments are stripped from the slice for the same reason.
+//
+// Two residuals, measured rather than assumed. None of them fails when a gap
+// is closed from the TEST side: adding the missing coverage here leaves the
+// register green and asserting a gap that no longer exists, so closing one
+// means deleting its entry by hand, in the same edit. And a predicate reads
+// text, so a gate neutered in place — `if (false && repoIsActivated(…))` —
+// keeps it green while the code has stopped doing what the gap says. A gate
+// MOVED to another function is caught; a gate killed where it stands is not.
+
+// The body of a named top-level function, by brace matching from its
+// declaration. Narrow on purpose — it locates ONE named function, which is
+// the whole job here, and does not try to attribute arbitrary code.
+function functionBody(source, name) {
+  const declaration = new RegExp(`^(?:export )?(?:async )?function \\*?${name}\\(`, 'm');
+  const at = source.search(declaration);
+  assert.notEqual(at, -1, `the register names \`${name}\`, which this file no longer declares`);
+  // Past the parameter list before looking for the body: a destructured or
+  // defaulted parameter (`filters = {}`) opens a brace of its own, and
+  // matching from it returns an empty body that satisfies nothing.
+  let parens = 0;
+  let cursor = source.indexOf('(', at);
+  for (; cursor < source.length; cursor += 1) {
+    if (source[cursor] === '(') parens += 1;
+    else if (source[cursor] === ')') {
+      parens -= 1;
+      if (parens === 0) break;
+    }
+  }
+  const open = source.indexOf('{', cursor);
+  let depth = 0;
+  for (let i = open; i < source.length; i += 1) {
+    if (source[i] === '{') depth += 1;
+    else if (source[i] === '}') {
+      depth -= 1;
+      if (depth === 0) {
+        return source
+          .slice(open, i + 1)
+          .split('\n')
+          .map((line) => line.replace(/\/\/.*$/, ''))
+          .join('\n');
+      }
+    }
+  }
+  throw new Error(`\`${name}\` has no balanced body`);
+}
+
 const DECLARED_GAPS = [
   {
-    gap: '`review fail` writes a status like `review pass` does, and no matrix submits it; its only lifecycle guard can be deleted with every test here green',
-    stillOpen: (sources) => /to = 'in-progress';/.test(sources['src/commands/agent.mjs']),
-  },
-  {
     gap: 'the archive matrix reaches only the worktree branch of `archiveGraduated`',
-    // Closing the gap means this branch stops existing or stops being skipped.
-    stillOpen: (sources) => /if \(repo\.state\)/.test(sources['src/commands/agent.mjs']),
+    in: ['src/commands/agent.mjs', 'archiveGraduated'],
+    stillOpen: (body) => /if \(repo\.state\)/.test(body),
   },
   {
     gap: 'every admission seat runs in the worktree layout; the scaffold is the only one an activated repo refuses, so `--from`, `apply` and `edit` all behave there untested by this matrix',
-    stillOpen: (sources) => /repoIsActivated\(repoRoot\)/.test(sources['src/commands/new.mjs']),
+    in: ['src/commands/new.mjs', 'newChange'],
+    stillOpen: (body) => /repoIsActivated\(repoRoot\)/.test(body),
   },
   {
-    gap: "the delivery matrix runs in the worktree layout, never submits `statusMutation`'s candidate-in-flight branch (`apply` supplies `changes`), and never exercises `discard`, which is a declared seat of the same operation",
-    stillOpen: (sources) =>
-      /changes \?\? siblingChanges\(repoRoot\)/.test(sources['src/commands/agent.mjs']),
+    gap: "the delivery matrix runs in the worktree layout and never submits `statusMutation`'s candidate-in-flight branch, where `apply` supplies `changes` instead of the stored ledger",
+    in: ['src/commands/agent.mjs', 'statusMutation'],
+    stillOpen: (body) => /changes \?\? siblingChanges\(repoRoot\)/.test(body),
+  },
+  {
+    gap: '`discard` is a declared seat of the same operation as the delivery matrix and no matrix submits it',
+    in: ['src/commands/agent.mjs', 'discard'],
+    stillOpen: (body) => /setStatus\(text, 'discarded'\)/.test(body),
   },
 ];
 
 test('20261021-223918 CR2: every declared gap still describes the code it is about', () => {
   const read = (name) => fs.readFileSync(new URL(`../${name}`, import.meta.url), 'utf8');
-  const sources = {
-    'src/commands/agent.mjs': read('src/commands/agent.mjs'),
-    'src/commands/new.mjs': read('src/commands/new.mjs'),
-  };
-  for (const { gap, stillOpen } of DECLARED_GAPS) {
+  for (const {
+    gap,
+    in: [file, fn],
+    stillOpen,
+  } of DECLARED_GAPS) {
     assert.ok(
-      stillOpen(sources),
-      `this gap no longer describes the code — close it here or reword it: ${gap}`,
+      stillOpen(functionBody(read(file), fn)),
+      `this gap no longer describes \`${fn}\` in ${file} — close it here or reword it: ${gap}`,
     );
   }
 });
