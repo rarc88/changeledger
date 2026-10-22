@@ -174,10 +174,11 @@ se fijan en los criterios.
   - **Verify:** `node --test test/seats-matrix.test.mjs`
   - **Criteria:** CR6
   - **Blocked:** Misma causa que la tarea 3: el fichero objetivo no está en la base de esta rama.
-- [ ] Recorrido del día después con un scaffold pendiente
+- [x] Recorrido del día después con un scaffold pendiente
   - **Target:** `test/apply.test.mjs`
   - **Verify:** `node --test test/apply.test.mjs`
   - **Criteria:** CR7
+  - **Resolved:** `2026-10-22T23:14:32Z`
 - [ ] Suite completa y puertas del repo
   - **Support:**
   - **Verify:** `pnpm verify`
