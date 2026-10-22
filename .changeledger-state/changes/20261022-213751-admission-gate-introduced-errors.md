@@ -154,10 +154,11 @@ se fijan en los criterios.
 
 ## Plan
 
-- [ ] Ayudante `introducedErrors` en `src/check.mjs` y las cinco sedes sobre él, conservando cada mensaje
+- [x] Ayudante `introducedErrors` en `src/check.mjs` y las cinco sedes sobre él, conservando cada mensaje
   - **Target:** `src/check.mjs`, `src/commands/apply.mjs`, `src/commands/edit.mjs`, `src/commands/new.mjs`
   - **Verify:** `node --test test/apply.test.mjs test/edit.test.mjs test/new.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4
+  - **Resolved:** `2026-10-22T23:14:31Z`
 - [ ] Retargetear los dos tests de `test/apply.test.mjs` que fijaban la regla amplia a un error introducido por el lote, y añadir los de `edit spec:`
   - **Target:** `test/apply.test.mjs`, `test/edit.test.mjs`
   - **Verify:** `node --test test/apply.test.mjs test/edit.test.mjs`
