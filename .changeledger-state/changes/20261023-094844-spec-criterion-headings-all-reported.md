@@ -2,7 +2,7 @@
 id: "20261023-094844"
 title: check reporta cada heading CRn de una spec, no solo el primero
 type: bug
-status: in-progress
+status: in-review
 created: 2026-10-23T09:48:44Z
 depends_on: ["20261022-213751"]
 branch: bug/20261023-094844
@@ -141,3 +141,4 @@ estable y se fija en los criterios.
 - **2026-10-23T10:35:27Z** `[note]` Por orden del humano, la rama bug/20261023-094844 se recoloca sobre bug/20261022-213751 (6d19abba) y la implementación sigue apilada; el PR irá contra esa rama o contra dev cuando el PR 19 se fusione.
 - **2026-10-23T10:42:38Z** `[note]` Selección única (tareas 1-4) implementada: specDurabilityIssues devuelve la lista, checkRepo emite un error por heading, --into une los mensajes en las dos ramas; tests CR1-CR5 rojo→verde con evidencia literal; mutantes: volver a parar en el primer heading pone en rojo CR1, CR3, CR4 y CR5; hacer que --into lance solo el primero pone en rojo exactamente el test de su disposición. Decisiones no especificadas: CR5 quita el marcador de scaffold en la primera edición (dos ediciones en total); un heading CRn repetido produce dos mensajes iguales, sin deduplicar; la aserción del bin de CR1 usa check() en proceso como el patrón 103551. Residual del change corregido por el orquestador: dos comentarios de test/apply.test.mjs que afirmaban que check nombra solo el primer heading. Residual de cierre: architecture.md dice que la regla no garantiza reescribir por partes; se reconcilia en la graduación.
 - **2026-10-23T10:46:18Z** `[note]` Tarea 5: pnpm verify — biome limpio (134 ficheros), suite 2134/2135; el único fallo es 'CR6: the skeletons ship in the publishable package' (npm 12, preexistente en dev, ajeno a este change); changeledger check en verde por separado.
+- **2026-10-23T10:46:19Z** `[status]` in-progress → in-review
