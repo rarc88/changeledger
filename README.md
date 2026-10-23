@@ -46,8 +46,10 @@ changeledger new feature oauth-login "Add OAuth login"
 changeledger view
 ```
 
-The agent completes the generated stages under `.changeledger/changes/`. You approve the
-draft in the viewer before implementation. From there, ChangeLedger validates
+The agent drafts the change under `.changeledger/changes/`, stating its objective and
+its frontier in the Request. You approve the objective and the frontier of the draft in
+the viewer before implementation; the agent then writes the Specification and Plan with
+the code in front. From there, ChangeLedger validates
 lifecycle transitions and task traceability; the merge is the acceptance.
 When the work is done, its lasting truth graduates into `.changeledger/specs/`.
 
@@ -63,8 +65,9 @@ other tools discover it through the repository's `AGENTS.md` reference.
   product truth. Work performed without the CLI may diverge; observed drift is
   reported for human resolution rather than reconciled automatically.
 
-With the default Definition of Ready policy, `changeledger check` verifies that acceptance
-criteria are test-grade and mapped to actionable tasks. Repositories doing
+With the default `tdd: true`, the implementer writes each criterion's failing test
+before the code, and moving a change to `in-review` requires the Specification and
+Plan its type carries, with at least one acceptance criterion. Repositories doing
 exploratory work can set `tdd: false`; run `changeledger context spec` or
 `changeledger context implement` for the complete task-specific rules.
 

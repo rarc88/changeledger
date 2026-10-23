@@ -42,7 +42,7 @@ investigating, one level up. It cannot reach `done` while a child is neither
 
 Use `depends_on` only for execution prerequisites: dependencies can block
 lifecycle progress and cycles. Use optional `related_to` for useful context that
-must not impose execution order or affect readiness. Both accept local ids and
+must not impose execution order. Both accept local ids and
 external `project:id` refs; declare a local relation once, deriving its backlink.
 
 `owner` identifies responsibility and is born at creation, resolved by the CLI
@@ -60,6 +60,14 @@ type in `config.yml`, whose configured matrix is authoritative. For bugs,
 Investigation contains the root cause; for audits, it is the core analysis.
 Proposal includes the chosen solution, discarded alternatives and scenarios.
 
+`changeledger approve` requires the Request's `### Objective` and `### Frontier`,
+each with a body, in every type, and the human approves exactly those two. The
+objective says what problem is solved and what finished means; the frontier says
+what surface is in, what is out and what is pre-authorized inside. Other `###`
+headings in the Request are free prose. Specification and Plan are written in
+`in-progress`, with the code in front, and never return to approval: `changeledger
+context implement` owns how they evolve and the exit gate that requires them.
+
 `quick` is for small, reversible, single-concern work that adds no public surface
 or persistent truth (`specs/`): only Request and Log, ~10-15 lines. It retains
 the human `draft → approved` gate and `[#id]` marker, skipping only `in-review`.
@@ -67,8 +75,8 @@ If scope outgrows this, discard and recreate it under the correct type.
 
 `documentation` delivers persistent truth about one topic, contrasted with what
 the code actually does, and changes no application code. The shipped type turns
-`tdd` off and has no Plan, so write its execution rules as its own CRs while
-drafting: the perimeter is fixed in the draft from who calls what, never from
+`tdd` off and has no Plan, so write its execution rules as its own CRs: the
+perimeter is fixed in the draft from who calls what, never from
 textual matches; every claim cites path and symbol; the human decides every
 divergence from an existing spec before `in-review`, and the change waits on a `[!]`
 task until they do; corrections to existing specs are drafted inside the change, where
@@ -118,6 +126,15 @@ A criterion is a falsifiable claim, so its wording is part of the contract:
   member cannot leave the criterion silently partial.
 - For code the change will edit, cite symbols, paths and test names, never line
   numbers: the change's own work invalidates them.
+- Use actual inputs rather than “a valid input”, exact outputs or effects and
+  literal error messages; give every edge case its own criterion. Nothing that
+  must hold lives only in prose.
+- For every external interface the change depends on, state whether its output
+  is stable for automated consumption; a criterion may not assume stability
+  nobody established.
+- Every ask in `## Request` maps to at least one criterion or is explicitly
+  named as excluded. No check judges this or the interface declaration; review
+  does.
 - A change that delivers or alters a workflow includes one criterion walking
   its first real end-to-end use — the full happy path of the day after, never
   only its edges and failure modes.
@@ -144,7 +161,7 @@ Markers encode state; structured children carry every trace, never a position:
 
 `Target`, `Verify`, `Criteria` and `Support` are legal in any state, at most once each, and contiguous with their task. `Criteria` is the sole traceability — a list of `CRn` ids — so parentheses in the description are always prose. An indented non-child line continues the description; a non-indented line that is neither task nor blank is reported, never dropped.
 
-`Support` (value optional) marks operational work such as test suites, reading, blast-radius analysis or scaffolding. It needs no CR or target/verification readiness checks and cannot replace a criterion for observable behaviour.
+An implementation task cites the criteria it proves, names its target and its concrete verification, and fits one red-green cycle. `Support` (value optional) marks operational work such as test suites, reading, blast-radius analysis or scaffolding; it cannot replace a criterion for observable behaviour.
 
 `changeledger fix --plan-tags` migrates Plan tasks without structured children; `--structured-sections` migrates legacy task metadata and Log events; preview either with `--dry-run`.
 

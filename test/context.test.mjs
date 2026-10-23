@@ -299,7 +299,7 @@ test('213942 CR1-CR4: core teaches operational discovery without embedding or mu
 // 20260730-002730 retired `234939 CR1-CR10`: its 22 phrase invariants and the
 // kept/moved/seat lists over `delegation.md` and `core.md` were the pins the
 // decision removes. What survives is the structural half — a status that resumes
-// composes the implement pack and no readiness pack — plus the core budget.
+// composes the implement pack and not the authoring pack — plus the core budget.
 test('234939 structural remnant: a resumed status composes implement, within budget', () => {
   const root = repo();
   const doneId = addChange(root, 'done', '20260629-230002');
@@ -319,9 +319,10 @@ test('234939 structural remnant: a resumed status composes implement, within bud
     assert.match(resumed, /mode: implement/);
     assert.match(resumed, /# Implementing an Approved Change/);
     // 225213 CR5: the effective TDD rule rides the policy header + implement
-    // pack; the full Definition of Ready authoring detail is spec-owned only.
+    // pack; the authoring detail is spec-owned only (20261023-181753 retired the
+    // Definition of Ready this assert used to exclude).
     assert.match(resumed, /Effective policy:.*tdd=(on|off)/);
-    assert.doesNotMatch(resumed, /# Definition of Ready/);
+    assert.doesNotMatch(resumed, /# Authoring a Change/);
   }
   assertWithinBudget('core', core, contextBudgets.base.core);
 });
@@ -359,7 +360,7 @@ test('234939 structural remnant: pack composition and owned headings', () => {
 
   const ownedHeadings = {
     core: ['# ChangeLedger — Core Contract'],
-    spec: ['# Authoring a Change', '# Economical Delegation', '# Definition of Ready'],
+    spec: ['# Authoring a Change', '# Economical Delegation'],
     implement: ['# Implementing an Approved Change', '# Economical Delegation', '# Handoff Triage'],
     review: ['# Independent Review', '# Handoff Triage'],
     discarded: ['# Discarded — Terminal'],
@@ -1466,58 +1467,39 @@ function reachableWithoutReview() {
   return [...seen];
 }
 
-// 20260726-141121 CR2 — `readiness` demands `CRn` blocks under `##
-// Specification` and Plan tasks citing them. A type that never activates the
-// `specification` stage cannot satisfy that, so composing the fragment
-// contradicts the `Active stages(<type>)=` line printed in the same capture.
-test('141121 CR2: draft types without specification compose no readiness fragment', () => {
+// 20260726-141121 CR2/CR3 — the spec pack used to drop `readiness.md` for a type
+// without `specification`. 20261023-181753 retired that fragment, so the filter
+// went with it: every draft type now composes the same two spec fragments, in
+// order, and its stages line still says whether it activates `specification`.
+test('141121 CR2/CR3: every draft type composes the two spec fragments in order', () => {
   const root = repo();
+  const expected = ['# Authoring a Change', '# Economical Delegation'];
   const cases = [
-    ['audit', '20260726-141130'],
-    ['chore', '20260726-141131'],
-    ['quick', '20260726-141132'],
+    ['audit', '20260726-141130', false],
+    ['chore', '20260726-141131', false],
+    ['quick', '20260726-141132', false],
+    ['feature', '20260726-141133', true],
+    ['bug', '20260726-141134', true],
+    ['refactor', '20260726-141135', true],
   ];
-  for (const [type, id] of cases) {
-    writeRawChange(root, { id, status: 'draft', type });
-    const output = buildContext(id, root);
-    assert.doesNotMatch(output, /# Definition of Ready/, `${type} still composes readiness`);
-    assert.match(output, /# Authoring a Change/, `${type} lost the authoring fragment`);
-    assert.match(output, /# Economical Delegation/, `${type} lost the delegation fragment`);
-    const stages = output.split('\n').find((line) => line.startsWith(`Active stages(${type})=`));
-    assert.ok(stages, `${type} is missing its active stages line`);
-    assert.doesNotMatch(stages, /specification/, `${type} unexpectedly activates specification`);
-  }
-});
-
-// 20260726-141121 CR3 — the filter is keyed on the configured stages, so every
-// type that does activate `specification` must keep the spec pack whole, in the
-// same order it had before the fix.
-test('141121 CR3: draft types with specification keep the three spec fragments', () => {
-  const root = repo();
-  const expected = ['# Authoring a Change', '# Economical Delegation', '# Definition of Ready'];
-  const cases = [
-    ['feature', '20260726-141133'],
-    ['bug', '20260726-141134'],
-    ['refactor', '20260726-141135'],
-  ];
-  for (const [type, id] of cases) {
+  for (const [type, id, specification] of cases) {
     writeRawChange(root, { id, status: 'draft', type });
     const output = buildContext(id, root);
     const headings = output.split('\n').filter((line) => expected.includes(line));
     assert.deepEqual(headings, expected, `${type} composed ${headings.join(', ')}`);
     const stages = output.split('\n').find((line) => line.startsWith(`Active stages(${type})=`));
-    assert.match(stages, /specification/, `${type} no longer activates specification`);
+    assert.ok(stages, `${type} is missing its active stages line`);
+    assert.equal(/specification/.test(stages), specification, `${type} stages: ${stages}`);
   }
 });
 
 // 20260726-141121 CR4 — the bare `spec` mode resolves no change and therefore
-// no type, so the type filter must not reach it: it keeps the readiness
-// fragment and stays inside the `base.spec` budget it was measured against.
+// no type: it publishes no stages line and stays inside the `base.spec` budget
+// (20261023-181753 retired the readiness fragment this test also required).
 test('141121 CR4: the bare spec composition resolves no type and holds its budget', () => {
   const root = repo();
   const output = buildContext('spec', root);
   assert.doesNotMatch(output, /Active stages\(/);
-  assert.match(output, /# Definition of Ready/);
   assertWithinBudget('spec', output, contextBudgets.base.spec);
 });
 
@@ -1525,16 +1507,15 @@ test('141121 CR4: the bare spec composition resolves no type and holds its budge
 // keys unowned: no subject was obliged to check them, so an agent starting work
 // in a non-JS repo kept the JS-shaped defaults and could not approve a
 // well-formed change. The duty is now explicit and addressed to the agent.
-// 20260730-002730 retired the two verbatim pins of `141122 CR6`. What survives is
-// its retired-phrase claim (the unowned `Repos tune recognition with` must not come
-// back), the two configuration keys as identifiers rather than prose, and the budget.
-test('002730: the readiness keys are named without the retired phrasing', () => {
+// 20260730-002730 retired the two verbatim pins of `141122 CR6`. 20261023-181753
+// retired the two configuration keys with the Definition of Ready; what survives is
+// the retired-phrase claim (the unowned `Repos tune recognition with` must not come
+// back) and the budget.
+test('002730: the spec pack does not regrow the retired recognition phrasing', () => {
   const root = repo();
   const output = buildContext('spec', root);
   const normalized = output.replace(/\s+/g, ' ');
   assert.doesNotMatch(normalized, /Repos tune recognition with/);
-  assert.match(normalized, /`readiness\.target_patterns`/);
-  assert.match(normalized, /`readiness\.verification_patterns`/);
   assertWithinBudget('spec', output, contextBudgets.base.spec);
 });
 
@@ -1562,17 +1543,15 @@ test('203257 CR7: the spec pack teaches the four task children and no positional
   // 20260730-002730 retired the three sentence pins that stood here. The children,
   // the copyable example and the recursive retired-phrase sweep below are what the
   // criterion keeps; curated entry 12 guards the grammar's obligation tolerantly.
-  assert.match(
-    normalized,
-    /`target_patterns`[^.]{0,60}`Target`[^.]{0,60}`verification_patterns`[^.]{0,40}`Verify`/,
-  );
+  // 20261023-181753 retired the `target_patterns`/`verification_patterns` pin with
+  // the readiness configuration it described.
   // The shared enumeration reaches every depth: the `agent-contexts/` and
   // `agent-prompts/` capsules ship to consuming repos exactly like the top-level
   // fragments, so a top-level-only sweep would leave the retired phrases a seat
   // to survive in.
   const fragments = contractFragmentNames();
   // The sweep's own reach is asserted, not assumed.
-  for (const seat of ['spec.md', 'readiness.md', 'agent-contexts/implementation.md']) {
+  for (const seat of ['spec.md', 'agent-contexts/implementation.md']) {
     assert.ok(fragments.includes(seat), `the sweep does not reach ${seat}`);
   }
   for (const retired of RETIRED_POSITIONAL_PHRASES) {
@@ -1717,6 +1696,7 @@ test('194234 CR4: the retired commit-unit copies are absent from every fragment'
 // ordered keyword groups with alternations and bounded gaps — so deleting the
 // obligation still fails while rewording it does not. Whitespace is flattened
 // first: the obligations are wrapped prose and a guard must survive rewrapping.
+// 20261023-181753 retired `readiness.md` and rehomed its two rows into `spec.md`.
 const flattened = (text) => text.replace(/\s+/g, ' ');
 
 const DRAFTING_OBLIGATIONS = [
@@ -1750,12 +1730,12 @@ const DRAFTING_OBLIGATIONS = [
   ],
   [
     'each external interface declares whether its output is stable',
-    'readiness.md',
+    'spec.md',
     /\bexternal\b[^.;]{0,30}\binterfaces?\b[^.;]{0,90}\bstate\w*\b[^.;]{0,45}\bstable\b/i,
   ],
   [
     'every ask in the Request maps to a criterion or is named as excluded',
-    'readiness.md',
+    'spec.md',
     /\bask\w*\b[^.;]{0,45}## Request[^.;]{0,60}\bcriteri\w+\b[^.;]{0,60}\b(excluded|exclusion|excludes)\b/i,
   ],
 ];
@@ -2023,7 +2003,7 @@ for (const [label, owner, seat, patterns] of CLASSIFICATION_OBLIGATIONS) {
 // 20260730-214504 CR1 — the migration route from pre-existing Plan tasks and
 // legacy task metadata/Log events to the current grammar, named in `spec.md`
 // because that is the capture a consumer already has open when `check` reports
-// the readiness errors those old shapes cause. Fragment-only, following the
+// the errors those old shapes cause. Fragment-only, following the
 // regime `20260730-214503` established above for `DELEGATION_OBLIGATIONS` and
 // `CLASSIFICATION_OBLIGATIONS`: the fragment's transport into the composed
 // `spec` pack is already proven by the structural-composition test, so no
@@ -2102,7 +2082,7 @@ function declaredCeilings() {
 // not in a second copy.
 const PINNED_CEILINGS = {
   'base.core': { tokens: 3000, lines: 300 },
-  'base.spec': { tokens: 3000, lines: 300 },
+  'base.spec': { tokens: 2400, lines: 240 },
   'base.implement': { tokens: 2800, lines: 280 },
   'base.review': { tokens: 1500, lines: 150 },
   'base.release': { tokens: 1000, lines: 100 },
@@ -3142,7 +3122,6 @@ test('143656 CR4: retired phrases stay retired recursively and the fragment inve
     'discarded.md',
     'handoff.md',
     'implement.md',
-    'readiness.md',
     'release.md',
     'review.md',
     'spec.md',
@@ -3269,17 +3248,18 @@ const CONCEPT_GUARDS = [
   },
   {
     entry: 5,
-    obligation: '`approve` judges the draft at `approved` severity and refuses an unready one',
+    // 20261023-181753 retired the Definition of Ready this entry used to guard
+    // (`approve` judging the draft at `approved` severity). What `approve` demands
+    // now is the Request's objective and frontier: the four terms must share one
+    // sentence, in any order, so rewording is free and deleting the rule fails.
+    obligation: '`approve` demands the `### Objective` and `### Frontier` of the Request',
     verify: (pack) => {
+      const sentence = (terms) =>
+        new RegExp(terms.map((term) => `(?=(?:[^.]|\\.(?=\\S)){0,300}${term})`).join(''), 'i');
       assert.match(
         pack('spec'),
-        /`?changeledger approve`?[^.:;]{0,90}\b(stricter|strict|approved|higher)\b[^.:;]{0,40}\bseverity\b/i,
-        'the readiness pack no longer makes `approve` judge the draft at the stricter severity',
-      );
-      assert.match(
-        pack('spec'),
-        /\bunready\b[^.:;]{0,30}\bdraft\b[^.:;]{0,40}\b(refused|rejected|refuses)\b/i,
-        'the readiness pack no longer refuses an unready draft',
+        sentence(['`### Objective`', '`### Frontier`', '\\bapprov', '\\bRequest\\b']),
+        'the spec pack no longer names the objective and frontier `approve` demands of the Request',
       );
     },
   },
@@ -3764,7 +3744,9 @@ Evidence.
   );
 }
 
-test('113320 CR4: a tdd-off change publishes tdd=off and composes no readiness', () => {
+// 20261023-181753 retired the readiness fragment this test also excluded; the
+// retired-phrase sweep `181753 CR7` keeps it out of every capture.
+test('113320 CR4: a tdd-off change publishes tdd=off', () => {
   const root = repo();
   declareDocumentationType(root);
   const id = '20261002-113321';
@@ -3772,6 +3754,53 @@ test('113320 CR4: a tdd-off change publishes tdd=off and composes no readiness',
   const output = buildContext(id, root);
   const policy = output.split('\n').find((line) => line.startsWith('Effective policy:'));
   assert.match(policy, /tdd=off/);
-  assert.doesNotMatch(output, /# Definition of Ready/);
   assert.match(output, /# Authoring a Change/);
+});
+
+// --- 20261023-181753: the human approves objective and frontier ---
+
+// CR7 — the Definition of Ready is retired from the contract. A retired-phrase
+// sweep over every fragment at any depth, case-insensitive so a capitalised
+// `Readiness` cannot slip back, plus the fragment file itself.
+const RETIRED_READINESS_PHRASES = [
+  'Definition of Ready',
+  'readiness',
+  'test-grade',
+  'materially expands observable scope',
+];
+
+test('181753 CR7: no contract fragment carries the retired readiness model', () => {
+  assert.equal(
+    fs.existsSync(new URL('readiness.md', contractFragments)),
+    false,
+    'templates/contract/readiness.md still exists',
+  );
+  const fragments = contractFragmentNames();
+  for (const retired of RETIRED_READINESS_PHRASES) {
+    const holders = fragments.filter((name) =>
+      flattened(contractFragment(name)).toLowerCase().includes(retired.toLowerCase()),
+    );
+    assert.deepEqual(holders, [], `a contract fragment still carries the retired "${retired}"`);
+  }
+});
+
+// CR7 — the new model, as the criterion states its tolerant patterns. The
+// objective-and-frontier clause `approve` demands is curated concept guard 5.
+test('181753 CR7: the spec pack writes Specification and Plan in in-progress, never re-approved', () => {
+  const spec = flattened(buildContext('spec', repo()));
+  assert.doesNotMatch(spec, /# Definition of Ready/);
+  assert.match(spec, /Specification and Plan[^.]{0,80}in-progress/);
+  assert.match(spec, /(never|not|no)[^.]{0,40}(re-?approv|return[^.]{0,20}approval)/i);
+});
+
+test('181753 CR7: core states the scope test against the approved objective and frontier', () => {
+  const core = flattened(buildContext(undefined, repo()));
+  assert.match(core, /must be true[^.]{0,60}objective/i);
+  assert.match(core, /(pre-?authori[sz]ed|frontier)/i);
+});
+
+test('181753 CR7: implement is governed by objective and frontier and gates in-review on them', () => {
+  const implement = flattened(buildContext('implement', repo()));
+  assert.match(implement, /objective and frontier/i);
+  assert.match(implement, /in-review[^.]{0,80}(Specification|Plan)/);
 });

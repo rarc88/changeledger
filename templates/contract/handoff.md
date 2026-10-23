@@ -9,8 +9,8 @@ unfinished observations instead of silently mixing them into the active change:
   Log; it is not a new concern.
 - An operational step (verify, commit, graduate, archive, close): execute or
   record it in the current flow.
-- Independent, too large or materially broader: keep it outside the change and
-  propose type, title and reason to the human, batching related proposals.
+- Outside the approved objective, or beyond the frontier: keep it outside the
+  change and propose type, title and reason to the human, batching related proposals.
   Create the draft only after explicit authorization.
 - Too vague for a backlog entry: mention it in the handoff, create no file.
 

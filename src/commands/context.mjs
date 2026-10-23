@@ -18,7 +18,7 @@ const MODES = ['implement', 'review', 'spec', 'release'];
 const MODE_CONTEXT = {
   implement: ['implement', 'delegation', 'handoff'],
   review: ['review', 'handoff'],
-  spec: ['spec', 'delegation', 'readiness'],
+  spec: ['spec', 'delegation'],
   release: ['release'],
 };
 const STATUS_CONTEXT = {
@@ -87,8 +87,8 @@ export function emittedLines(text) {
 
 // Resolved defaults so an agent never reads `.changeledger/config.yml` raw to
 // discover the repo's effective policy. Keep these aligned with the shipped
-// template config and the Definition of Ready contract; the tdd default lives
-// with its single resolver, `effectiveTdd` in `check.mjs`.
+// template config; the tdd default lives with its single resolver,
+// `effectiveTdd` in `check.mjs`.
 const DEFAULT_LANGUAGE = 'en';
 
 function effectiveLanguage(config) {
@@ -109,11 +109,10 @@ function effectiveLanguage(config) {
 // into `git.release_branch`, while that branch is declared: the only state in
 // which a change of those types can be loaded (20261002-181428 CR7).
 // Called with `includeTdd: false` for a change-id capture whose type never
-// activates `specification`: `readiness.md` (the only fragment that defines
-// the obligation) is not composed for it, so publishing `tdd=on` would hand it
-// an obligation with no definition in the same capture (CR5). A type with
-// `specification` and tdd off publishes `tdd=off`: the absence of the
-// obligation, which needs no definition.
+// activates `specification`: tdd obliges writing the failing test from each
+// criterion, and such a type declares no criterion to write it from (CR5). A
+// type with `specification` and tdd off publishes `tdd=off`: the absence of
+// the obligation.
 export function transversalPolicy(config, { includeTdd = true, type = undefined } = {}) {
   const tdd = includeTdd ? ` — tdd=${effectiveTdd(config, type) ? 'on' : 'off'}` : '';
   const base = `Effective policy: language=${effectiveLanguage(config)}${tdd}${releaseTypes(config)}`;
@@ -140,8 +139,7 @@ function releaseTypes(config) {
 // `config.types`, absent from the change's own frontmatter, or declaring
 // `stages` as something other than a list — is exactly the class of defect
 // this repo aborts on rather than silently degrading: `context` must never
-// publish an empty `Active stages(...)=` line or omit `readiness` without
-// saying why (CR1). Single seat consumed by both callers below.
+// publish an empty `Active stages(...)=` line (CR1).
 function assertKnownType(config, type) {
   if (type === undefined) throw new Error('missing frontmatter "type"');
   const typeConfig = config?.types?.[type];
@@ -166,20 +164,6 @@ function changePolicyBlock(config, change) {
     `Active stages(${type})=${typeConfig.stages.join(', ')}`,
   ];
   return lines.join('\n');
-}
-
-// `readiness` (`# Definition of Ready`) presupposes the change carries a
-// `specification` stage: it requires every behavioral requirement to be a `CRn`
-// and every Plan task to cite one. A type that never activates that stage
-// cannot satisfy it — `check` rejects the stage outright — so composing the
-// fragment would contradict the `Active stages(<type>)=` line of the same
-// capture. A type whose effective tdd is off (`tdd=off` in its policy line) owes
-// none of it either. Derived from the configured stages and the tdd resolver,
-// never from a list of type names.
-function fragmentsForType(fragments, config, type) {
-  const { stages } = assertKnownType(config, type);
-  if (stages.includes('specification') && effectiveTdd(config, type)) return fragments;
-  return fragments.filter((name) => name !== 'readiness');
 }
 
 // One line per local dependency (id, title, status); external `project:id`
@@ -333,7 +317,7 @@ function composeInput(input, cwd, changeledgerDir) {
   const { id, status, type, depends_on: dependsOn, related_to: relatedTo } = frontmatter;
   const selected = STATUS_CONTEXT[status];
   if (!selected) throw new Error(`No context mapping for change status "${status}"`);
-  return composeResult(selected.mode, fragmentsForType(selected.fragments, repo.config, type), {
+  return composeResult(selected.mode, selected.fragments, {
     changeText: text,
     changeId: id,
     policy: changePolicyBlock(repo.config, { id, type }),
