@@ -1153,6 +1153,42 @@ test('20261023-094844 CR1: changeledger check prints both heading errors and fai
   });
 });
 
+// Round 1 found no test behind "one error per heading": a dedupe survived the
+// suite and would have let an edit add a second `### CR1` to a spec that
+// already has one. Two identical headings are two errors, and the admission
+// diff is a multiset, so removing one of them leaves exactly one.
+test('20261023-094844 CR1: a duplicated criterion heading is reported once per occurrence', () => {
+  const { errors } = runS(
+    [change()],
+    [spec({ name: 'verdad.md', body: '# Verdad\n\n### CR1 — una\n\n### CR1 — otra vez\n' })],
+  );
+  assert.deepEqual(msgs(errors.filter((e) => e.file === 'verdad.md')), [
+    TWO_CRITERIA_ERRORS[0],
+    TWO_CRITERIA_ERRORS[0],
+  ]);
+});
+
+test('20261023-094844 CR2: each heading form yields exactly one error, not only ATX level 3', () => {
+  const forms = [
+    '# CR1 — nivel 1',
+    '###### CR1 — nivel 6',
+    'CR1 — Setext\n---',
+    '> ### CR1 — en cita',
+    '- ### CR1 — en lista',
+  ];
+  for (const form of forms) {
+    const { errors } = runS(
+      [change()],
+      [spec({ name: 'verdad.md', body: `# Verdad\n\n${form}\n` })],
+    );
+    assert.deepEqual(
+      msgs(errors.filter((e) => e.file === 'verdad.md')),
+      [TWO_CRITERIA_ERRORS[0]],
+      form,
+    );
+  }
+});
+
 test('20261023-094844 CR2: a single criterion heading yields exactly one error with the same text', () => {
   const { errors } = runS(
     [change()],
