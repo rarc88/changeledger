@@ -443,14 +443,21 @@ function textOutsideFences(text) {
   return visible.join('\n');
 }
 
-export function specDurabilityIssue(body) {
-  let criterion;
+// One message per heading, each naming only its own criterion: the admission
+// diff keys errors by file and message, so a rewrite that removes one heading
+// must remove exactly one message and leave the others' text unchanged.
+export function specDurabilityIssues(body) {
+  const issues = [];
   marked.walkTokens(marked.lexer(String(body ?? '')), (token) => {
-    if (criterion || token.type !== 'heading') return;
-    criterion = String(token.text).match(/^(CR\d+)\b/)?.[1];
+    if (token.type !== 'heading') return;
+    const criterion = String(token.text).match(/^(CR\d+)\b/)?.[1];
+    if (criterion) {
+      issues.push(
+        `spec contains change-local criterion heading "${criterion}"; rewrite it as durable current truth`,
+      );
+    }
   });
-  if (!criterion) return null;
-  return `spec contains change-local criterion heading "${criterion}"; rewrite it as durable current truth`;
+  return issues;
 }
 
 // `parent` is the grouping edge, and it is deliberately NOT a second entry into
@@ -785,8 +792,7 @@ function checkSpecs(changes, specs, changeIds, err, warn) {
 
   for (const s of specs) {
     const fm = s.frontmatter ?? {};
-    const durabilityIssue = specDurabilityIssue(s.body);
-    if (durabilityIssue) err(s, durabilityIssue);
+    for (const issue of specDurabilityIssues(s.body)) err(s, issue);
     if (fm.updated && !ISO_UTC.test(fm.updated)) err(s, `updated not ISO 8601 UTC: ${fm.updated}`);
 
     let graduatedFrom = [];

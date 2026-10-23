@@ -428,8 +428,6 @@ test('CR7: the same spec edit is a plain atomic file replace when inactive', () 
 // 20261022-213751: `edit spec:` gates on the errors the edit introduces, the
 // same rule `edit <id>` follows: an error `check` already reported before the
 // edit, in this spec or elsewhere, does not refuse an edit that adds no new one.
-// `check` names a spec's FIRST criterion heading only, so a heading an edit
-// adds is visible to it, and to the gate, when it leads.
 const verdadSpec = (paragraph, leadingHeading = '') =>
   specText({
     title: 'Verdad',
@@ -483,10 +481,8 @@ test('20261022-213751 CR4: `edit spec:` refuses only the error the edit introduc
   assert.equal(stateDoc(root, 'specs/verdad.md'), original);
 });
 
-// The CR4 fixture cannot tell "only the introduced error" from "every error":
-// the leading CR2 heading hides CR1 from `check`, so the candidate carries one
-// error either way. Here the pre-existing error is in the frontmatter, which
-// the edit keeps, so it is still in the candidate when the gate runs.
+// A pre-existing error of another kind: it is in the frontmatter, which the
+// edit keeps, so it is still in the candidate when the gate runs.
 const STALE_UPDATED_ERROR = 'verdad.md: updated not ISO 8601 UTC: ayer';
 const staleVerdadSpec = (body) =>
   specText({ title: 'Verdad', body }).replace('updated: 2026-08-08T00:00:00Z', 'updated: ayer');
@@ -510,6 +506,45 @@ test('20261022-213751 CR4: `edit spec:` refuses only the introduced error while 
   );
   assert.equal(stateTip(root), tip);
   assert.equal(stateDoc(root, 'specs/verdad.md'), original);
+});
+
+// 20261023-094844 CR3: `check` reports one error per criterion heading, so
+// rewriting the first heading removes its error and leaves the other's text
+// unchanged — the edit introduces nothing and the gate accepts it.
+const twoCriteriaSpec = (first, second) =>
+  specText({ title: 'Verdad', body: `${first}\n\n${second}` });
+const CR1_HEADING = '### CR1 — una verdad\n\nTexto.';
+const CR2_HEADING = '### CR2 — otra verdad\n\nMás.';
+const VERDAD_CR2_ERROR =
+  'verdad.md: spec contains change-local criterion heading "CR2"; rewrite it as durable current truth';
+const verdadErrors = (root) =>
+  checkRepo(loadRepo(root))
+    .errors.filter((e) => e.file === 'verdad.md')
+    .map((e) => `${e.file}: ${e.message}`);
+
+test('20261023-094844 CR3: `edit spec:` accepts rewriting one criterion heading at a time', () => {
+  const { root } = activatedRepo({
+    extra: { 'specs/verdad.md': twoCriteriaSpec(CR1_HEADING, CR2_HEADING) },
+  });
+  assert.deepEqual(verdadErrors(root), [VERDAD_CR1_ERROR, VERDAD_CR2_ERROR]);
+  const tip = stateTip(root);
+
+  const first = edit(
+    'spec:verdad',
+    { from: source(root, twoCriteriaSpec('Una verdad, escrita como prosa.', CR2_HEADING)) },
+    root,
+  );
+
+  assert.equal(first.changed, true);
+  assert.notEqual(stateTip(root), tip);
+  assert.deepEqual(verdadErrors(root), [VERDAD_CR2_ERROR]);
+
+  const final = twoCriteriaSpec('Una verdad, escrita como prosa.', 'Otra verdad, también prosa.');
+  const second = edit('spec:verdad', { from: source(root, final) }, root);
+
+  assert.equal(second.changed, true);
+  assert.equal(stateDoc(root, 'specs/verdad.md'), final);
+  assert.deepEqual(verdadErrors(root), []);
 });
 
 // 20260811-122031: `edit`'s candidate gate widens from the single document

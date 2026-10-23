@@ -633,8 +633,9 @@ test('20261022-213751 CR2: the CLI exits non-zero in both modes on an error the 
 });
 
 // A spec whose own body already carries a change-local criterion heading.
-// `check` names a spec's FIRST criterion heading only, so a heading an edit
-// adds is visible to it, and to the gate, when it leads.
+// `check` reports one error per criterion heading, so a heading an edit adds
+// is a new error of its own wherever it sits; it leads here only so the
+// fixture reads top-down.
 const verdadSpec = (paragraph, leadingHeading = '') =>
   specText(`${paragraph}\n\n${leadingHeading}### CR1 — una verdad\n\nTexto.`, 'Verdad');
 const VERDAD_CR1_ERROR =
@@ -678,10 +679,8 @@ test('20261022-213751 CR4: apply refuses only the error the spec edit introduces
   assert.equal(stateDoc(root, 'specs/verdad.md'), original);
 });
 
-// The CR4 fixture cannot tell "only the introduced error" from "every error":
-// the leading CR2 heading hides CR1 from `check`, so the candidate carries one
-// error either way. Here the pre-existing error is in the frontmatter, which
-// the edit keeps, so it is still in the candidate when the gate runs.
+// A pre-existing error of another kind: it is in the frontmatter, which the
+// edit keeps, so it is still in the candidate when the gate runs.
 const STALE_UPDATED_ERROR = 'verdad.md: updated not ISO 8601 UTC: ayer';
 const staleVerdadSpec = (body) =>
   specText(body, 'Verdad').replace('updated: 2026-08-08T00:00:00Z', 'updated: ayer');
