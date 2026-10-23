@@ -210,25 +210,12 @@ test('init seeds tdd:true in the config (implementation-readiness CR1)', () => {
   assert.match(cfg, /^tdd: true$/m);
 });
 
-test('141122 CR1: the template publishes readiness uncommented with an adapt-it comment', () => {
-  const template = fs.readFileSync(path.join(templatesDir, 'config.yml'), 'utf8');
-  assert.ok(
-    template.includes(
-      'readiness:\n  target_patterns: ["src/**"]\n  verification_patterns: ["test/**"]\n',
-    ),
-    `readiness must ship uncommented with the effective defaults, got:\n${template}`,
-  );
-  const comment = template
-    .slice(0, template.indexOf('readiness:'))
-    .split(/\n\s*\n/)
-    .pop();
-  assert.match(comment, /`approved`/);
-  assert.match(comment, /Adapt them to this repo's own layout/);
-  assert.match(comment, /lib\/\*\*/);
-});
+// 20261023-181753 retired `141122 CR1`: the template no longer publishes a
+// `readiness` section. Its absence is pinned by `20261023-181753 CR6` in
+// `config-migration.test.mjs`.
 
-// A well-formed Ruby-flavoured bug: the Plan task names a `lib/` target and a
-// `verify:` clause, neither of which matches the JavaScript-shaped defaults.
+// A well-formed Ruby-flavoured bug: the Plan task names a `lib/` target and an
+// RSpec verification, nothing shaped like JavaScript.
 function rubyBug(id) {
   return `---
 id: "${id}"
@@ -243,6 +230,14 @@ related_to: []
 ## Request
 
 The parser drops trailing commas.
+
+### Objective
+
+Trailing commas survive parsing.
+
+### Frontier
+
+\`lib/parser.rb\` only.
 
 ## Investigation
 
@@ -268,17 +263,9 @@ The parser drops trailing commas.
 `;
 }
 
-test('141122 CR2: a fresh non-JS repo approves once readiness matches its stack', () => {
+test('141122 CR2: a fresh non-JS repo approves a well-formed bug without tuning its config', () => {
   const root = tmp();
   init(root);
-  const configFile = path.join(root, '.changeledger', 'config.yml');
-  const seeded = fs.readFileSync(configFile, 'utf8');
-  // The agent tunes the published keys to its own stack, as `readiness.md` requires.
-  const tuned = seeded
-    .replace('  target_patterns: ["src/**"]', '  target_patterns: ["lib/**"]')
-    .replace('  verification_patterns: ["test/**"]', '  verification_patterns: ["spec/**"]');
-  assert.notEqual(tuned, seeded, 'the seeded config must expose readiness as a real key');
-  fs.writeFileSync(configFile, tuned);
 
   const file = newChange(
     { type: 'bug', slug: 'parser', title: 'Parser', now: '2026-07-26T14:11:22Z' },
@@ -314,21 +301,9 @@ test('235628 CR3/CR8: init seeds portable release impacts and contract boundary'
   );
 });
 
-// 20260730-002730 retired the sentence pin of `020229 CR4`. The two configuration
-// keys the criterion is actually about are identifiers, not prose, so they stay.
-test('020229 CR4: installed contract documents configurable readiness patterns', () => {
-  const contract = contractText();
-  assert.match(contract, /readiness\.target_patterns/);
-  assert.match(contract, /readiness\.verification_patterns/);
-});
-
-// 20260730-002730 retired the sentence pin of `122611 CR3`. The configured value and
-// the copyable example child stay: both are structure a reader copies, not prose.
-test('122611 CR3: installed contract recommends structural verify clauses', () => {
-  const contract = contractText();
-  assert.match(contract, /verification_patterns: \["verify:"\]/);
-  assert.match(contract, /- \*\*Verify:\*\* verify: manual Android device check/);
-});
+// 20261023-181753 retired `020229 CR4` and `122611 CR3`: the installed contract
+// no longer documents readiness patterns nor the `verify:` verification
+// convention, both parts of the retired Definition of Ready.
 
 test('221849: installed CLI reference names actors and dedicated terminal actions', () => {
   const contract = contractText();
@@ -1300,9 +1275,9 @@ test('194220 CR11: the summary names what it did not validate when it also repor
   assert.equal(lastLine(withoutFrozen), '1 error(s), 0 warning(s) — 2 change(s)');
 });
 
-// 20260722-124656 CR3 — the readiness refusal must be observable where the
-// orchestrator actually stands: a non-zero exit and every defect on stderr.
-test('124656 CR3: `status <id> in-review` exits non-zero and names every readiness defect', async () => {
+// 20260722-124656 CR3 — the in-review refusal must be observable where the
+// orchestrator actually stands: a non-zero exit and the defect on stderr.
+test('124656 CR3: `status <id> in-review` exits non-zero and names the broken reference', async () => {
   const root = tmp();
   init(root);
   const configFile = path.join(root, '.changeledger', 'config.yml');
@@ -1313,27 +1288,20 @@ test('124656 CR3: `status <id> in-review` exits non-zero and names every readine
       .replace(/^ {2}change_branch_format:.*$/m, '  change_branch_format: null'),
   );
   const file = newChange(
-    { type: 'feature', slug: 'unready', title: 'Unready', now: '2026-06-13T12:00:00Z' },
+    { type: 'feature', slug: 'broken', title: 'Broken', now: '2026-06-13T12:00:00Z' },
     root,
     { ownerHandle: () => 'nobody' },
   );
-  // Ready while it walks to in-progress: since 20260729-185200 `approve` refuses a
-  // defective candidate, and what this criterion observes is the in-review refusal.
   fs.writeFileSync(
     file,
     fs
       .readFileSync(file, 'utf8')
-      .replace('## Request\n', '## Request\n\nR\n')
-      .replace('## Investigation\n', '## Investigation\n\nI\n')
-      .replace('## Proposal\n', '## Proposal\n\nP\n')
+      .replace('## Request\n', '## Request\n\nR\n\n### Objective\n\nO\n\n### Frontier\n\nF\n')
       .replace(
         '## Specification\n',
         '## Specification\n\n### CR1 — Something\n- **Given** a thing\n- **When** it runs\n- **Then** it holds\n',
       )
-      .replace(
-        '## Plan\n',
-        '## Plan\n\n- [ ] do it in `src/x.mjs`\n  - **Target:** `src/x.mjs`\n  - **Verify:** `test/x.test.mjs`\n  - **Criteria:** CR1\n',
-      ),
+      .replace('## Plan\n', '## Plan\n\n- [ ] do it\n  - **Criteria:** CR1\n'),
   );
   const id = parseChange(fs.readFileSync(file, 'utf8')).frontmatter.id;
   const bin = path.resolve('bin/changeledger.mjs');
@@ -1345,26 +1313,16 @@ test('124656 CR3: `status <id> in-review` exits non-zero and names every readine
 
   assert.equal((await run('approve', id)).code, 0);
   assert.equal((await run('status', id, 'in-progress')).code, 0);
-  // Now introduce the two readiness defects the in-review gate must name.
+  // Now break the Plan's reference, as an implementer rewriting it could.
   fs.writeFileSync(
     file,
-    fs
-      .readFileSync(file, 'utf8')
-      .replace(
-        '### CR1 — Something\n- **Given** a thing\n- **When** it runs\n- **Then** it holds\n',
-        '### CR1 — Something\n- **Given** a thing\n',
-      )
-      .replace(
-        '- [ ] do it in `src/x.mjs`\n  - **Target:** `src/x.mjs`\n  - **Verify:** `test/x.test.mjs`\n  - **Criteria:** CR1',
-        '- [ ] do the thing\n  - **Criteria:** CR1',
-      ),
+    fs.readFileSync(file, 'utf8').replace('  - **Criteria:** CR1', '  - **Criteria:** CR2'),
   );
   const before = fs.readFileSync(file, 'utf8');
 
   const failure = await run('status', id, 'in-review');
   assert.equal(failure.code, 1);
-  assert.match(failure.stderr, /CR1 is not test-grade: missing Given\/When\/Then/);
-  assert.match(failure.stderr, /Plan task for CR1 must name target and verification/);
+  assert.match(failure.stderr, /Plan task references unknown criterion "CR2"/);
   assert.equal(fs.readFileSync(file, 'utf8'), before, 'the refusal must not touch the document');
   assert.equal(parseChange(before).frontmatter.status, 'in-progress');
 });
@@ -1623,4 +1581,95 @@ test('20260810-120457 CR2: list, show and new from a nested project use its own 
     }).trim(),
     hostRevision,
   );
+});
+
+// --- 20261023-181753: the human approves objective and frontier ---
+
+test('20261023-181753 CR10: README describes the approval of objective and frontier and no Definition of Ready', () => {
+  const readme = fs
+    .readFileSync(path.join(templatesDir, '..', 'README.md'), 'utf8')
+    .replace(/\s+/g, ' ');
+  assert.doesNotMatch(readme, /Definition of Ready/i);
+  assert.doesNotMatch(readme, /test-grade/i);
+  assert.match(readme, /approve[^.]{0,60}objective[^.]{0,40}frontier/i);
+});
+
+// The scenario "the day after" of 20261023-181753 on an activated repo with
+// the template config: each ledger write goes through the spawned CLI, the
+// draft's later stages are empty, and Specification and Plan are written once
+// the change is in progress.
+test('20261023-181753 CR9: the day after — a draft with objective and frontier runs the whole lifecycle through the CLI', async () => {
+  const root = tmp();
+  init(root);
+  activate(root);
+  const git = (...args) => execFileSync('git', args, { cwd: root, env: sanitizedEnv() });
+  const bin = path.resolve('bin/changeledger.mjs');
+  const run = (...args) =>
+    execFileAsync(process.execPath, [bin, ...args], { cwd: root, env: sanitizedEnv() }).then(
+      (ok) => ({ code: 0, ...ok }),
+      (error) => error,
+    );
+  const ok = async (...args) => {
+    const result = await run(...args);
+    assert.equal(result.code, 0, `${args.join(' ')} failed: ${result.stderr}`);
+  };
+
+  const scaffold = scaffoldChange(
+    { type: 'feature', slug: 'day-after', title: 'Day after', now: '2026-10-23T18:00:00Z' },
+    root,
+    { ownerHandle: () => '' },
+  );
+  const draft = scaffold.text.replace(
+    '## Request\n',
+    '## Request\n\n### Objective\n\nThe thing works.\n\n### Frontier\n\n`src/x.mjs` only.\n',
+  );
+  const { id } = parseChange(draft).frontmatter;
+  const stageBodies = (text) =>
+    Object.fromEntries(parseChange(text).stages.map((stage) => [stage.key, stage.body.trim()]));
+  const drafted = stageBodies(draft);
+  for (const key of ['investigation', 'proposal', 'specification', 'plan']) {
+    assert.equal(drafted[key], '', `the draft's ${key} is empty`);
+  }
+
+  await ok('new', 'feature', 'day-after', 'Day after', '--from', sourceFile(root, draft));
+  const relPath = `changes/${id}-day-after.md`;
+  const landed = () => readSnapshot(root).documents[relPath];
+
+  await ok('approve', id);
+  git('commit', '--allow-empty', '-q', '-m', 'chore: base');
+  git('checkout', '-q', '-b', `feature/${id}`);
+  await ok('status', id, 'in-progress');
+
+  const before = stageBodies(landed());
+  assert.equal(before.specification, '', 'Specification is empty before the edit');
+  assert.equal(before.plan, '', 'Plan is empty before the edit');
+  const written = landed()
+    .replace(
+      '## Specification\n',
+      '## Specification\n\n### CR1 — x\n- **Given** a repo\n- **When** x runs\n- **Then** it holds\n',
+    )
+    .replace(
+      '## Plan\n',
+      '## Plan\n\n- [ ] Do x\n  - **Target:** `src/x.mjs`\n  - **Verify:** `node --test test/x.test.mjs`\n  - **Criteria:** CR1\n',
+    );
+  await ok('edit', id, '--from', sourceFile(root, written));
+  assert.match(stageBodies(landed()).specification, /^### CR1 — x/);
+
+  await ok('task', id, 'done', '1');
+  await ok('status', id, 'in-review');
+  await ok('review', id, 'pass');
+
+  const final = landed();
+  assert.equal(parseChange(final).frontmatter.status, 'done');
+  // `review` records its own transition as a `[review]` event.
+  const transitions = [...final.matchAll(/`\[(?:status|review)\]` (\S+) → (\S+)/g)].map(
+    ([, from, to]) => `${from} → ${to}`,
+  );
+  assert.deepEqual(transitions, [
+    'draft → approved',
+    'approved → in-progress',
+    'in-progress → in-review',
+    'in-review → done',
+  ]);
+  await ok('check');
 });
