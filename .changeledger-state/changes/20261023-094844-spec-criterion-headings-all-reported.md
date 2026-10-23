@@ -2,7 +2,7 @@
 id: "20261023-094844"
 title: check reporta cada heading CRn de una spec, no solo el primero
 type: bug
-status: in-progress
+status: in-review
 created: 2026-10-23T09:48:44Z
 depends_on: ["20261022-213751"]
 branch: bug/20261023-094844
@@ -145,3 +145,4 @@ estable y se fija en los criterios.
 - **2026-10-23T10:46:29Z** `[note]` Mandato de la revisión (ronda 1): auditoría completa del diff bug/20261022-213751..HEAD —un commit: src/check.mjs, src/commands/graduate.mjs, test/{check,graduate,edit,apply}.test.mjs— contra CR1-CR5 y contra la superficie que el change gobierna: specDurabilityIssues y sus tres consumidores (bucle de specs de checkRepo y las dos ramas de graduate --into). Fuera del mandato se reporta sin inspeccionar.
 - **2026-10-23T11:01:32Z** `[review]` in-review → in-progress: ronda 1 (auditoría completa): CR1-CR5 confirmados con mutantes por sitio; un defecto. Los comentarios de src/check.mjs y de los tests afirman 'un error por heading', pero ningún test ejercita un heading CRn duplicado: el mutante que deduplica (return [...new Set(issues)]) sobrevive a la suite completa y cambia la admisión (añadir un segundo ### CR1 a una spec que ya lo tiene pasa a aceptarse). Mismo tipo, menor: 'un solo heading produce exactamente un error' solo se ejecuta con ###. Clasificación: enumeración incompleta dentro de la estrategia verificada; corrección normal sobre el mismo diff.
 - **2026-10-23T11:02:50Z** `[note]` Corrección de la ronda 1, sin commit hasta confirmación, hecha por el orquestador en test/check.test.mjs: (1) test del heading duplicado — dos ### CR1 producen dos errores idénticos; con el mutante [...new Set(issues)] en una copia pasa a rojo ('a duplicated criterion heading is reported once per occurrence'); (2) test de formas de heading — nivel 1, nivel 6, Setext, cita y lista producen exactamente un error cada una, no solo ### . 252/252 en test/check.test.mjs.
+- **2026-10-23T11:02:51Z** `[status]` in-progress → in-review
