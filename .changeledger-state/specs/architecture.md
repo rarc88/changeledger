@@ -315,7 +315,11 @@ antes con el mismo fichero y el mismo mensaje, en ese documento o en otro,
 no rechaza una escritura que no añade ninguno. Esa es la única regla de
 admisión de las sedes de documento y la aplican las cinco
 (`20261022-213751`): el scaffold de `new`, `new --from`, `edit <id>`,
-`edit spec:<slug>` y cada entrada de documento de `apply`. Una spec con
+`edit spec:<slug>` y cada entrada de documento de `apply`; también la
+sigue el comando suelto `task <id> done|block <n>`, que construye el
+candidato con el documento marcado y rechaza antes de escribir, con el
+mismo mensaje por línea que `apply`, lo que la marca introduce
+(`20261023-094931`). Una spec con
 varios headings `CRn` se reescribe de uno en uno: `check` emite un error por
 cada heading, con el mismo texto por heading (`specDurabilityIssues` en
 `src/check.mjs`, también la puerta de `graduate --into`, que nombra todos
@@ -353,7 +357,9 @@ cero), y un error que el repo ya arrastraba no bloquea un lote que no lo
 toca. Una entrada de documento se rechaza en su propia sede, envuelta como
 `entry N (<target>): …`; el guard final sobre el candidato,
 `assertCandidateClean`, responde por lo que una entrada de evento deja
-detrás, como un `task block` sobre un change `done`.
+detrás: las entradas de evento no tienen sede propia dentro del lote, así
+que un `task block` sobre un change `done` lo rechaza ese guard, igual que
+lo rechaza el comando `task` en su propia sede.
 
 ## Adopción del estado global
 
