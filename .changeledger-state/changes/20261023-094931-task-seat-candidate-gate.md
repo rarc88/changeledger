@@ -113,10 +113,11 @@ se declara estable y se fija en CR1.
 
 ## Plan
 
-- [ ] `task` construye el candidato y rechaza sobre `introducedErrors`
+- [x] `task` construye el candidato y rechaza sobre `introducedErrors`
   - **Target:** `src/commands/agent.mjs`
   - **Verify:** `node --test test/agent.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4
+  - **Resolved:** `2026-10-23T12:10:31Z`
 - [ ] Rechazo del `bin` en stderr y código de salida
   - **Target:** `test/cli.test.mjs`
   - **Verify:** `node --test test/cli.test.mjs`
