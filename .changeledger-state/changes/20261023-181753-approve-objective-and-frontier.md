@@ -369,10 +369,11 @@ las nombra como divergencia conocida.
   - **Verify:** `node --test test/check.test.mjs`
   - **Criteria:** CR3, CR4
   - **Resolved:** `2026-10-23T23:19:08Z`
-- [ ] Añadir a la sede `in-review` de `statusMutation` la exigencia de Specification con criterio y Plan con cuerpo
+- [x] Añadir a la sede `in-review` de `statusMutation` la exigencia de Specification con criterio y Plan con cuerpo
   - **Target:** `src/commands/agent.mjs`, `src/check.mjs`
   - **Verify:** `node --test test/agent.test.mjs`
   - **Criteria:** CR5
+  - **Resolved:** `2026-10-23T23:19:09Z`
 - [ ] Retirar `readiness` de la plantilla, de la migración a v4 y de la config de este repo en la ref de estado y su espejo
   - **Target:** `templates/config.yml`, `src/config-migration.mjs`, `.changeledger/config.yml`
   - **Verify:** `node --test test/config-migration.test.mjs test/cli.test.mjs`
