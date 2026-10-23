@@ -357,9 +357,11 @@ cero), y un error que el repo ya arrastraba no bloquea un lote que no lo
 toca. Una entrada de documento se rechaza en su propia sede, envuelta como
 `entry N (<target>): …`; el guard final sobre el candidato,
 `assertCandidateClean`, responde por lo que una entrada de evento deja
-detrás: las entradas de evento no tienen sede propia dentro del lote, así
-que un `task block` sobre un change `done` lo rechaza ese guard, igual que
-lo rechaza el comando `task` en su propia sede.
+detrás: las entradas `log`, `owner` y `task` no pasan por ninguna
+comprobación del documento resultante dentro del lote (`status` conserva
+las guardas de su transición), así que un `task block` sobre un change
+`done` lo rechaza ese guard, igual que lo rechaza el comando `task` en su
+propia sede.
 
 ## Adopción del estado global
 
