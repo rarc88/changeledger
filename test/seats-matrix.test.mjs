@@ -27,7 +27,6 @@ import { checkRepo } from '../src/check.mjs';
 import { archive, archiveGraduated, review, status } from '../src/commands/agent.mjs';
 import { apply } from '../src/commands/apply.mjs';
 import { edit } from '../src/commands/edit.mjs';
-import { scaffoldSpec } from '../src/commands/graduate.mjs';
 import { init } from '../src/commands/init.mjs';
 import { newChange, newChangeFrom, scaffoldChange } from '../src/commands/new.mjs';
 import { loadRepo } from '../src/repo.mjs';
@@ -263,15 +262,18 @@ test('20261021-223918 CR1/CR2: the archive seats differ only in selection, and t
 // --- Operation: admit a document into the ledger -------------------------
 //
 // The entry points are listed in `ADMISSION_SEATS` below — no count here,
-// because the three times this sentence carried one it went stale. They run
-// over four gates: `--from` and `apply --target new` both funnel into
-// `prepareNewChange`, while `apply --target change:<id>` reaches
-// `prepareChangeEdit` like `edit` does and then adds `assertCandidateClean`
-// of its own — review found that last one submitted by nothing (round 4
-// D2). Three of the eight defects lived between two of these: the worktree scaffold wrote documents `--from` refused,
-// then the fix restated the rules instead of running the same gate and
-// diverged again on the clause it had not copied. The inputs are the ones
-// that told those two apart.
+// because the three times this sentence carried one it went stale. The
+// scaffold gates in `assertScaffoldIntroducesNoErrors`; `--from` and `apply
+// --target new` both funnel into `prepareNewChange`; `edit` and `apply
+// --target change:<id>` both reach `prepareChangeEdit`; and the two `apply`
+// seats then run `apply`'s own candidate gate. Each of those calls
+// `introducedErrors`, so swapping one call site for the all-errors form makes
+// the unrelated-break row refuse at exactly the seats that run it. Three of the eight defects lived between two of these:
+// the worktree scaffold wrote documents `--from` refused, then the fix
+// restated the rules instead of running the same gate and diverged again on
+// the clause it had not copied. The parent inputs are the ones that told those
+// two apart; the unrelated-break input is the one that told `apply` apart
+// from `edit`.
 
 // Named once. Rounds 3, 4 and 6 each found a gap entry whose prose counted
 // these wrong, every time because a seat had landed and the sentence had
@@ -284,6 +286,16 @@ const ADMISSION_INPUTS = [
   { input: 'a parent that does not exist', parent: '20200101-000000', expected: 'refuse' },
   { input: 'a parent that is itself a child', parent: '20260613-170000', expected: 'refuse' },
   { input: 'a parent that is live and first-level', parent: '20260613-180000', expected: 'accept' },
+  // The row above plus one break the document has nothing to do with, so the
+  // break is the only thing this row adds. A seat that gated on every error
+  // the candidate carries, instead of on the ones the write introduces, would
+  // refuse here.
+  {
+    input: 'a clean document in a repo with an unrelated break',
+    parent: '20260613-180000',
+    unrelatedBreak: true,
+    expected: 'accept',
+  },
 ];
 
 // An epic with one child, so '20260613-170000' is a second-level change and
@@ -313,12 +325,34 @@ function hierarchy(root) {
   );
 }
 
-for (const { input, parent, expected } of ADMISSION_INPUTS) {
+// A change whose parent does not exist, which no seat's document names. The
+// row that carries it means something only while the break is a real `check`
+// error, so the repo is checked before any seat sees it: a break that stopped
+// being an error would leave that row agreeing with the live-parent row for
+// no reason.
+function unrelatedBreak(root) {
+  write(
+    root,
+    '20260613-200000-roto.md',
+    '---\nid: "20260613-200000"\ntitle: Roto\ntype: quick\nstatus: draft\ncreated: 2026-06-13T20:00:00Z\ndepends_on: []\nparent: "20200101-000000"\n---\n\n## Request\n\nAlgo.\n\n## Log\n',
+  );
+  assert.deepEqual(
+    checkRepo(loadRepo(root)).errors.map((e) => `${e.file}: ${e.message}`),
+    ['20260613-200000-roto.md: parent references missing change "20200101-000000"'],
+    'the unrelated break must be the one error the repo carries before the write',
+  );
+}
+
+for (const { input, parent, unrelatedBreak: broken = false, expected } of ADMISSION_INPUTS) {
   test(`20261021-223918 CR1: every admission seat answers the same for ${input}`, () => {
     const answers = {};
+    const seed = (root) => {
+      hierarchy(root);
+      if (broken) unrelatedBreak(root);
+    };
 
     const scaffoldRoot = repo();
-    hierarchy(scaffoldRoot);
+    seed(scaffoldRoot);
     const args = {
       type: 'quick',
       slug: 'cand',
@@ -329,7 +363,7 @@ for (const { input, parent, expected } of ADMISSION_INPUTS) {
     answers.scaffold = outcome(() => newChange(args, scaffoldRoot, { ownerHandle: () => '' }));
 
     const documentRoot = repo();
-    hierarchy(documentRoot);
+    seed(documentRoot);
     const composed = scaffoldChange(args, documentRoot, { ownerHandle: () => '' }).text;
     const source = path.join(documentRoot, 'cand.md');
     fs.writeFileSync(source, composed);
@@ -338,7 +372,7 @@ for (const { input, parent, expected } of ADMISSION_INPUTS) {
     );
 
     const batchRoot = repo();
-    hierarchy(batchRoot);
+    seed(batchRoot);
     const manifest = path.join(batchRoot, 'batch.json');
     fs.writeFileSync(
       manifest,
@@ -347,7 +381,7 @@ for (const { input, parent, expected } of ADMISSION_INPUTS) {
     answers.apply = outcome(() => apply({ from: manifest }, batchRoot));
 
     const editRoot = repo();
-    hierarchy(editRoot);
+    seed(editRoot);
     const existing = path.join(editRoot, '.changeledger', 'changes', '20260613-190000-sujeto.md');
     const rewritten = path.join(editRoot, 'rewritten.md');
     const withParent = fs
@@ -361,14 +395,11 @@ for (const { input, parent, expected } of ADMISSION_INPUTS) {
     fs.writeFileSync(rewritten, withParent);
     answers.edit = outcome(() => edit('20260613-190000', { from: rewritten }, editRoot));
 
-    // The fifth entry point: `apply` editing an existing document. It shares
-    // `prepareChangeEdit` with `edit` and adds `assertCandidateClean` on top,
-    // so on the parent rows the two agree — and on an input these rows do not
-    // carry they do not. That second half is the change-document divergence
-    // reproduced in the register below, not this comment: the first wording
-    // claimed the matrix covered it, which it does not.
+    // `apply` editing an existing document. It shares `prepareChangeEdit` with
+    // `edit` and then runs `apply`'s own candidate gate; the unrelated-break
+    // row is the input on which the two once answered differently.
     const batchEditRoot = repo();
-    hierarchy(batchEditRoot);
+    seed(batchEditRoot);
     const editManifest = path.join(batchEditRoot, 'batch-edit.json');
     fs.writeFileSync(
       editManifest,
@@ -410,25 +441,28 @@ for (const { input, parent, expected } of ADMISSION_INPUTS) {
 // and when the matched text survived only inside a comment (round 4 D1).
 // Line comments are stripped from the slice for the same reason.
 //
-// Two kinds of entry, because text predicates could not carry both.
+// The entries are COVERAGE gaps: "no matrix submits this path". That is a
+// claim about the tests, so nothing in the code can confirm it; the predicate
+// is only a tripwire on the construct the gap names, and it carries three
+// measured residuals. It does not fail when the gap is closed from the TEST
+// side, so closing one means deleting its entry by hand in the same edit. It
+// does not fail when the named gate is neutered in place — `if (false && …)`
+// keeps the text — though a gate MOVED to another function is caught. And it
+// does not fail when the behaviour is closed from a function the entry does
+// not name.
 //
-// A COVERAGE gap says "no matrix submits this path". That is a claim about
-// the tests, so nothing in the code can confirm it; the predicate is only a
-// tripwire on the construct the gap names, and it carries three measured
-// residuals. It does not fail when the gap is closed from the TEST side, so
-// closing one means deleting its entry by hand in the same edit. It does not
-// fail when the named gate is neutered in place — `if (false && …)` keeps the
-// text — though a gate MOVED to another function is caught. And it does not
-// fail when the behaviour is closed from a function the entry does not name.
-//
-// A DIVERGENCE gap says "these two seats answer differently on an input no
-// row carries". That IS a claim about the code, so it is not grepped — it is
-// reproduced. The first cut grepped both divergence predicates, and they were
-// unsound in exactly the ways above: one matched a second occurrence inside
-// an error-message template, and both pinned one side of a two-function
-// divergence while the realistic fix lives in the other. An executed
-// reproduction has none of those failure modes: close the divergence by any
-// route and the assertion fails, which is the entry asking to be deleted.
+// An entry may also say why a path differs from a seat it resembles, and then
+// it names the code comment or contract text that declares the difference. A
+// difference nothing declares is a DIVERGENCE, and a divergence is not an
+// entry here: it is a claim about the code, so it is reproduced as a test that
+// fails once the divergence closes, never grepped. The first cut grepped two,
+// and both predicates were unsound in exactly the ways above: one matched a
+// second occurrence inside an error-message template, and both pinned one side
+// of a two-function divergence while the realistic fix lives in the other.
+// This file reproduces no divergence today: the two document-seat divergences
+// closed when the document seats converged on `introducedErrors`
+// (20261022-213751) and became the unrelated-break row of the admission
+// matrix, and the third turned out to be graduation's declared design.
 
 // The body of a named top-level function, by brace matching from its
 // declaration. Narrow on purpose — it locates ONE named function, which is
@@ -492,11 +526,20 @@ const COVERAGE_GAPS = [
     // Restored: this entry was dropped when the register was restructured,
     // silently and without being asked (round 5 D1) — a declared hole deleted
     // while refactoring the hole register, which is the shape the register is
-    // for. The divergence it points at is real: `review <id> fail` demands a
-    // reason and `status <id> in-progress` from the same status does not.
-    gap: '`in-review → in-progress` has two seats — `review fail` and `status <id> in-progress` — and no matrix submits either; they already answer differently to the same input',
+    // for.
+    gap: '`in-review → in-progress` has two seats — `review <id> fail "<reason>"` and `status <id> in-progress` — and no matrix submits either. They differ by contract: `templates/contract/review.md` reserves `review fail`, which refuses without a reason, for a reviewer\'s verdict, and names `status <id> in-progress` the no-verdict path for a local gate that fails once the candidate reached `in-review`',
     in: ['src/commands/agent.mjs', 'review'],
-    stillOpen: (body) => /to = 'in-progress';/.test(body),
+    stillOpen: (body) => /if \(!reason\)/.test(body) && /to = 'in-progress';/.test(body),
+  },
+  {
+    gap: '`graduate <id> <slug> --new` (`scaffoldSpec`) writes a spec and no matrix submits it. It is not a seat of document admission: graduation is two-phase by design, as the header of `src/commands/graduate.mjs` declares — the seed is an editable scaffold, marked with `SPEC_SCAFFOLD_MARKER`, that `check` may reject until it is rewritten, and `graduate --into` refuses the spec while it still carries the marker',
+    in: ['src/commands/graduate.mjs', 'scaffoldSpec'],
+    stillOpen: (body) => /SPEC_SCAFFOLD_MARKER/.test(body),
+  },
+  {
+    gap: "`apply`'s final candidate gate, `assertCandidateClean`, has no matrix that reaches its refusal. The document entries the admission matrix refuses stop earlier, at their own seat, inside the entry envelope `apply refused, nothing was written — entry 1 (…)`; the gate answers for what an event entry's text transform leaves behind, as a `task block` on a `done` change does",
+    in: ['src/commands/apply.mjs', 'apply'],
+    stillOpen: (body) => /assertCandidateClean\(/.test(body),
   },
 ];
 
@@ -512,156 +555,4 @@ test('20261021-223918 CR2: every coverage gap still describes the code it is abo
       `this gap no longer describes \`${fn}\` in ${file} — close it here or reword it: ${gap}`,
     );
   }
-});
-
-// --- CR2: the divergence gaps, reproduced rather than grepped -----------
-//
-// Each of these says two seats of one operation answer differently on an
-// input no matrix row carries. That is a claim about the code, so the entry
-// IS the reproduction: close the divergence by any route — either side, any
-// function — and the assertion fails, which is this register asking for the
-// entry to be deleted. The grepped first cut of the first two was unsound in
-// both of the ways that matter: one predicate matched a second
-// occurrence inside an error-message template, and both pinned one side of a
-// two-function divergence while the realistic fix lives in the other.
-
-// A repo carrying one pre-existing break that has nothing to do with the
-// document under test. That is the whole input: `prepareChangeEdit` and
-// `prepareSpecEdit` diff against the repo's own current errors, `apply` reads
-// every error the candidate carries.
-function repoWithUnrelatedBreak() {
-  const root = repo();
-  write(
-    root,
-    '20260613-200000-roto.md',
-    '---\nid: "20260613-200000"\ntitle: Roto\ntype: quick\nstatus: draft\ncreated: 2026-06-13T20:00:00Z\ndepends_on: []\nparent: "20200101-000000"\n---\n\n## Request\n\nAlgo.\n\n## Log\n',
-  );
-  write(
-    root,
-    '20260613-210000-limpio.md',
-    '---\nid: "20260613-210000"\ntitle: Limpio\ntype: quick\nstatus: draft\ncreated: 2026-06-13T21:00:00Z\ndepends_on: []\n---\n\n## Request\n\nAlgo.\n\n## Log\n',
-  );
-  return root;
-}
-
-test('20261021-223918 CR2: gap — `edit <id>` and `apply --target change:<id>` still diverge', () => {
-  const edited = (root) =>
-    fs
-      .readFileSync(
-        path.join(root, '.changeledger', 'changes', '20260613-210000-limpio.md'),
-        'utf8',
-      )
-      .replace('Algo.', 'Algo, reescrito.');
-
-  const editRoot = repoWithUnrelatedBreak();
-  const editFrom = path.join(editRoot, 'in.md');
-  fs.writeFileSync(editFrom, edited(editRoot));
-  const viaEdit = outcome(() => edit('20260613-210000', { from: editFrom }, editRoot));
-
-  const applyRoot = repoWithUnrelatedBreak();
-  const manifest = path.join(applyRoot, 'batch.json');
-  fs.writeFileSync(
-    manifest,
-    JSON.stringify([{ target: 'change:20260613-210000', content: edited(applyRoot) }]),
-  );
-  const viaApply = outcome(() => apply({ from: manifest }, applyRoot));
-
-  assert.equal(viaEdit, 'accept', 'the gap says `edit` accepts past an unrelated break');
-  assert.match(
-    viaApply,
-    /^refuse:/,
-    `the gap says \`apply --target change:\` refuses on the same input; it answered: ${viaApply}`,
-  );
-});
-
-test('20261021-223918 CR2: gap — `edit spec:` and `apply --target spec:` still diverge', () => {
-  const spec = (root) => {
-    const dir = path.join(root, '.changeledger', 'specs');
-    fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(
-      path.join(dir, 'verdad.md'),
-      '---\ntitle: Verdad\nupdated: 2026-06-13T22:00:00Z\ntags: [ x ]\n---\n\n## Verdad\n\nAlgo duradero.\n',
-    );
-    return path.join(dir, 'verdad.md');
-  };
-
-  const editRoot = repoWithUnrelatedBreak();
-  const editFile = spec(editRoot);
-  const editFrom = path.join(editRoot, 'in.md');
-  fs.writeFileSync(
-    editFrom,
-    fs.readFileSync(editFile, 'utf8').replace('Algo duradero.', 'Otra verdad.'),
-  );
-  const viaEdit = outcome(() => edit('spec:verdad', { from: editFrom }, editRoot));
-
-  const applyRoot = repoWithUnrelatedBreak();
-  const applyFile = spec(applyRoot);
-  const manifest = path.join(applyRoot, 'batch.json');
-  fs.writeFileSync(
-    manifest,
-    JSON.stringify([
-      {
-        target: 'spec:verdad',
-        content: fs.readFileSync(applyFile, 'utf8').replace('Algo duradero.', 'Otra verdad.'),
-      },
-    ]),
-  );
-  const viaApply = outcome(() => apply({ from: manifest }, applyRoot));
-
-  assert.equal(viaEdit, 'accept', 'the gap says `edit spec:` accepts past an unrelated break');
-  assert.match(
-    viaApply,
-    /^refuse:/,
-    `the gap says \`apply --target spec:\` refuses on the same input; it answered: ${viaApply}`,
-  );
-});
-
-// The spec entry's first wording ruled `graduate --new` out of the
-// admission operation because it "composes rather than receives" a document
-// — but so does `scaffold` (`newChange`), which IS in the matrix. It is the
-// spec-side analogue of that seat, and unlike it, it runs no repo-wide
-// candidate check: `newChange` calls `assertScaffoldIntroducesNoErrors`,
-// `scaffoldSpec` calls nothing.
-test('20261021-223918 CR2: gap — `graduate --new` still admits a spec `edit spec:` refuses', () => {
-  const root = repo();
-  const id = '20260613-230000';
-  write(
-    root,
-    `${id}-fuente.md`,
-    `---\nid: "${id}"\ntitle: Fuente\ntype: documentation\nstatus: done\ncreated: 2026-06-13T23:00:00Z\ndepends_on: []\n---\n\n## Request\n\nAlgo.\n\n## Investigation\n\n### CR1 — una verdad\n\nIndagado.\n\n## Specification\n\n- [x] CR1 Given algo When algo Then algo\n\n## Log\n\n${LOG_TO_IN_PROGRESS}- **2026-06-13T23:30:00Z** \`[status]\` in-progress → in-review\n- **2026-06-13T23:40:00Z** \`[review]\` in-review → done: delegated subagent, clean context\n`,
-  );
-
-  const viaGraduate = outcome(() => scaffoldSpec(id, 'verdad', root));
-  assert.equal(viaGraduate, 'accept', 'the gap says `graduate --new` writes it');
-
-  const written = path.join(root, '.changeledger', 'specs', 'verdad.md');
-  assert.ok(fs.existsSync(written), 'and the spec really landed');
-  assert.ok(
-    checkRepo(loadRepo(root)).errors.some((e) => e.file === 'verdad.md'),
-    'the gap says what it admits is not valid; `check` must disagree with the write',
-  );
-
-  // The same document through the `edit spec:` seat the spec entry declares.
-  const from = path.join(root, 'in.md');
-  fs.writeFileSync(from, fs.readFileSync(written, 'utf8'));
-  fs.rmSync(written);
-  // The pre-existing spec carries `graduated_from` so that `edit spec:` can only
-  // refuse for the content error: the field is owned by `graduate`, and a file
-  // without it made the seat refuse for ownership while this row read "refuse"
-  // and stayed green with the content filter removed (round 7).
-  fs.writeFileSync(
-    written,
-    '---\ntitle: Verdad\nupdated: 2026-06-13T23:50:00Z\ntags: [ x ]\ngraduated_from: []\n---\n\n## Verdad\n\nAlgo duradero.\n',
-  );
-  let viaEdit = 'accept';
-  try {
-    edit('spec:verdad', { from }, root);
-  } catch (error) {
-    viaEdit = `refuse: ${error.message}`;
-  }
-  assert.match(
-    viaEdit,
-    /verdad\.md: spec contains change-local criterion heading "CR1"/,
-    `\`edit spec:\` must refuse what \`graduate --new\` wrote for the error \`check\` reports, or the gap has closed; it answered: ${viaEdit}`,
-  );
 });

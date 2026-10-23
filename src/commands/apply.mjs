@@ -22,7 +22,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { parseChange } from '../change.mjs';
 import { writeLedgerFiles } from '../change-store.mjs';
-import { checkRepo } from '../check.mjs';
+import { checkRepo, introducedErrors } from '../check.mjs';
 import { assertSupportedSchema } from '../config-migration.mjs';
 import { loadRepo } from '../repo.mjs';
 import { slugify } from '../slug.mjs';
@@ -88,17 +88,20 @@ export function apply({ from, dryRun = false } = {}, cwd = process.cwd(), { usag
     }
   });
 
-  const { errors, warnings } = checkRepo(candidate);
+  const { warnings } = checkRepo(candidate);
+  const errors = introducedErrors(repo, candidate);
   const writes = [...pending.values()].filter((w) => w.text !== w.baseline);
   const changed = writes.map((w) => w.relPath ?? w.file);
   const message = `apply: ${summarize(descriptors)}`;
 
-  // The write gate: a candidate carrying `check` errors never lands, whether
+  // The write gate: a batch that introduces `check` errors never lands, whether
   // by dry run (so `compose → correct → land once` can be SCRIPTED — its
   // verdict has to be programmatic, not printed) or for real (20260811-122031
   // closed the gap where only `--dry-run` refused and landing printed the
-  // same errors and still exited 0). Warnings stay informative — `check`
-  // reports them and still exits 0 in both modes.
+  // same errors and still exited 0). Errors the repo already carried before
+  // the batch do not gate it (20261022-213751): `introducedErrors`, the rule
+  // the document seats share. Warnings stay informative — `check` reports
+  // them and still exits 0 in both modes.
   assertCandidateClean(errors, dryRun);
 
   if (dryRun) {
@@ -124,10 +127,10 @@ export function apply({ from, dryRun = false } = {}, cwd = process.cwd(), { usag
   return { changed, warnings, errors, message, dryRun, statusWarnings };
 }
 
-// Shaped like `edit`'s own refusal: every error named with its file, and
-// nothing written anywhere. Runs identically in both modes (20260811-122031)
-// — only the wording names which mode refused, since a landing refusal never
-// claims to be a dry run.
+// Shaped like `edit`'s own refusal: every error the batch introduces named with
+// its file, and nothing written anywhere. Runs identically in both modes
+// (20260811-122031) — only the wording names which mode refused, since a
+// landing refusal never claims to be a dry run.
 function assertCandidateClean(errors, dryRun) {
   if (!errors.length) return;
   const mode = dryRun ? 'apply dry run' : 'apply';

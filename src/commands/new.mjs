@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { parseChange } from '../change.mjs';
 import { repoIsActivated, writeLedgerFiles } from '../change-store.mjs';
-import { checkRepo, newErrors } from '../check.mjs';
+import { introducedErrors } from '../check.mjs';
 import {
   findChangeledgerDir,
   loadConfig,
@@ -155,13 +155,10 @@ function requireCreatableType(config, type) {
 // a pre-existing break elsewhere never blocks an unrelated clean scaffold.
 function assertScaffoldIntroducesNoErrors(repoRoot, candidate) {
   const repo = loadRepo(repoRoot, { isolateChangeErrors: true });
-  const introduced = newErrors(
-    checkRepo(repo).errors,
-    checkRepo({
-      ...repo,
-      changes: [...repo.changes, { ...parseChange(candidate.text), ...candidate }],
-    }).errors,
-  );
+  const introduced = introducedErrors(repo, {
+    ...repo,
+    changes: [...repo.changes, { ...parseChange(candidate.text), ...candidate }],
+  });
   if (introduced.length) {
     throw new Error(
       `the scaffold would not be valid in this repo, nothing was written:\n${introduced
@@ -295,10 +292,7 @@ export function prepareNewChange(repo, text, { slug, parsed } = {}) {
   // introduces used to land silently. Diffed against the repo's OWN current
   // errors so a pre-existing, unrelated break elsewhere never blocks creating
   // an unrelated, clean document.
-  const introduced = newErrors(
-    checkRepo(repo).errors,
-    checkRepo({ ...repo, changes: [...repo.changes, candidate] }).errors,
-  );
+  const introduced = introducedErrors(repo, { ...repo, changes: [...repo.changes, candidate] });
   if (introduced.length) {
     throw new Error(
       `the incoming document is invalid, nothing was written:\n${introduced
