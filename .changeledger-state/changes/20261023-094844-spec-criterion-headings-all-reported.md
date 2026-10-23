@@ -127,9 +127,10 @@ estable y se fija en los criterios.
   - **Verify:** `node --test test/graduate.test.mjs`
   - **Criteria:** CR5
   - **Resolved:** `2026-10-23T10:42:37Z`
-- [ ] Suite completa y puertas del repo
+- [x] Suite completa y puertas del repo
   - **Support:**
   - **Verify:** `pnpm verify`
+  - **Resolved:** `2026-10-23T10:46:17Z`
 
 ## Log
 - **2026-10-23T09:48:44Z** `[version]` 0.18.0
