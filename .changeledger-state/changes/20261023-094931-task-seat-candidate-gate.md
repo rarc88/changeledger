@@ -134,3 +134,4 @@ se declara estable y se fija en CR1.
 - **2026-10-23T09:58:33Z** `[status]` draft → approved (human via conversation)
 - **2026-10-23T11:51:37Z** `[status]` approved → in-progress
 - **2026-10-23T11:51:37Z** `[branch]` set: bug/20261023-094931 (auto)
+- **2026-10-23T11:51:43Z** `[note]` Rama bug/20261023-094931 creada apilada sobre bug/20261023-094844 (c0b85e61) por orden del humano: la matriz de sedes vive en test/seats-matrix.test.mjs y la regla introducedErrors viene del PR 19.
