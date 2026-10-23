@@ -407,3 +407,4 @@ las nombra como divergencia conocida.
 - **2026-10-23T22:28:26Z** `[version]` 0.18.0 → 0.19.0
 - **2026-10-23T22:28:26Z** `[status]` approved → in-progress
 - **2026-10-23T22:28:26Z** `[branch]` set: feature/20261023-181753 (auto)
+- **2026-10-23T23:06:45Z** `[note]` Enmiendas de la Specification en in-progress, dentro de la frontera pre-autorizada: CR8 ya no exige config byte-idéntica ante un PATCH con readiness porque todo PATCH aceptado del viewer re-serializa el YAML (padding de flujo en las listas), medido por la selección de viewer; ahora exige el mismo resultado que un PATCH sin claves aceptadas. CR11 precisa que lo prohibido es afirmar la presencia de los diagnósticos retirados: CR3 necesita nombrarlos en una comprobación de ausencia.
