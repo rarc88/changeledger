@@ -2,7 +2,7 @@
 id: "20261023-181753"
 title: "El humano aprueba objetivo y frontera; Specification y Plan nacen en in-progress y el Definition of Ready se retira"
 type: feature
-status: in-progress
+status: in-review
 created: 2026-10-23T18:17:53Z
 depends_on: []
 branch: feature/20261023-181753
@@ -425,3 +425,4 @@ las nombra como divergencia conocida.
 - **2026-10-23T23:39:40Z** `[note]` Corrección de la decisión (2) de la nota de decisiones (D6 de la revisión): por la CLI un documento sin '## Request' lo rechaza antes la validación estructural con 'missing active stage "## request" for type <t>'; el mensaje 'cannot approve: "## Request" is missing' de assertApprovable sólo es alcanzable llamando a la función directamente o en un tipo que no active request. Ejecutado por el revisor.
 - **2026-10-23T23:39:40Z** `[note]` Hogar de cada obligación que salió de readiness.md (D7), comprobable con grep de la obligación: criterios precisos con entradas reales, mensajes literales y un criterio por caso borde, y nada que deba cumplirse sólo en prosa → spec.md, sección de criterios (grep 'actual inputs'); declaración de interfaces externas y su estabilidad, que ningún check juzga y la revisión escruta → spec.md (grep 'external interface'); cada petición del Request mapeada a un criterio o excluida → spec.md (grep 'ask in `## Request`'); la tarea cita los criterios que prueba, nombra objetivo y verificación y cabe en un ciclo rojo-verde, como guía de autoría y no como puerta → spec.md, gramática del Plan; test-first → implement.md (grep 'write the failing test'). La semántica de la clave tdd (true por defecto, false sólo para repos exploratorios, types.<type>.tdd la anula) sale del contrato y vive en el comentario de templates/config.yml y en README: es documentación de configuración, no obligación del flujo, y su retirada por tipo es del siguiente hijo. Retiradas a propósito: 'the implementer chooses how to test, not what behavior to prove' (el implementador escribe ahora la Specification) y las formas del valor Verify con la convención 'verify:' (existían sólo para el motor de patrones).
 - **2026-10-23T23:39:41Z** `[note]` Decisión no registrada antes (D8): el error 'Plan task references unknown criterion' deja de depender de tdd y se emite también con tdd: false, donde antes el motor de cobertura lo eximía. Razón: una referencia rota es integridad estructural, como una etapa desconocida, no una política de pruebas. Cambio de comportamiento para consumidores con tdd: false que tengan tareas citando criterios inexistentes; lo cubre el test 'CR4: tdd off does not exempt a task citing an undeclared criterion' y va a las notas de la siguiente release.
+- **2026-10-23T23:57:44Z** `[status]` in-progress → in-review
