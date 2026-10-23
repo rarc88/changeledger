@@ -107,10 +107,11 @@ estable y se fija en los criterios.
 
 ## Plan
 
-- [ ] `specDurabilityIssues` devuelve la lista y `checkRepo` emite un error por heading
+- [x] `specDurabilityIssues` devuelve la lista y `checkRepo` emite un error por heading
   - **Target:** `src/check.mjs`
   - **Verify:** `node --test test/check.test.mjs`
   - **Criteria:** CR1, CR2
+  - **Resolved:** `2026-10-23T10:42:35Z`
 - [ ] `graduate --into` rechaza con la lista unida, en las dos disposiciones
   - **Target:** `src/commands/graduate.mjs`
   - **Verify:** `node --test test/graduate.test.mjs`
