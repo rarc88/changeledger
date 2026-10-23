@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-10-23T09:49:31Z
 depends_on: []
+archived: true
 accepted_at: 2026-10-23T13:17:05Z
 reviewed: true
 branch: bug/20261023-094931
@@ -153,3 +154,4 @@ se declara estable y se fija en CR1.
 - **2026-10-23T12:29:20Z** `[note]` Graduation-review ronda 2 (revisor nuevo): la frase estrechada confirmada contra applyEvent, eventMutation y statusMutation; la frase de la sede task confirmada contra agent.mjs y los tests; frontmatter intacto. Recomendación apply.
 - **2026-10-23T12:29:20Z** `[graduation]` spec: `architecture.md`
 - **2026-10-23T13:22:09Z** `[validation]` accepted (merged 834455b)
+- **2026-10-23T13:23:47Z** `[archive]` archived
