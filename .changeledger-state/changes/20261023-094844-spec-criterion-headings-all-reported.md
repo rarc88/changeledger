@@ -2,7 +2,7 @@
 id: "20261023-094844"
 title: check reporta cada heading CRn de una spec, no solo el primero
 type: bug
-status: in-review
+status: done
 created: 2026-10-23T09:48:44Z
 depends_on: ["20261022-213751"]
 branch: bug/20261023-094844
@@ -146,3 +146,4 @@ estable y se fija en los criterios.
 - **2026-10-23T11:01:32Z** `[review]` in-review → in-progress: ronda 1 (auditoría completa): CR1-CR5 confirmados con mutantes por sitio; un defecto. Los comentarios de src/check.mjs y de los tests afirman 'un error por heading', pero ningún test ejercita un heading CRn duplicado: el mutante que deduplica (return [...new Set(issues)]) sobrevive a la suite completa y cambia la admisión (añadir un segundo ### CR1 a una spec que ya lo tiene pasa a aceptarse). Mismo tipo, menor: 'un solo heading produce exactamente un error' solo se ejecuta con ###. Clasificación: enumeración incompleta dentro de la estrategia verificada; corrección normal sobre el mismo diff.
 - **2026-10-23T11:02:50Z** `[note]` Corrección de la ronda 1, sin commit hasta confirmación, hecha por el orquestador en test/check.test.mjs: (1) test del heading duplicado — dos ### CR1 producen dos errores idénticos; con el mutante [...new Set(issues)] en una copia pasa a rojo ('a duplicated criterion heading is reported once per occurrence'); (2) test de formas de heading — nivel 1, nivel 6, Setext, cita y lista producen exactamente un error cada una, no solo ### . 252/252 en test/check.test.mjs.
 - **2026-10-23T11:02:51Z** `[status]` in-progress → in-review
+- **2026-10-23T11:04:23Z** `[review]` in-review → done (delegated subagent, clean context)
