@@ -389,10 +389,11 @@ las nombra como divergencia conocida.
   - **Verify:** `node --test test/context.test.mjs`
   - **Criteria:** CR7
   - **Resolved:** `2026-10-23T22:46:18Z`
-- [ ] Reescribir en README la frase del DoR y la de la aprobación
+- [x] Reescribir en README la frase del DoR y la de la aprobación
   - **Target:** `README.md`, `test/cli.test.mjs`
   - **Verify:** `node --test test/cli.test.mjs`
   - **Criteria:** CR10
+  - **Resolved:** `2026-10-23T23:19:11Z`
 - [ ] Escribir el test del flujo completo por la CLI
   - **Target:** `test/cli.test.mjs`
   - **Verify:** `node --test test/cli.test.mjs`
