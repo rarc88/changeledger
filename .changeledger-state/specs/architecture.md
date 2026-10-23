@@ -309,8 +309,14 @@ contrato de documento completo: `changeledger edit <change-id|spec:slug>
 entrante se valida íntegro a la severidad del status vigente antes de
 escribir — nada inválido aterriza, y el candidato completo del repo se
 compara contra el estado actual: solo los errores NUEVOS que la escritura
-introduce la rechazan (`newErrors`, diff multiset en `src/check.mjs`), así
-que un error pre-existente ajeno nunca impide escribir el arreglo —, `id` y `created` son inmutables, los
+introduce la rechazan (`introducedErrors`, sobre el diff multiset
+`newErrors` de `src/check.mjs`), así que un error que `check` ya reportaba
+antes, en ese documento o en otro, no rechaza una escritura que no añade
+ninguno. Esa es la única regla de admisión y la aplican las cinco sedes
+(`20261022-213751`): el scaffold de `new`, `new --from`, `edit <id>`,
+`edit spec:<slug>` y cada entrada de `apply`. No garantiza reescribir una
+spec rota por partes: `check` nombra solo el primer heading `CRn`, así que
+quitar el primero destapa el siguiente como error nuevo —, `id` y `created` son inmutables, los
 campos con comando propio (`status`, `owner`, `branch`, `archived`,
 `reviewed`; `graduated_from` en specs) deben coincidir con el vigente y el
 rechazo nombra al comando dueño, y un contenido byte-idéntico es no-op sin
@@ -335,10 +341,14 @@ viajan en un lote. Las entradas se aplican en orden sobre un candidato
 acumulado; un efecto neto vacío es no-op sin commit. `--dry-run` valida el
 manifiesto completo — errores y warnings de `check` sobre el candidato — sin
 escribir nada, de modo que componer→dry-run→corregir itera en local y el
-journal recibe una entrada ya limpia. Ambos modos gatean: un manifiesto cuyo
-candidato lleva errores de `check` no aterriza (y el dry-run lo reporta con
-exit distinto de cero) — en `apply` contra el set completo de errores,
-deliberadamente sin exención de lo pre-existente.
+journal recibe una entrada ya limpia. Ambos modos gatean con la misma regla
+que las sedes individuales (`20261022-213751`): un manifiesto que introduce
+errores de `check` no aterriza (y el dry-run lo reporta con exit distinto de
+cero), y un error que el repo ya arrastraba no bloquea un lote que no lo
+toca. Una entrada de documento se rechaza en su propia sede, envuelta como
+`entry N (<target>): …`; el guard final sobre el candidato,
+`assertCandidateClean`, responde por lo que una entrada de evento deja
+detrás, como un `task block` sobre un change `done`.
 
 ## Adopción del estado global
 
