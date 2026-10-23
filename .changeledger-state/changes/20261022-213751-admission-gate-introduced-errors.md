@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-10-22T21:37:51Z
 depends_on: ["20261021-223918"]
+accepted_at: 2026-10-23T13:01:06Z
 reviewed: true
 branch: bug/20261022-213751
 related_to: ["20260811-122031"]
@@ -209,3 +210,4 @@ se fijan en los criterios.
 - **2026-10-23T00:03:18Z** `[note]` Graduation-review ronda 2 (revisor nuevo): las tres correcciones y el resto de los dos pasajes confirmados contra el código; recomendación 'correct' solo editorial — el inciso entre rayas quedó sin cerrar y arrastraba la cláusula de id/created. Corregido: el inciso cierra con punto y la cláusula de inmutabilidad lleva sujeto propio. Residual anotado por el revisor: graduate --new escribe una semilla sin puerta de admisión por diseño de dos fases y queda fuera de 'las cinco' por el calificador 'sedes de documento'.
 - **2026-10-23T00:04:02Z** `[note]` Graduation-review ronda 3 (revisor nuevo): corrección editorial confirmada sin cambio de fondo, prosa cerrada, anclas factuales intactas, frontmatter sin tocar. Recomendación apply.
 - **2026-10-23T00:04:02Z** `[graduation]` spec: `architecture.md`
+- **2026-10-23T13:02:23Z** `[validation]` accepted (merged ae3053a)
