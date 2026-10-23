@@ -607,10 +607,11 @@ export function newErrors(baseline, candidate) {
   });
 }
 
-// The admission rule of the five document write seats (20261022-213751): the
+// The admission rule of the document write seats (20261022-213751): the
 // `check` errors of `candidate`, a whole repo with the write in place, that
 // `repo` does not already carry. `new`, `new --from`, `edit <id>`,
-// `edit spec:` and `apply` gate on this one diff.
+// `edit spec:` and `apply` gate on this one diff, and so does the standalone
+// `task` command (20261023-094931).
 export function introducedErrors(repo, candidate) {
   return newErrors(checkRepo(repo).errors, checkRepo(candidate).errors);
 }
