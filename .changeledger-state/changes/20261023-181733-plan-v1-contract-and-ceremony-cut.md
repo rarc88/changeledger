@@ -2,7 +2,7 @@
 id: "20261023-181733"
 title: "Plan v1.0: recortar el contrato y el ceremonial a comprensión, riesgo y reanudabilidad"
 type: epic
-status: draft
+status: approved
 created: 2026-10-23T18:17:33Z
 depends_on: []
 related_to:
@@ -173,3 +173,4 @@ hijos el modelo que construye.
 
 ## Log
 - **2026-10-23T18:17:33Z** `[version]` 0.18.0
+- **2026-10-23T22:18:52Z** `[status]` draft → approved (human via conversation)
