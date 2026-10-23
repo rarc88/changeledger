@@ -2,9 +2,10 @@
 id: "20261023-094844"
 title: check reporta cada heading CRn de una spec, no solo el primero
 type: bug
-status: approved
+status: in-progress
 created: 2026-10-23T09:48:44Z
 depends_on: []
+branch: bug/20261023-094844
 related_to: ["20261022-213751"]
 owner: raruiz-hiberuscom
 ---
@@ -129,3 +130,5 @@ estable y se fija en los criterios.
 ## Log
 - **2026-10-23T09:48:44Z** `[version]` 0.18.0
 - **2026-10-23T09:58:29Z** `[status]` draft → approved (human via conversation)
+- **2026-10-23T10:34:15Z** `[status]` approved → in-progress
+- **2026-10-23T10:34:15Z** `[branch]` set: bug/20261023-094844 (auto)
