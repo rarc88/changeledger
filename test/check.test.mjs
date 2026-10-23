@@ -1121,6 +1121,48 @@ tags: [architecture]
   );
 });
 
+// 20261023-094844: one error per visible criterion heading, each with its own
+// stable text, so rewriting one heading removes exactly one error and leaves
+// the others' text unchanged for the admission diff.
+const TWO_CRITERIA_BODY =
+  '# Verdad\n\n### CR1 — una verdad\n\nTexto.\n\n### CR2 — otra verdad\n\nMás.\n';
+const TWO_CRITERIA_ERRORS = [
+  'spec contains change-local criterion heading "CR1"; rewrite it as durable current truth',
+  'spec contains change-local criterion heading "CR2"; rewrite it as durable current truth',
+];
+
+test('20261023-094844 CR1: a spec reports one error per criterion heading, in document order', () => {
+  const { errors } = runS([change()], [spec({ name: 'verdad.md', body: TWO_CRITERIA_BODY })]);
+  assert.deepEqual(msgs(errors.filter((e) => e.file === 'verdad.md')), TWO_CRITERIA_ERRORS);
+});
+
+test('20261023-094844 CR1: changeledger check prints both heading errors and fails', () => {
+  const root = frozenFixture(
+    {},
+    {
+      'verdad.md': `---\ntitle: Verdad\nupdated: 2026-08-06T00:00:00Z\ntags: [verdad]\n---\n${TWO_CRITERIA_BODY}`,
+    },
+  );
+
+  const { code, text } = runCheck(root);
+  assert.equal(code, 1);
+  const printed = text.split('\n').filter((line) => /change-local criterion heading/.test(line));
+  assert.equal(printed.length, 2, text);
+  TWO_CRITERIA_ERRORS.forEach((message, index) => {
+    assert.ok(printed[index].includes(message), text);
+  });
+});
+
+test('20261023-094844 CR2: a single criterion heading yields exactly one error with the same text', () => {
+  const { errors } = runS(
+    [change()],
+    [spec({ name: 'verdad.md', body: '# Verdad\n\n### CR33 — algo\n' })],
+  );
+  assert.deepEqual(msgs(errors.filter((e) => e.file === 'verdad.md')), [
+    'spec contains change-local criterion heading "CR33"; rewrite it as durable current truth',
+  ]);
+});
+
 test('CR1: a change graduating to a missing spec is an error', () => {
   const c = change({
     stages: [

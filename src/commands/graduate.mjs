@@ -7,7 +7,7 @@ import path from 'node:path';
 import { mutateFileAtomic, withFileLock, writeFileAtomic } from '../atomic-write.mjs';
 import { assertParentOwnsGraduation, parseChange } from '../change.mjs';
 import { mutateLedgerFile, repoIsActivated, writeLedgerFiles } from '../change-store.mjs';
-import { assertChangeTextValid, recordedBranch, specDurabilityIssue } from '../check.mjs';
+import { assertChangeTextValid, recordedBranch, specDurabilityIssues } from '../check.mjs';
 import { findChangeledgerDir, integrationBranch, resolveSpecsDir } from '../config.mjs';
 import { assertSupportedSchema } from '../config-migration.mjs';
 import { mergeRecord } from '../git.mjs';
@@ -231,8 +231,8 @@ export function graduate(id, slug, cwd = process.cwd(), { into = false, fsImpl =
         `Spec "${specName}" still contains the scaffold marker — refine it and remove the marker before --into`,
       );
     }
-    const durabilityIssue = specDurabilityIssue(parseSpec(specTarget.text).body);
-    if (durabilityIssue) throw new Error(durabilityIssue);
+    const durabilityIssues = specDurabilityIssues(parseSpec(specTarget.text).body);
+    if (durabilityIssues.length > 0) throw new Error(durabilityIssues.join('\n'));
     const timestamp = nowUtc();
     const updatedSpec = setSpecGraduatedFrom(setSpecUpdated(specTarget.text, timestamp), id);
     let updatedChange = sealAcceptance(repo.repoRoot, config, change, changeTarget.text, timestamp);
@@ -282,8 +282,8 @@ export function graduate(id, slug, cwd = process.cwd(), { into = false, fsImpl =
                 `Spec "${specName}" still contains the scaffold marker — refine it and remove the marker before --into`,
               );
             }
-            const durabilityIssue = specDurabilityIssue(parseSpec(originalSpec).body);
-            if (durabilityIssue) throw new Error(durabilityIssue);
+            const durabilityIssues = specDurabilityIssues(parseSpec(originalSpec).body);
+            if (durabilityIssues.length > 0) throw new Error(durabilityIssues.join('\n'));
             const timestamp = nowUtc();
             const updatedSpec = setSpecGraduatedFrom(setSpecUpdated(originalSpec, timestamp), id);
             writeFileAtomic(specFile, updatedSpec, { fsImpl });

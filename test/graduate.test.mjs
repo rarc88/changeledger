@@ -8,6 +8,8 @@ import { fileURLToPath } from 'node:url';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import { withFileLock } from '../src/atomic-write.mjs';
 import { parseChange } from '../src/change.mjs';
+import { checkRepo } from '../src/check.mjs';
+import { edit } from '../src/commands/edit.mjs';
 import { graduate, scaffoldSpec, skipGraduation } from '../src/commands/graduate.mjs';
 import { init } from '../src/commands/init.mjs';
 import { newChange } from '../src/commands/new.mjs';
@@ -587,6 +589,93 @@ test('103551 CR2 correction: graduate rejects a heading after an indented pseudo
   );
   assert.equal(fs.readFileSync(file, 'utf8'), before.change);
   assert.equal(fs.readFileSync(specFile, 'utf8'), before.spec);
+});
+
+// 20261023-094844: `--into` refuses with one line per criterion heading, the
+// same lines `check` reports, in document order, in both layouts.
+const TWO_CRITERIA_SPEC_BODY =
+  '\n# Verdad\n\n### CR1 — una verdad\n\nTexto.\n\n### CR2 — otra verdad\n\nMás.\n';
+const TWO_CRITERIA_REFUSAL =
+  /^Error: spec contains change-local criterion heading "CR1"; rewrite it as durable current truth\nspec contains change-local criterion heading "CR2"; rewrite it as durable current truth$/;
+
+test('20261023-094844 CR4 (worktree): graduate --into names every criterion heading without writing', () => {
+  const { root, file, id } = repo();
+  const specFile = seedSpec(root, 'verdad.md', TWO_CRITERIA_SPEC_BODY);
+  const before = {
+    change: fs.readFileSync(file, 'utf8'),
+    spec: fs.readFileSync(specFile, 'utf8'),
+  };
+
+  assert.throws(() => graduate(id, 'verdad', root, { into: true }), TWO_CRITERIA_REFUSAL);
+  assert.equal(fs.readFileSync(file, 'utf8'), before.change);
+  assert.equal(fs.readFileSync(specFile, 'utf8'), before.spec);
+});
+
+test('20261023-094844 CR4 (state ref): graduate --into names every criterion heading without writing', () => {
+  const { root, id, changeName } = activatedRepo({
+    specName: 'verdad.md',
+    specBody: TWO_CRITERIA_SPEC_BODY,
+  });
+  const tip = stateRefTip(root);
+  const before = {
+    change: stateDocText(root, tip, `changes/${changeName}`),
+    spec: stateDocText(root, tip, 'specs/verdad.md'),
+  };
+
+  assert.throws(() => graduate(id, 'verdad', root, { into: true }), TWO_CRITERIA_REFUSAL);
+  assert.equal(stateRefTip(root), tip);
+  assert.equal(stateDocText(root, tip, `changes/${changeName}`), before.change);
+  assert.equal(stateDocText(root, tip, 'specs/verdad.md'), before.spec);
+});
+
+// 20261023-094844 CR5 — the day after: a seed carrying two criteria is refined
+// one criterion per `edit spec:`, and `--into` accepts the result.
+const CR1_BLOCK =
+  '### CR1 — El sistema soporta login OAuth\n- **Given** un usuario\n- **When** inicia sesión con OAuth\n- **Then** entra';
+const CR2_BLOCK =
+  '### CR2 — El sistema cierra la sesión\n- **Given** una sesión abierta\n- **When** el usuario sale\n- **Then** la sesión termina';
+
+test('20261023-094844 CR5: a two-criterion seed is refined in two edits and graduates', () => {
+  const { root, id } = activatedRepo({
+    prepare: (text) =>
+      text.replace(
+        '## Specification\n\nEl sistema soporta login OAuth.\n',
+        `## Specification\n\n${CR1_BLOCK}\n\n${CR2_BLOCK}\n`,
+      ),
+  });
+  const specDoc = () => stateDocText(root, stateRefTip(root), 'specs/verdad.md');
+  const verdadErrors = () =>
+    checkRepo(loadRepo(root))
+      .errors.filter((e) => e.file === 'verdad.md')
+      .map((e) => e.message);
+  const editSpec = (text) => {
+    const from = path.join(root, 'incoming.md');
+    fs.writeFileSync(from, text);
+    return edit('spec:verdad', { from }, root);
+  };
+
+  scaffoldSpec(id, 'verdad', root);
+  const seed = specDoc();
+  assert.ok(seed.includes(CR1_BLOCK) && seed.includes(CR2_BLOCK), seed);
+
+  const first = editSpec(
+    seed
+      .replace('<!-- changeledger:spec-scaffold -->\n\n', '')
+      .replace(CR1_BLOCK, 'Un usuario que inicia sesión con OAuth entra.'),
+  );
+  assert.equal(first.changed, true);
+  assert.deepEqual(verdadErrors(), [
+    'spec contains change-local criterion heading "CR2"; rewrite it as durable current truth',
+  ]);
+
+  const second = editSpec(
+    specDoc().replace(CR2_BLOCK, 'Cuando el usuario sale, la sesión termina.'),
+  );
+  assert.equal(second.changed, true);
+  assert.deepEqual(verdadErrors(), []);
+
+  graduate(id, 'verdad', root, { into: true });
+  assert.deepEqual(parseSpec(specDoc()).frontmatter.graduated_from, [id]);
 });
 
 test('skipGraduation marks reviewed, logs the reason, creates no spec (CR2)', () => {
