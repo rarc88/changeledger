@@ -5,7 +5,7 @@ type: bug
 status: draft
 created: 2026-10-23T18:14:53Z
 depends_on: []
-related_to: ["20261007-135154"]
+related_to: ["20261007-135154", "20261023-181753"]
 owner: raruiz-hiberuscom
 ---
 
@@ -17,13 +17,32 @@ entradas (1,5 MB) de las que solo 4 eran repos reales; el resto eran
 directorios temporales ya borrados. Con ese volumen el viewer deja de ser
 usable.
 
-El objetivo es que ninguna ejecución de la suite pueda escribir en el registro
-del usuario, sin depender de que cada fichero de test se acuerde de aislarse.
+### Objective
 
-La limpieza del registro de esta máquina ya se hizo a mano (copia en
-`~/.changeledger/.registry.json.bak-20261023-131420`) y no forma parte de este
-cambio. Que el registro no ofrezca una purga de entradas muertas es un problema
-distinto y queda fuera de alcance.
+Ninguna ejecución de la suite puede escribir en el registro global del
+usuario, y el aislamiento no depende de que cada fichero de test se acuerde de
+montarlo por su cuenta.
+
+Terminado significa que una ejecución completa deja
+`~/.changeledger/.registry.json` como estaba, incluido el caso de un test que
+llame a `init()` sin aislarse.
+
+### Frontier
+
+Entra `scripts/run-tests.mjs` —el envoltorio donde ya vive el aislamiento
+hermano del temporal— y los tests y fixtures que prueban ese aislamiento.
+Queda pre-autorizado dentro de esa frontera ajustar el helper `repo()` de
+`test/seats-matrix.test.mjs` si el arreglo del envoltorio lo deja redundante.
+
+Queda fuera:
+
+- La limpieza del registro de esta máquina, ya hecha a mano (copia en
+  `~/.changeledger/.registry.json.bak-20261023-131420`).
+- Que el registro no ofrezca una purga de entradas muertas:
+  `cleanMissingProjects()` solo borra entradas cuyo binding coincide con un
+  candidato observado, así que no habría podido barrer esto. Es otro concern.
+- Añadir `scripts/**` a `readiness.target_patterns`, pese a que es lo que hoy
+  deja este documento en warning: ver Investigation.
 
 ## Investigation
 
@@ -51,11 +70,18 @@ hermano del temporal: un test que se aísle por su cuenta seguirá haciéndolo
 (asigna `process.env` dentro del proceso y gana), y el que no, hereda un home
 desechable en vez del del usuario.
 
-`scripts/**` no figuraba en `readiness.target_patterns` de
-`.changeledger/config.yml`, pese a que el envoltorio de la suite vive ahí, de
-modo que una tarea que lo tuviera como `Target` no superaba el chequeo de
-preparación. Se añadió al redactar este cambio, que es cuando el contrato pide
-ajustar los patrones al stack del repo.
+`scripts/**` no figura en `readiness.target_patterns`, pese a que el envoltorio
+de la suite vive ahí, así que la tarea que lo tiene como `Target` no supera el
+chequeo de preparación y deja este documento en warning. No se corrige aquí: la
+configuración efectiva de un repo activado vive en el state ref, no en el
+`.changeledger/config.yml` del worktree (`loadEffectiveConfig` en
+`src/config.mjs`), y `20261023-181753` —ya `approved`— retira el Definition of
+Ready entero, claves `readiness.*` incluidas. Añadirlas sería trabajar sobre una
+superficie que ese cambio borra.
+
+Specification y Plan de abajo son provisionales por el mismo motivo:
+`20261023-181753` los mueve a `in-progress`, con el código delante. Lo que se
+aprueba aquí es el Objective y la Frontier.
 
 ## Specification
 
