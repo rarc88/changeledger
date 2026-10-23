@@ -2,7 +2,7 @@
 id: "20261023-094931"
 title: La sede task corre la misma comprobación de candidato que apply
 type: bug
-status: in-review
+status: done
 created: 2026-10-23T09:49:31Z
 depends_on: []
 branch: bug/20261023-094931
@@ -146,3 +146,4 @@ se declara estable y se fija en CR1.
 - **2026-10-23T12:23:15Z** `[review]` in-review → in-progress: ronda 1 (auditoría completa): CR1-CR5 confirmados con mutantes por sede y por mensaje; un defecto de prosa del orquestador: el comentario reescrito en test/apply.test.mjs dice que taskMutation 'itself refuses nothing', falso como universal (lanza ante n fuera de rango, razón ausente y acción desconocida); estrechar al evento. Menor: el comentario de src/check.mjs lista cinco sedes sobre introducedErrors y task es la sexta. Clasificación: enumeración incompleta de prosa dentro de la estrategia verificada; corrección normal sobre el mismo diff.
 - **2026-10-23T12:24:12Z** `[note]` Corrección de la ronda 1, prosa solo, sin commit hasta confirmación: el comentario de test/apply.test.mjs se estrecha a 'taskMutation does not refuse it (it checks the task line, not the change's status)'; el comentario de src/check.mjs sobre introducedErrors añade task como sede sobre la misma regla. Follow-ups reportados por el revisor fuera de mandato: (1) en worktree, task ahora carga el repo completo y un spec sin frontmatter o un release .yml ilegible lo hace lanzar un error crudo donde antes aceptaba — coincide con apply, status y el repo activado; sin criterio que lo cubra, decisión del humano; (2) en repo activado un hermano ilegible sigue bloqueando task vía locate, preexistente; (3) el reemplazo de candidato de task sustituye todo change con el mismo id, replaceChange de apply solo el primero: solo importa con un error de id duplicado ya presente.
 - **2026-10-23T12:24:12Z** `[status]` in-progress → in-review
+- **2026-10-23T12:26:20Z** `[review]` in-review → done (delegated subagent, clean context)
