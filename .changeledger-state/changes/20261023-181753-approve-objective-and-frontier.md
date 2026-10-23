@@ -2,9 +2,10 @@
 id: "20261023-181753"
 title: "El humano aprueba objetivo y frontera; Specification y Plan nacen en in-progress y el Definition of Ready se retira"
 type: feature
-status: approved
+status: in-progress
 created: 2026-10-23T18:17:53Z
 depends_on: []
+branch: feature/20261023-181753
 related_to:
   - "20260726-141121"
   - "20260726-141122"
@@ -401,3 +402,6 @@ las nombra como divergencia conocida.
 ## Log
 - **2026-10-23T18:17:53Z** `[version]` 0.18.0
 - **2026-10-23T22:18:59Z** `[status]` draft → approved (human via conversation)
+- **2026-10-23T22:28:26Z** `[version]` 0.18.0 → 0.19.0
+- **2026-10-23T22:28:26Z** `[status]` approved → in-progress
+- **2026-10-23T22:28:26Z** `[branch]` set: feature/20261023-181753 (auto)
