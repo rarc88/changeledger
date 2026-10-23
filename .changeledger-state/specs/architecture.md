@@ -315,9 +315,12 @@ antes con el mismo fichero y el mismo mensaje, en ese documento o en otro,
 no rechaza una escritura que no añade ninguno. Esa es la única regla de
 admisión de las sedes de documento y la aplican las cinco
 (`20261022-213751`): el scaffold de `new`, `new --from`, `edit <id>`,
-`edit spec:<slug>` y cada entrada de documento de `apply`. No garantiza
-reescribir una spec rota por partes: `check` nombra solo el primer heading
-`CRn`, así que quitar el primero destapa el siguiente como error nuevo. En
+`edit spec:<slug>` y cada entrada de documento de `apply`. Una spec con
+varios headings `CRn` se reescribe de uno en uno: `check` emite un error por
+cada heading, con el mismo texto por heading (`specDurabilityIssues` en
+`src/check.mjs`, también la puerta de `graduate --into`, que nombra todos
+los que queden), así que quitar uno elimina exactamente un error y deja el
+texto de los demás intacto para el diff (`20261023-094844`). En
 la edición, `id` y `created` son inmutables, los
 campos con comando propio (`status`, `owner`, `branch`, `archived`,
 `reviewed`; `graduated_from` en specs) deben coincidir con el vigente y el
