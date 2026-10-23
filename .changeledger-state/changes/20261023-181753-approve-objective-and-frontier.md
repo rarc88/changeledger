@@ -364,10 +364,11 @@ las nombra como divergencia conocida.
   - **Verify:** `node --test test/agent.test.mjs`
   - **Criteria:** CR1, CR2
   - **Resolved:** `2026-10-23T23:19:08Z`
-- [ ] Retirar de `checkCoverage` los diagnósticos de readiness y cobertura, el motor de patrones y `checkReadinessConfig`, dejando la referencia rota como error en todo estado
+- [x] Retirar de `checkCoverage` los diagnósticos de readiness y cobertura, el motor de patrones y `checkReadinessConfig`, dejando la referencia rota como error en todo estado
   - **Target:** `src/check.mjs`
   - **Verify:** `node --test test/check.test.mjs`
   - **Criteria:** CR3, CR4
+  - **Resolved:** `2026-10-23T23:19:08Z`
 - [ ] Añadir a la sede `in-review` de `statusMutation` la exigencia de Specification con criterio y Plan con cuerpo
   - **Target:** `src/commands/agent.mjs`, `src/check.mjs`
   - **Verify:** `node --test test/agent.test.mjs`
