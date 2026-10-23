@@ -24,7 +24,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { checkRepo } from '../src/check.mjs';
-import { archive, archiveGraduated, review, status } from '../src/commands/agent.mjs';
+import { archive, archiveGraduated, review, status, task } from '../src/commands/agent.mjs';
 import { apply } from '../src/commands/apply.mjs';
 import { edit } from '../src/commands/edit.mjs';
 import { init } from '../src/commands/init.mjs';
@@ -428,6 +428,81 @@ for (const { input, parent, unrelatedBreak: broken = false, expected } of ADMISS
   });
 }
 
+// --- Operation: mark a Plan task (20261023-094931 CR5) -------------------
+//
+// `task <id> <action> <n>` and `apply {"op": "task"}` share `taskMutation`,
+// the text transform, and once differed in the gate on what it leaves behind:
+// `apply` refused a candidate that introduced a `check` error and `task`
+// wrote it. Blocking the only task of a `done` change is the input that told
+// them apart; the two `in-progress` rows turn red a seat that refuses every
+// mark, which would otherwise agree on that input for the wrong reason.
+
+const TASK_MARK_INPUTS = [
+  { input: 'a block on a done change', on: 'done', action: 'block', expected: 'refuse' },
+  {
+    input: 'a done on an in-progress change',
+    on: 'in-progress',
+    action: 'done',
+    expected: 'accept',
+  },
+  {
+    input: 'a block on an in-progress change',
+    on: 'in-progress',
+    action: 'block',
+    expected: 'accept',
+  },
+];
+
+const DONE_TO_MARK = '20260613-150000';
+
+// The `done` fixture is the archive matrix's, with its one task resolved; the
+// repo is checked before any seat sees it, so the refusal row is about the
+// error the mark introduces and nothing the fixture already carried.
+function markTarget(root, on) {
+  const id = on === 'done' ? graduatedDone(root, DONE_TO_MARK) : choreAt(root, { plan: OPEN_TASK });
+  assert.deepEqual(checkRepo(loadRepo(root)).errors, [], 'the fixture must start clean');
+  return id;
+}
+
+for (const { input, on, action, expected } of TASK_MARK_INPUTS) {
+  test(`20261023-094931 CR5: both seats that mark a task agree on ${input}`, () => {
+    const standalone = repo();
+    const standaloneId = markTarget(standalone, on);
+    const viaTask = outcome(() => task(standaloneId, action, 1, 'r', standalone));
+
+    const batch = repo();
+    const batchId = markTarget(batch, on);
+    const manifest = path.join(batch, 'batch.json');
+    fs.writeFileSync(
+      manifest,
+      JSON.stringify([{ op: 'task', id: batchId, action, n: 1, reason: 'r' }]),
+    );
+    const viaApply = outcome(() => apply({ from: manifest }, batch));
+
+    const verdict = (answer) => (answer === 'accept' ? 'accept' : 'refuse');
+    assert.equal(
+      verdict(viaTask),
+      expected,
+      `\`task <id> ${action} 1\` should ${expected} ${input}, got: ${viaTask}`,
+    );
+    assert.equal(
+      verdict(viaApply),
+      verdict(viaTask),
+      `the two seats that mark a task disagree on ${input}:\n  task → ${viaTask}\n  apply → ${viaApply}`,
+    );
+    // `apply`'s refusal must come from its final candidate gate,
+    // `assertCandidateClean`, not from the entry envelope: this row is what
+    // reaches that gate's refusal, so the register below carries no entry
+    // for it.
+    if (expected === 'refuse') {
+      assert.match(
+        viaApply,
+        /^refuse: apply refused, nothing was written — the resulting candidate/,
+      );
+    }
+  });
+}
+
 // --- CR2: the gaps, as a register rather than as prose ------------------
 //
 // Three rounds of review each found a gap of the same kind that was not
@@ -535,11 +610,6 @@ const COVERAGE_GAPS = [
     gap: '`graduate <id> <slug> --new` (`scaffoldSpec`) writes a spec and no matrix submits it. It is not a seat of document admission: graduation is two-phase by design, as the header of `src/commands/graduate.mjs` declares — the seed is an editable scaffold, marked with `SPEC_SCAFFOLD_MARKER`, that `check` may reject until it is rewritten, and `graduate --into` refuses the spec while it still carries the marker',
     in: ['src/commands/graduate.mjs', 'scaffoldSpec'],
     stillOpen: (body) => /SPEC_SCAFFOLD_MARKER/.test(body),
-  },
-  {
-    gap: "`apply`'s final candidate gate, `assertCandidateClean`, has no matrix that reaches its refusal. The document entries the admission matrix refuses stop earlier, at their own seat, inside the entry envelope `apply refused, nothing was written — entry 1 (…)`; the gate answers for what an event entry's text transform leaves behind, as a `task block` on a `done` change does",
-    in: ['src/commands/apply.mjs', 'apply'],
-    stillOpen: (body) => /assertCandidateClean\(/.test(body),
   },
 ];
 
