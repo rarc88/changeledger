@@ -112,10 +112,11 @@ estable y se fija en los criterios.
   - **Verify:** `node --test test/check.test.mjs`
   - **Criteria:** CR1, CR2
   - **Resolved:** `2026-10-23T10:42:35Z`
-- [ ] `graduate --into` rechaza con la lista unida, en las dos disposiciones
+- [x] `graduate --into` rechaza con la lista unida, en las dos disposiciones
   - **Target:** `src/commands/graduate.mjs`
   - **Verify:** `node --test test/graduate.test.mjs`
   - **Criteria:** CR4
+  - **Resolved:** `2026-10-23T10:42:36Z`
 - [ ] Reescritura parcial aceptada por `edit spec:`
   - **Target:** `test/edit.test.mjs`
   - **Verify:** `node --test test/edit.test.mjs`
