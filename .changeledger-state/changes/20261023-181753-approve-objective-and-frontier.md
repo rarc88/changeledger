@@ -5,7 +5,13 @@ type: feature
 status: draft
 created: 2026-10-23T18:17:53Z
 depends_on: []
-related_to: []
+related_to:
+  - "20260726-141121"
+  - "20260726-141122"
+  - "20260729-185200"
+  - "20261001-155216"
+  - "20261002-113320"
+  - "20261020-172221"
 parent: "20261023-181733"
 owner: raruiz-hiberuscom
 ---
@@ -377,7 +383,7 @@ las nombra como divergencia conocida.
   - **Verify:** `node --test test/context.test.mjs`
   - **Criteria:** CR7
 - [ ] Reescribir en README la frase del DoR y la de la aprobación
-  - **Target:** `README.md`
+  - **Target:** `README.md`, `test/cli.test.mjs`
   - **Verify:** `node --test test/cli.test.mjs`
   - **Criteria:** CR10
 - [ ] Escribir el test del flujo completo por la CLI
