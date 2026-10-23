@@ -128,9 +128,10 @@ se declara estable y se fija en CR1.
   - **Verify:** `node --test test/seats-matrix.test.mjs`
   - **Criteria:** CR5
   - **Resolved:** `2026-10-23T12:10:32Z`
-- [ ] Suite completa y puertas del repo
+- [x] Suite completa y puertas del repo
   - **Support:**
   - **Verify:** `pnpm verify`
+  - **Resolved:** `2026-10-23T12:13:32Z`
 
 ## Log
 - **2026-10-23T09:49:31Z** `[version]` 0.18.0
