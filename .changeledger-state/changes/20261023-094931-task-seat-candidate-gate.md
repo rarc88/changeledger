@@ -123,10 +123,11 @@ se declara estable y se fija en CR1.
   - **Verify:** `node --test test/cli.test.mjs`
   - **Criteria:** CR1
   - **Resolved:** `2026-10-23T12:10:31Z`
-- [ ] Operación «marcar una tarea» en la matriz de sedes
+- [x] Operación «marcar una tarea» en la matriz de sedes
   - **Target:** `test/seats-matrix.test.mjs`
   - **Verify:** `node --test test/seats-matrix.test.mjs`
   - **Criteria:** CR5
+  - **Resolved:** `2026-10-23T12:10:32Z`
 - [ ] Suite completa y puertas del repo
   - **Support:**
   - **Verify:** `pnpm verify`
