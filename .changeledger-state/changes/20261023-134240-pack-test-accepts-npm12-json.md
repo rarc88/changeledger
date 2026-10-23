@@ -2,7 +2,7 @@
 id: "20261023-134240"
 title: El test de empaquetado acepta la salida JSON de npm 12
 type: quick
-status: draft
+status: approved
 created: 2026-10-23T13:42:40Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -26,3 +26,4 @@ Solo test; sin cambio de comportamiento ni de empaquetado.
 
 ## Log
 - **2026-10-23T13:42:40Z** `[version]` 0.18.0
+- **2026-10-23T13:44:05Z** `[status]` draft → approved (human via conversation)
