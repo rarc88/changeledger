@@ -311,10 +311,11 @@ escribir — nada inválido aterriza, y el candidato completo del repo se
 compara contra el estado actual: solo los errores NUEVOS que la escritura
 introduce la rechazan (`introducedErrors`, sobre el diff multiset
 `newErrors` de `src/check.mjs`), así que un error que `check` ya reportaba
-antes, en ese documento o en otro, no rechaza una escritura que no añade
-ninguno. Esa es la única regla de admisión y la aplican las cinco sedes
+antes con el mismo fichero y el mismo mensaje, en ese documento o en otro,
+no rechaza una escritura que no añade ninguno. Esa es la única regla de
+admisión de las sedes de documento y la aplican las cinco
 (`20261022-213751`): el scaffold de `new`, `new --from`, `edit <id>`,
-`edit spec:<slug>` y cada entrada de `apply`. No garantiza reescribir una
+`edit spec:<slug>` y cada entrada de documento de `apply`. No garantiza reescribir una
 spec rota por partes: `check` nombra solo el primer heading `CRn`, así que
 quitar el primero destapa el siguiente como error nuevo —, `id` y `created` son inmutables, los
 campos con comando propio (`status`, `owner`, `branch`, `archived`,
