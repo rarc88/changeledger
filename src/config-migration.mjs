@@ -234,12 +234,10 @@ function migrateToV3(doc, config, changes) {
   }
 }
 
-// 3 → 4: two additive repairs. Readiness runs first because the stage repair
-// returns early on configs it cannot act on, and skipping readiness there would
-// leave exactly the defect this migration exists to fix.
+// 3 → 4: activate the stages a reviewable type needs. The `readiness` key is
+// retired (20261023-181753): this step neither adds the section nor removes the
+// old commented-out hint, and a declared section stays as the user wrote it.
 function migrateToV4(doc, changes) {
-  addReadinessSection(doc, changes);
-  removeStaleReadinessComment(doc, changes);
   activateReviewableStages(doc, changes);
 }
 
@@ -271,48 +269,6 @@ function migrateToV6(doc, changes, runningVersion) {
   const schemaIndex = items.findIndex((item) => (item.key?.value ?? item.key) === 'schema_version');
   items.splice(schemaIndex === -1 ? 0 : schemaIndex + 1, 0, pair);
   changes.push(`added min_cli_version: ${runningVersion}`);
-}
-
-// `readiness` shipped commented out, so every existing repo — however it is laid
-// out — silently inherited the JavaScript-shaped defaults `check` applies when
-// the key is absent, and could not approve a well-formed change. Publish the
-// block so it becomes visible and editable. A repo that already declares
-// `readiness` keeps it byte for byte: it is the user's key, and `check` owns any
-// diagnostic about its contents.
-function addReadinessSection(doc, changes) {
-  if (doc.has('readiness')) return;
-  const pair = templateSection('readiness');
-  pair.key.spaceBefore = true;
-  doc.contents.items.push(pair);
-  changes.push('added readiness section');
-}
-
-// The one historical form of the commented-out `# readiness:` hint the
-// template shipped before da84722c published a live section (20260726-141122).
-// It never existed in any other wording — a single frozen constant, exactly
-// like the legacy AGENTS.md hashes in contract.mjs. Comparison is a verbatim
-// match on `commentBefore` (the parser's normalized comment text, sans leading
-// `#`): a repo that edited so much as a character owns that divergence, and
-// the migration must never guess which part of it is still "the same" block.
-const OLD_READINESS_COMMENT =
-  ' Optional Definition of Ready path/command hints. When present, tasks that\n' +
-  ' reference CRs should name at least one target and one verification matching\n' +
-  ' these patterns. Patterns can be path globs or literal command snippets.\n' +
-  ' readiness:\n' +
-  '   target_patterns: ["src/**"]\n' +
-  '   verification_patterns: ["test/**", "**/*.test.*", "**/*.spec.*", "pnpm test"]\n';
-
-// Publishing the live section (above) leaves the old template's commented
-// block sitting next to it verbatim — dead prose nobody asked to keep. Retire
-// it, but only the exact text the template itself shipped; any user edit is a
-// divergence and stays untouched, byte for byte.
-function removeStaleReadinessComment(doc, changes) {
-  for (const pair of doc.contents.items) {
-    if (pair.key?.commentBefore !== OLD_READINESS_COMMENT) continue;
-    pair.key.commentBefore = undefined;
-    changes.push('removed stale commented-out readiness block');
-    return;
-  }
 }
 
 // The shipped template is the single source of truth for the published

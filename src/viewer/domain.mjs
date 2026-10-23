@@ -969,7 +969,6 @@ const PATCH_ALLOWED = new Set([
   'specs_dir',
   'statuses',
   'stages',
-  'readiness',
   'types',
   'release',
   'git',
@@ -1001,8 +1000,6 @@ function applyPatch(doc, patch, currentConfig) {
       applyTypesPatch(doc, value, currentConfig.types ?? {});
     } else if (key === 'release') {
       applyReleasePatch(doc, value);
-    } else if (key === 'readiness') {
-      applyReadinessPatch(doc, value);
     } else if (key === 'git') {
       applyGitPatch(doc, value);
     } else if (key === 'statuses') {
@@ -1047,16 +1044,6 @@ function applyReleasePatch(doc, releasePatch) {
       if (impact === null) doc.deleteIn(['release', 'impacts', type]);
       else doc.setIn(['release', 'impacts', type], impact);
     }
-  }
-}
-
-function applyReadinessPatch(doc, readinessPatch) {
-  if (!readinessPatch || typeof readinessPatch !== 'object') return;
-  if (Array.isArray(readinessPatch.target_patterns)) {
-    doc.setIn(['readiness', 'target_patterns'], readinessPatch.target_patterns);
-  }
-  if (Array.isArray(readinessPatch.verification_patterns)) {
-    doc.setIn(['readiness', 'verification_patterns'], readinessPatch.verification_patterns);
   }
 }
 

@@ -1549,7 +1549,6 @@ function formEditorTemplate(config) {
   const cfg = config.config ?? {};
   const types = cfg.types ?? {};
   const impacts = cfg.release?.impacts ?? {};
-  const readiness = cfg.readiness ?? {};
   const allStatuses = cfg.statuses ?? [];
   const stages = cfg.stages ?? [];
 
@@ -1569,7 +1568,7 @@ function formEditorTemplate(config) {
       </label>
       <label class="config-checkbox">
         <input type="checkbox" name="tdd" ?checked=${cfg.tdd !== false} />
-        TDD mode (require test-grade criteria)
+        TDD mode (test-first implementation)
       </label>
     </fieldset>
 
@@ -1640,16 +1639,6 @@ function formEditorTemplate(config) {
             </fieldset>
           `,
       )}
-    </fieldset>
-
-    <fieldset class="config-group">
-      <legend>Definition of Ready</legend>
-      <label>Target patterns (one per line)
-        <textarea name="target_patterns" rows="3">${(readiness.target_patterns ?? []).join('\n')}</textarea>
-      </label>
-      <label>Verification patterns (one per line)
-        <textarea name="verification_patterns" rows="3">${(readiness.verification_patterns ?? []).join('\n')}</textarea>
-      </label>
     </fieldset>
 
     <fieldset class="config-group config-group-internal">
@@ -1984,22 +1973,6 @@ export function collectFormPatch(formEl, currentConfig) {
   }
   if (Object.keys(typePatch).length) patch.types = typePatch;
   if (Object.keys(impacts).length) patch.release = { impacts };
-
-  // readiness patterns
-  if (els.target_patterns !== undefined) {
-    const targetPatterns = listFromControl(els.target_patterns);
-    const verifyPatterns = listFromControl(els.verification_patterns);
-    const currentReadiness = currentConfig.readiness ?? {};
-    if (
-      !sameList(targetPatterns, currentReadiness.target_patterns ?? []) ||
-      !sameList(verifyPatterns, currentReadiness.verification_patterns ?? [])
-    ) {
-      patch.readiness = {
-        target_patterns: targetPatterns,
-        verification_patterns: verifyPatterns,
-      };
-    }
-  }
 
   return patch;
 }

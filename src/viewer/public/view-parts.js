@@ -126,7 +126,7 @@ export function approvalPanel(change) {
     <div class="validation-copy">
       <span class="validation-kicker">Human checkpoint</span>
       <h2 id="approval-title">Ready for approval</h2>
-      <p>Review the proposal, then approve it to make this change ready for implementation.</p>
+      <p>Review the objective and the frontier, then approve them: Specification and Plan are written during implementation.</p>
     </div>
     <div class="approval-controls">
       <button

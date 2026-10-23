@@ -13,9 +13,9 @@ min_cli_version: 0.17.0
 # is always English. See `changeledger context spec`.
 language: es
 
-# Definition of Ready policy. When true (default), changes are documented
-# test-grade and implemented via TDD; `changeledger check` warns on criteria ↔ task
-# coverage gaps. Set false for exploratory repos. See `changeledger context spec`.
+# Test-first policy. When true (default), the implementer writes each
+# criterion's failing test before the code that makes it pass. Set false for
+# exploratory repos. See `changeledger context implement`.
 tdd: true
 
 # Default SemVer impact for a completed change. A change may override its type
@@ -30,27 +30,6 @@ release:
     quick: patch
     # The children carry the impact; counting the parent too would double it.
     epic: none
-
-# Repo-specific Definition of Ready hints. A Plan task that references CRs should
-# name at least one target and one verification matching these patterns.
-readiness:
-  target_patterns:
-    - "src/**"
-    - "bin/**"
-    - "templates/**"
-    - ".changeledger/config.yml"
-    - ".changeledger/specs/**"
-    - "AGENTS.md"
-    - "hooks/**"
-    - "test/**"
-  verification_patterns:
-    - "test/**"
-    - "**/*.test.*"
-    - "**/*.spec.*"
-    - "pnpm test"
-    - "node --test"
-    - "node bin/changeledger.mjs check"
-    - "verify:"
 
 changes_dir: .changeledger/changes
 specs_dir: .changeledger/specs
