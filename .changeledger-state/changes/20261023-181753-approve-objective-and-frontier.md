@@ -404,9 +404,10 @@ las nombra como divergencia conocida.
   - **Verify:** `pnpm test`
   - **Criteria:** CR11
   - **Resolved:** `2026-10-23T23:19:12Z`
-- [ ] Pasar el gate completo y anotar en el Log las specs que quedan en divergencia hasta que la épica reconcilie
+- [x] Pasar el gate completo y anotar en el Log las specs que quedan en divergencia hasta que la épica reconcilie
   - **Support:**
   - **Verify:** `pnpm verify`
+  - **Resolved:** `2026-10-23T23:21:38Z`
 
 ## Log
 - **2026-10-23T18:17:53Z** `[version]` 0.18.0
