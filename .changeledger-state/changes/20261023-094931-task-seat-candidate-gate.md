@@ -2,9 +2,10 @@
 id: "20261023-094931"
 title: La sede task corre la misma comprobación de candidato que apply
 type: bug
-status: approved
+status: in-progress
 created: 2026-10-23T09:49:31Z
 depends_on: []
+branch: bug/20261023-094931
 related_to: ["20261022-213751", "20261021-223918", "20260811-110629"]
 owner: raruiz-hiberuscom
 ---
@@ -131,3 +132,5 @@ se declara estable y se fija en CR1.
 ## Log
 - **2026-10-23T09:49:31Z** `[version]` 0.18.0
 - **2026-10-23T09:58:33Z** `[status]` draft → approved (human via conversation)
+- **2026-10-23T11:51:37Z** `[status]` approved → in-progress
+- **2026-10-23T11:51:37Z** `[branch]` set: bug/20261023-094931 (auto)
