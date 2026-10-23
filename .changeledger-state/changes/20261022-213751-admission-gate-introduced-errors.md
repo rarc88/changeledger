@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-10-22T21:37:51Z
 depends_on: ["20261021-223918"]
+archived: true
 accepted_at: 2026-10-23T13:01:06Z
 reviewed: true
 branch: bug/20261022-213751
@@ -211,3 +212,4 @@ se fijan en los criterios.
 - **2026-10-23T00:04:02Z** `[note]` Graduation-review ronda 3 (revisor nuevo): corrección editorial confirmada sin cambio de fondo, prosa cerrada, anclas factuales intactas, frontmatter sin tocar. Recomendación apply.
 - **2026-10-23T00:04:02Z** `[graduation]` spec: `architecture.md`
 - **2026-10-23T13:02:23Z** `[validation]` accepted (merged ae3053a)
+- **2026-10-23T13:23:46Z** `[archive]` archived
