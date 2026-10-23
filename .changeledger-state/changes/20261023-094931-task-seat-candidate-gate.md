@@ -2,7 +2,7 @@
 id: "20261023-094931"
 title: La sede task corre la misma comprobación de candidato que apply
 type: bug
-status: in-progress
+status: in-review
 created: 2026-10-23T09:49:31Z
 depends_on: []
 branch: bug/20261023-094931
@@ -141,3 +141,4 @@ se declara estable y se fija en CR1.
 - **2026-10-23T11:51:43Z** `[note]` Rama bug/20261023-094931 creada apilada sobre bug/20261023-094844 (c0b85e61) por orden del humano: la matriz de sedes vive en test/seats-matrix.test.mjs y la regla introducedErrors viene del PR 19.
 - **2026-10-23T12:10:33Z** `[note]` Selección única (tareas 1-3) implementada: task construye el candidato con el texto mutado y rechaza sobre introducedErrors dentro del callback de mutateLedgerFile, con el mensaje 'task <id> <n> <action> refused, nothing was written — the resulting candidate carries N validation error(s):'; en worktree carga el repo con isolateChangeErrors para que un hermano ilegible no cueste la marca (decisión no especificada, con test propio). Tests CR1-CR5 rojo→verde con evidencia literal; mutantes: quitar la puerta pone en rojo CR1, CR2, CR4 y la fila done de la matriz nombrando task; gatear sobre todos los errores pone en rojo CR4; quitar assertCandidateClean de apply pone en rojo la fila done por desacuerdo de sedes. Residual del change corregido por el orquestador: el comentario de test/apply.test.mjs que decía que la sede task no rechaza. Decisión del implementador aceptada: la entrada del registro 'assertCandidateClean has no matrix that reaches its refusal' se borra porque la fila done de la matriz la alcanza ahora (mutante c). Residual preexistente, fuera de alcance: en repo activado locate carga sin aislamiento, así que un hermano ilegible sigue bloqueando task ahí. Residual de cierre: architecture.md nombra task como ejemplo de lo que solo el guard final de apply responde.
 - **2026-10-23T12:13:33Z** `[note]` Tarea 4: pnpm verify — biome limpio (134 ficheros), suite 2145/2146; el único fallo es 'CR6: the skeletons ship in the publishable package' (npm 12, preexistente en dev, ajeno a este change); changeledger check en verde por separado.
+- **2026-10-23T12:13:33Z** `[status]` in-progress → in-review
