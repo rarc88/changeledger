@@ -117,10 +117,11 @@ estable y se fija en los criterios.
   - **Verify:** `node --test test/graduate.test.mjs`
   - **Criteria:** CR4
   - **Resolved:** `2026-10-23T10:42:36Z`
-- [ ] Reescritura parcial aceptada por `edit spec:`
+- [x] Reescritura parcial aceptada por `edit spec:`
   - **Target:** `test/edit.test.mjs`
   - **Verify:** `node --test test/edit.test.mjs`
   - **Criteria:** CR3
+  - **Resolved:** `2026-10-23T10:42:36Z`
 - [ ] Recorrido del día después: semilla con dos criterios refinada en dos ediciones
   - **Target:** `test/graduate.test.mjs`
   - **Verify:** `node --test test/graduate.test.mjs`
