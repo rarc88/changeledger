@@ -2,7 +2,7 @@
 id: "20261023-094931"
 title: La sede task corre la misma comprobación de candidato que apply
 type: bug
-status: in-review
+status: in-progress
 created: 2026-10-23T09:49:31Z
 depends_on: []
 branch: bug/20261023-094931
@@ -143,3 +143,4 @@ se declara estable y se fija en CR1.
 - **2026-10-23T12:13:33Z** `[note]` Tarea 4: pnpm verify — biome limpio (134 ficheros), suite 2145/2146; el único fallo es 'CR6: the skeletons ship in the publishable package' (npm 12, preexistente en dev, ajeno a este change); changeledger check en verde por separado.
 - **2026-10-23T12:13:33Z** `[status]` in-progress → in-review
 - **2026-10-23T12:13:38Z** `[note]` Mandato de la revisión (ronda 1): auditoría completa del diff bug/20261023-094844..HEAD —un commit: src/commands/agent.mjs, test/{agent,cli,seats-matrix,apply}.test.mjs— contra CR1-CR5 y contra la superficie que el change gobierna: las dos sedes de marcar una tarea (task y apply op:task) y la regla introducedErrors que ahora comparten. Fuera del mandato se reporta sin inspeccionar.
+- **2026-10-23T12:23:15Z** `[review]` in-review → in-progress: ronda 1 (auditoría completa): CR1-CR5 confirmados con mutantes por sede y por mensaje; un defecto de prosa del orquestador: el comentario reescrito en test/apply.test.mjs dice que taskMutation 'itself refuses nothing', falso como universal (lanza ante n fuera de rango, razón ausente y acción desconocida); estrechar al evento. Menor: el comentario de src/check.mjs lista cinco sedes sobre introducedErrors y task es la sexta. Clasificación: enumeración incompleta de prosa dentro de la estrategia verificada; corrección normal sobre el mismo diff.
