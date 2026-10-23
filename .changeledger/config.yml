@@ -28,6 +28,8 @@ release:
     refactor: none
     chore: none
     quick: patch
+    # The children carry the impact; counting the parent too would double it.
+    epic: none
 
 # Repo-specific Definition of Ready hints. A Plan task that references CRs should
 # name at least one target and one verification matching these patterns.
@@ -79,6 +81,15 @@ types:
     stages: [request, plan]
   quick:
     stages: [request, log]
+  # The grouping parent of a multi-change effort: children declare `parent:
+  # <its id>`. It is approved on objective and frontier and never enumerates
+  # its children — they are created as the work discovers them. It carries no
+  # implementation of its own, which is why it activates neither
+  # `specification` nor `plan` and requires no review: its children are the
+  # work, and they are each reviewed. See `changeledger context spec`.
+  epic:
+    stages: [request, proposal, log]
+    tdd: false
 
 # Project identity (stable; the global registry maps it to a path)
 project_id: "304c473ce5"
