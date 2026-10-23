@@ -174,3 +174,4 @@ hijos el modelo que construye.
 ## Log
 - **2026-10-23T18:17:33Z** `[version]` 0.18.0
 - **2026-10-23T22:18:52Z** `[status]` draft → approved (human via conversation)
+- **2026-10-23T22:25:59Z** `[note]` Decisiones de §11 tomadas por el humano (2026-10-23), aceptando las dos recomendaciones del Request: (1) la poda independiente de la suite —los 181 casos duplicados y sintéticos de §9.1— queda fuera de esta épica y se propondrá como change propio cuando la capa de metodología haya caído; (2) no se adopta la revisión por selección resuelta (§11.4) en esta épica; si se quiere medir, será un change propio con métrica en analyze, no una regla del contrato. Ningún hijo depende ya de una decisión pendiente.
