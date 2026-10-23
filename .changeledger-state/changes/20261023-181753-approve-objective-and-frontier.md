@@ -359,10 +359,11 @@ las nombra como divergencia conocida.
 
 ## Plan
 
-- [ ] Leer `### Objective` y `### Frontier` del Request y sustituir en la sede `approved` de `statusMutation` la exigencia de etapas con cuerpo por la de las dos subsecciones
+- [x] Leer `### Objective` y `### Frontier` del Request y sustituir en la sede `approved` de `statusMutation` la exigencia de etapas con cuerpo por la de las dos subsecciones
   - **Target:** `src/change.mjs`, `src/commands/agent.mjs`, `src/check.mjs`
   - **Verify:** `node --test test/agent.test.mjs`
   - **Criteria:** CR1, CR2
+  - **Resolved:** `2026-10-23T23:19:08Z`
 - [ ] Retirar de `checkCoverage` los diagnósticos de readiness y cobertura, el motor de patrones y `checkReadinessConfig`, dejando la referencia rota como error en todo estado
   - **Target:** `src/check.mjs`
   - **Verify:** `node --test test/check.test.mjs`
