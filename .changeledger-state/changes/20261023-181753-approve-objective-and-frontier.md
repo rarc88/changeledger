@@ -394,10 +394,11 @@ las nombra como divergencia conocida.
   - **Verify:** `node --test test/cli.test.mjs`
   - **Criteria:** CR10
   - **Resolved:** `2026-10-23T23:19:11Z`
-- [ ] Escribir el test del flujo completo por la CLI
+- [x] Escribir el test del flujo completo por la CLI
   - **Target:** `test/cli.test.mjs`
   - **Verify:** `node --test test/cli.test.mjs`
   - **Criteria:** CR9
+  - **Resolved:** `2026-10-23T23:19:11Z`
 - [ ] Retirar los tests del DoR del inventario de Investigation y reetiquetar los que sobreviven
   - **Target:** `test/`
   - **Verify:** `pnpm test`
