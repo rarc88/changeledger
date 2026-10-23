@@ -53,6 +53,37 @@ function parseCriteria(specBody) {
   return blocks;
 }
 
+// What the human approves, declared in `## Request` as `### Objective` and
+// `### Frontier`. Any other `###` heading there is free prose and closes the
+// subsection before it. Returns one entry per subsection: found ones in
+// document order, then the missing ones; `filled` is true when at least one
+// non-blank line sits under the heading.
+const REQUEST_SECTIONS = ['Objective', 'Frontier'];
+
+export function parseRequestSections(requestBody) {
+  const filled = new Map();
+  let current = null;
+  for (const line of requestBody.split('\n')) {
+    const heading = line.match(/^###\s+(Objective|Frontier)\s*$/);
+    if (heading) {
+      current = heading[1];
+      if (!filled.has(current)) filled.set(current, false);
+    } else if (/^###\s/.test(line)) {
+      current = null;
+    } else if (current && line.trim()) {
+      filled.set(current, true);
+    }
+  }
+  return [
+    ...[...filled].map(([name, isFilled]) => ({ name, present: true, filled: isFilled })),
+    ...REQUEST_SECTIONS.filter((name) => !filled.has(name)).map((name) => ({
+      name,
+      present: false,
+      filled: false,
+    })),
+  ];
+}
+
 function splitStages(body) {
   const stages = [];
   let current = null;

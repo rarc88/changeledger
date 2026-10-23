@@ -6,7 +6,7 @@
 // repository loading and printing.
 
 import { marked } from 'marked';
-import { childrenOpenError, parseChange } from './change.mjs';
+import { childrenOpenError, parseChange, parseRequestSections } from './change.mjs';
 import {
   changeBranchFormat,
   integrationBranch,
@@ -42,8 +42,8 @@ const REVIEWABLE_STAGES = ['specification', 'plan'];
 const SEED_STAGES = ['investigation', 'proposal', 'specification'];
 
 // Effective tdd of a change type: `types.<type>.tdd` when it is a boolean, else
-// the global `tdd`, else on. Single authority — coverage, the review-stage rule,
-// context policy lines and fragment selection all ask here, never re-derive. An
+// the global `tdd`, else on. Single authority — the review-stage rule, context
+// policy lines and fragment selection all ask here, never re-derive. An
 // undefined `type` resolves the global value.
 export const DEFAULT_TDD = true;
 
@@ -200,15 +200,6 @@ export function checkRepo({ config, changes, specs = [], releases = [], usage = 
     if (!scoped.length) err(null, `no change with id "${opts.id}"`);
   }
 
-  // Severity projection: the status the subject is judged AS, whatever its
-  // frontmatter still says. `approve` needs it to judge a draft at the severity
-  // of the status it is about to reach (20260729-185200 CR1). It only makes
-  // sense for one named subject — a repo-wide sweep judges every document by its
-  // own status — so an unscoped projection is a caller error, not a no-op.
-  if (opts.asStatus !== undefined && !opts.id) {
-    throw new Error('checkRepo: asStatus projects onto one subject and requires an id');
-  }
-
   // Subjects of the per-document loop. The data feed below stays `changes`.
   const targets = scoped.filter((c) => frozenReason(c) === null);
   const counts = { validated: targets.length, notValidated: scoped.length - targets.length };
@@ -298,13 +289,13 @@ export function checkRepo({ config, changes, specs = [], releases = [], usage = 
     const tasks = c.tasks ?? [];
     checkTasks(c, tasks, err);
     checkCriteria(c, c.criteria ?? [], err);
+    checkCriterionReferences(c, tasks, err);
 
     if (fm.status === 'done' && tasks.some((t) => t.state !== 'done')) {
       const pending = tasks.filter((t) => t.state !== 'done').length;
       err(c, `status is "done" but ${pending} task(s) are not done`);
     }
 
-    checkCoverage(c, fm, active, config, { warn, err, asStatus: opts.asStatus });
     checkDeliveryVerdict(c, fm, err);
     checkLifecycleSequence(c, fm, err);
     checkUnclassifiedMentions(c, knownIds, incomingRelations, warn);
@@ -571,7 +562,7 @@ function checkUnclassifiedMentions(change, knownIds, incomingRelations, warn) {
 // Reuses the scoped validator for a selected change, optionally replacing its
 // in-memory text with a candidate that has not been written yet. Callers gate
 // mutations on errors only; warnings remain informational by contract.
-export function checkSelectedChange(repo, id, candidateText, { asStatus } = {}) {
+export function checkSelectedChange(repo, id, candidateText) {
   let changes = repo.changes;
   if (candidateText !== undefined) {
     const index = changes.findIndex((c) => String(c.frontmatter?.id) === String(id));
@@ -581,7 +572,7 @@ export function checkSelectedChange(repo, id, candidateText, { asStatus } = {}) 
       changes = changes.with(index, candidate);
     }
   }
-  return checkRepo({ ...repo, changes }, { id, asStatus });
+  return checkRepo({ ...repo, changes }, { id });
 }
 
 // Multiset diff of two `check` error lists by (file, message) identity: an
@@ -620,8 +611,8 @@ function errorKey(e) {
   return `${e.file}\u0000${e.message}`;
 }
 
-export function assertSelectedChangeValid(repo, id, candidateText, opts = {}) {
-  const { errors } = checkSelectedChange(repo, id, candidateText, opts);
+export function assertSelectedChangeValid(repo, id, candidateText) {
+  const { errors } = checkSelectedChange(repo, id, candidateText);
   if (!errors.length) return;
   throw new Error(
     `change ${id} failed scoped validation:\n${errors.map((error) => `- ${error.message}`).join('\n')}`,
@@ -630,47 +621,53 @@ export function assertSelectedChangeValid(repo, id, candidateText, opts = {}) {
 
 // Validates one already-resolved file without loading or parsing siblings. This
 // is the write-gate path for operations whose scope is exactly one change.
-// `asStatus` judges the text at a projected status instead of its own, so a
-// transition can falsify its candidate before writing it (20260729-185200 CR1).
-export function assertChangeTextValid(config, name, text, opts = {}) {
+export function assertChangeTextValid(config, name, text) {
   const parsed = parseChange(text);
   const id = parsed.frontmatter.id;
   assertSelectedChangeValid(
     { config, changes: [{ name, text, ...parsed }], specs: [], releases: [] },
     id,
-    undefined,
-    opts,
   );
 }
 
-// Transition-scoped gate for draft → approved only (20260810-213633, real
-// incident: 20260810-181801 approved with every narrative stage blank).
-// Deliberately NOT part of checkRepo/checkCoverage: those judge a draft's
-// coverage gaps as warnings because a draft is still being written, and
-// widening that shared severity path to also flag blank stages would make
-// every skeleton draft fail `check` — never the intent. This is the single
-// extra assertion the `approved` transition itself adds, called from the same
-// seat as `assertChangeTextValid(..., { asStatus: 'approved' })` (`approve` in
-// commands/agent.mjs and the viewer's changeStatus, which route through the
-// same `status()`). Presence of each active stage's heading is already a hard
-// error via that sibling call — this only adds emptiness of the body inside a
-// present heading. `log` is excluded: it is the lifecycle ledger, legitimately
-// empty until the transition itself appends the first entry.
-export function assertStagesNotEmpty(config, text) {
-  const { frontmatter: fm, stages } = parseChange(text);
+// The human approves the objective and the frontier, nothing else
+// (20261023-181753): `## Request` must have a body carrying `### Objective` and
+// `### Frontier`, each with a body of its own. Every later stage may still be
+// empty — Specification and Plan are written in `in-progress`. Called from the
+// `approved` seat of `statusMutation`, which `approve` and the viewer share.
+export function assertApprovable(text) {
+  const request = parseChange(text).stages.find((s) => s.key === 'request');
+  if (!request) throw new Error('cannot approve: "## Request" is missing');
+  if (!request.body) throw new Error('cannot approve: "## Request" is empty');
+  const sections = parseRequestSections(request.body);
+  const missing = sections.filter((s) => !s.present).map((s) => `"### ${s.name}"`);
+  const empty = sections.filter((s) => s.present && !s.filled).map((s) => `"### ${s.name}"`);
+  const defects = [];
+  if (missing.length) defects.push(listed(missing, 'missing'));
+  if (empty.length) defects.push(listed(empty, 'empty'));
+  if (defects.length) throw new Error(`cannot approve: ${defects.join('; ')}`);
+}
+
+// The implementer's exit gate, at the `in-review` seat of `statusMutation`
+// (20261023-181753 CR5): each active stage among `specification` and `plan`
+// has a body, and an active Specification declares at least one `### CRn`.
+// A stage whose heading is absent is left to the structural check.
+export function assertReviewable(config, text) {
+  const { frontmatter: fm, stages, criteria } = parseChange(text);
   const typeDefinition = isMapping(config?.types?.[fm.type]) ? config.types[fm.type] : null;
   const active = Array.isArray(typeDefinition?.stages) ? typeDefinition.stages : [];
-  const empty = active
-    .filter((key) => SEMANTIC_STAGES.has(key))
-    .filter((key) => {
-      const stage = stages.find((s) => s.key === key);
-      return stage && !stage.body.trim();
-    })
-    .map((key) => `"## ${canonicalHeading(key)}"`);
-  if (empty.length) {
-    const verb = empty.length > 1 ? 'are' : 'is';
-    throw new Error(`cannot approve: ${empty.join(', ')} ${verb} empty`);
+  const present = REVIEWABLE_STAGES.filter((key) => active.includes(key))
+    .map((key) => stages.find((s) => s.key === key))
+    .filter(Boolean);
+  const empty = present.filter((s) => !s.body).map((s) => `"## ${canonicalHeading(s.key)}"`);
+  if (empty.length) throw new Error(`cannot request review: ${listed(empty, 'empty')}`);
+  if (present.some((s) => s.key === 'specification') && !criteria.length) {
+    throw new Error('cannot request review: "## Specification" declares no criterion');
   }
+}
+
+function listed(names, state) {
+  return `${names.join(', ')} ${names.length > 1 ? 'are' : 'is'} ${state}`;
 }
 
 function checkReleases(releases, changesById, err) {
@@ -758,6 +755,20 @@ function checkCriteria(c, criteria, err) {
   for (const cr of criteria) {
     if (seen.has(cr)) err(c, `duplicate criterion "${cr}"`);
     else seen.add(cr);
+  }
+}
+
+// A Plan task citing a criterion the Specification does not declare is a broken
+// reference, like an unknown stage: an error whatever the status of a validated
+// change, the draft included (20261023-181753 CR4). `parseChange` reads `### CRn` only from
+// `## Specification`, so a type without that stage declares none and any
+// citation it carries is unknown.
+function checkCriterionReferences(c, tasks, err) {
+  const declared = new Set(c.criteria ?? []);
+  for (const task of tasks) {
+    for (const cr of task.criteria ?? []) {
+      if (!declared.has(cr)) err(c, `Plan task references unknown criterion "${cr}"`);
+    }
   }
 }
 
@@ -971,153 +982,6 @@ function checkLifecycleSequence(c, fm, err) {
   }
 }
 
-// Definition-of-Ready coverage: when the type's effective tdd is on, a change whose type
-// activates `## Specification` is checked in draft, approved and in-progress.
-// Draft reports everything as warnings, because a draft is still being written.
-// From `approved` onward every diagnostic here is an error — readiness defects
-// (criterion missing Given/When/Then, reference to an unknown criterion,
-// CR-bearing task without target+verification) and coverage gaps (uncovered
-// criterion, non-support task without a CR) alike: the criterion → task →
-// verification net is what approval commits to, so a hole in it cannot be advice
-// (20260729-185200 CR3/CR4). `asStatus` judges the subject at a status other
-// than the one in its frontmatter, which is how `approve` falsifies a draft
-// before flipping it. Only the Given/When/Then structure is machine-checkable;
-// semantic test-grade quality remains the documenting agent's judgment.
-function checkCoverage(c, fm, active, config, { warn, err, asStatus }) {
-  if (!effectiveTdd(config, fm.type)) return;
-  const judged = asStatus ?? fm.status;
-  if (!['draft', 'approved', 'in-progress'].includes(judged)) return;
-  const report = judged === 'draft' ? warn : err;
-
-  // A type that never activates `specification` can declare no `### CRn`
-  // block, so `c.criteria` is always empty here — every Plan task reference is
-  // by definition unknown. `checkCoverage` used to return before this point,
-  // letting a `(CR99)` on a chore/quick/audit task pass clean (CR4).
-  if (!active?.includes('specification')) {
-    for (const t of c.tasks ?? []) {
-      for (const cr of t.criteria ?? []) {
-        report(c, `Plan task references unknown criterion "${cr}"`);
-      }
-    }
-    return;
-  }
-
-  const declared = c.criteria ?? [];
-  const declaredSet = new Set(declared);
-  const tasks = c.tasks ?? [];
-  const referenced = new Set(tasks.flatMap((t) => t.criteria ?? []));
-
-  for (const cr of c.criterionBlocks ?? []) {
-    const steps = new Set(cr.steps ?? []);
-    if (!steps.has('Given') || !steps.has('When') || !steps.has('Then')) {
-      report(c, `${cr.id} is not test-grade: missing Given/When/Then`);
-    }
-  }
-
-  for (const t of tasks) {
-    if (!t.criteria?.length) continue;
-    for (const cr of t.criteria) {
-      if (!declaredSet.has(cr)) report(c, `Plan task references unknown criterion "${cr}"`);
-    }
-    if (!namesTargetAndVerification(t, config)) {
-      const hint = readinessHint(config);
-      for (const cr of t.criteria) {
-        report(c, `Plan task for ${cr} must name target and verification (${hint})`);
-      }
-    }
-  }
-
-  for (const cr of declared)
-    if (!referenced.has(cr)) report(c, `${cr} is not covered by any Plan task`);
-
-  for (const t of tasks)
-    if (!t.criteria?.length && !isSupportTask(t)) {
-      const label = t.text.length > 50 ? `${t.text.slice(0, 50)}…` : t.text;
-      report(c, `Plan task "${label}" references no criterion`);
-    }
-}
-
-// A task declaring the `Support` child is intentionally operational (running
-// tests, reading docs, scaffolding) and is exempt from the "references no
-// criterion" warning. Readiness checks already skip tasks with no criteria, so
-// no additional exclusion is needed there.
-function isSupportTask(task) {
-  return task.support !== undefined;
-}
-
-// Each list judges its own field (20260729-203257 CR4). While both were matched
-// against the whole task description, two overlapping lists satisfied each other
-// on the same string and the requirement was vacuous — a task naming only a test
-// file passed as target and as verification at once.
-function namesTargetAndVerification(task, config) {
-  const readiness = readinessConfig(config);
-  return (
-    matchesAnyReadinessPattern(task.target ?? '', readiness.target_patterns) &&
-    matchesAnyReadinessPattern(task.verify ?? '', readiness.verification_patterns)
-  );
-}
-
-function readinessConfig(config) {
-  const readiness = isMapping(config?.readiness) ? config.readiness : null;
-  return {
-    target_patterns:
-      readiness && 'target_patterns' in readiness
-        ? Array.isArray(readiness.target_patterns)
-          ? readiness.target_patterns
-          : []
-        : ['src/**'],
-    verification_patterns:
-      readiness && 'verification_patterns' in readiness
-        ? Array.isArray(readiness.verification_patterns)
-          ? readiness.verification_patterns
-          : []
-        : ['test/**'],
-  };
-}
-
-function readinessHint(config) {
-  const readiness = readinessConfig(config);
-  const source = config?.readiness ? 'configured readiness' : 'default readiness';
-  return `${source}: target_patterns=${formatPatterns(readiness.target_patterns)}, verification_patterns=${formatPatterns(readiness.verification_patterns)}`;
-}
-
-function formatPatterns(patterns) {
-  return `[${patterns.map((p) => JSON.stringify(p)).join(', ')}]`;
-}
-
-function matchesAnyReadinessPattern(text, patterns) {
-  return patterns.some((pattern) => readinessPatternMatches(text, pattern));
-}
-
-function readinessPatternMatches(text, pattern) {
-  if (/[*?]/.test(pattern)) return readinessGlob(pattern).test(text);
-  return text.includes(pattern);
-}
-
-function readinessGlob(pattern) {
-  let out = '';
-  for (let i = 0; i < pattern.length; i++) {
-    const ch = pattern[i];
-    if (ch === '*') {
-      if (pattern[i + 1] === '*') {
-        out += '.*';
-        i++;
-      } else {
-        out += '[^\\s`)]+';
-      }
-    } else if (ch === '?') {
-      out += '[^\\s`)]';
-    } else {
-      out += escapeRegExp(ch);
-    }
-  }
-  return new RegExp(out);
-}
-
-function escapeRegExp(text) {
-  return text.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&');
-}
-
 function checkConfig(config, err) {
   const c = config ?? {};
   let validChangeBranchFormat = true;
@@ -1166,7 +1030,6 @@ function checkConfig(config, err) {
       );
     }
   }
-  if ('readiness' in c) checkReadinessConfig(c.readiness, err);
   const configuredTypes = isMapping(c.types) ? c.types : {};
   if ('release' in c) checkReleaseConfig(c.release, configuredTypes, err);
   const canonical = Array.isArray(c.stages) ? c.stages : [];
@@ -1202,9 +1065,8 @@ function checkConfig(config, err) {
     }
     // An independent reviewer needs something to verify: criteria live in
     // `## Specification` (the only stage `parseChange` reads `### CRn` from).
-    // With tdd on, the tasks that cite them live in `## Plan` and coverage binds
-    // them, so both are required; with tdd off no coverage applies and the
-    // criteria alone are the reviewer's contract.
+    // With tdd on, the Plan whose tasks cite them is required too; with tdd off
+    // the criteria alone are the reviewer's contract.
     if (def.review_required === true) {
       const missing = stagesRequiredByReview(c, type).filter((s) => !def.stages.includes(s));
       if (missing.length) {
@@ -1238,25 +1100,6 @@ function checkReleaseConfig(release, types, err) {
         null,
         `config release impact "${impact}" for "${type}" must be one of: ${RELEASE_IMPACTS.join(', ')}`,
       );
-    }
-  }
-}
-
-function checkReadinessConfig(readiness, err) {
-  if (!readiness || typeof readiness !== 'object' || Array.isArray(readiness)) {
-    err(null, 'config "readiness" must be a mapping');
-    return;
-  }
-  for (const key of ['target_patterns', 'verification_patterns']) {
-    if (!(key in readiness)) continue;
-    if (!Array.isArray(readiness[key])) {
-      err(null, `config "readiness.${key}" must be a list`);
-      continue;
-    }
-    for (const pattern of readiness[key]) {
-      if (typeof pattern !== 'string' || pattern.trim() === '') {
-        err(null, `config "readiness.${key}" entries must be non-empty strings`);
-      }
     }
   }
 }

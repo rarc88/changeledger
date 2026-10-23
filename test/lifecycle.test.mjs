@@ -503,10 +503,11 @@ test('183807 CR6: an interior "[note]" is ordinary text and is preserved', () =>
   assert.equal(line, '- **2026-07-30T18:00:00Z** `[note]` saw a [note] in the middle');
 });
 
-// 20260722-124656 CR3 — the readiness refusal lives on the write path in
-// `src/commands/agent.mjs`, never in the graph. Removing this edge would "fix"
-// an unready candidate by making every candidate unreachable, so pin it here.
-test('124656 CR3: the in-review edges stay legal; readiness is not a graph rule', () => {
+// 20260722-124656 CR3 — the refusal of an unreviewable candidate lives on the
+// write path in `src/commands/agent.mjs`, never in the graph. Removing this edge
+// would "fix" such a candidate by making every candidate unreachable, so pin it
+// here.
+test('124656 CR3: the in-review edges stay legal; the review entry gate is not a graph rule', () => {
   assert.doesNotThrow(() =>
     assertTransition('in-progress', 'in-review', { type: 'feature', reviewRequired: true }),
   );
@@ -555,7 +556,10 @@ test('113320 CR8: a documentation change without a Plan reaches done', () => {
   fs.writeFileSync(
     file,
     text
-      .replace('## Request\n', '## Request\n\nDocument authentication.\n')
+      .replace(
+        '## Request\n',
+        '## Request\n\nDocument authentication.\n\n### Objective\n\nO\n\n### Frontier\n\nF\n',
+      )
       .replace(
         '## Investigation\n',
         '## Investigation\n\n`src/auth.mjs` `login` is the entry point.\n',
@@ -615,7 +619,10 @@ test('152555 CR8: a graduation review is recorded before the first --into of a d
     file,
     fs
       .readFileSync(file, 'utf8')
-      .replace('## Request\n', '## Request\n\nLogin must return a session.\n')
+      .replace(
+        '## Request\n',
+        '## Request\n\nLogin must return a session.\n\n### Objective\n\nO\n\n### Frontier\n\nF\n',
+      )
       .replace(
         '## Investigation\n',
         '## Investigation\n\n`src/auth.mjs` `login` returns a token.\n',
@@ -720,7 +727,10 @@ test('181346 CR10: a release-type change starts from git.release_branch end to e
     file,
     fs
       .readFileSync(file, 'utf8')
-      .replace('## Request\n', '## Request\n\nProduction login fails.\n')
+      .replace(
+        '## Request\n',
+        '## Request\n\nProduction login fails.\n\n### Objective\n\nO\n\n### Frontier\n\nF\n',
+      )
       .replace('## Investigation\n', '## Investigation\n\n`src/auth.mjs` `login` throws.\n')
       .replace(
         '## Specification\n',
@@ -782,7 +792,10 @@ test('181428 CR6: a hotfix change publishes its release branch and back_merge_br
     file,
     fs
       .readFileSync(file, 'utf8')
-      .replace('## Request\n', '## Request\n\nProduction login fails.\n')
+      .replace(
+        '## Request\n',
+        '## Request\n\nProduction login fails.\n\n### Objective\n\nO\n\n### Frontier\n\nF\n',
+      )
       .replace('## Investigation\n', '## Investigation\n\n`src/auth.mjs` `login` throws.\n')
       .replace(
         '## Specification\n',
