@@ -337,7 +337,7 @@ las nombra como divergencia conocida.
 - **Given** el viewer sirviendo este repo
 - **When** se abre el formulario de configuración y el detalle de un `draft`
 - **Then** el formulario no contiene ningún fieldset con legend `Definition of Ready` ni las áreas `Target patterns (one per line)` y `Verification patterns (one per line)`, y la etiqueta del checkbox de `tdd` no contiene `test-grade`
-- **And** un PATCH de configuración que trae `readiness` deja la config byte-idéntica, como hoy cualquier clave fuera de `PATCH_ALLOWED`
+- **And** un PATCH de configuración que trae `readiness` deja la config igual que la deja un PATCH sin claves aceptadas: sin la clave y sin más diferencia que la re-serialización que todo PATCH aceptado aplica hoy
 - **And** el panel de aprobación del draft contiene el texto `Review the objective and the frontier, then approve them: Specification and Plan are written during implementation.` y el botón `Approve`
 
 ### CR9 — El flujo completo del día después, de punta a punta por la CLI
@@ -354,7 +354,7 @@ las nombra como divergencia conocida.
 ### CR11 — Los tests del DoR se retiran y los de la integridad se quedan
 - **Given** la suite tras el change
 - **When** se ejecuta `pnpm test`
-- **Then** pasa completa, ningún test afirma sobre `must name target and verification`, `is not test-grade`, `is not covered by any Plan task`, `references no criterion`, `added readiness section` ni `readiness.target_patterns`, y los tests que afirman `references unknown criterion` siguen existiendo con la severidad de CR4
+- **Then** pasa completa, ningún test afirma la presencia de `must name target and verification`, `is not test-grade`, `is not covered by any Plan task`, `references no criterion`, `added readiness section` ni `readiness.target_patterns` (una comprobación de ausencia sí puede nombrarlos), y los tests que afirman `references unknown criterion` siguen existiendo con la severidad de CR4
 - **And** los guards de concepto de `test/context.test.mjs` «a draft is never executed» y «the human owns the human lifecycle transitions» siguen pasando sin cambio
 
 ## Plan
