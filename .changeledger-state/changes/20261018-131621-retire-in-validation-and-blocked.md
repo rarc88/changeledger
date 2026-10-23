@@ -11,7 +11,7 @@ reviewed: true
 branch: feature/20261018-131621
 related_to: ["20260726-124835", "20260619-171002", "20260614-151759", "20260715-125139", "20260722-124655"]
 owner: raruiz-hiberuscom
-release_impact: major
+release_impact: minor
 ---
 
 ## Request
