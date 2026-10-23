@@ -51,9 +51,11 @@ hermano del temporal: un test que se aísle por su cuenta seguirá haciéndolo
 (asigna `process.env` dentro del proceso y gana), y el que no, hereda un home
 desechable en vez del del usuario.
 
-`scripts/**` no figura hoy en `readiness.target_patterns` de
-`.changeledger/config.yml`, pese a que el envoltorio de la suite vive ahí: una
-tarea que lo tenga como `Target` no supera el chequeo de preparación.
+`scripts/**` no figuraba en `readiness.target_patterns` de
+`.changeledger/config.yml`, pese a que el envoltorio de la suite vive ahí, de
+modo que una tarea que lo tuviera como `Target` no superaba el chequeo de
+preparación. Se añadió al redactar este cambio, que es cuando el contrato pide
+ajustar los patrones al stack del repo.
 
 ## Specification
 
@@ -81,10 +83,6 @@ tarea que lo tenga como `Target` no supera el chequeo de preparación.
 
 ## Plan
 
-- [ ] Añadir `scripts/**` a `readiness.target_patterns`
-  - **Target:** `.changeledger/config.yml`
-  - **Verify:** `node bin/changeledger.mjs check`
-  - **Support:**
 - [ ] Crear la fixture que reporta el `CHANGELEDGER_HOME` observado y el
   `registryPath()` resultante de un `register()`, inerte fuera de
   `RUN_TESTS_FIXTURE` como sus hermanas
