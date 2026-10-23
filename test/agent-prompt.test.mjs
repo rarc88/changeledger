@@ -226,7 +226,11 @@ test('CR6: the skeletons ship in the publishable package', async () => {
       shell: process.platform === 'win32',
     },
   );
-  const entries = JSON.parse(stdout)[0].files.map((f) => f.path);
+  // npm ≤ 11 prints an array of packages; npm 12 prints an object keyed by
+  // package name. Either way the first (only) package is the one packed here.
+  const parsed = JSON.parse(stdout);
+  const [packed] = Array.isArray(parsed) ? parsed : Object.values(parsed);
+  const entries = packed.files.map((f) => f.path);
   for (const role of ROLES) {
     assert.ok(
       entries.includes(`templates/contract/agent-prompts/${role}.md`),
