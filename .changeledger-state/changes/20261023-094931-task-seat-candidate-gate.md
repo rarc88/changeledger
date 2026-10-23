@@ -148,3 +148,4 @@ se declara estable y se fija en CR1.
 - **2026-10-23T12:24:12Z** `[status]` in-progress → in-review
 - **2026-10-23T12:26:20Z** `[review]` in-review → done (delegated subagent, clean context)
 - **2026-10-23T12:28:30Z** `[note]` Graduation-review ronda 1 sobre architecture.md: todo lo relativo a task confirmado; recomendación 'correct' por un universal del orquestador — 'las entradas de evento no tienen sede propia dentro del lote' es falso para status, que conserva assertChangeTextValid en sus transiciones. Frase estrechada a log, owner y task, con status nombrado como excepción. Se delega de nuevo a un revisor limpio.
+- **2026-10-23T12:29:20Z** `[note]` Graduation-review ronda 2 (revisor nuevo): la frase estrechada confirmada contra applyEvent, eventMutation y statusMutation; la frase de la sede task confirmada contra agent.mjs y los tests; frontmatter intacto. Recomendación apply.
