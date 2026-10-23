@@ -315,9 +315,10 @@ antes con el mismo fichero y el mismo mensaje, en ese documento o en otro,
 no rechaza una escritura que no añade ninguno. Esa es la única regla de
 admisión de las sedes de documento y la aplican las cinco
 (`20261022-213751`): el scaffold de `new`, `new --from`, `edit <id>`,
-`edit spec:<slug>` y cada entrada de documento de `apply`. No garantiza reescribir una
-spec rota por partes: `check` nombra solo el primer heading `CRn`, así que
-quitar el primero destapa el siguiente como error nuevo —, `id` y `created` son inmutables, los
+`edit spec:<slug>` y cada entrada de documento de `apply`. No garantiza
+reescribir una spec rota por partes: `check` nombra solo el primer heading
+`CRn`, así que quitar el primero destapa el siguiente como error nuevo. En
+la edición, `id` y `created` son inmutables, los
 campos con comando propio (`status`, `owner`, `branch`, `archived`,
 `reviewed`; `graduated_from` en specs) deben coincidir con el vigente y el
 rechazo nombra al comando dueño, y un contenido byte-idéntico es no-op sin
