@@ -375,10 +375,11 @@ las nombra como divergencia conocida.
   - **Target:** `templates/config.yml`, `src/config-migration.mjs`, `.changeledger/config.yml`
   - **Verify:** `node --test test/config-migration.test.mjs test/cli.test.mjs`
   - **Criteria:** CR6
-- [ ] Quitar del viewer el fieldset del DoR, `applyReadinessPatch` y la clave en `PATCH_ALLOWED`, y reescribir el texto del panel de aprobación
+- [x] Quitar del viewer el fieldset del DoR, `applyReadinessPatch` y la clave en `PATCH_ALLOWED`, y reescribir el texto del panel de aprobación
   - **Target:** `src/viewer/domain.mjs`, `src/viewer/public/app.js`, `src/viewer/public/view-parts.js`
   - **Verify:** `node --test test/view.test.mjs test/viewer-metadata.test.mjs`
   - **Criteria:** CR8
+  - **Resolved:** `2026-10-23T22:40:17Z`
 - [ ] Borrar `readiness.md`, recomponer el pack `spec`, reescribir las frases del contrato listadas en Investigation con el modelo nuevo y bajar `base.spec` a lo medido
   - **Target:** `templates/contract/`, `src/commands/context.mjs`, `templates/contract/budgets.yml`
   - **Verify:** `node --test test/context.test.mjs`
