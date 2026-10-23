@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-10-23T09:48:44Z
 depends_on: ["20261022-213751"]
+reviewed: true
 branch: bug/20261023-094844
 related_to: []
 owner: raruiz-hiberuscom
@@ -148,3 +149,4 @@ estable y se fija en los criterios.
 - **2026-10-23T11:02:51Z** `[status]` in-progress → in-review
 - **2026-10-23T11:04:23Z** `[review]` in-review → done (delegated subagent, clean context)
 - **2026-10-23T11:05:52Z** `[note]` Graduation-review (revisor limpio): la frase del primer heading eliminada sin resto en el spec; cada afirmación nueva confirmada contra src/check.mjs, las dos ramas de graduate --into y los tests CR1-CR5; frontmatter intacto. Recomendación apply.
+- **2026-10-23T11:05:53Z** `[graduation]` spec: `architecture.md`
