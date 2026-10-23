@@ -5,6 +5,7 @@ type: quick
 status: done
 created: 2026-10-23T13:42:40Z
 depends_on: []
+archived: true
 accepted_at: 2026-10-23T15:18:26Z
 reviewed: true
 branch: quick/20261023-134240
@@ -36,3 +37,4 @@ Solo test; sin cambio de comportamiento ni de empaquetado.
 - **2026-10-23T13:48:29Z** `[status]` in-progress → done
 - **2026-10-23T13:48:36Z** `[graduation]` skipped: Solo test: ninguna verdad persistente cambia; el empaquetado y su contrato siguen iguales.
 - **2026-10-23T15:19:17Z** `[validation]` accepted (merged 6cedcd1)
+- **2026-10-23T15:19:21Z** `[archive]` archived
