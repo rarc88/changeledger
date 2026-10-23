@@ -380,10 +380,11 @@ las nombra como divergencia conocida.
   - **Verify:** `node --test test/view.test.mjs test/viewer-metadata.test.mjs`
   - **Criteria:** CR8
   - **Resolved:** `2026-10-23T22:40:17Z`
-- [ ] Borrar `readiness.md`, recomponer el pack `spec`, reescribir las frases del contrato listadas en Investigation con el modelo nuevo y bajar `base.spec` a lo medido
+- [x] Borrar `readiness.md`, recomponer el pack `spec`, reescribir las frases del contrato listadas en Investigation con el modelo nuevo y bajar `base.spec` a lo medido
   - **Target:** `templates/contract/`, `src/commands/context.mjs`, `templates/contract/budgets.yml`
   - **Verify:** `node --test test/context.test.mjs`
   - **Criteria:** CR7
+  - **Resolved:** `2026-10-23T22:46:18Z`
 - [ ] Reescribir en README la frase del DoR y la de la aprobación
   - **Target:** `README.md`, `test/cli.test.mjs`
   - **Verify:** `node --test test/cli.test.mjs`
