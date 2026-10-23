@@ -399,10 +399,11 @@ las nombra como divergencia conocida.
   - **Verify:** `node --test test/cli.test.mjs`
   - **Criteria:** CR9
   - **Resolved:** `2026-10-23T23:19:11Z`
-- [ ] Retirar los tests del DoR del inventario de Investigation y reetiquetar los que sobreviven
+- [x] Retirar los tests del DoR del inventario de Investigation y reetiquetar los que sobreviven
   - **Target:** `test/`
   - **Verify:** `pnpm test`
   - **Criteria:** CR11
+  - **Resolved:** `2026-10-23T23:19:12Z`
 - [ ] Pasar el gate completo y anotar en el Log las specs que quedan en divergencia hasta que la épica reconcilie
   - **Support:**
   - **Verify:** `pnpm verify`
