@@ -11,6 +11,7 @@ import { buildAgentContext } from '../src/commands/agent-context.mjs';
 import { buildAgentPrompt } from '../src/commands/agent-prompt.mjs';
 import { init } from '../src/commands/init.mjs';
 import { VERSION } from '../src/framing.mjs';
+import { REVIEW_VERDICTS } from '../src/lifecycle.mjs';
 import { STATE_REF, writeActivation } from '../src/state-store.mjs';
 import { assertWithinBudget, contextBudgets } from './budget-support.mjs';
 import { initGitFixture } from './helpers/git-env.mjs';
@@ -351,113 +352,64 @@ test('183520 CR2: with no mandate declared the review capsule applies the full a
 //
 // One `test()` per role, not a loop with a single assertion: a loop's first
 // `assert.ok` throws and aborts the remaining iterations, so with the ceiling
-// still at 350 only `investigation` would report while implementation, review
-// and post-review stayed silently unexecuted. One independent test per role
+// still at 350 only `investigation` would report while the rest stayed
+// silently unexecuted. One independent test per role
 // in the list below is what proves each measured capsule exceeds 350 tokens.
-for (const role of [
-  'investigation',
-  'implementation',
-  'review',
-  'post-review',
-  'graduation-review',
-]) {
+for (const role of ['investigation', 'implementation', 'review', 'graduation-review']) {
   test(`20260728-212043 CR6: ${role} prompt capsule fits the shared agent budget`, () => {
     assertWithinBudget(`${role} prompt capsule`, buildAgentPrompt(role), agentBudget);
   });
 }
 
-test('201703 CR1: post-review context is allowed only for in-validation and is framed, read-only', () => {
-  const root = repo();
-  const id = '20260705-120008';
-  const selected = addChange(root, 'in-validation', id);
-  const out = buildAgentContext('post-review', id, root);
-  assert.equal(
-    out.split('\n')[0],
-    `===== CHANGELEDGER AGENT CONTEXT BEGIN — role: post-review — change: #${id} — v${VERSION} =====`,
-  );
-  assert.equal(
-    out.trimEnd().split('\n').at(-1),
-    '===== CHANGELEDGER AGENT CONTEXT END — if this line is missing, the output was truncated: stop and re-run =====',
-  );
-  assert.match(out, /self-contained delegated context/i);
-  assert.match(out, /do not run `changeledger context`/i);
-  assert.match(out, /read-only/i);
-  // 20260730-002730: the three prohibitions as concepts, not as one sentence.
-  assert.match(out, /do not modify[^.]{0,20}\bfiles?\b/i);
-  assert.match(out, /do not change[^.]{0,15}\bgit\b/i);
-  assert.match(out, /do not mutate[^.]{0,20}\bledger\b/i);
-  assert.match(out, /do not\s+change status/i);
-  assert.match(out, /do not add\s+Log entries/i);
-  assert.match(out, /# Selected change[\s\S]*Do the delegated work/);
-  assert.ok(out.includes(selected.trim()));
-});
+for (const retired of ['audit', 'post-review']) {
+  test(`20261020-130304 CR2: the retired role "${retired}" never resolves as a role, no alias`, () => {
+    const root = repo();
+    assert.throws(
+      () => buildAgentContext(retired, undefined, root),
+      new RegExp(
+        `^Error: Unknown role "${retired}" — valid roles: investigation, implementation, review, graduation-review$`,
+      ),
+    );
+  });
+}
 
-test('201703 CR2: post-review never asks for a verdict or a lifecycle command', () => {
-  const root = repo();
-  const id = '20260705-120009';
-  addChange(root, 'in-validation', id);
-  const out = buildAgentContext('post-review', id, root);
-  const base = out.split('\n# Selected change')[0];
-  assert.match(base, /findings and evidence/i);
-  assert.doesNotMatch(base, /recommended (outcome|verdict)/i);
-  assert.doesNotMatch(base, /pass, fail-retry|fail-block/i);
-  assert.doesNotMatch(
-    base,
-    /changeledger (status|task|log|review|graduate|archive|unarchive|validation)/,
-  );
-});
-
-test('20260726-141123 CR2: the retired role name audit never resolves as a role, no alias', () => {
-  const root = repo();
-  assert.throws(
-    () => buildAgentContext('audit', undefined, root),
-    /^Error: Unknown role "audit" — valid roles: investigation, implementation, review, post-review, graduation-review$/,
-  );
-});
-
-test('201703 CR1/CR2: post-review requires in-validation and requires a change id; review keeps its own guard', () => {
+test('201703 CR2: review context is allowed only for in-review and requires a change id', () => {
   const root = repo();
   const approved = '20260705-120010';
   const inReview = '20260705-120011';
-  const inValidation = '20260705-120012';
   addChange(root, 'approved', approved);
   addChange(root, 'in-review', inReview);
-  addChange(root, 'in-validation', inValidation);
 
-  assert.doesNotThrow(() => buildAgentContext('post-review', inValidation, root));
-  assert.throws(
-    () => buildAgentContext('post-review', inReview, root),
-    /role post-review requires change status in-validation; got in-review/,
-  );
-  assert.throws(
-    () => buildAgentContext('post-review', approved, root),
-    /role post-review requires change status in-validation; got approved/,
-  );
-  assert.throws(
-    () => buildAgentContext('post-review', undefined, root),
-    /role post-review requires a change id/,
-  );
-  // review keeps its current in-review-only guard and verdict recipe untouched.
   assert.doesNotThrow(() => buildAgentContext('review', inReview, root));
   assert.throws(
-    () => buildAgentContext('review', inValidation, root),
-    /role review requires change status in-review; got in-validation/,
+    () => buildAgentContext('review', approved, root),
+    /role review requires change status in-review; got approved/,
   );
-  const reviewOut = buildAgentContext('review', inReview, root);
-  assert.match(reviewOut, /pass, fail-retry|fail-block/i);
-});
-
-test('201703 CR3: post-review capsule fits the shared agent budget and lists in the CLI role set', () => {
-  const root = repo();
-  const id = '20260705-120013';
-  addChange(root, 'in-validation', id);
-  const out = buildAgentContext('post-review', id, root);
-  const base = out.split('\n# Selected change')[0];
-  assertWithinBudget('post-review capsule', base, agentBudget);
+  assert.throws(
+    () => buildAgentContext('review', undefined, root),
+    /role review requires a change id/,
+  );
+  // An unknown role names the surviving set, so a retired one cannot look valid.
   assert.throws(
     () => buildAgentContext('scaffolding', undefined, root),
-    /valid roles: investigation, implementation, review, post-review, graduation-review$/,
+    /valid roles: investigation, implementation, review, graduation-review$/,
   );
+  const reviewOut = buildAgentContext('review', inReview, root);
+  // Guard the obligation, not its phrasing. Matching the prose failed in both
+  // directions: an anchor on the sentence's noun broke when the noun was
+  // renamed with the obligation intact, and a looser pattern was satisfied by
+  // "per-criterion PASS/FAIL evidence" while the capsule had stopped offering
+  // the verdicts at all. So the guard holds the two verdicts the CLI accepts,
+  // read from the CLI's own list and required as code spans — a convention the
+  // repo already applies to every literal. Rewriting the paragraph around them
+  // keeps this green; dropping or renaming a verdict does not. Scoped to the
+  // base, so the appended change document cannot satisfy it.
+  const base = reviewOut.split('\n# Selected change')[0];
+  const literals = new Set([...base.matchAll(/`([a-z][a-z-]*)`/g)].map((m) => m[1]));
+  for (const verdict of REVIEW_VERDICTS) {
+    assert.ok(literals.has(verdict), `the capsule must offer the \`${verdict}\` verdict`);
+  }
+  assert.doesNotMatch(base, /fail-(retry|block)|--retry|--block/i);
 });
 
 // 20261002-152555 — `graduation-review` checks the spec reconciliation a closure
@@ -569,7 +521,7 @@ test('141120 CR5: a quick change can never reach the status the review role need
   const id = addQuickChange(root);
   assert.throws(
     () => status(id, 'in-review', root),
-    /^Error: quick changes do not require review — move to in-validation instead$/,
+    /^Error: quick changes do not require review — move to done instead$/,
   );
   assert.throws(
     () => buildAgentContext('review', id, root),

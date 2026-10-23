@@ -6,7 +6,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { parse as parseYaml } from 'yaml';
-import { status, task, validation } from '../src/commands/agent.mjs';
+import { status, task } from '../src/commands/agent.mjs';
 import { buildMigration } from '../src/config-migration.mjs';
 import { LOG_EVENT_DEFINITIONS } from '../src/lifecycle.mjs';
 import { STATE_REF, writeActivation } from '../src/state-store.mjs';
@@ -223,9 +223,8 @@ test('111457 CR5/CR6: fix help exposes the scoped graduation-links migration', (
 
 test('20260824-134716 CR2: static CLI domains are complete in help and invalid-value errors', () => {
   for (const [command, values] of [
-    ['agent-prompt', 'investigation | implementation | review | post-review | graduation-review'],
-    ['agent-context', 'investigation | implementation | review | post-review | graduation-review'],
-    ['validation', 'pass|fail'],
+    ['agent-prompt', 'investigation | implementation | review | graduation-review'],
+    ['agent-context', 'investigation | implementation | review | graduation-review'],
     ['review', 'pass|fail'],
     ['task', 'done|block'],
   ]) {
@@ -239,6 +238,25 @@ test('20260824-134716 CR2: static CLI domains are complete in help and invalid-v
   const release = run('release', '--help').out;
   assert.match(release, /release impacts: none, patch, minor, major/);
   assert.match(release, /branch format placeholders: \{type\}, \{id\}/);
+});
+
+test('20261018-131621 CR18: init hands out the six statuses and check never names a retired one', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
+  assert.equal(runIn(root, env, 'init').code, 0);
+  const config = parseYaml(fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8'));
+  assert.deepEqual(config.statuses, [
+    'draft',
+    'approved',
+    'in-progress',
+    'in-review',
+    'done',
+    'discarded',
+  ]);
+  const check = runIn(root, env, 'check');
+  assert.doesNotMatch(check.out + check.err, /in-validation|blocked/);
 });
 
 test('20260824-134716 CR2: repo-configured domains appear in help and invalid errors', () => {
@@ -261,7 +279,7 @@ test('20260824-134716 CR2: repo-configured domains appear in help and invalid er
   );
   assert.match(
     help,
-    /effective statuses: draft, approved, in-progress, in-review, in-validation, blocked, done, discarded/,
+    /effective statuses: draft, approved, in-progress, in-review, done, discarded/,
   );
   assert.match(
     help,
@@ -287,12 +305,6 @@ test('20260824-134716 CR3: every pair of fix migration modes fails before action
       );
     }
   }
-});
-
-test('20260824-134716 CR4: review rejects --retry with --block before action', () => {
-  const result = run('review', 'an-id', 'fail', '--retry', '--block', 'reason');
-  assert.notEqual(result.code, 0);
-  assert.match(result.err, /option '--retry' cannot be used with option '--block'/);
 });
 
 test('20260824-134716 CR5: fix help names exact default repairs and one-at-a-time migrations', () => {
@@ -339,9 +351,7 @@ test('20260824-134716 CR7: log help derives the complete grammar without promisi
     'changeledger approve',
     'changeledger status',
     'changeledger discard',
-    'changeledger reopen',
     'changeledger review',
-    'changeledger validation',
     'changeledger owner',
     'changeledger branch',
     'changeledger graduate',
@@ -358,7 +368,31 @@ test('20260824-134716 CR7: log help derives the complete grammar without promisi
   );
 });
 
-test('125139 CR1/CR3/CR5/CR6: CLI transmits explicit human decisions and preserves agent rejection', () => {
+test('20261019-184719 CR4: log help names every live writer of the validation acceptance arm', () => {
+  const { out } = run('log', '--help');
+  const block = out.match(/^ {2}validation\n((?: {4}.*\n)+)/m);
+  assert.ok(block, 'log help should list the validation type');
+  const writers = block[1].split('Written by:')[1];
+  // Derived from the source, not listed here: the help was falsified once by a
+  // change that added a second seat for the acceptance arm without touching
+  // this list, so the test asks the code who writes it.
+  const dir = new URL('../src/commands/', import.meta.url);
+  const seats = fs
+    .readdirSync(dir)
+    .filter((name) => name.endsWith('.mjs'))
+    .filter((name) => /outcome:\s*'accepted'/.test(fs.readFileSync(new URL(name, dir), 'utf8')))
+    .map((name) => name.replace(/\.mjs$/, ''));
+  assert.ok(seats.length > 0, 'the acceptance arm must have at least one command seat');
+  for (const seat of seats) {
+    assert.match(writers, new RegExp(`changeledger ${seat}\\b`), `unnamed writer: ${seat}`);
+  }
+  // A "no command" claim is only true of the retired in-validation arm.
+  for (const line of writers.split('\n').filter((l) => /no command/i.test(l))) {
+    assert.match(line, /in-validation/);
+  }
+});
+
+test('125139 CR1/CR6: approve is the human decision the CLI transmits', () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-agent-cli-'));
   const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
@@ -385,30 +419,11 @@ test('125139 CR1/CR3/CR5/CR6: CLI transmits explicit human decisions and preserv
   );
   assert.equal(runIn(root, env, 'status', id, 'approved').code, 1);
   assert.equal(runIn(root, env, 'approve', id).code, 0);
-  for (const next of ['in-progress', 'in-validation'])
-    assert.equal(runIn(root, env, 'status', id, next).code, 0);
+  assert.match(runIn(root, env, 'show', id, '--json').out, /human via conversation/);
+  assert.equal(runIn(root, env, 'status', id, 'in-progress').code, 0);
   assert.equal(runIn(root, env, 'task', id, 'done', '1').code, 0);
-  assert.equal(runIn(root, env, 'validation', id, 'pass').code, 0);
-  assert.match(
-    fs.readFileSync(
-      path.join(
-        root,
-        '.changeledger',
-        'changes',
-        fs.readdirSync(path.join(root, '.changeledger', 'changes'))[0],
-      ),
-      'utf8',
-    ),
-    /human accepted via conversation/,
-  );
-  assert.equal(runIn(root, env, 'reopen', id, 'needs original correction').code, 0);
-  for (const status of ['in-validation'])
-    assert.equal(runIn(root, env, 'status', id, status).code, 0);
-  assert.equal(runIn(root, env, 'validation', id, 'fail', '--human', 'needs work').code, 0);
-  assert.match(runIn(root, env, 'show', id, '--json').out, /human rejected via conversation/);
-  assert.equal(runIn(root, env, 'status', id, 'in-validation').code, 0);
-  assert.equal(runIn(root, env, 'validation', id, 'fail', 'agent reason').code, 0);
-  assert.match(runIn(root, env, 'show', id, '--json').out, /agent rejected/);
+  assert.equal(runIn(root, env, 'status', id, 'done').code, 0);
+  assert.equal(JSON.parse(runIn(root, env, 'show', id, '--json').out).frontmatter.status, 'done');
 });
 
 test('125139 CR4/CR6/CR8: decision commands fail closed and explain human authority', () => {
@@ -428,18 +443,14 @@ test('125139 CR4/CR6/CR8: decision commands fail closed and explain human author
   );
 
   const draft = fs.readFileSync(file, 'utf8');
-  assert.equal(runIn(root, env, 'validation', id, 'pass').code, 1);
-  assert.equal(fs.readFileSync(file, 'utf8'), draft);
-  assert.equal(runIn(root, env, 'validation', id, 'fail').code, 1);
-  assert.equal(runIn(root, env, 'validation', id, 'fail', '--human').code, 1);
+  assert.equal(runIn(root, env, 'status', id, 'approved').code, 1);
+  assert.equal(runIn(root, env, 'status', id, 'done').code, 1);
   assert.equal(fs.readFileSync(file, 'utf8'), draft);
 
-  for (const command of ['approve', 'validation']) {
-    const help = run(command, '--help');
-    assert.equal(help.code, 0);
-    assert.match(help.out, /explicit human|human decision/i);
-    assert.match(help.out, /conversation/i);
-  }
+  const help = run('approve', '--help');
+  assert.equal(help.code, 0);
+  assert.match(help.out, /explicit human|human decision/i);
+  assert.match(help.out, /conversation/i);
 });
 
 test('191857 CR1: graduate without a mode rejects skip-like slugs without writing', () => {
@@ -525,8 +536,6 @@ test('225212 CR1: changeledger context -h enumerates modes, no-arg and change-id
   }
   assert.match(out, /no argument/i);
   assert.match(out, /change id/i);
-  assert.match(out, /blocked/);
-  assert.match(out, /validation/);
   assert.match(out, /close|discarded/);
   assert.match(out, /inferred/i);
 });
@@ -550,7 +559,6 @@ test('225212 CR3: changeledger status -h documents status domain and terminal mo
   assert.match(out, /\.changeledger\/config\.yml/);
   assert.match(out, /changeledger discard/);
   assert.match(out, /changeledger approve/);
-  assert.match(out, /changeledger validation <id> pass/);
   assert.doesNotMatch(out, /e\.g\.[^\n]*approved/);
   assert.doesNotMatch(out, /Only human validation in the viewer/);
   assert.doesNotMatch(out, /status .*\bdone\|discarded\b/);
@@ -643,6 +651,57 @@ test('105457 CR1/CR3: archive CLI transmits owner filters and rejects id combina
   assert.match(scopedId.err, /--owner and --unowned require --graduated/);
 });
 
+// `--from` owns every field of the document it carries, so a flag that would
+// contradict it is refused, never dropped. `--parent` used to vanish — and
+// since `--from` is the ONLY way to create a change in an activated repo,
+// that silent drop was the main path (20261020-172221 D2 of round 5).
+test('20261020-172221 CR7: --parent is refused with --from, like --owner, never dropped', () => {
+  const { root, env } = doneRepo();
+  const draft = path.join(root, 'draft.md');
+  fs.writeFileSync(
+    draft,
+    runIn(root, env, 'new', 'quick', 'hijo', 'Hijo', '--print', '--owner', 'Roberto Ruiz').out,
+  );
+
+  const refused = runIn(
+    root,
+    env,
+    'new',
+    'quick',
+    'hijo',
+    'Hijo',
+    '--from',
+    draft,
+    '--parent',
+    '20260613-110000',
+  );
+  assert.equal(refused.code, 1);
+  assert.match(refused.err, /declares its own parent; drop --parent/);
+  assert.ok(
+    !fs.readdirSync(path.join(root, '.changeledger', 'changes')).some((n) => n.includes('hijo')),
+    'a refused creation writes nothing',
+  );
+
+  // The flag is only refused next to `--from`; it still works on its own seat.
+  assert.equal(runIn(root, env, 'new', 'quick', 'hijo', 'Hijo', '--from', draft).code, 0);
+});
+
+// The bulk seat deletes no branches, so `--keep-branch` there is a promise it
+// never made. `--owner`/`--unowned` were already refused out of scope; this one
+// was silently ignored, and the help attached to the whole command read as if
+// both seats pruned (20261020-172221 D3).
+test('20261020-172221 CR8: --keep-branch is refused with --graduated, and the help scopes pruning', () => {
+  const { root, env } = doneRepo();
+  const refused = runIn(root, env, 'archive', '--graduated', '--keep-branch');
+  assert.equal(refused.code, 1);
+  assert.match(refused.err, /--keep-branch takes an id/);
+
+  const { code, out } = run('archive', '-h');
+  assert.equal(code, 0);
+  assert.match(out, /Archiving one change by id deletes the local branch/);
+  assert.match(out, /--graduated archives in bulk and deletes no branches/);
+});
+
 test('131649 CR3/CR4/CR6/CR10: list help documents its complete filter domain', () => {
   const { code, out } = run('list', '-h');
   assert.equal(code, 0);
@@ -701,15 +760,7 @@ test('225212 CR6: help matrix — every command and subcommand documents Usage o
   const topLevelCommands = new Set(
     commandHelp.filter(({ command }) => command.length === 1).map(({ command }) => command[0]),
   );
-  const formerlyOmitted = [
-    'import',
-    'cutover',
-    'activate',
-    'commit',
-    'fix',
-    'search',
-    'validation',
-  ];
+  const formerlyOmitted = ['import', 'cutover', 'activate', 'commit', 'fix', 'search'];
   assert.deepEqual(
     formerlyOmitted.filter((name) => !topLevelCommands.has(name)),
     [],
@@ -966,13 +1017,13 @@ test('changeledger review --help shows pass and fail routing, exit 0', () => {
   const { code, out } = run('review', '--help');
   assert.equal(code, 0);
   assert.match(out, /pass/);
-  assert.match(out, /--retry/);
-  assert.match(out, /--block/);
+  assert.match(out, /delivers the change to `done`/);
+  assert.match(out, /returns it to `in-progress`/);
 });
 
-// End-to-end: the bin parses `review <id> fail --block "<reason>"` (mode + reason
-// extraction) and routes the change to blocked.
-test('review wiring: fail --block parses the reason and blocks the change', () => {
+// End-to-end: the bin parses `review <id> fail "<reason>"` (reason extraction)
+// and routes the change back to in-progress.
+test('review wiring: fail parses the reason and returns the change to in-progress', () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
@@ -1014,13 +1065,13 @@ test('review wiring: fail --block parses the reason and blocks the change', () =
   for (const s of ['in-progress', 'in-review']) {
     assert.equal(runIn(root, env, 'status', id, s).code, 0);
   }
-  assert.equal(runIn(root, env, 'review', id, 'fail', '--block', 'spec is ambiguous').code, 0);
+  assert.equal(runIn(root, env, 'review', id, 'fail', 'spec is ambiguous').code, 0);
 
   const shown = JSON.parse(runIn(root, env, 'show', id, '--json').out);
-  assert.equal(shown.frontmatter.status, 'blocked');
+  assert.equal(shown.frontmatter.status, 'in-progress');
   assert.match(
     shown.stages.find((s) => s.key === 'log').body,
-    /review → blocked: spec is ambiguous/,
+    /review → in-progress: spec is ambiguous/,
   );
 });
 
@@ -1545,13 +1596,11 @@ test('CR6: graduate --into wires through and links an existing spec', () => {
       .replace('## Request\n', '## Request\n\nR\n')
       .replace('## Plan\n', '## Plan\n\n- [ ] do it\n  - **Support:**\n'),
   );
-  // chore: no review gate, but human validation is still required.
+  // chore: no review gate, so `status` delivers it to done directly.
   status(id, 'approved', root);
-  for (const s of ['in-progress', 'in-validation']) {
-    assert.equal(runIn(root, env, 'status', id, s).code, 0);
-  }
+  assert.equal(runIn(root, env, 'status', id, 'in-progress').code, 0);
   task(id, 'done', 1, '', root);
-  validation(id, 'pass', {}, root);
+  assert.equal(runIn(root, env, 'status', id, 'done').code, 0);
 
   const specFile = path.join(root, '.changeledger', 'specs', 'architecture.md');
   fs.mkdirSync(path.dirname(specFile), { recursive: true });
@@ -2214,4 +2263,123 @@ test('174340 CR2: init declares documentation.seed_stage investigation and check
   assert.equal(config.types.documentation.seed_stage, 'investigation');
   const checked = runIn(root, env, 'check');
   assert.equal(checked.code, 0, `${checked.out}${checked.err}`);
+});
+
+// 20261018-131621 — the retired statuses take their commands and flags with
+// them: `review fail` is classless, and `validation`/`reopen` are gone.
+
+// An approvable draft: every stage filled, so `approved` is both a legal
+// transition and a valid candidate. `inReviewRepo` walks it on to `in-review`.
+function readyDraftRepo() {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-review-cli-'));
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  assert.equal(runIn(root, env, 'init').code, 0);
+  disableChangeBranchFormat(root);
+  assert.equal(runIn(root, env, 'new', 'feature', 'x', 'X', '--owner', 'Roberto Ruiz').code, 0);
+  const id = JSON.parse(runIn(root, env, 'list', '--json').out)[0].id;
+  const file = path.join(
+    root,
+    '.changeledger',
+    'changes',
+    fs.readdirSync(path.join(root, '.changeledger', 'changes'))[0],
+  );
+  fs.writeFileSync(
+    file,
+    fs
+      .readFileSync(file, 'utf8')
+      .replace('## Request\n', '## Request\n\nR\n')
+      .replace('## Investigation\n', '## Investigation\n\nI\n')
+      .replace('## Proposal\n', '## Proposal\n\nP\n')
+      .replace(
+        '## Specification\n',
+        '## Specification\n\n### CR1 — C\n- **Given** a\n- **When** b\n- **Then** c\n',
+      )
+      .replace(
+        '## Plan\n',
+        '## Plan\n\n- [ ] do it\n  - **Target:** `src/a.mjs`\n  - **Verify:** `node --test test/a.test.mjs`\n  - **Criteria:** CR1\n',
+      ),
+  );
+  return { root, env, id, file };
+}
+
+function inReviewRepo() {
+  const { root, env, id, file } = readyDraftRepo();
+  assert.equal(runIn(root, env, 'approve', id).code, 0);
+  for (const next of ['in-progress', 'in-review'])
+    assert.equal(runIn(root, env, 'status', id, next).code, 0);
+  return { root, env, id, file };
+}
+
+test('20261018-131621 CR6: review fail rejects --block and --retry without writing', () => {
+  const { root, env, id, file } = inReviewRepo();
+  const before = fs.readFileSync(file, 'utf8');
+  for (const flag of ['--block', '--retry']) {
+    const result = runIn(root, env, 'review', id, 'fail', flag, 'motivo');
+    assert.notEqual(result.code, 0, flag);
+    assert.match(result.err, new RegExp(`error: unknown option '${flag}'`), flag);
+    assert.equal(fs.readFileSync(file, 'utf8'), before, flag);
+  }
+});
+
+// The CLI is the agent's seat, so the return from `done` it writes is the
+// agent's unless the human says otherwise — `--human` is the successor of the
+// retired `validation fail --human`, and the attribution is what keeps
+// `rejectionCount` a signal instead of a tally.
+test('20261018-131621 CR24: `status in-progress` attributes the return to agent or human', () => {
+  for (const [flags, expected] of [
+    [[], 'agent'],
+    [['--human'], 'human'],
+  ]) {
+    const { root, env, id, file } = inReviewRepo();
+    assert.equal(runIn(root, env, 'task', id, 'done', '1').code, 0);
+    assert.equal(runIn(root, env, 'review', id, 'pass').code, 0);
+    const result = runIn(root, env, 'status', id, 'in-progress', 'motivo', ...flags);
+    assert.equal(result.code, 0, result.err);
+    assert.match(
+      fs.readFileSync(file, 'utf8'),
+      new RegExp(`\`\\[status\\]\` done → in-progress \\(${expected}\\): motivo$`, 'm'),
+      flags.join(' ') || '(no flag)',
+    );
+  }
+});
+
+// `--human` only attributes this one edge. The draft here is approvable —
+// `draft → approved` is legal and the candidate is valid — so nothing but the
+// flag's own guard can refuse it. Without that guard the agent would hold the
+// human approval seat `assertStatusDestinationAllowed` exists to deny it.
+test('20261018-131621 CR25: `--human` is refused on any destination but in-progress', () => {
+  const { root, env, id, file } = readyDraftRepo();
+  const before = fs.readFileSync(file, 'utf8');
+  const result = runIn(root, env, 'status', id, 'approved', '--human');
+  assert.notEqual(result.code, 0);
+  assert.match(result.err, /changeledger approve/);
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+  // The same move without the flag is refused by the destination guard it
+  // defers to, so the flag is the only thing this test's refusal can be.
+  assert.equal(runIn(root, env, 'approve', id).code, 0);
+});
+
+test('20261018-131621 CR17: validation and reopen are no longer commands', () => {
+  // Spawned from a scratch cwd on purpose: this suite runs inside the repo
+  // ChangeLedger governs, and a resolvable id would aim a lifecycle verb at a
+  // live document.
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-retired-cli-'));
+  const env = sanitizedEnv({
+    CHANGELEDGER_HOME: fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-')),
+  });
+
+  const validationRun = runIn(root, env, 'validation', '20261018-131621', 'pass');
+  assert.notEqual(validationRun.code, 0);
+  assert.match(validationRun.err, /error: unknown command 'validation'/);
+
+  const reopenRun = runIn(root, env, 'reopen', '20261018-131621', 'motivo');
+  assert.notEqual(reopenRun.code, 0);
+  assert.match(reopenRun.err, /error: unknown command 'reopen'/);
+
+  const help = run('help');
+  assert.equal(help.code, 0);
+  assert.doesNotMatch(help.out, /\bvalidation\b/);
+  assert.doesNotMatch(help.out, /\breopen\b/);
 });

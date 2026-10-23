@@ -176,6 +176,61 @@ export function refExists(cwd, ref, run = defaultRun) {
   }
 }
 
+// The merge that landed `branch` in `integration`, as `{ sha, at }` — the
+// short sha and the merge commit's instant in ISO 8601 UTC — or `null` when no
+// merge is detectable. It is telemetry, never a gate: every uncertainty
+// resolves to `null` so a caller can only ever fail to stamp, never block.
+//
+// Local-only by construction. Both ends are read as `refs/heads/<name>`
+// through `refExists`, which skips gitrevisions(7) lookup: a clone that never
+// fetched, or one whose integration branch exists only as a remote-tracking
+// ref, reports "no merge detected" instead of reaching for a remote. The
+// branch comes from the change's own record, not from the checkout, so a
+// branch deleted after merging is likewise just an absent ref.
+//
+// `rev-list --ancestry-path --merges <branch>..<integration>` lists only the
+// merges on the path from the branch into the integration branch, newest
+// first; the OLDEST is the one that landed it, so later merges of other work
+// cannot claim the acceptance. A fast-forward produces no merge commit at all,
+// and then the branch tip itself is the instant its work became part of the
+// integration branch.
+export function mergeRecord(repoRoot, branch, integration, run = defaultRun) {
+  if (!branch || !integration) return null;
+  const head = `refs/heads/${branch}`;
+  const target = `refs/heads/${integration}`;
+  if (!refExists(repoRoot, head, run)) return null;
+  if (!refExists(repoRoot, target, run)) return null;
+  if (!isAncestor(repoRoot, head, target, run)) return null;
+
+  const landing = landingMerge(repoRoot, head, target, run) ?? head;
+  try {
+    const out = String(run(['log', '-1', `--format=%H${SEP}%ct`, landing, '--'], repoRoot)).trim();
+    const [sha, seconds] = out.split(SEP);
+    if (!sha || !/^\d+$/.test(seconds ?? '')) return null;
+    return {
+      sha: sha.slice(0, 7),
+      at: new Date(Number(seconds) * 1000).toISOString().replace(/\.\d{3}Z$/, 'Z'),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function landingMerge(repoRoot, head, target, run) {
+  try {
+    const out = String(
+      run(['rev-list', '--ancestry-path', '--merges', `${head}..${target}`], repoRoot),
+    );
+    const shas = out
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean);
+    return shas.at(-1) ?? null;
+  } catch {
+    return null;
+  }
+}
+
 // git's default `diff --name-only` output is a *presentation* surface: the
 // surrounding repo's configuration changes its format, so parsing it unpinned
 // makes every config axis a hole in `commit()`'s guard. Two review rounds found
@@ -501,4 +556,51 @@ export function gitRefs(repoRoot, id, run = defaultRun) {
   }
 
   return refs;
+}
+
+// Deletes a local branch, and only when its tip is already an ancestor of
+// `integration`. That proof is the whole safety of this: every commit on the
+// branch is reachable from the integration branch, so dropping the ref loses
+// nothing. `-D` rather than `-d` because the proof is this one, against the
+// branch that matters, where `-d` would judge against HEAD instead and refuse
+// a branch that is merged where it had to be.
+//
+// Never touches a remote. The 1,298 dead branches in the consuming repos are
+// overwhelmingly not ChangeLedger's — a tool rule reaches about 5% of them,
+// and the repository's own `delete_branch_on_merge` is what reaches the rest.
+// This exists so the tool stops adding to that pile, not to drain it.
+//
+// Returns why it did nothing, or null when it deleted.
+export function deleteMergedBranch(repoRoot, branch, integration, expected, run = defaultRun) {
+  if (!branch) return 'the change records no branch';
+  // Being an ancestor of the integration branch is NOT enough to identify the
+  // change's own branch: `isAncestor(dev, dev)` is trivially true, so a change
+  // whose Log records `dev` — which `changeledger branch <id> dev` accepts, and
+  // which the drift warning itself suggests when the checkout has moved — would
+  // otherwise have the shared integration branch deleted under it. The branch is
+  // this change's only when it is the one `change_branch_format` renders for it;
+  // without that format a change has no branch of its own and nothing is deleted.
+  if (branch === integration) return `branch "${branch}" is the integration branch`;
+  if (expected === undefined)
+    return 'no `git.change_branch_format` declares a branch for this change';
+  if (branch !== expected) {
+    return `branch "${branch}" is not the branch this change declares ("${expected}")`;
+  }
+  if (!refExists(repoRoot, `refs/heads/${branch}`, run))
+    return `branch "${branch}" no longer exists`;
+  if (!integration || !refExists(repoRoot, `refs/heads/${integration}`, run)) {
+    return `integration branch "${integration}" is not present here`;
+  }
+  if (currentBranch(repoRoot, run) === branch) {
+    return `branch "${branch}" is the current checkout`;
+  }
+  if (!isAncestor(repoRoot, `refs/heads/${branch}`, `refs/heads/${integration}`, run)) {
+    return `branch "${branch}" is not merged into "${integration}"`;
+  }
+  try {
+    run(['branch', '-D', branch], repoRoot);
+    return null;
+  } catch (error) {
+    return `branch "${branch}" could not be deleted (${error.message})`;
+  }
 }

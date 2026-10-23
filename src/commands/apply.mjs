@@ -22,7 +22,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { parseChange } from '../change.mjs';
 import { writeLedgerFiles } from '../change-store.mjs';
-import { checkRepo } from '../check.mjs';
+import { checkRepo, introducedErrors } from '../check.mjs';
 import { assertSupportedSchema } from '../config-migration.mjs';
 import { loadRepo } from '../repo.mjs';
 import { slugify } from '../slug.mjs';
@@ -43,18 +43,19 @@ const SPEC_PREFIX = 'spec:';
 // The four the agent owns, and the ONLY four a manifest may carry.
 const BATCH_OPS = new Set(['status', 'log', 'task', 'owner']);
 
-// Every other lifecycle op, mapped to the individual command that owns it. A
-// batch entry naming one of these is refused with that command's name so the
-// caller learns where the move belongs instead of only that it was rejected.
+// Every other lifecycle op, mapped to what owns it now. A batch entry naming
+// one of these is refused with that pointer so the caller learns where the move
+// belongs instead of only that it was rejected. `validation` and `reopen` are
+// retired verbs: they point at what does the job today, never at a command.
 const OPS_OWNED_ELSEWHERE = {
-  approve: 'changeledger approve',
-  validation: 'changeledger validation',
-  review: 'changeledger review',
-  discard: 'changeledger discard',
-  reopen: 'changeledger reopen',
-  archive: 'changeledger archive',
-  branch: 'changeledger branch',
-  graduate: 'changeledger graduate',
+  approve: '`changeledger approve`',
+  validation: 'the human verdicts left are `changeledger approve` and `changeledger discard`',
+  review: '`changeledger review`',
+  discard: '`changeledger discard`',
+  reopen: 'a return from done is `changeledger status <id> in-progress "<reason>" --human`',
+  archive: '`changeledger archive`',
+  branch: '`changeledger branch`',
+  graduate: '`changeledger graduate`',
 };
 
 // Longest commit subject the summary is allowed to reach before it starts
@@ -87,17 +88,20 @@ export function apply({ from, dryRun = false } = {}, cwd = process.cwd(), { usag
     }
   });
 
-  const { errors, warnings } = checkRepo(candidate);
+  const { warnings } = checkRepo(candidate);
+  const errors = introducedErrors(repo, candidate);
   const writes = [...pending.values()].filter((w) => w.text !== w.baseline);
   const changed = writes.map((w) => w.relPath ?? w.file);
   const message = `apply: ${summarize(descriptors)}`;
 
-  // The write gate: a candidate carrying `check` errors never lands, whether
+  // The write gate: a batch that introduces `check` errors never lands, whether
   // by dry run (so `compose → correct → land once` can be SCRIPTED — its
   // verdict has to be programmatic, not printed) or for real (20260811-122031
   // closed the gap where only `--dry-run` refused and landing printed the
-  // same errors and still exited 0). Warnings stay informative — `check`
-  // reports them and still exits 0 in both modes.
+  // same errors and still exited 0). Errors the repo already carried before
+  // the batch do not gate it (20261022-213751): `introducedErrors`, the rule
+  // the document seats share. Warnings stay informative — `check` reports
+  // them and still exits 0 in both modes.
   assertCandidateClean(errors, dryRun);
 
   if (dryRun) {
@@ -123,10 +127,10 @@ export function apply({ from, dryRun = false } = {}, cwd = process.cwd(), { usag
   return { changed, warnings, errors, message, dryRun, statusWarnings };
 }
 
-// Shaped like `edit`'s own refusal: every error named with its file, and
-// nothing written anywhere. Runs identically in both modes (20260811-122031)
-// — only the wording names which mode refused, since a landing refusal never
-// claims to be a dry run.
+// Shaped like `edit`'s own refusal: every error the batch introduces named with
+// its file, and nothing written anywhere. Runs identically in both modes
+// (20260811-122031) — only the wording names which mode refused, since a
+// landing refusal never claims to be a dry run.
 function assertCandidateClean(errors, dryRun) {
   if (!errors.length) return;
   const mode = dryRun ? 'apply dry run' : 'apply';
@@ -209,7 +213,7 @@ function applyEvent(entry, { repo, candidate, pending, descriptors, statusWarnin
   const ownedElsewhere = OPS_OWNED_ELSEWHERE[op];
   if (ownedElsewhere) {
     throw new Error(
-      `op "${op}" never travels in a batch — it stays an individual, auditable command: \`${ownedElsewhere}\``,
+      `op "${op}" never travels in a batch — it stays an individual, auditable move: ${ownedElsewhere}`,
     );
   }
   if (!BATCH_OPS.has(op)) {
@@ -224,6 +228,9 @@ function applyEvent(entry, { repo, candidate, pending, descriptors, statusWarnin
   const { mutate, descriptor } = eventMutation(op, entry, {
     id,
     config: candidate.config,
+    // The accumulated candidate, never the stored ledger: an epic and the
+    // child that resolves it can land in the same manifest.
+    changes: candidate.changes,
     repoRoot: repo.repoRoot,
     name: current.name,
     statusWarnings,
@@ -246,16 +253,18 @@ function applyEvent(entry, { repo, candidate, pending, descriptors, statusWarnin
   descriptors.push(descriptor);
 }
 
-function eventMutation(op, entry, { id, config, repoRoot, name, statusWarnings, events }) {
+function eventMutation(op, entry, { id, config, changes, repoRoot, name, statusWarnings, events }) {
   if (op === 'status') {
     const to = String(entry.to ?? '');
     // A batch is executed by an agent, never by a human: this is the seat that
-    // turns `approved`, `done` and `discarded` into a refusal naming their own
-    // command (CR4), and it is `status`'s own guard, not a copy of it.
+    // turns `approved` and `discarded` into a refusal naming their own command
+    // (CR4), and it is `status`'s own guard, not a copy of it. `done` is not
+    // refused here: `statusMutation` refuses the `in-review` origin.
     assertStatusDestinationAllowed(config, to, 'agent');
     return {
       mutate: statusMutation(to, {
         config,
+        changes,
         repoRoot,
         gitCwd: repoRoot,
         name,

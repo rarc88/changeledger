@@ -5,17 +5,24 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { mutateFileAtomic, withFileLock, writeFileAtomic } from '../atomic-write.mjs';
-import { parseChange } from '../change.mjs';
+import { assertParentOwnsGraduation, parseChange } from '../change.mjs';
 import { mutateLedgerFile, repoIsActivated, writeLedgerFiles } from '../change-store.mjs';
-import { assertChangeTextValid, specDurabilityIssue } from '../check.mjs';
-import { findChangeledgerDir, resolveSpecsDir } from '../config.mjs';
+import { assertChangeTextValid, recordedBranch, specDurabilityIssues } from '../check.mjs';
+import { findChangeledgerDir, integrationBranch, resolveSpecsDir } from '../config.mjs';
 import { assertSupportedSchema } from '../config-migration.mjs';
+import { mergeRecord } from '../git.mjs';
 import { nowUtc } from '../paths.mjs';
 import { loadRepo, resolveChange, resolveChangeInRepo } from '../repo.mjs';
 import { slugify } from '../slug.mjs';
 import { parseSpec } from '../spec.mjs';
 import { readSnapshot } from '../state-store.mjs';
-import { appendLogEvent, setReviewed, setSpecGraduatedFrom, setSpecUpdated } from '../writer.mjs';
+import {
+  appendLogEvent,
+  setAcceptedAt,
+  setReviewed,
+  setSpecGraduatedFrom,
+  setSpecUpdated,
+} from '../writer.mjs';
 import { serializeScalar } from '../yaml.mjs';
 
 const SPEC_SCAFFOLD_MARKER = '<!-- changeledger:spec-scaffold -->';
@@ -104,9 +111,44 @@ function requireDone(changeText) {
   return change;
 }
 
+// Seals the acceptance git already proves: the merge that landed the change's
+// branch on the integration branch becomes `accepted_at` plus a `[validation]`
+// Log entry, written into `text` so the field and the entry reach disk in the
+// same write as the graduation itself.
+//
+// Telemetry, never a gate (20261018-131621 CR10/CR11/CR12): `mergeRecord`
+// resolves every git uncertainty to `null`, so graduation can fail to stamp
+// but never fail because of the stamp. The branch comes from the change's own
+// `[branch]` record, not from the checkout. `integrationBranch` is read
+// unguarded on purpose — a malformed `git.integration_branch` is a config
+// defect `requireGraduationReady` has already refused the graduation over.
+function sealAcceptance(repoRoot, config, change, text, at) {
+  // Idempotent: one change links several specs with `--into` each (close.md), and a
+  // second graduation must not append a duplicate acceptance. Reading the field here
+  // decides nothing about the lifecycle — `accepted_at` gates no transition.
+  if (change.frontmatter?.accepted_at) return text;
+  const integration = integrationBranch(config);
+  const record = mergeRecord(repoRoot, recordedBranch(change), integration);
+  if (!record) return text;
+  return appendLogEvent(setAcceptedAt(text, record.at), {
+    at,
+    type: 'validation',
+    outcome: 'accepted',
+    sha: record.sha,
+  });
+}
+
 function requireGraduationReady(config, changeName, changeText) {
   const change = requireDone(changeText);
   assertChangeTextValid(config, changeName, changeText);
+  return change;
+}
+
+// The spec-linking modes only. `--skip` is the child's own path and must stay
+// open: the decision still has to be recorded on the child, it just resolves
+// to "the parent reconciles this" instead of to a spec.
+function requireSpecLinkAllowed(change) {
+  assertParentOwnsGraduation(change);
   return change;
 }
 
@@ -119,7 +161,7 @@ export function scaffoldSpec(id, slug, cwd = process.cwd()) {
   const changeText = changeTarget.file
     ? fs.readFileSync(changeTarget.file, 'utf8')
     : changeTarget.text;
-  const change = requireGraduationReady(config, changeName, changeText);
+  const change = requireSpecLinkAllowed(requireGraduationReady(config, changeName, changeText));
   if (specTarget) throw new Error(`Spec "${specName}" already exists`);
 
   // A type may name the stage its seed comes from (`types.<type>.seed_stage`);
@@ -178,7 +220,9 @@ export function graduate(id, slug, cwd = process.cwd(), { into = false, fsImpl =
   );
 
   if (repo.state) {
-    requireGraduationReady(config, changeName, changeTarget.text);
+    const change = requireSpecLinkAllowed(
+      requireGraduationReady(config, changeName, changeTarget.text),
+    );
     if (!specTarget) {
       throw new Error(`Spec "${specName}" does not exist — use --new to create a scaffold`);
     }
@@ -187,11 +231,12 @@ export function graduate(id, slug, cwd = process.cwd(), { into = false, fsImpl =
         `Spec "${specName}" still contains the scaffold marker — refine it and remove the marker before --into`,
       );
     }
-    const durabilityIssue = specDurabilityIssue(parseSpec(specTarget.text).body);
-    if (durabilityIssue) throw new Error(durabilityIssue);
+    const durabilityIssues = specDurabilityIssues(parseSpec(specTarget.text).body);
+    if (durabilityIssues.length > 0) throw new Error(durabilityIssues.join('\n'));
     const timestamp = nowUtc();
     const updatedSpec = setSpecGraduatedFrom(setSpecUpdated(specTarget.text, timestamp), id);
-    let updatedChange = appendLogEvent(changeTarget.text, {
+    let updatedChange = sealAcceptance(repo.repoRoot, config, change, changeTarget.text, timestamp);
+    updatedChange = appendLogEvent(updatedChange, {
       at: timestamp,
       type: 'graduation',
       outcome: 'spec',
@@ -210,7 +255,9 @@ export function graduate(id, slug, cwd = process.cwd(), { into = false, fsImpl =
   }
 
   const changeFile = changeTarget.file;
-  requireGraduationReady(config, path.basename(changeFile), fs.readFileSync(changeFile, 'utf8'));
+  requireSpecLinkAllowed(
+    requireGraduationReady(config, path.basename(changeFile), fs.readFileSync(changeFile, 'utf8')),
+  );
 
   if (!specTarget) {
     throw new Error(`Spec "${specName}" does not exist — use --new to create a scaffold`);
@@ -228,21 +275,22 @@ export function graduate(id, slug, cwd = process.cwd(), { into = false, fsImpl =
         mutateFileAtomic(
           changeFile,
           (changeText) => {
-            requireGraduationReady(config, path.basename(changeFile), changeText);
+            const change = requireGraduationReady(config, path.basename(changeFile), changeText);
             originalSpec = fsImpl.readFileSync(specFile, 'utf8');
             if (originalSpec.includes(SPEC_SCAFFOLD_MARKER)) {
               throw new Error(
                 `Spec "${specName}" still contains the scaffold marker — refine it and remove the marker before --into`,
               );
             }
-            const durabilityIssue = specDurabilityIssue(parseSpec(originalSpec).body);
-            if (durabilityIssue) throw new Error(durabilityIssue);
+            const durabilityIssues = specDurabilityIssues(parseSpec(originalSpec).body);
+            if (durabilityIssues.length > 0) throw new Error(durabilityIssues.join('\n'));
             const timestamp = nowUtc();
             const updatedSpec = setSpecGraduatedFrom(setSpecUpdated(originalSpec, timestamp), id);
             writeFileAtomic(specFile, updatedSpec, { fsImpl });
             wroteSpec = true;
 
-            let text = appendLogEvent(changeText, {
+            let text = sealAcceptance(repo.repoRoot, config, change, changeText, timestamp);
+            text = appendLogEvent(text, {
               at: timestamp,
               type: 'graduation',
               outcome: 'spec',
@@ -280,10 +328,12 @@ export function skipGraduation(id, reason, cwd = process.cwd()) {
     repo,
     target,
     (text) => {
-      requireGraduationReady(config, name, text);
+      const change = requireGraduationReady(config, name, text);
+      const timestamp = nowUtc();
 
+      text = sealAcceptance(repo.repoRoot, config, change, text, timestamp);
       text = appendLogEvent(text, {
-        at: nowUtc(),
+        at: timestamp,
         type: 'graduation',
         outcome: 'skipped',
         reason,

@@ -32,6 +32,8 @@ release:
     chore: none
     quick: patch
     documentation: none
+    # The children carry the impact; counting the parent too would double it.
+    epic: none
 
 # Definition of Ready path/command hints. Tasks that reference CRs must name at
 # least one target and one verification matching these patterns; a warning in
@@ -53,14 +55,14 @@ git:
   change_branch_format: "{type}/{id}"
 
 # Valid lifecycle statuses (order = progress)
-statuses: [draft, approved, in-progress, in-review, in-validation, blocked, done, discarded]
+statuses: [draft, approved, in-progress, in-review, done, discarded]
 
 # Canonical stages (## headings in the change body)
 stages: [request, investigation, proposal, specification, plan, log]
 
 # Active stages per type. The viewer shows only these.
 # `review_required: true` makes the change pass through `in-review` (an
-# independent subagent review) before universal human validation. See
+# independent subagent review) before it is delivered to `done`. See
 # `changeledger context implement` and `changeledger context review`.
 types:
   feature:
@@ -101,3 +103,12 @@ types:
     review_required: true
     tdd: false
     seed_stage: investigation
+  # The grouping parent of a multi-change effort: children declare `parent:
+  # <its id>`. It is approved on objective and frontier and never enumerates
+  # its children — they are created as the work discovers them. It carries no
+  # implementation of its own, which is why it activates neither
+  # `specification` nor `plan` and requires no review: its children are the
+  # work, and they are each reviewed. See `changeledger context spec`.
+  epic:
+    stages: [request, proposal, log]
+    tdd: false

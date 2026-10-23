@@ -77,3 +77,51 @@ function splitStages(body) {
   for (const s of stages) s.body = s.body.trim();
   return stages;
 }
+
+// The two invariants the grouping parent imposes, pure over the changes handed
+// to them so the same answer holds in an activated repo and a worktree layout.
+
+// Persistent truth belongs to the epic, not to each child. Twenty children of
+// one effort reconcile the same spec twenty times otherwise, which is the
+// ceremony the grouping exists to remove: the parent reconciles once at
+// closure and a child resolves its own decision with `--skip`.
+export function assertParentOwnsGraduation(change) {
+  const parent = change?.frontmatter?.parent;
+  if (typeof parent !== 'string' || parent === '') return;
+  throw new Error(
+    `change ${change.frontmatter.id} belongs to ${parent}: persistent truth is reconciled by the parent — use \`changeledger graduate ${change.frontmatter.id} --skip\``,
+  );
+}
+
+// An epic that closes with live children is a label, not a grouping: the work
+// it names is still open and nothing says so. `discarded` counts as resolved —
+// it is a recorded decision, not unfinished work. The predicate lives here and
+// nowhere else: `check` reads it as a repo invariant and the write seats read
+// it as a fail-fast guard, so a new route to `done` cannot disagree with the
+// rule (20261020-172221 D1/D2).
+export function openChildren(changes, id) {
+  const wanted = String(id);
+  return (changes ?? [])
+    .filter((c) => String(c.frontmatter?.parent ?? '') === wanted)
+    .filter((c) => !['done', 'discarded'].includes(c.frontmatter?.status));
+}
+
+// Names the subject by id, never by type: nothing restricts `parent` to the
+// `epic` type and a message that asserts one lies about the document it names.
+export function childrenOpenError(changes, id) {
+  // An archived child still holds the parent open — archiving hides a
+  // document, it does not resolve the work — but `list --parent` hides it by
+  // default, so a bare id would name something the caller cannot find
+  // (20261020-172221 D3).
+  const open = openChildren(changes, id).map((c) => {
+    const hidden = c.frontmatter.archived === true ? ', archived: `list --parent --all`' : '';
+    return `${c.frontmatter.id} (${c.frontmatter.status}${hidden})`;
+  });
+  if (open.length === 0) return null;
+  return `change ${id} still has unresolved children: ${open.join(', ')} — close or discard them first`;
+}
+
+export function assertChildrenResolved(changes, id) {
+  const message = childrenOpenError(changes, id);
+  if (message) throw new Error(message);
+}

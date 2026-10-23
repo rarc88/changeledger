@@ -1,7 +1,7 @@
 # Closing Accepted Work
 
-The human accepted this change. Resolve persistent truth before archiving. Run
-`changeledger context <id>` after acceptance even if the base context was loaded
+This change is delivered. Resolve persistent truth before archiving. Run
+`changeledger context <id>` once it reaches `done` even if the base context was loaded
 earlier; this lifecycle-specific close overlay is not part of the base context.
 Changes describe a journey; `.changeledger/specs/*.md` describe the current
 capability, architecture or domain truth that code reflects.
@@ -28,6 +28,9 @@ First decide whether accepted work changed persistent truth:
   correct or extend several specs; link each one individually with `--into` and
   do not archive until every affected spec is linked.
 - Use `--skip` only when no persistent truth changed.
+- A change with a `parent` never links a spec: its epic reconciles once at
+  closure, instead of every child reconciling the same spec over and over. The
+  child still records its own decision, with `--skip`.
 
 In a type with `review_required`, when closure creates, corrects or extends specs,
 delegate `graduation-review` once the reconciliation is drafted and before the
@@ -68,22 +71,23 @@ that a spec was created. It is not permission to stop a multi-spec reconciliatio
 before every affected spec is linked. `--into` records the same link in both
 directions: the change Log carries `graduado a spec`, and the target spec appends
 the change id to `graduated_from`. `changeledger check` requires both sides to
-agree. Repositories with legacy prose markers can migrate them deterministically with
-`changeledger fix --graduation-links` (or preview with `--dry-run`).
+agree. Repositories with legacy prose markers migrate them with
+`changeledger fix --graduation-links`, previewable with `--dry-run`.
 
 After `--into` or `--skip`, create one final closure commit that coalesces any
-pending `in-review → in-validation → done` ledger updates with the graduation
+pending `in-review → done` ledger updates with the graduation
 decision and durable spec edit. If no lifecycle state is pending, the graduation
 or skip itself remains the meaningful closure evidence.
 
 Operational inspection and visibility:
 
-- `changeledger list [--status S] [--type T] [--owner NAME|--unowned] [--pending graduation|archive] [--archived|--all] [--json]`
-- `changeledger list --pending graduation --owner NAME` scopes a multi-change request, but every returned id is resolved individually with `graduate --new`, `--into` or `--skip`; graduation is never a bulk mutation.
-- `changeledger list --pending archive [--owner NAME|--unowned]` previews the exact candidates for `changeledger archive --graduated [--owner NAME|--unowned]` when both commands use the same filter. Without a filter, the action keeps its repository-wide behavior.
-- `changeledger show <id> [--json]`
-- `changeledger archive <id>` (reversible by manually editing `archived: false` in frontmatter)
+`changeledger list`, `show` and `archive`; each `--help` prints its filters.
+Three rules those filters do not carry: every id from `list --pending graduation`
+is resolved individually with `--new`, `--into` or `--skip`, because graduation
+is never a bulk mutation; `archive --graduated` without a filter stays
+repository-wide and deletes no branches; and `archive <id>` deletes that
+change's own local branch once it is merged into the integration branch, which
+editing `archived: false` does not undo.
 
 Use Mermaid where it communicates persistent relationships better than prose.
-After closure, share a brief retrospective. New work needs a newly authorized
-change; graduated, skipped, archived or released work never reopens.
+After closure, share a brief retrospective: what went well and what caused friction.

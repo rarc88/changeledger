@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { checkRepo, checkUsageGitConfig, frozenReason } from '../check.mjs';
+import { checkPendingAcceptance, checkRepo, checkUsageGitConfig, frozenReason } from '../check.mjs';
 import {
   changeIntegrationBranch,
   findChangeledgerDir,
@@ -149,6 +149,20 @@ export function check(args = [], cwd = process.cwd(), output = console) {
       message: unknownCollectionsMessage(unknownCollections, VERSION),
     });
   }
+
+  // Acceptance telemetry: the merge that would stamp `accepted_at` is read
+  // from git, so it joins the other filesystem-fed findings here rather than
+  // in the pure validator. Unlike them it is per-subject too — `check <id>` is
+  // the scope CR22 names — and it is only ever a warning: `check` must not
+  // write, and an ungraduated merge is not a broken repo.
+  warnings.push(
+    ...checkPendingAcceptance(repo.repoRoot, {
+      config: repo.config,
+      changes: id
+        ? repo.changes.filter((c) => String(c.frontmatter?.id) === String(id))
+        : repo.changes,
+    }),
+  );
 
   // Discovery validation needs the filesystem (root contract bootstrap), so it
   // lives here, not in the pure validator. Repo-wide only.

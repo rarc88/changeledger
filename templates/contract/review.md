@@ -26,27 +26,31 @@ The review prompt adds the evidence standard the capsule does not carry:
 The orchestrator records exactly one verdict; the read-only reviewer reports its
 finding but never runs the verdict command:
 
-- `changeledger review <id> pass` — criteria and Plan pass; move to
-  `in-validation`.
-- `changeledger review <id> fail --retry "<reason>"` — fixable defect inside the
-  authorized contract; return to `in-progress`.
-- `changeledger review <id> fail --block "<reason>"` — correction requires scope
-  or product judgment; move to `blocked` for the human.
+- `changeledger review <id> pass` — criteria and Plan pass; move to `done`.
+- `changeledger review <id> fail "<reason>"` — defect found; return to `in-progress`.
 
-Classify the finding before choosing `--retry` or `--block`: the blocked context
-owns those classes and the exits each one allows.
+A diagnosed failure is classified before correction starts, and the class chooses the
+path. The classification is identical for a reviewer's `fail` verdict and for a human
+rejection of delivered work:
+
+- **Incomplete enumeration inside an already-verified strategy.** Normal correction:
+  retry on the same diff and sweep the whole class of the defect instead of the flagged
+  instance. The number of rounds does not close this path while the class holds.
+- **A new class of defect** — the finding reveals a dimension the verified strategy did
+  not cover. Stop and decide with the human. The broad exits illustrate that decision
+  without closing it: redesign within the same scope, extension with re-approval,
+  partition into smaller changes, or discard.
 
 The candidate reaches review only after the host formatter and full gates pass; a
 failure there means no reviewable candidate exists yet. When a local gate — not a
 reviewer — fails once the candidate already reached `in-review`, return it with
 `changeledger status <id> in-progress`, the no-verdict path, and
-never `changeledger review <id> fail --retry` for a failure no reviewer emitted. After
+never `changeledger review <id> fail` for a failure no reviewer emitted. After
 recording any verdict, apply the formatter again and repeat affected checks,
-always including `changeledger check`, before commit or handoff. ChangeLedger
-runs no configurable formatter, hook or external command as a mutation side effect.
+always including `changeledger check`, before commit or handoff.
 
-A pass leaves `in-validation` for closure unless it confirms uncommitted
-correction; then correction, tests and ledger form a commit. Retry keeps the diff
+A pass leaves the change `done` for closure unless it confirms uncommitted
+correction; then correction, tests and ledger form a commit. A correction keeps the diff
 isolated. A confirmation review fails only for the named defect left open or a
 regression the correction introduced; anything latent or adjacent it finds is
 reported as a follow-up for the orchestrator to judge, not grounds to fail it.
@@ -57,10 +61,3 @@ an actor the tool trusts by design — whoever can already commit to the
 repository, INTENT.md's trust model — is reported as an observation measured
 against that model, never recorded as a defect.
 
-After `fail --retry`, the correction remains uncommitted until another fresh
-reviewer passes it. After the transition, run `changeledger context <id>` before
-modifying implementation. After pass, commit correction + ledger before asking
-for human validation.
-
-Types without `review_required` move directly from `in-progress` to
-`in-validation`; do not invent a review gate for them.

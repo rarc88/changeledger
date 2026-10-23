@@ -45,15 +45,27 @@ const BEGIN_ALL_RE = /<!-- CHANGELEDGER BOOTSTRAP BEGIN v(\d+) -->/g;
 const END_MARKER = '<!-- CHANGELEDGER BOOTSTRAP END -->';
 const beginMarker = (version) => `<!-- CHANGELEDGER BOOTSTRAP BEGIN v${version} -->`;
 
+// How many lines the bootstrap captures. A FIXED bound, deliberately not derived
+// from the core `lines` ceiling. The two answer different questions: this one
+// guarantees the capture is complete, the ceiling disciplines how much the
+// contract may weigh. Tying them by equality — as this did until
+// 20261020-130304 — meant every edit to the contract's weight invalidated the
+// bootstrap block of every consuming repo and demanded a `register` there, for a
+// number that tells their agents nothing: the validity condition is the `END`
+// line, never this value. The only relation that must hold is that it is not
+// smaller than the ceiling, so a capture cannot truncate; `test/contract.test.mjs`
+// asserts that.
+export const BOOTSTRAP_CAPTURE_LINES = 400;
+
 export const REFERENCE = `> [!IMPORTANT]
 > **ChangeLedger governs this repo.** Before planning, investigating, answering
 > or editing anything, run exactly this — it is mandatory, not optional:
 >
-> \`changeledger context 2>&1 | head -400\`
+> \`changeledger context 2>&1 | head -${BOOTSTRAP_CAPTURE_LINES}\`
 >
 > - The capture is valid **only if its last line contains
 >   \`CHANGELEDGER CONTEXT END\`**. Nothing before that line is actionable.
-> - The core context is bounded and fits within these 400 lines. The \`BEGIN\`
+> - The core context is bounded and fits within these ${BOOTSTRAP_CAPTURE_LINES} lines. The \`BEGIN\`
 >   line reports the exact \`lines:\` count of the full output, counting the
 >   \`BEGIN\` and \`END\` lines themselves; if \`END\` is missing, re-run with
 >   \`head -<lines>\` and read that capture instead.

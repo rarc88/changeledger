@@ -60,10 +60,13 @@ bootstrap above, not a linked or copied contract.
   phrasing.
 - Each entry in `templates/contract/budgets.yml` declares a `tokens` ceiling and
   a `lines` ceiling: tokens are counted by a pinned reference tokenizer, not by
-  what a particular model consumes, and lines bound what the bootstrap `head`
-  must carry. A ceiling is never a goal: never remove normative prose to fit
-  one, and headroom under a ceiling is never permission to spend it — every
-  entry into a context is deliberate and optimized. A rule may leave a fragment
-  only when its new home is named and a grep of the obligation itself — not of
-  similar words — finds it there. If correct content does not fit, stop and ask
-  the human.
+  what a particular model consumes. Neither is derived from what the content
+  currently measures, and neither is the bootstrap's `head` cut, which is a
+  fixed bound of its own. A ceiling is never a goal: never remove normative
+  prose to fit one, and headroom under a ceiling is never permission to spend
+  it — every entry into a context is deliberate and optimized. A ceiling may
+  only decrease; raising one is a human decision recorded in a change, and
+  every move shows up as an edit to the pinned values in `test/context.test.mjs`.
+  A rule may leave a fragment only when its new home is named and a grep of the
+  obligation itself — not of similar words — finds it there. If correct content
+  does not fit, stop and ask the human.

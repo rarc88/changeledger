@@ -4,10 +4,15 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { mutateFileAtomic, withFileLock } from '../atomic-write.mjs';
-import { parseChange } from '../change.mjs';
+import { mutateFileAtomic } from '../atomic-write.mjs';
+import { assertChildrenResolved, parseChange } from '../change.mjs';
 import { mutateLedgerFile, repoIsActivated, writeLedgerFiles } from '../change-store.mjs';
-import { assertChangeTextValid, assertStagesNotEmpty } from '../check.mjs';
+import {
+  assertChangeTextValid,
+  assertStagesNotEmpty,
+  introducedErrors,
+  recordedBranch,
+} from '../check.mjs';
 import {
   changeIntegrationBranch,
   findChangeledgerDir,
@@ -20,13 +25,14 @@ import {
   checkoutBranch as defaultCheckoutBranch,
   defaultRun as defaultGitRun,
   ownerHandle as defaultOwnerHandle,
+  deleteMergedBranch,
   isAncestor,
   mergeBases,
   refExists,
 } from '../git.mjs';
 import { assertTransition, parseLogEvent } from '../lifecycle.mjs';
 import { nowUtc } from '../paths.mjs';
-import { resolveReleasesDir } from '../release.mjs';
+import { assertNotShipped } from '../release.mjs';
 import { loadRepo, resolveChange, resolveChangeInRepo } from '../repo.mjs';
 import { snapshotUsage } from '../usage-collector.mjs';
 import {
@@ -178,15 +184,16 @@ function integrationCopies(integration, expected, repoRoot, gitRun) {
 // The pre-text guards of `status`: which destinations this actor may ask for at
 // all, before any document is read. Each terminal or human-owned destination
 // names the command that owns it, so a caller that is not a human — `apply`'s
-// batch included — is told where the move actually belongs.
+// batch included — is told where the move actually belongs. `done` is not one
+// of them: it means "delivered, pending human acceptance", which the agent
+// owns — through `review pass` for a review_required type, and through this
+// command for any other. Which of the two applies depends on the origin, which
+// no pre-text guard can read: `statusMutation` refuses the `in-review` one.
 export function assertStatusDestinationAllowed(config, newStatus, actor) {
   if (newStatus === 'discarded') {
     throw new Error(
       'to discard a change use `changeledger discard <id> "<reason>"` (a reason is required)',
     );
-  }
-  if (newStatus === 'done') {
-    throw new Error('to complete a change use human validation in the viewer or conversation');
   }
   if (newStatus === 'approved' && actor !== 'human') {
     throw new Error(
@@ -203,9 +210,22 @@ export function assertStatusDestinationAllowed(config, newStatus, actor) {
 // stored document. `warnings` is the caller's array — the branch-drift warning
 // is collected, never thrown. `events`, when given, receives the transition
 // this transform wrote, for the usage snapshot taken after the write lands.
+// `reason` is the human's words when they send delivered work back; it is the
+// only trace a rejection leaves now that acceptance is derived from the merge.
 export function statusMutation(
   newStatus,
-  { config, repoRoot, gitCwd, name, warnings, events, actor = 'human', channel = 'viewer' },
+  {
+    config,
+    repoRoot,
+    gitCwd,
+    name,
+    warnings,
+    events,
+    reason,
+    changes,
+    actor = 'human',
+    channel = 'viewer',
+  },
   {
     ownerHandle = defaultOwnerHandle,
     checkoutBranch = defaultCheckoutBranch,
@@ -214,8 +234,34 @@ export function statusMutation(
 ) {
   return (text) => {
     const fm = parseChange(text).frontmatter;
+    // The only boundary of the return from `done`: a change already published
+    // in a release cannot grow without making that version lie about what it
+    // contains. Read through `loadRepo`, the ledger's own reader, so the answer
+    // is the same in an activated repo and a worktree layout (CR21).
     if (fm.status === 'done' && newStatus === 'in-progress') {
-      throw new Error('to reopen a done change use `changeledger reopen <id> "<reason>"`');
+      assertNotShipped(loadRepo(repoRoot).releases, fm.id);
+    }
+    // The exit from review belongs to the reviewer's verdict, never to the
+    // generic seat. `in-review → done` is a legal edge of the graph — `review
+    // pass` walks it — so the narrowing lives here, where the origin is known,
+    // and covers every caller of this transform: the CLI, the viewer and
+    // `apply`'s batch alike. Without it an agent delivers its own
+    // review_required work unreviewed and `check` sees nothing wrong
+    // (20261018-131621 CR27).
+    // An epic delivers when its children do. Checked before the transition so a
+    // refusal leaves the document byte-for-byte unchanged, and read through
+    // `loadRepo` for the same reason `assertNotShipped` is.
+    // `changes` when the caller has a candidate in flight (`apply` resolves a
+    // child and its epic in one manifest), the stored ledger otherwise. Reading
+    // the store there would both refuse a batch that resolves the child first
+    // and let one that creates a child in the same batch slip past.
+    if (newStatus === 'done') {
+      assertChildrenResolved(changes ?? siblingChanges(repoRoot), fm.id);
+    }
+    if (fm.status === 'in-review' && newStatus === 'done') {
+      throw new Error(
+        `the review verdict delivers a change in review: use \`changeledger review ${fm.id} pass\``,
+      );
     }
     // Validate the move before any in-memory mutation, so an illegal transition
     // leaves the file byte-for-byte unchanged. The review gate reads review_required
@@ -265,13 +311,19 @@ export function statusMutation(
       assertStagesNotEmpty(config, text);
     }
     text = setStatus(text, newStatus);
+    // The return from `done` is the only record a rejection leaves, and only a
+    // human's counts as one: an agent sending its own delivery back is a second
+    // pass, not a verdict. Stamp the actor so `rejectionCount` can tell them
+    // apart instead of tallying both (20261018-131621 CR24).
     const detail =
       actor === 'human' &&
       channel === 'conversation' &&
       fm.status === 'draft' &&
       newStatus === 'approved'
         ? 'human via conversation'
-        : undefined;
+        : fm.status === 'done' && newStatus === 'in-progress'
+          ? actor
+          : undefined;
     const at = nowUtc();
     text = appendLogEvent(text, {
       at,
@@ -279,6 +331,7 @@ export function statusMutation(
       from: fm.status,
       to: newStatus,
       detail,
+      reason,
     });
 
     // Work begins here: assign the owner from the local git identity unless one was
@@ -313,6 +366,11 @@ export function statusMutation(
         });
       }
     }
+    // Delivery gate for the types that never enter review, inherited verbatim
+    // from the human-acceptance gate `done` used to sit behind: judge the
+    // POST-flip text, because the rules that matter here (undone tasks, a Log
+    // that does not reconstruct the frontmatter) only apply to a done change.
+    if (newStatus === 'done') assertChangeTextValid(config, name, text);
     events?.push(transitionEvent(fm, 'status', fm.status, newStatus, at));
     return text;
   };
@@ -333,6 +391,7 @@ export function status(
     gitRun = defaultGitRun,
     actor = 'human',
     channel = 'viewer',
+    reason,
     usage,
   } = {},
 ) {
@@ -345,7 +404,7 @@ export function status(
     target,
     statusMutation(
       newStatus,
-      { config, repoRoot, gitCwd, name, warnings, events, actor, channel },
+      { config, repoRoot, gitCwd, name, warnings, events, reason, actor, channel },
       { ownerHandle, checkoutBranch, gitRun },
     ),
     { message: `status: ${id} → ${newStatus}` },
@@ -361,12 +420,19 @@ export function approve(id, cwd = process.cwd(), { usage } = {}) {
 }
 
 // Records the verdict of the independent review (run by a delegated subagent
-// with clean context — see `changeledger context review`). `pass` advances to human validation;
-// `fail` routes it back: `retry` for a defect inside the contract (the
-// implementer fixes), `block` for one that escalates to a human. Requires the
-// change to be in-review.
-export function review(id, verdict, { mode, reason } = {}, cwd = process.cwd(), { usage } = {}) {
-  const { config, repo, target, repoRoot } = locate(cwd, id);
+// with clean context — see `changeledger context review`). `pass` delivers the
+// change to `done`; `fail` routes it back to `in-progress` with its reason.
+// The failure class belongs in that reason, not in a flag. Requires the change
+// to be in-review.
+// The children lookup reads the whole ledger, so one unparseable document
+// elsewhere must not cost a lifecycle move that has nothing to do with it
+// (150231 CR6). `check` is the seat that reports the broken file.
+function siblingChanges(repoRoot) {
+  return loadRepo(repoRoot, { isolateChangeErrors: true }).changes;
+}
+
+export function review(id, verdict, { reason } = {}, cwd = process.cwd(), { usage } = {}) {
+  const { config, repo, target, name, repoRoot } = locate(cwd, id);
   const events = [];
   mutateLedgerFile(
     repo,
@@ -377,10 +443,10 @@ export function review(id, verdict, { mode, reason } = {}, cwd = process.cwd(), 
       if (current !== 'in-review') {
         throw new Error(`review requires status in-review (current: ${current})`);
       }
-      // Validate before any mutation, same contract as status()/validation()/
-      // discard()/reopen(): assertTransition is the single lifecycle authority,
-      // even though every in-review edge is legal today (the graph's three
-      // in-review destinations mirror review()'s three outcomes by design).
+      // Validate before any mutation, same contract as status()/discard():
+      // assertTransition is the single lifecycle authority, even though both
+      // in-review edges are legal today (the graph's two in-review
+      // destinations mirror review()'s two verdicts by design).
       const opts = {
         type: fm.type,
         reviewRequired: Boolean(config.types?.[fm.type]?.review_required),
@@ -389,48 +455,40 @@ export function review(id, verdict, { mode, reason } = {}, cwd = process.cwd(), 
       const at = nowUtc();
       let to;
       if (verdict === 'pass') {
-        assertTransition(current, 'in-validation', opts);
-        to = 'in-validation';
-        text = setStatus(text, 'in-validation');
+        // `review pass` is the second write seat for `done`, and the only one a
+        // review_required type can reach: `statusMutation`'s guard never runs
+        // for it. The scoped validation below cannot stand in — it judges a
+        // one-change repo, where a parent has no visible children
+        // (20261020-172221 D1).
+        assertChildrenResolved(siblingChanges(repoRoot), fm.id);
+        assertTransition(current, 'done', opts);
+        to = 'done';
+        text = setStatus(text, 'done');
         text = appendLogEvent(text, {
           at,
           type: 'review',
           from: 'in-review',
-          to: 'in-validation',
+          to: 'done',
           detail: 'delegated subagent, clean context',
         });
+        // Same delivery gate `status` applies to the no-review route, and the
+        // one human acceptance used to apply here: a `done` document cannot
+        // carry defects the repo's own rules reject.
+        assertChangeTextValid(config, name, text);
       } else if (verdict === 'fail') {
         if (!reason) {
-          throw new Error(
-            'fail requires a reason — changeledger review <id> fail --retry|--block "<reason>"',
-          );
+          throw new Error('fail requires a reason — changeledger review <id> fail "<reason>"');
         }
-        if (mode === 'retry') {
-          assertTransition(current, 'in-progress', opts);
-          to = 'in-progress';
-          text = setStatus(text, 'in-progress');
-          text = appendLogEvent(text, {
-            at,
-            type: 'review',
-            from: 'in-review',
-            to: 'in-progress',
-            detail: 'retry',
-            reason,
-          });
-        } else if (mode === 'block') {
-          assertTransition(current, 'blocked', opts);
-          to = 'blocked';
-          text = setStatus(text, 'blocked');
-          text = appendLogEvent(text, {
-            at,
-            type: 'review',
-            from: 'in-review',
-            to: 'blocked',
-            reason,
-          });
-        } else {
-          throw new Error('fail requires --retry or --block');
-        }
+        assertTransition(current, 'in-progress', opts);
+        to = 'in-progress';
+        text = setStatus(text, 'in-progress');
+        text = appendLogEvent(text, {
+          at,
+          type: 'review',
+          from: 'in-review',
+          to: 'in-progress',
+          reason,
+        });
       } else {
         throw new Error(`Unknown review verdict "${verdict}" (use pass|fail)`);
       }
@@ -442,136 +500,6 @@ export function review(id, verdict, { mode, reason } = {}, cwd = process.cwd(), 
   );
   snapshotUsage({ repoRoot, events, usage });
   return target.file;
-}
-
-// Records a validation verdict while keeping the deciding actor and interaction
-// channel explicit. Viewer and conversation share every lifecycle/check guard.
-export function validation(
-  id,
-  verdict,
-  { reason, actor = 'human', channel = 'viewer' } = {},
-  cwd = process.cwd(),
-  { usage } = {},
-) {
-  const { config, repo, target, name, repoRoot } = locate(cwd, id);
-  const events = [];
-  mutateLedgerFile(
-    repo,
-    target,
-    (text) => {
-      const fm = parseChange(text).frontmatter;
-      const current = fm.status;
-      let to;
-      if (verdict === 'pass') {
-        to = 'done';
-      } else if (verdict === 'fail') {
-        if (!String(reason ?? '').trim()) throw new Error('validation fail requires a reason');
-        to = 'in-progress';
-      } else {
-        throw new Error(`Unknown validation verdict "${verdict}" (use pass|fail)`);
-      }
-      if (current !== 'in-validation') {
-        throw new Error(`validation requires status in-validation (current: ${current})`);
-      }
-      assertTransition(current, to, {
-        type: fm.type,
-        reviewRequired: Boolean(config.types?.[fm.type]?.review_required),
-      });
-      text = setStatus(text, to);
-      const detail =
-        verdict === 'pass'
-          ? channel === 'conversation'
-            ? 'human accepted via conversation'
-            : 'human accepted'
-          : channel === 'conversation' && actor === 'human'
-            ? 'human rejected via conversation'
-            : `${actor} rejected`;
-      const at = nowUtc();
-      text = appendLogEvent(text, {
-        at,
-        type: 'validation',
-        from: 'in-validation',
-        to,
-        detail,
-        reason: verdict === 'fail' ? reason : undefined,
-      });
-      if (verdict === 'pass') assertChangeTextValid(config, name, text);
-      events.push(transitionEvent(fm, 'validation', 'in-validation', to, at));
-      return text;
-    },
-    { message: `validation: ${id} ${verdict}` },
-  );
-  snapshotUsage({ repoRoot, events, usage });
-  return target.file;
-}
-
-// Correction path while `done` is still provisional. Graduation,
-// skip, archive and release membership are durable boundaries and fail closed.
-function reopenMutation({ config, actor, reason, released, events }) {
-  return (text) => {
-    const change = { ...parseChange(text), text };
-    const fm = change.frontmatter;
-    if (fm.status !== 'done')
-      throw new Error(`reopen requires status done (current: ${fm.status})`);
-    if (fm.reviewed === true) throw new Error('cannot reopen: graduation is already reviewed');
-    if (hasGraduationResolution(change))
-      throw new Error('cannot reopen: graduation is already resolved');
-    if (fm.archived === true) throw new Error('cannot reopen: change is archived');
-    if (released) throw new Error('cannot reopen: change belongs to a recorded release');
-    assertTransition('done', 'in-progress', {
-      type: fm.type,
-      reviewRequired: Boolean(config.types?.[fm.type]?.review_required),
-    });
-    text = setStatus(text, 'in-progress');
-    const at = nowUtc();
-    text = appendLogEvent(text, {
-      at,
-      type: 'status',
-      from: 'done',
-      to: 'in-progress',
-      detail: `${actor} reopened`,
-      reason,
-    });
-    events.push(transitionEvent(fm, 'status', 'done', 'in-progress', at));
-    return text;
-  };
-}
-
-export function reopen(id, reason, cwd = process.cwd(), { actor = 'human', usage } = {}) {
-  if (!String(reason ?? '').trim()) throw new Error('reopen requires a reason');
-  const { config, repo, target, repoRoot } = locate(cwd, id);
-  const events = [];
-
-  // Active: the released-check/write pair needs no worktree lock — any
-  // concurrent write (a release included) advances the state ref, so the
-  // write below's CAS on `repo.state.revision` (captured by `locate()`
-  // before this check) conflicts on its own. A lock file here would touch
-  // the worktree for no protection this repo doesn't already have.
-  if (repo.state) {
-    const released = loadRepo(cwd).releases.some((release) =>
-      (release.changes ?? []).some((changeId) => String(changeId) === String(id)),
-    );
-    mutateLedgerFile(repo, target, reopenMutation({ config, actor, reason, released, events }), {
-      message: `reopen: ${id}`,
-    });
-    snapshotUsage({ repoRoot, events, usage });
-    return target.file;
-  }
-
-  const releasesDir = resolveReleasesDir(repoRoot);
-  fs.mkdirSync(releasesDir, { recursive: true });
-  const file = withFileLock(path.join(releasesDir, '.history'), () => {
-    const released = loadRepo(cwd).releases.some((release) =>
-      (release.changes ?? []).some((changeId) => String(changeId) === String(id)),
-    );
-    mutateLedgerFile(repo, target, reopenMutation({ config, actor, reason, released, events }), {
-      message: `reopen: ${id}`,
-    });
-    return target.file;
-  });
-  // Outside the release lock: the snapshot may take seconds and guards nothing.
-  snapshotUsage({ repoRoot, events, usage });
-  return file;
 }
 
 // Text transform of `owner`, lifted out for the same reason as
@@ -648,8 +576,38 @@ export function discard(id, reason, cwd = process.cwd(), { usage } = {}) {
   return target.file;
 }
 
-export function archive(id, cwd = process.cwd()) {
-  const { repo, target } = locate(cwd, id);
+// Everything the branch deletion needs, resolved inside one try: a type whose
+// `integrates_into` names a retired `git.release_branch` makes
+// `changeIntegrationBranch` throw, and that must never cost an archive that has
+// already landed. Terminal changes are history (20261012-174310).
+function pruneChangeBranch(repoRoot, config, change, gitRun) {
+  // A live change still owns its branch. `archived` only hides a document in
+  // the viewer and says nothing about the work being over, so archiving one
+  // mid-flight must not delete the branch its next lifecycle command will
+  // demand — a merge base proves nothing here, a branch with no commits of its
+  // own is trivially merged (20261020-172221 D4).
+  const status = change.frontmatter?.status;
+  if (!['done', 'discarded'].includes(status)) {
+    return `the change is ${status}, not done or discarded`;
+  }
+  try {
+    return deleteMergedBranch(
+      repoRoot,
+      recordedBranch(change),
+      changeIntegrationBranch(config, change.frontmatter?.type),
+      renderChangeBranch(config, change.frontmatter ?? {}),
+      gitRun ?? defaultGitRun,
+    );
+  } catch (error) {
+    return `the branch could not be resolved (${error.message})`;
+  }
+}
+
+export function archive(id, cwd = process.cwd(), { keepBranch = false, gitRun } = {}) {
+  const { repo, target, config, repoRoot } = locate(cwd, id);
+  // Read through `locate`'s own target, the one seat that answers in both
+  // layouts: an activated repo carries the text, a worktree one the path.
+  const change = parseChange(target.text ?? fs.readFileSync(target.file, 'utf8'));
   mutateLedgerFile(
     repo,
     target,
@@ -659,7 +617,13 @@ export function archive(id, cwd = process.cwd()) {
     },
     { message: `archive: ${id}` },
   );
-  return target.file;
+  // After the ledger write, never before: the archive is the point of this
+  // command and a branch that cannot be deleted must not cost it.
+  const branch = recordedBranch(change);
+  const branchOutcome = keepBranch
+    ? 'kept on request'
+    : pruneChangeBranch(repoRoot, config, change, gitRun);
+  return { file: target.file, branch, branchOutcome };
 }
 
 function assertOwnerFilter({ owner: byOwner, unowned = false } = {}) {
@@ -764,12 +728,42 @@ export function taskMutation(action, n, reason) {
   };
 }
 
+// The transform does not consult the change's status, so the document it
+// produces is judged here by the rule `apply` runs on its candidate: the
+// `check` errors the write introduces refuse it, the ones the repo already
+// carried do not (20261023-094931). Blocking the only task of a `done` change
+// used to land here while the same manifest entry was refused. The worktree
+// layout gets a loaded repo to diff against, isolated like `siblingChanges` so
+// an unparseable sibling does not cost a mark on another change.
 export function task(id, action, n, reason, cwd = process.cwd()) {
-  const { repo, target } = locate(cwd, id);
-  mutateLedgerFile(repo, target, taskMutation(action, n, reason), {
-    message: `task: ${id} ${n} ${action}`,
-  });
+  const { repo, target, repoRoot } = locate(cwd, id);
+  const loaded = repo.state ? repo : loadRepo(repoRoot, { isolateChangeErrors: true });
+  const mutate = taskMutation(action, n, reason);
+  mutateLedgerFile(
+    repo,
+    target,
+    (text) => {
+      const next = mutate(text);
+      assertTaskCandidateClean(loaded, id, next, `task ${id} ${n} ${action}`);
+      return next;
+    },
+    { message: `task: ${id} ${n} ${action}` },
+  );
   return target.file;
+}
+
+// Shaped like `apply`'s `assertCandidateClean`, naming this seat instead.
+function assertTaskCandidateClean(repo, id, text, subject) {
+  const changes = repo.changes.map((c) =>
+    String(c.frontmatter.id) === String(id) ? { ...c, text, ...parseChange(text) } : c,
+  );
+  const errors = introducedErrors(repo, { ...repo, changes });
+  if (!errors.length) return;
+  throw new Error(
+    `${subject} refused, nothing was written — the resulting candidate carries ${errors.length} validation error(s):\n${errors
+      .map((e) => `  ${e.file}: ${e.message}`)
+      .join('\n')}`,
+  );
 }
 
 export function list(
@@ -778,6 +772,7 @@ export function list(
     type: byType,
     owner: byOwner,
     unowned = false,
+    parent: byParent,
     pending,
     archived = false,
     all = false,
@@ -803,6 +798,7 @@ export function list(
       if (byType && fm.type !== byType) return false;
       if (byOwner !== undefined && fm.owner !== byOwner) return false;
       if (unowned && fm.owner != null) return false;
+      if (byParent !== undefined && String(fm.parent ?? '') !== String(byParent)) return false;
       if (pending === 'graduation' && !isPendingGraduation(c)) return false;
       return true;
     })
@@ -814,18 +810,35 @@ export function list(
       owner: c.frontmatter.owner ?? null,
       branch: c.frontmatter.branch ?? null,
       archived: c.frontmatter.archived === true,
+      parent: c.frontmatter.parent ?? null,
       progress: c.progress,
     }));
 }
 
 export function show(id, cwd = process.cwd()) {
-  const c = loadRepo(cwd).changes.find((x) => String(x.frontmatter.id) === String(id));
+  const changes = loadRepo(cwd).changes;
+  const c = changes.find((x) => String(x.frontmatter.id) === String(id));
   if (!c) throw new Error(`No change with id "${id}"`);
+  // An epic's own document says nothing about its children — they name it, not
+  // the other way round, which is what keeps the edge exclusive. So the only
+  // place the grouping becomes visible is here, derived at read time.
+  const children = changes
+    .filter((x) => String(x.frontmatter.parent ?? '') === String(id))
+    .map((x) => ({
+      id: x.frontmatter.id,
+      title: x.frontmatter.title,
+      status: x.frontmatter.status,
+      // `list --parent` hides an archived child by default, so a reader
+      // comparing the two seats would see this one appear and vanish. Same
+      // rule `childrenOpenError` already applies (20261020-172221 D3b).
+      archived: x.frontmatter.archived === true,
+    }));
   return {
     id: c.frontmatter.id,
     frontmatter: c.frontmatter,
     stages: c.stages,
     tasks: c.tasks,
     progress: c.progress,
+    children,
   };
 }

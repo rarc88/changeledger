@@ -29,6 +29,20 @@ import { contractFragmentNames } from './contract-support.mjs';
 import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
+function assertIncrementalNotice(output) {
+  assert.match(
+    output,
+    /\bincremental\b[^.]{0,80}\bcore\b/i,
+    'the notice must say the pack extends core',
+  );
+  assert.match(output, /\bone pass\b/i, 'the notice must require a single full capture');
+  assert.match(
+    output,
+    /\bpartial\b[^.]{0,30}\binvalid\b/i,
+    'the notice must reject a partial read',
+  );
+}
+
 process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'context-home-'));
 
 // The budget policy is observable in two ways at once — whether it throws and
@@ -288,14 +302,12 @@ test('213942 CR1-CR4: core teaches operational discovery without embedding or mu
 // composes the implement pack and no readiness pack — plus the core budget.
 test('234939 structural remnant: a resumed status composes implement, within budget', () => {
   const root = repo();
-  const blockedId = addChange(root, 'blocked', '20260629-230001');
-  const validationId = addChange(root, 'in-validation', '20260629-230002');
+  const doneId = addChange(root, 'done', '20260629-230002');
   const reviewId = addChange(root, 'in-review', '20260629-230003');
   const core = buildContext(undefined, root);
 
   for (const [status, id] of [
-    ['blocked', blockedId],
-    ['in-validation', validationId],
+    ['done', doneId],
     ['in-review', reviewId],
   ]) {
     const file = path.join(root, '.changeledger', 'changes', `${id}-context-fixture.md`);
@@ -321,8 +333,6 @@ test('234939 structural remnant: a resumed status composes implement, within bud
 test('234939 structural remnant: pack composition and owned headings', () => {
   const root = repo();
   const doneId = addChange(root, 'done', '20260629-230010');
-  const blockedId = addChange(root, 'blocked', '20260629-230011');
-  const validationId = addChange(root, 'in-validation', '20260629-230012');
   const discardedId = addChange(root, 'discarded', '20260629-230013');
   const reviewId = addChange(root, 'in-review', '20260629-230014');
   const outputs = {
@@ -331,8 +341,6 @@ test('234939 structural remnant: pack composition and owned headings', () => {
     implement: buildContext('implement', root),
     review: buildContext('review', root),
     reviewDelegate: buildAgentContext('review', reviewId, root),
-    blocked: buildContext(blockedId, root),
-    validation: buildContext(validationId, root),
     discarded: buildContext(discardedId, root),
     release: buildContext('release', root),
     close: buildContext(doneId, root),
@@ -354,8 +362,6 @@ test('234939 structural remnant: pack composition and owned headings', () => {
     spec: ['# Authoring a Change', '# Economical Delegation', '# Definition of Ready'],
     implement: ['# Implementing an Approved Change', '# Economical Delegation', '# Handoff Triage'],
     review: ['# Independent Review', '# Handoff Triage'],
-    blocked: ['# Blocked — Resolve Before Implementing', '# Handoff Triage'],
-    validation: ['# Human Validation — Stop'],
     discarded: ['# Discarded — Terminal'],
     release: ['# Portable Release Planning'],
     close: ['# Closing Accepted Work'],
@@ -427,9 +433,11 @@ test('CR2: change id infers implement and includes complete actionable stages', 
   const output = buildContext(id, root);
   assert.match(output, /mode: implement/);
   assert.doesNotMatch(output, /# ChangeLedger — Core Contract/);
-  assert.match(output, /This incremental context extends the complete core context already read/);
-  assert.match(output, /one-pass full-capture rule applies here/i);
-  assert.match(output, /a partial view is invalid/i);
+  // Guard the obligation the runtime notice carries, not its phrasing: the pack
+  // is incremental over a core already read, it must be read whole in one pass,
+  // and a partial read is invalid. Three literal pins on this sentence charged
+  // 20261020-130304 a retarget for a rewording that moved no obligation.
+  assertIncrementalNotice(output);
   assert.match(output, /# Implementing an Approved Change/);
   // 225213 CR5: implement carries the effective TDD signal, not the full DoR pack.
   assert.match(output, /Effective policy:.*tdd=(on|off)/);
@@ -642,8 +650,6 @@ test('20260629-210543 CR2: every supported status produces incremental change co
     approved: [/mode: implement/, /# Implementing an Approved Change/],
     'in-progress': [/mode: implement/, /# Implementing an Approved Change/],
     'in-review': [/mode: review/, /# Independent Review/],
-    blocked: [/mode: blocked/, /# Blocked — Resolve Before Implementing/],
-    'in-validation': [/mode: validation/, /# Human Validation — Stop/],
     done: [/mode: close/, /# Closing Accepted Work/],
     discarded: [/mode: discarded/, /# Discarded — Terminal/],
   };
@@ -692,9 +698,7 @@ test('CR3/CR4: explicit modes work and unknown input has the exact error', () =>
     assert.match(output, new RegExp(`mode: ${mode}`));
     assert.match(output, heading);
     assert.doesNotMatch(output, /# ChangeLedger — Core Contract/);
-    assert.match(output, /This incremental context extends the complete core context already read/);
-    assert.match(output, /one-pass full-capture rule applies here/i);
-    assert.match(output, /a partial view is invalid/i);
+    assertIncrementalNotice(output);
     assert.match(
       output.split('\n')[0],
       new RegExp(
@@ -709,10 +713,8 @@ test('CR3/CR4: explicit modes work and unknown input has the exact error', () =>
   );
 });
 
-test('CR8/CR9: lifecycle overlays guard blocked, validation, done and discarded', () => {
+test('CR8/CR9: lifecycle overlays guard done and discarded', () => {
   const expected = {
-    blocked: [/mode: blocked/, /Resolve Before Implementing/],
-    'in-validation': [/mode: validation/, /Human Validation — Stop/],
     done: [/mode: close/, /Closing Accepted Work/],
     discarded: [/mode: discarded/, /Discarded — Terminal/],
   };
@@ -724,7 +726,7 @@ test('CR8/CR9: lifecycle overlays guard blocked, validation, done and discarded'
     assert.doesNotMatch(output, /# ChangeLedger — Core Contract/);
     assert.match(output, /This incremental context extends the complete core context already read/);
     assert.doesNotMatch(output, /mode: release/);
-    if (status === 'blocked') assert.doesNotMatch(output, /# Implementing an Approved Change/);
+    assert.doesNotMatch(output, /# Implementing an Approved Change/);
   }
   const root = repo();
   assert.match(buildContext('release', root), /mode: release/);
@@ -1155,14 +1157,14 @@ test('105456 CR4: context resolves outgoing, incoming and external related chang
 });
 
 // 20260730-002730 retired `220014 CR1/CR4`: every one of its six asserts pinned a
-// sentence of `core.md` or `validation.md`. `220014 CR2/CR3` below is structural —
-// it walks the dependency graph — and is untouched.
+// sentence of `core.md` or the retired validation overlay. `220014 CR2/CR3` below is
+// structural — it walks the dependency graph — and is untouched.
 
-test('220014 CR2/CR3: a direct or transitive dependency on an in-validation change is visible', () => {
+test('220014 CR2/CR3: a direct or transitive dependency on a delivered change is visible', () => {
   const root = repo();
   const blockedByA = writeRawChange(root, {
     id: '20260628-000010',
-    status: 'in-validation',
+    status: 'done',
     title: 'A — delivered, awaiting human',
   });
   const candidateB = writeRawChange(root, {
@@ -1178,12 +1180,9 @@ test('220014 CR2/CR3: a direct or transitive dependency on an in-validation chan
     dependsOn: [candidateB],
   });
 
-  // CR2: B's own context surfaces A's in-validation status directly.
+  // CR2: B's own context surfaces A's delivered status directly.
   const outputB = buildContext(candidateB, root);
-  assert.match(
-    outputB,
-    new RegExp(`#${blockedByA} — A — delivered, awaiting human — in-validation`),
-  );
+  assert.match(outputB, new RegExp(`#${blockedByA} — A — delivered, awaiting human — done`));
 
   // CR3: C does not mention A directly, but walking its one declared
   // dependency (B) exposes the chain C -> B -> A without a new primitive.
@@ -1191,7 +1190,7 @@ test('220014 CR2/CR3: a direct or transitive dependency on an in-validation chan
   assert.match(outputC, new RegExp(`#${candidateB} — B — depends on A directly — approved`));
   assert.doesNotMatch(outputC, new RegExp(blockedByA));
   const outputBAgain = buildContext(candidateB, root);
-  assert.match(outputBAgain, /in-validation/);
+  assert.match(outputBAgain, new RegExp(`#${blockedByA} — .* — done`));
 });
 
 test('225213 CR6: every base composition stays within its explicit budget', () => {
@@ -1246,7 +1245,6 @@ test('225213 CR4/CR5/CR7: review drops general delegation while keeping its rule
 
 test('134702/122950 CR1/CR2: the review gate is one ordered recipe owned by implement', () => {
   const root = repo();
-  const validationId = addChange(root, 'in-validation', '20260715-122950');
   const norm = (s) => s.replace(/\s+/g, ' ');
   const implement = norm(buildContext('implement', root));
   const review = norm(buildContext('review', root));
@@ -1271,10 +1269,6 @@ test('134702/122950 CR1/CR2: the review gate is one ordered recipe owned by impl
     /without `review_required`.*post-transition formatter.*affected-check gate/,
   );
   assert.match(review, /After recording any verdict.*formatter.*`changeledger check`/);
-  assert.match(
-    buildContext(validationId, root),
-    /final lifecycle\s+mutation[\s\S]*`changeledger check`/,
-  );
 
   // CR2: review names the orchestrator as the verdict recorder; recipe not duplicated.
   assert.match(review, /orchestrator records exactly one verdict/);
@@ -1352,22 +1346,19 @@ test('002730: the lifecycle matrix owns topology, owners and mechanisms', () => 
   assert.match(norm, /\| Transition \| Owner \| Mechanism \|/);
   const rows = [
     /draft → approved \| human \| viewer or `changeledger approve <id>` after an explicit prompt/,
-    /approved → in-progress; blocked → in-progress; in-progress → in-review \| agent \| `changeledger status`/,
-    /in-progress → in-validation \(no review\) \| agent \| `changeledger status`/,
-    /in-review → in-validation \| orchestrator \| `changeledger review <id> pass`/,
-    /in-review → in-progress \| orchestrator \| `changeledger review <id> fail --retry`/,
-    /in-review → blocked \| orchestrator \| `changeledger review <id> fail --block`/,
-    /in-validation → done \| human \| viewer or `changeledger validation <id> pass` after an explicit prompt/,
-    /in-validation → in-progress \| agent or human \| viewer; agent `validation <id> fail "<reason>"`; human prompt adds `--human`/,
-    /done → in-progress \(pending closure\) \| agent or human \| `changeledger reopen <id> "<reason>"` or viewer/,
+    /approved → in-progress; in-progress → in-review \| agent \| `changeledger status`/,
+    /in-progress → done \(no review\) \| agent \| `changeledger status`/,
+    /in-review → done \| orchestrator \| `changeledger review <id> pass`/,
+    /in-review → in-progress \| orchestrator \| `changeledger review <id> fail "<reason>"`/,
+    /done → in-progress \| agent or human \| `changeledger status` or viewer/,
     /→ discarded \| agent \(authorized\) \| `changeledger discard <id> "<reason>"`/,
   ];
   for (const row of rows) assert.match(norm, row, `matrix missing row ${row}`);
 
   assert.doesNotMatch(core, /human acceptance or rejection/);
 
-  // CR1: status never owns done or discarded.
-  assert.doesNotMatch(norm, /done \| agent \| `changeledger status`/);
+  // CR1: status never owns discarded. 20261018-131621 made `done` an agent-owned
+  // destination, so the former pin against it would now forbid the truth.
   assert.doesNotMatch(norm, /discarded \| agent \| `changeledger status`/);
 
   // CR2: ownership prose and the parallel topology diagram are both gone.
@@ -1639,7 +1630,7 @@ test('130727 CR3: an unbounded change-id context publishes its exact line count'
   const root = repo();
   const id = '20260726-130727';
   // Long embedded document: the output must exceed every fixed budget in
-  // `budgets.yml`, which is exactly why a fixed `head -400` cannot serve it.
+  // `budgets.yml`, which is exactly why the bootstrap's fixed `head` cannot serve it.
   writeFillerChange(root, id, 400);
   const composed = buildContext(id, root);
   const n = publishedLines(composed);
@@ -1674,7 +1665,8 @@ test('130727 CR4: the count stays exact across the 3-to-4 digit boundary', () =>
 
 // 20260727-194234 — the commit unit had four homes: core plus a copy in review,
 // validation and close. Retiring the three leaves one sede, so two sedes can no
-// longer drift apart unnoticed.
+// longer drift apart unnoticed. 20261018-131621 retired the validation overlay
+// itself, so its phrase survives only in the sweep below.
 const contractFragments = new URL('../templates/contract/', import.meta.url);
 
 const RETIRED_COPIES = [
@@ -1693,9 +1685,6 @@ test('194234 CR1/CR2/CR3: each overlay drops the retired copy', () => {
   const review = buildContext('review', root);
   assert.doesNotMatch(review, /A review verdict alone needs no commit/);
   assert.doesNotMatch(review, /Handoff may use the implementation contract's checkpoint/);
-  // in-validation overlay: the transition-commit rule goes.
-  const validation = buildContext(addChange(root, 'in-validation'), root);
-  assert.doesNotMatch(validation, /does not require a dedicated commit/);
   // close overlay: the prohibition goes.
   const close = buildContext(addChange(root, 'done'), root);
   assert.doesNotMatch(close, /Do not create separate commits whose only/);
@@ -1964,39 +1953,33 @@ for (const [label, owner, mode, patterns] of DELEGATION_OBLIGATIONS) {
 // the same pack. Each row now asserts only the fragment that owns the
 // obligation.
 //
-// A third table rather than rows in `DELEGATION_OBLIGATIONS`: two of these three
-// seats are status overlays, and `blocked` and `in-validation` compose per change
-// id, not per mode, so the row carries a fixture status where that table carries a
-// mode string. The `review` row rides here too, with its two siblings, because the
-// three are one obligation split across three seats and a failure should read as
-// such.
+// 20261018-131621 collapsed the three seats into one. `blocked` and `in-validation`
+// are retired statuses, so the taxonomy they each carried a copy of now lives only in
+// `review.md`, which states it once and declares it binding on both diagnosed
+// failures: a reviewer's `fail` verdict and a human rejection of delivered work. A
+// separate table from `DELEGATION_OBLIGATIONS` is kept so a failure reads as
+// `124655`, the change that owns the obligation, rather than `165310`.
 //
 // Tolerant concept matches over flattened text, never the sentence. A half that a
 // pre-existing sentence already satisfies guards nothing — the lesson the reviewer
 // quantifier entry above records, whose first draft matched the unrelated
 // `fail --retry` line. The co-traveller fragment was where that trap sprang again
-// here: `handoff.md` composed into the review pack as well as the blocked overlay,
-// and its "Before handing completed or blocked work to the human, classify
-// friction" line satisfied a first draft of this row's ordering and seat halves in
-// the composed capture while proving nothing about `review.md`. All fifteen patterns
-// below were therefore run three ways before being kept — against `handoff.md`
-// alone, against the pre-change fragment, and against the shipped prose — and all
-// fifteen were red on the first two. Red on a whole pattern is red on each of its
-// alternatives, so the mirrors inherited that evidence; on the shipped prose it is
-// the joined half that has to be green, never every alternative, since a mirror
-// exists for the reword and not for the wording that shipped.
+// here: `handoff.md` composes into the review pack, and its "Before handing
+// completed or stopped work to the human, classify friction" line satisfied a first
+// draft of this row's ordering half while proving nothing about `review.md`. The
+// ordering half is therefore anchored on the correction, which `handoff.md` never
+// names, and every pattern below was re-run against `handoff.md` alone and is red
+// there.
 //
-// The ordering halves carry an `(after|once)` mirror because the `before` form alone
+// The ordering half carries an `(after|once)` mirror because the `before` form alone
 // died on three rewords a reviewer wrote and ran — "Decide with the human, having
-// stopped first", "Choosing between `--block` and `--retry` comes after the finding
-// has been classified", "Iteration begins only once the rejection has been
-// classified". Those three were re-run against the patterns as kept and are green,
-// and deleting the obligation sentence still fails the row it belongs to.
+// stopped first", "Choosing the verdict comes after the finding has been
+// classified", "Iteration begins only once the rejection has been classified".
 const CLASSIFICATION_OBLIGATIONS = [
   [
-    'a diagnosed failure is classified by class before correction starts',
-    'blocked.md',
-    { status: 'blocked' },
+    'a diagnosed failure is classified by class before correction starts, and the same classification binds a reviewer verdict and a human rejection alike',
+    'review.md',
+    { mode: 'review' },
     [
       // The classification PRECEDES the correction: the ordering is the obligation,
       // so it is written in four shapes — `before` and its `(after|once)` mirror,
@@ -2005,6 +1988,10 @@ const CLASSIFICATION_OBLIGATIONS = [
       /\bclassif\w+[^.;]{0,70}\bbefore\b[^.;]{0,50}\b(correct\w+|fix\w*|iterat\w+)\b|\bbefore\b[^.;]{0,50}\b(correct\w+|fix\w*|iterat\w+)\b[^.;]{0,70}\bclassif\w+|\b(correct\w+|fix\w*|iterat\w+)\b[^.;]{0,60}\b(after|once)\b[^.;]{0,70}\bclassif\w+|\b(after|once)\b[^.;]{0,70}\bclassif\w+[^.;]{0,60}\b(correct\w+|fix\w*|iterat\w+)\b/i,
       // Both diagnosed failures enter the taxonomy, not the reviewer's verdict alone.
       /\b(verdict|fail\w*)\b[^.;]{0,60}\b(rejection|reject\w+)\b|\b(rejection|reject\w+)\b[^.;]{0,60}\b(verdict|fail\w*)\b/i,
+      // CR14's second half: the two paths are declared to classify the SAME way, so
+      // they cannot drift. Without this, naming both in one sentence would satisfy
+      // the pair half above while saying nothing about equal treatment.
+      /\b(same|identical|equal\w*|alike|both)\b[^.;]{0,120}\b(rejection|reject\w+)\b|\b(rejection|reject\w+)\b[^.;]{0,120}\b(same|identical|equal\w*|alike|both)\b/i,
       // First class: an incomplete enumeration inside a strategy already verified.
       /\benumerat\w+[^.;]{0,80}\b(verified|strategy)\b|\b(verified|strategy)\b[^.;]{0,80}\benumerat\w+/i,
       // Its correction sweeps the class, not the flagged instance.
@@ -2019,44 +2006,6 @@ const CLASSIFICATION_OBLIGATIONS = [
       /\b(stop|halt|pause|decid|choos)\w*[^.;]{0,60}\bhuman\b|\bhuman\b[^.;]{0,60}\b(stop|halt|pause|decid|choos)\w*/i,
       // The exits stay an illustration instead of a closed enumeration.
       /\b(illustrat\w+|examples?|non-?exhaustive)\b[^.;]{0,70}\b(clos\w+|exhaust\w+|enumerat\w+)\b|\b(clos\w+|exhaust\w+)\b[^.;]{0,70}\b(illustrat\w+|examples?)\b/i,
-    ],
-  ],
-  [
-    'the finding is classified before the fail verdict is chosen, with the taxonomy left in the blocked seat',
-    'review.md',
-    { mode: 'review' },
-    [
-      /\bclassif\w+[^.;]{0,90}(--retry|--block)|(--retry|--block)[^.;]{0,90}\bclassif\w+/i,
-      // Anchored to the verdict CHOICE, not to a bare `classif…before`: `handoff.md`
-      // rides this pack and already says "Before handing … work to the human,
-      // classify friction", which satisfied the bare form in the composed capture
-      // while proving nothing about `review.md`. The dash forms carry no leading
-      // `\b` on purpose — a backtick before `--retry` is not a word boundary, so a
-      // `\b` there would make that alternative unreachable.
-      /\bclassif\w+[^.;]{0,70}\bbefore\b[^.;]{0,60}(?:\bchoos\w+|\bselect\w+|\bverdict\b|--retry|--block)|(?:\bchoos\w+|\bselect\w+|\bverdict\b|--retry|--block)[^.;]{0,70}\b(after|once)\b[^.;]{0,60}\bclassif\w+/i,
-      // Pointer, not a copy: the classes are attributed to the blocked SEAT, and the
-      // seat is `blocked` immediately followed by its context — `handoff.md`'s
-      // "blocked work to the human, classify" satisfied a looser first draft.
-      /\bblocked\b[^.;]{0,25}\bcontext\b[^.;]{0,70}\b(owns?|class\w*|taxonom\w+)\b|\b(class\w*|taxonom\w+)\b[^.;]{0,70}\bblocked\b[^.;]{0,25}\bcontext\b/i,
-    ],
-  ],
-  [
-    'a human rejection is classified the same way before the implementation iterates',
-    'validation.md',
-    { status: 'in-validation' },
-    [
-      /\b(rejection|reject\w+)\b[^.;]{0,80}\bclassif\w+|\bclassif\w+[^.;]{0,80}\b(rejection|reject\w+)\b/i,
-      // Same four shapes as the blocked row's ordering half: `before` and its
-      // `(after|once)` mirror, with the iteration on either side.
-      /\bclassif\w+[^.;]{0,90}\bbefore\b[^.;]{0,60}\b(iterat\w+|correct\w+|implement\w*)\b|\bbefore\b[^.;]{0,60}\b(iterat\w+|correct\w+)\b[^.;]{0,90}\bclassif\w+|\b(iterat\w+|correct\w+|implement\w*)\b[^.;]{0,60}\b(after|once)\b[^.;]{0,90}\bclassif\w+|\b(after|once)\b[^.;]{0,90}\bclassif\w+[^.;]{0,60}\b(iterat\w+|correct\w+|implement\w*)\b/i,
-      // The same classification as a review verdict, so the two paths cannot drift.
-      /\b(same|like|way)\b[^.;]{0,80}\bverdict\b[^.;]{0,40}\bclassif\w+|\bclassif\w+[^.;]{0,60}\b(same|like|way)\b[^.;]{0,60}\bverdict\b/i,
-      // The seat, anchored exactly as the review row's pointer is: `blocked` followed
-      // by its context. The looser form this replaces matched `handoff.md`'s "blocked
-      // work to the human, classify" when run against that text alone — latent here,
-      // since the in-validation overlay composes `validation` alone, but the review
-      // row proved the same shape false-satisfying one seat over.
-      /\bblocked\b[^.;]{0,25}\bcontext\b[^.;]{0,70}\b(owns?|class\w*|taxonom\w+)\b|\b(class\w*|taxonom\w+)\b[^.;]{0,70}\bblocked\b[^.;]{0,25}\bcontext\b/i,
     ],
   ],
 ];
@@ -2125,7 +2074,7 @@ function budgetEntries() {
     ...Object.entries(contextBudgets.blocks).map(([block, budget]) => [`${block} block`, budget]),
     ['agent', contextBudgets.agent],
   ];
-  assert.ok(entries.length >= 11, `too few entries checked: ${entries.length}`);
+  assert.ok(entries.length >= 9, `too few entries checked: ${entries.length}`);
   return entries;
 }
 
@@ -2152,17 +2101,15 @@ function declaredCeilings() {
 // exists to prevent. This object is the one sede: a new group widens it here,
 // not in a second copy.
 const PINNED_CEILINGS = {
-  'base.core': { tokens: 4000, lines: 400 },
+  'base.core': { tokens: 3000, lines: 300 },
   'base.spec': { tokens: 3000, lines: 300 },
-  'base.implement': { tokens: 3000, lines: 300 },
-  'base.review': { tokens: 2500, lines: 250 },
-  'base.release': { tokens: 2500, lines: 250 },
-  agent: { tokens: 1250, lines: 125 },
-  'overlays.blocked': { tokens: 1250, lines: 125 },
-  'overlays.in-validation': { tokens: 1250, lines: 125 },
+  'base.implement': { tokens: 2800, lines: 280 },
+  'base.review': { tokens: 1500, lines: 150 },
+  'base.release': { tokens: 1000, lines: 100 },
+  agent: { tokens: 800, lines: 80 },
   'overlays.done': { tokens: 1250, lines: 125 },
-  'overlays.discarded': { tokens: 1250, lines: 125 },
-  'blocks.core-commits': { tokens: 1250, lines: 125 },
+  'overlays.discarded': { tokens: 250, lines: 25 },
+  'blocks.core-commits': { tokens: 1000, lines: 100 },
 };
 
 test('195445 CR1: every declared ceiling is pinned by value', () => {
@@ -2208,37 +2155,29 @@ test('20260728-212043 CR1: every lines ceiling is exactly its tokens ceiling div
       `${path} lines ceiling is not derived from tokens: tokens=${budget.tokens} lines=${budget.lines} expected=${expectedLines}`,
     );
   }
-  assert.equal(contextBudgets.base.core.lines, 400, 'base.core.lines must derive to 400');
+  assert.equal(
+    contextBudgets.base.core.lines,
+    PINNED_CEILINGS['base.core'].lines,
+    'base.core.lines must match its pinned value',
+  );
 });
 
-// 20260728-212043 CR7: the token ceilings themselves are a few decided values —
-// core, contexts, everything else — not eleven independent numbers.
+// 20261020-130304 CR5 retired the "a few decided values, shared by class"
+// doctrine the earlier comment here described: every ceiling is now a round
+// number chosen for its own entry, pinned by value in `PINNED_CEILINGS` above,
+// and a ceiling may only decrease — raising one is a human decision recorded in
+// a change, which shows up as an edit to that pin. Headroom under a ceiling is
+// still never licence to spend it.
 //
-// 20260730-002908 removed the last exception: `base.spec` sat on a 3450 scaffold
-// whose exit condition was the authoring pack's refactor, and that refactor landed.
-// 20260811-122030 (human decision, 2026-08-11): the authoring and execution packs
-// — spec and implement — sat at 11 tokens of headroom, so both moved to a decided
-// 3000 while review/release keep 2500; headroom is still never licence to spend.
+// 20260730-002908 removed the last scaffold exception: `base.spec` sat on a 3450
+// provisional whose exit condition was the authoring pack's refactor, and that
+// refactor landed.
 // There is no scaffold key left in the file and no entry outside the decided
 // values — the loop below sweeps every context including spec, so a future
 // widening cannot reintroduce a private number without failing here.
-test('20260728-212043 CR7: token ceilings are the decided values, with no scaffolded exception', () => {
-  assert.equal(contextBudgets.base.core.tokens, 4000, 'core token ceiling moved');
-  for (const context of ['spec', 'implement']) {
-    assert.equal(contextBudgets.base[context].tokens, 3000, `${context} token ceiling moved`);
-  }
-  for (const context of ['review', 'release']) {
-    assert.equal(contextBudgets.base[context].tokens, 2500, `${context} token ceiling moved`);
-  }
-  assert.equal(contextBudgets.agent.tokens, 1250, 'agent token ceiling moved');
-  for (const [status, budget] of Object.entries(contextBudgets.overlays)) {
-    assert.equal(budget.tokens, 1250, `${status} overlay token ceiling moved`);
-  }
-  assert.equal(
-    contextBudgets.blocks['core-commits'].tokens,
-    1250,
-    'core-commits block token ceiling moved',
-  );
+// The decided values live in `PINNED_CEILINGS` above and are asserted there,
+// once. This criterion keeps the half that pin cannot express.
+test('20260728-212043 CR7: no budget entry carries a scaffolded exception', () => {
   // No entry may carry a scaffold marker any more, and the file must not regrow the
   // word: an exception announced only in prose is how 3450 outlived its exit condition.
   for (const [path, budget] of Object.entries(declaredCeilings())) {
@@ -2503,14 +2442,14 @@ test('124835 CR4/CR5: work is split by owner and no model catalogue is named', (
 // 20260730-002730: the 22 lifecycle/mode/discovery sentence pins are retired. The
 // matrix's SHAPE is not prose and stays: exactly ten rows of owner+mechanism, so a
 // transition that loses its owner column still fails here.
-test('124835 CR8/CR9: the transition matrix keeps ten owner+mechanism rows', () => {
+test('124835 CR8/CR9: the transition matrix keeps seven owner+mechanism rows', () => {
   const raw = buildContext(undefined, repo());
   const matrix = raw
     .slice(raw.indexOf('| Transition | Owner | Mechanism |'))
     .split('\n\n')[0]
     .split('\n')
     .slice(2);
-  assert.equal(matrix.length, 10, `the transition matrix has ${matrix.length} rows, not 10`);
+  assert.equal(matrix.length, 7, `the transition matrix has ${matrix.length} rows, not 7`);
   for (const row of matrix) {
     assert.equal(row.split('|').length, 5, `matrix row is not owner+mechanism: ${row}`);
   }
@@ -2540,10 +2479,7 @@ test('124835 CR10: core stops carrying what it no longer governs', () => {
     "must not revert others' work",
     'Do not over-shard or overlap write surfaces without an explicit integration plan',
     "Size the model to the task's difficulty and risk",
-    // Stage detail — implement, review and close own it. The in-validation stop
-    // is NOT on this list: the 20260726-124835 amendment restored it to core,
-    // because deciding whether to keep working is a core-only decision, so no
-    // criterion may demand its absence (CR6 demands its presence).
+    // Stage detail — implement, review and close own it.
     'commit the approved change document before code',
     'use a fresh clean-context reviewer before human validation',
     'changeledger graduate <id> --skip [reason]',
@@ -2698,15 +2634,16 @@ test('124837 CR7 / 212043 CR2: the core pack line ceiling equals the bootstrap c
     commitsBlockLines().join('\n'),
     contextBudgets.blocks['core-commits'],
   );
-  // The two numbers are the same by design: base.core.lines can never diverge
-  // from the bootstrap's head cut in either direction, or either a consuming
-  // repo's capture truncates early (cut too low) or the declared ceiling stops
-  // meaning what it claims (cut too high).
+  // 20261020-130304 CR7 retired the equality these two numbers used to hold.
+  // They answer different questions — the cut guarantees a complete capture,
+  // the ceiling disciplines the pack's weight — and tying them meant every
+  // edit to the contract's weight invalidated the bootstrap of every consuming
+  // repo. What must still hold is that the cut cannot truncate a pack that
+  // legally filled its budget.
   const headCut = bootstrapHeadCut();
-  assert.equal(
-    contextBudgets.base.core.lines,
-    headCut,
-    `base.core.lines (${contextBudgets.base.core.lines}) must equal the bootstrap's head -${headCut} cut`,
+  assert.ok(
+    headCut >= contextBudgets.base.core.lines,
+    `the bootstrap cuts at ${headCut} lines but core may occupy ${contextBudgets.base.core.lines}`,
   );
 });
 
@@ -3199,7 +3136,6 @@ test('143656 CR4: retired phrases stay retired recursively and the fragment inve
     fragments.filter((name) => groupOf(name) === group).map((name) => name.slice(group.length));
   const topLevel = inventory('');
   assert.deepEqual(topLevel, [
-    'blocked.md',
     'close.md',
     'core.md',
     'delegation.md',
@@ -3210,7 +3146,6 @@ test('143656 CR4: retired phrases stay retired recursively and the fragment inve
     'release.md',
     'review.md',
     'spec.md',
-    'validation.md',
   ]);
 
   // Same guard for the two composed capsule subdirectories.
@@ -3219,7 +3154,6 @@ test('143656 CR4: retired phrases stay retired recursively and the fragment inve
     'graduation-review.md',
     'implementation.md',
     'investigation.md',
-    'post-review.md',
     'review.md',
   ]);
   const agentPrompts = inventory('agent-prompts/');
@@ -3227,7 +3161,6 @@ test('143656 CR4: retired phrases stay retired recursively and the fragment inve
     'graduation-review.md',
     'implementation.md',
     'investigation.md',
-    'post-review.md',
     'review.md',
   ]);
 
@@ -3370,9 +3303,12 @@ const CONCEPT_GUARDS = [
     entry: 7,
     obligation: 'the human owns the human lifecycle transitions',
     verify: (pack) => {
-      // Owner cells, not prose: whoever rewrites the surrounding text, these two
-      // arcs must still be attributed to the human in the transition matrix.
-      for (const arc of [/draft\s*→\s*approved/, /in-validation\s*→\s*done/]) {
+      // Owner cells, not prose: whoever rewrites the surrounding text, this arc
+      // must still be attributed to the human in the transition matrix.
+      // 20261018-131621 retired the second one, `in-validation → done`: approval is
+      // now the only transition the human alone may perform, since acceptance
+      // stopped being a transition at all.
+      for (const arc of [/draft\s*→\s*approved/]) {
         const row = pack('core')
           .split('|')
           .map((cell) => cell.trim());

@@ -54,12 +54,12 @@ import {
   card,
   detailToolbar,
   referenceDetails,
+  rejectionPanel,
   sortIndicator,
   specBody,
   stageBlock,
   statusSummary,
   tableRow,
-  validationPanel,
 } from './view-parts.js';
 import {
   changeUsageHtml,
@@ -548,6 +548,44 @@ export function bindApproveAction(
   button.onclick = () => approveOnce(project, id, move, [button], closeCurrentDetail);
 }
 
+function showRejectionError(root, message) {
+  const error = root.querySelector('.validation-error');
+  if (!error) return;
+  error.textContent = message;
+  error.hidden = !message;
+}
+
+// Binds the verdict panel's single control. The reason is mandatory and is
+// checked here so an empty one never reaches the server; everything past that
+// — the project-target staleness checks, the error surface and the reload —
+// is `moveStatus`, the same seat every other human-owned move goes through
+// (20261018-131621 CR23).
+export function bindRejectAction(
+  root,
+  { id, project = state.currentProject, move = moveStatus, close = closeDetail } = {},
+) {
+  const button = root.querySelector('[data-reject]');
+  if (!button || id == null) return;
+  button.onclick = async () => {
+    const input = root.querySelector('[data-rejection-reason]');
+    const reason = input?.value.trim();
+    if (!reason) {
+      showRejectionError(root, 'A rejection reason is required.');
+      input?.focus();
+      return false;
+    }
+    showRejectionError(root, '');
+    button.disabled = true;
+    try {
+      const sent = await move(id, 'in-progress', reason, { project });
+      if (sent) close();
+      return sent;
+    } finally {
+      button.disabled = false;
+    }
+  };
+}
+
 export function bindBoardInteractions(
   board,
   changes,
@@ -634,113 +672,6 @@ export async function moveStatus(
   return true;
 }
 
-export function setValidationPending(root, pending) {
-  const panel = root.querySelector('.validation-actions');
-  if (!panel) return;
-  panel.classList.toggle('is-pending', pending);
-  panel.querySelectorAll('button, input').forEach((control) => {
-    control.disabled = pending;
-  });
-}
-
-export function showValidationError(root, message) {
-  const error = root.querySelector('.validation-error');
-  if (!error) return;
-  error.textContent = message;
-  error.hidden = !message;
-}
-
-export function resetValidationState(root) {
-  setValidationPending(root, false);
-  showValidationError(root, '');
-}
-
-export async function runValidationSubmission({
-  root,
-  request,
-  onSuccess,
-  stale = () => false,
-  acceptResponse = () => true,
-}) {
-  if (stale()) return false;
-  setValidationPending(root, true);
-  showValidationError(root, '');
-  try {
-    const res = await request();
-    if (stale()) return false;
-    const out = await res.json();
-    if (stale()) return false;
-    if ((res.ok || hasProjectProvenance(out)) && !acceptResponse(out)) {
-      resetValidationState(root);
-      return false;
-    }
-    if (!res.ok) {
-      showValidationError(root, out.error || 'Status change failed.');
-      setValidationPending(root, false);
-      return false;
-    }
-  } catch (error) {
-    if (stale()) return false;
-    showValidationError(root, error.message);
-    setValidationPending(root, false);
-    return false;
-  }
-  resetValidationState(root);
-  await onSuccess();
-  return true;
-}
-
-export function reopenPanel(status) {
-  if (status !== 'done') return nothing;
-  return html`<section class="validation-actions" aria-labelledby="reopen-title">
-    <div class="validation-copy">
-      <span class="validation-kicker">Lifecycle correction</span>
-      <h2 id="reopen-title">Reopen completed change</h2>
-      <p>Return this change to active work while preserving why its completion was reconsidered.</p>
-    </div>
-    <div class="reopen-controls">
-      <div class="rejection-field">
-        <label for="reopen-reason">Reason for reopening</label>
-        <input
-          id="reopen-reason"
-          data-reopen-reason
-          type="text"
-          placeholder="What requires more work?"
-        />
-        <p class="validation-error" role="alert" hidden></p>
-      </div>
-      <button type="button" class="button button-danger" data-reopen>Reopen change</button>
-    </div>
-  </section>`;
-}
-
-export function bindReopenAction({
-  root,
-  request,
-  onSuccess,
-  stale = () => false,
-  acceptResponse = () => true,
-}) {
-  const button = root.querySelector('[data-reopen]');
-  if (!button) return;
-  button.onclick = async () => {
-    const input = root.querySelector('[data-reopen-reason]');
-    const reason = input?.value.trim();
-    if (!reason) {
-      showValidationError(root, 'A reopening reason is required.');
-      input?.focus();
-      return false;
-    }
-    return runValidationSubmission({
-      root,
-      request: () => request(reason),
-      onSuccess,
-      stale,
-      acceptResponse,
-    });
-  };
-}
-
 export function applyDetailPresentation(root = document) {
   const overlay = root.querySelector('#overlay');
   const detail = root.querySelector('#detail');
@@ -762,24 +693,6 @@ export function bindDetailPresentation(root = document) {
         option.setAttribute('aria-pressed', String(option === button));
       });
     };
-  });
-}
-
-async function submitValidation(id, status, reason, target) {
-  const root = $('#detail');
-  const stale = () =>
-    openedChangeTarget !== target ||
-    !sameProjectTarget(target, captureProjectTarget(state.currentProject));
-  await runValidationSubmission({
-    root,
-    request: () => postStatus(target.project, id, status, reason, target.repositoryPath),
-    stale,
-    acceptResponse: (body) => matchesProjectProvenance(body, target),
-    onSuccess: async () => {
-      closeDetail();
-      invalidateCache();
-      await load();
-    },
   });
 }
 
@@ -844,14 +757,11 @@ function openDetail(id) {
     ${referenceDetails('Dependencies', c.depends_on || [], changes, '↓')}
     ${referenceDetails('Related changes', [...outgoing, ...incoming], changes, '↔')}
     ${approvalPanel(c)}
-    ${c.status === 'in-validation' ? validationPanel() : nothing}
-    ${reopenPanel(c.status)}
+    ${rejectionPanel(c)}
     ${stages}
     <div id="usage-section"></div>
     <div id="git-section"></div>`,
   );
-
-  resetValidationState($('#detail'));
 
   const overlay = $('#overlay');
   overlay.classList.remove('hidden');
@@ -860,36 +770,7 @@ function openDetail(id) {
   bindDetailPresentation();
   $('#detail').querySelector('.close').onclick = closeDetail;
   bindApproveAction($('#detail'), { id: c.id, project: detailTarget.project });
-  const accept = $('#detail').querySelector('[data-validation="pass"]');
-  if (accept) accept.onclick = () => submitValidation(c.id, 'done', undefined, detailTarget);
-  const reject = $('#detail').querySelector('[data-validation="fail"]');
-  if (reject) {
-    reject.onclick = () => {
-      const input = $('#detail').querySelector('[data-validation-reason]');
-      const reason = input?.value.trim();
-      if (!reason) {
-        showValidationError($('#detail'), 'A rejection reason is required.');
-        input?.focus();
-        return;
-      }
-      submitValidation(c.id, 'in-progress', reason, detailTarget);
-    };
-  }
-  bindReopenAction({
-    root: $('#detail'),
-    request: (reason) =>
-      postStatus(detailTarget.project, c.id, 'in-progress', reason, detailTarget.repositoryPath),
-    stale: () =>
-      openedChangeTarget !== detailTarget ||
-      !sameProjectTarget(detailTarget, captureProjectTarget(state.currentProject)),
-    acceptResponse: (body) => matchesProjectProvenance(body, detailTarget),
-    onSuccess: async () => {
-      invalidateCache();
-      await load();
-      if (openedChangeTarget !== detailTarget) return;
-      openDetail(c.id);
-    },
-  });
+  bindRejectAction($('#detail'), { id: c.id, project: detailTarget.project });
   overlay.onclick = (e) => {
     if (e.target === overlay) closeDetail();
   };

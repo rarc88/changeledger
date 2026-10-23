@@ -32,9 +32,8 @@ evidence, plus any drift or residue found).
 
 Difficulty or risk that set the model choice: {{difficulty_or_risk}}.
 
-Return to the orchestrator a single recommended verdict — one of pass, fail-retry
-with a reason, or fail-block with a reason — with the evidence behind it. The
-orchestrator records it.
+Return to the orchestrator a single recommended verdict — pass, or fail with a
+reason — with the evidence behind it. The orchestrator records it.
 
 Integration criterion: {{integration}} (how the orchestrator acts on the verdict,
-e.g. it records pass and moves the change to in-validation).
+e.g. it records pass and the change is delivered to done).

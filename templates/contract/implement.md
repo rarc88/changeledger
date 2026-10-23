@@ -2,15 +2,8 @@
 
 ## Scope and truth
 
-Keep one concern per change. Work necessary for the authorized objective belongs
-in its Specification, Plan and Log. If related work materially expands observable scope, obtain explicit human
-authorization before adding it; propose independent work separately.
-
 Follow the Specification exactly: the approved change governs the code written
-within its scope, so never quietly drift that contract. A pre-existing
-divergence not introduced by the current work requires human resolution; if it
-affects the task, report it and wait, otherwise report it without expanding
-scope. Keep status, tasks, owner and Log current throughout execution.
+within its scope, so never quietly drift that contract.
 
 ## Git protects traceability
 
@@ -31,21 +24,17 @@ by the change context exactly. The convention is opt-in: absent or null does
 not impose a change-branch name. Do not substitute mutable metadata for the
 configured `{type}` and `{id}` placeholders.
 
-Between `changeledger status <id> in-progress` and the implementation commits, the
-change document stays modified and uncommitted — its `status` field and every
-`[status]` line the window accumulated, at least the entry into `in-progress` and
-the exit into `in-review` — and so do the change's own code and tests, which those
-commits are the first to carry. Together they are the only expected delta, and
-"unrelated changes" above means a path belonging to neither the change document nor
-the change's authorized scope. The window is not one event: core's Implementation class
-governs when each selection is committed, so the expected delta shrinks selection by
-selection and what stays uncommitted is what no selection has resolved yet. Core's commit classes
-carry those transitions inside the implementation commits rather than a commit of
-their own, so a clean worktree is not a valid precondition anywhere in that window,
-and a delegation baseline states this expected set instead of demanding a clean tree.
+Between `changeledger status <id> in-progress` and the implementation commits the
+expected uncommitted delta is the change document — status field and the
+`[status]` lines the window accumulates — plus the change's own code and tests.
+"Unrelated changes" above means any path outside that set, and the set shrinks
+selection by selection as each is committed. A clean worktree is never a valid
+precondition in that window, and a delegation baseline states this expected set
+instead of demanding one.
 
-Implement one change at a time, even while another already-delivered change waits
-in `in-validation`.
+Implement one change at a time, even while another already-delivered change waits in
+`done`. Record an impediment as a `[!]` Plan task with its reason, and resolve it
+within authorized scope or ask the human.
 
 ## Execute the Plan
 
@@ -59,14 +48,10 @@ Useful mutation commands:
 - `changeledger task <id> done|block <n> [reason]`
 - `changeledger log <id> "<message>"`
 - `changeledger owner <id> <name|->`
-- `changeledger edit <change-id|spec:slug> --from <file|->` — replaces the whole
-  document (content only, never lifecycle fields); the sole body-write path in
-  an activated repo
-- `changeledger apply --from <file|-> [--dry-run]` — lands one JSON manifest of
-  whole documents and agent-owned events as a single journal entry, all or
-  nothing; compose against `--dry-run` until clean, then land once
-- `changeledger sync [--status]` — compare-first fetch/publish of the state
-  ref; core's sync section owns the strategic points and conflict protocol
+- `changeledger edit <change-id|spec:slug> --from <file|->` — the sole
+  body-write path in an activated repo
+- `changeledger apply --from <file|-> [--dry-run]`
+- `changeledger sync [--status]`
 - `changeledger review <id> pass|fail`
 - `changeledger check [id]`
 - `changeledger commit -m "<type>(<scope>): <desc>" [--id <id>]...`
@@ -81,20 +66,7 @@ Every top-level Log entry has a strict ISO UTC timestamp and canonical type:
 - **2026-06-13T14:30:00Z** `[note]` arbitrary text — even `[status]` and `|`
 ```
 
-Types are `status`, `review`, `validation`, `owner`, `branch`, `graduation`, `archive`, `note`, `version`.
-Each transition event (`status`, `review`, `validation`) records exactly one transition, with the payload form for its type:
-
-- status: <from> → <to> [(detail)] [: reason]
-- review: in-review → <to> [(detail)] [: reason]
-- validation: in-validation → <to> [(detail)] [: reason]
-- owner: set: <owner> [(auto)] | cleared
-- branch: set: <branch> [(auto)] | cleared
-- graduation: spec: `<file>` [(detail)] | skipped [: reason]
-- archive: archived
-- note: <non-empty text>
-- version: <semver> | <semver> → <semver>
-
-Lifecycle commands write their type, and stamp `version` whenever the installed version differs from the last one stamped; `changeledger log` writes an opaque `note` that cannot simulate an operational event. Continuation prose is allowed, but every top-level `- ` line must be a valid typed event.
+`changeledger log --help` prints every type, its payload forms and the command that writes each, generated from the parser's own definitions. Each transition event records exactly one transition. Continuation prose is allowed, but every top-level `- ` line must be a valid typed event.
 
 When implementation and every task are complete, move to `in-review` if the type
 requires independent review by running this ordered gate — do not reconstruct it from memory:
@@ -113,31 +85,29 @@ requires independent review by running this ordered gate — do not reconstruct 
 7. Delegate to a fresh, read-only reviewer with clean context; it reports but never records the verdict itself.
 8. Record the delegate's verdict yourself with `changeledger review <id> pass|fail` — never `log`+`status`.
 9. After that mutation, apply the formatter again and repeat affected checks,
-   including `changeledger check`, before commit or human validation.
+   including `changeledger check`, before commit or handing the result to the human.
 
 Types without `review_required` pass the same local gate before
-`changeledger status <id> in-validation`, then apply the same post-transition
+`changeledger status <id> done`, then apply the same post-transition
 formatter and affected-check gate. The host owns these
 commands; ChangeLedger mutations never run configurable hooks or external formatters.
 
-`in-validation`: human accepts; agent rejects with `changeledger validation <id> fail "<reason>"`.
-
 ## Correction isolation
 
-After review `fail --retry`, keep the candidate correction uncommitted while a
-fresh clean-context reviewer checks it. Confirming it requires returning the
+After review `fail`, run `changeledger context <id>` before modifying
+implementation and keep the candidate correction uncommitted while a fresh
+clean-context reviewer checks it. Confirming it requires returning the
 change with `changeledger status <id> in-review` before that delegation: the
 transition re-validates the candidate and the review role loads nowhere else.
 If it fails again, iterate on that same diff. Do not start another task or
 change while a correction waits: the worktree is its isolation boundary. After `pass`, commit the confirmed correction,
-tests and ledger before human validation; this is meaningful correction evidence,
-not a status-only commit.
+tests and ledger; this is meaningful correction evidence, not a status-only commit.
 
-After a rejection (`in-validation → in-progress`), run
+After a human rejection (`done → in-progress`), run
 `changeledger context <id>` before modifying implementation; keep the correction
 uncommitted until the human confirms it fixes the reported failure. Do not start
 another task or change while a correction waits; iterate on
-the same diff if it does not. After human acceptance, graduate or record a skip
+the same diff if it does not. After acceptance, graduate or record a skip
 and include correction plus ledger in the final closure commit.
 
 These exceptions prevent false fix attempts from becoming permanent history;

@@ -10,7 +10,7 @@ import { test } from 'node:test';
 import { JSDOM } from 'jsdom';
 import { parseChange } from '../src/change.mjs';
 import { writeLedgerFiles } from '../src/change-store.mjs';
-import { review, status, task, validation } from '../src/commands/agent.mjs';
+import { review, status, task } from '../src/commands/agent.mjs';
 import { init } from '../src/commands/init.mjs';
 import { newChange } from '../src/commands/new.mjs';
 import {
@@ -744,7 +744,7 @@ test('141643 CR3: /api/repo serializes canonical pending graduation for markers 
   const active = writeChange({
     slug: 'active',
     now: '2026-06-13T12:00:05Z',
-    status: 'in-validation',
+    status: 'in-progress',
   });
   const specsDir = path.join(root, '.changeledger', 'specs');
   fs.mkdirSync(specsDir, { recursive: true });
@@ -1470,56 +1470,111 @@ for (const layout of ['legacy', 'state ref']) {
   });
 }
 
-test('171002 CR2/CR3: viewer accepts or rejects only a change in validation', () => {
+// A delivered change in an already-initialized repo: reviewed and passed, so
+// `done` means "delivered, pending the acceptance the merge derives".
+function deliveredViewerChange(root) {
+  disableChangeBranchFormat(root);
+  const file = newChange(
+    { type: 'feature', slug: 'rejected', title: 'Rejected', now: '2026-06-13T12:00:00Z' },
+    root,
+    { ownerHandle: () => '' },
+  );
+  fs.writeFileSync(file, fillFeatureStages(fs.readFileSync(file, 'utf8')));
+  const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
+  status(id, 'approved', root);
+  status(id, 'in-progress', root, { ownerHandle: () => '' });
+  task(id, 'done', 1, '', root);
+  status(id, 'in-review', root);
+  review(id, 'pass', {}, root);
+  return { file, id };
+}
+
+// 171002 CR2/CR3 pinned the two verdicts of the retired validation gate.
+// Acceptance is now derived from the merge, so the viewer has one verdict
+// left: sending delivered work back, which is also the only record a human
+// rejection leaves (20261018-131621 CR16).
+test('171002 CR2/CR3: the viewer cannot accept a done change, only send it back', () => {
   isolatedHome();
   const root = newRepo();
-  disableChangeBranchFormat(root);
-  const acceptedFile = newChange(
-    { type: 'feature', slug: 'accepted', title: 'Accepted', now: '2026-06-13T12:00:00Z' },
-    root,
-    { ownerHandle: () => '' },
-  );
-  const rejectedFile = newChange(
-    { type: 'feature', slug: 'rejected', title: 'Rejected', now: '2026-06-13T12:00:01Z' },
-    root,
-    { ownerHandle: () => '' },
-  );
-  fs.writeFileSync(acceptedFile, fillFeatureStages(fs.readFileSync(acceptedFile, 'utf8')));
-  fs.writeFileSync(rejectedFile, fillFeatureStages(fs.readFileSync(rejectedFile, 'utf8')));
-  const acceptedId = parseChange(fs.readFileSync(acceptedFile, 'utf8')).frontmatter.id;
-  const rejectedId = parseChange(fs.readFileSync(rejectedFile, 'utf8')).frontmatter.id;
-  for (const id of [acceptedId, rejectedId]) {
-    status(id, 'approved', root);
-    status(id, 'in-progress', root, { ownerHandle: () => '' });
-    status(id, 'in-review', root);
-    review(id, 'pass', {}, root);
-  }
-  task(acceptedId, 'done', 1, '', root);
+  const { file, id } = deliveredViewerChange(root);
   const { projects, current } = resolveProjects(root, false);
 
-  const accepted = changeStatus(projects, { project: current, id: acceptedId, status: 'done' });
-  assert.equal(accepted.code, 200);
-  assert.equal(parseChange(fs.readFileSync(acceptedFile, 'utf8')).frontmatter.status, 'done');
+  const accept = changeStatus(projects, { project: current, id, status: 'done' });
+  assert.equal(accept.code, 403);
+  assert.doesNotMatch(accept.body.error, /in-validation/);
+  assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'done');
 
   const missingReason = changeStatus(projects, {
     project: current,
-    id: rejectedId,
+    id,
     status: 'in-progress',
   });
   assert.equal(missingReason.code, 400);
   const rejected = changeStatus(projects, {
     project: current,
-    id: rejectedId,
+    id,
     status: 'in-progress',
     reason: 'manual scenario failed',
   });
   assert.equal(rejected.code, 200);
-  const parsed = parseChange(fs.readFileSync(rejectedFile, 'utf8'));
+  const parsed = parseChange(fs.readFileSync(file, 'utf8'));
   assert.equal(parsed.frontmatter.status, 'in-progress');
   assert.match(parsed.stages.find((s) => s.key === 'log').body, /manual scenario failed/);
 });
 
-test('150231 CR2: viewer reports an incomplete acceptance and preserves validation state', () => {
+// The viewer is the human's surface, so the return it writes is a human
+// rejection and must say so: `rejectionCount` counts that mark and nothing
+// else (20261018-131621 CR23/CR24).
+test('20261018-131621 CR23: the viewer marks its return from done as the human one', () => {
+  isolatedHome();
+  const root = newRepo();
+  const { file, id } = deliveredViewerChange(root);
+  const { projects, current } = resolveProjects(root, false);
+
+  const rejected = changeStatus(projects, {
+    project: current,
+    id,
+    status: 'in-progress',
+    reason: 'falta el caso de la zona horaria',
+  });
+  assert.equal(rejected.code, 200, rejected.body.error);
+  const parsed = parseChange(fs.readFileSync(file, 'utf8'));
+  assert.equal(parsed.frontmatter.status, 'in-progress');
+  assert.match(
+    parsed.stages.find((s) => s.key === 'log').body,
+    /`\[status\]` done → in-progress \(human\): falta el caso de la zona horaria$/m,
+  );
+});
+
+// The panel is driven by the payload, so release membership has to reach the
+// browser as a datum. It is read through `assertNotShipped` — the one
+// authority on that boundary — never re-derived from the manifests here.
+test('20261018-131621 CR23: serialize reports release membership per change', () => {
+  isolatedHome();
+  const root = newRepo();
+  const { id } = deliveredViewerChange(root);
+
+  assert.equal(
+    serialize(loadRepo(root)).changes.find((c) => String(c.id) === String(id)).released,
+    false,
+  );
+
+  const dir = path.join(root, '.changeledger', 'releases');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(
+    path.join(dir, '0.19.0.yml'),
+    `version: 0.19.0\ncreated: 2026-06-13T13:00:00Z\nchanges: ["${id}"]\n`,
+  );
+  assert.equal(
+    serialize(loadRepo(root)).changes.find((c) => String(c.id) === String(id)).released,
+    true,
+  );
+});
+
+// The viewer's surviving write seat for a scoped-validation failure is the
+// approval, which judges the draft as `approved` before the flip. The
+// acceptance it used to judge is gone (20261018-131621 CR16).
+test('150231 CR2: the viewer reports a scoped validation failure and preserves the document', () => {
   isolatedHome();
   const root = newRepo();
   disableChangeBranchFormat(root);
@@ -1530,27 +1585,20 @@ test('150231 CR2: viewer reports an incomplete acceptance and preserves validati
   );
   fs.writeFileSync(
     file,
-    fillNarrativeStages(fs.readFileSync(file, 'utf8')).replace(
-      '## Plan\n',
-      '## Plan\n\n- [ ] pending\n  - **Support:**\n',
-    ),
+    fillNarrativeStages(fs.readFileSync(file, 'utf8')).replace('## Specification\n', ''),
   );
   const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
-  status(id, 'approved', root);
-  status(id, 'in-progress', root, { ownerHandle: () => '' });
-  status(id, 'in-review', root);
-  review(id, 'pass', {}, root);
   const before = fs.readFileSync(file, 'utf8');
   const { projects, current } = resolveProjects(root, false);
 
-  const result = changeStatus(projects, { project: current, id, status: 'done' });
+  const result = changeStatus(projects, { project: current, id, status: 'approved' });
 
   assert.equal(result.code, 400);
-  assert.match(result.body.error, /1 task\(s\) are not done/);
+  assert.match(result.body.error, /failed scoped validation/);
   assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
 
-test('150231 CR6: viewer acceptance ignores an unrelated unparseable change', () => {
+test('150231 CR6: a viewer move ignores an unrelated unparseable change', () => {
   isolatedHome();
   const root = newRepo();
   disableChangeBranchFormat(root);
@@ -1561,21 +1609,16 @@ test('150231 CR6: viewer acceptance ignores an unrelated unparseable change', ()
   );
   fs.writeFileSync(file, fillFeatureStages(fs.readFileSync(file, 'utf8')));
   const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
-  status(id, 'approved', root);
-  status(id, 'in-progress', root, { ownerHandle: () => '' });
-  status(id, 'in-review', root);
-  review(id, 'pass', {}, root);
-  task(id, 'done', 1, '', root);
   fs.writeFileSync(path.join(root, '.changeledger', 'changes', 'broken.md'), 'broken\n');
   const { projects, current } = resolveProjects(root, false);
 
-  const result = changeStatus(projects, { project: current, id, status: 'done' });
+  const result = changeStatus(projects, { project: current, id, status: 'approved' });
 
-  assert.equal(result.code, 200);
-  assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'done');
+  assert.equal(result.code, 200, JSON.stringify(result.body));
+  assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'approved');
 });
 
-test('150232 CR1/CR2: viewer reopens provisional done only with a reason', () => {
+test('150232 CR1/CR2: the viewer returns a done change only with a reason', () => {
   isolatedHome();
   const root = newRepo();
   disableChangeBranchFormat(root);
@@ -1588,10 +1631,9 @@ test('150232 CR1/CR2: viewer reopens provisional done only with a reason', () =>
   const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
   status(id, 'approved', root);
   status(id, 'in-progress', root, { ownerHandle: () => '' });
+  task(id, 'done', 1, '', root);
   status(id, 'in-review', root);
   review(id, 'pass', {}, root);
-  task(id, 'done', 1, '', root);
-  validation(id, 'pass', {}, root);
   const { projects, current } = resolveProjects(root, false);
   const before = fs.readFileSync(file, 'utf8');
   assert.equal(changeStatus(projects, { project: current, id, status: 'in-progress' }).code, 400);
@@ -1604,6 +1646,48 @@ test('150232 CR1/CR2: viewer reopens provisional done only with a reason', () =>
   });
   assert.equal(result.code, 200);
   assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'in-progress');
+});
+
+// The second seat of CR9, end to end: the viewer's return is the same command
+// the CLI uses, so the single release boundary covers it (20261018-131621 CR16).
+test('20261018-131621 CR9/CR16: the viewer refuses to return a change shipped in a release', () => {
+  isolatedHome();
+  const root = newRepo();
+  disableChangeBranchFormat(root);
+  const file = newChange(
+    { type: 'feature', slug: 'shipped', title: 'Shipped', now: '2026-06-13T12:00:00Z' },
+    root,
+    { ownerHandle: () => '' },
+  );
+  fs.writeFileSync(file, fillFeatureStages(fs.readFileSync(file, 'utf8')));
+  const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
+  status(id, 'approved', root);
+  status(id, 'in-progress', root, { ownerHandle: () => '' });
+  task(id, 'done', 1, '', root);
+  status(id, 'in-review', root);
+  review(id, 'pass', {}, root);
+  const releasesDir = path.join(root, '.changeledger', 'releases');
+  fs.mkdirSync(releasesDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(releasesDir, '0.19.0.yml'),
+    `version: 0.19.0\ncreated: 2026-06-24T01:00:00Z\nchanges: ["${id}"]\n`,
+  );
+  const before = fs.readFileSync(file, 'utf8');
+  const { projects, current } = resolveProjects(root, false);
+
+  const result = changeStatus(projects, {
+    project: current,
+    id,
+    status: 'in-progress',
+    reason: 'one more thing',
+  });
+
+  assert.equal(result.code, 400);
+  assert.equal(
+    result.body.error,
+    `change ${id} shipped in release 0.19.0: new work needs a new change`,
+  );
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
 
 test('171002 CR2: changeStatus rejects agent-owned or premature moves without writing', () => {
@@ -2443,16 +2527,26 @@ test('113924 CR5: patch rejects removal of required lifecycle values without wri
   const before = fs.readFileSync(configFile, 'utf8');
   const { body } = readProjectConfigStructured(projects, current);
 
-  const withoutValidation = body.config.statuses.filter((status) => status !== 'in-validation');
+  const withoutReview = body.config.statuses.filter((status) => status !== 'in-review');
   const result = patchProjectConfig(projects, {
     project: current,
     revision: body.revision,
-    patch: { statuses: withoutValidation },
+    patch: { statuses: withoutReview },
   });
 
   assert.equal(result.code, 400);
-  assert.match(result.body.error, /statuses cannot remove required value "in-validation"/);
+  assert.match(result.body.error, /statuses cannot remove required value "in-review"/);
   assert.equal(fs.readFileSync(configFile, 'utf8'), before);
+
+  // A retired status is not required: the six canonical ones are the whole
+  // set, so the repo's own configuration saves unchanged (20261018-131621
+  // CR16). Requiring one more would lock every repo out of its own form.
+  const canonical = patchProjectConfig(projects, {
+    project: current,
+    revision: body.revision,
+    patch: { statuses: ['draft', 'approved', 'in-progress', 'in-review', 'done', 'discarded'] },
+  });
+  assert.equal(canonical.code, 200, JSON.stringify(canonical.body));
 });
 
 test('113924 CR6 atomic: applyConfigMigration revision check and write are atomic (TOCTOU safe)', () => {
@@ -3331,7 +3425,6 @@ function viewerTransitionsSnapshot() {
     move('in-progress', 'needs more');
     status(id, 'in-review', root, { usage });
     review(id, 'pass', {}, root, { usage });
-    move('done');
     move('in-progress', 'reopened from the viewer');
     assert.deepEqual(
       viewerUsageRecords(root, id)
@@ -3341,9 +3434,8 @@ function viewerTransitionsSnapshot() {
       [
         'status:approved→in-progress',
         'status:done→in-progress',
+        'status:done→in-progress',
         'status:draft→approved',
-        'validation:in-validation→done',
-        'validation:in-validation→in-progress',
       ],
     );
     assert.ok(viewerUsageRecords(root, id).every((r) => r.error === null));

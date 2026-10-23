@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { parse as parseYaml } from 'yaml';
 import {
   changeBranchFormat,
   changeIntegrationBranch,
@@ -516,4 +517,34 @@ test('161655 CR3: configured branch format must be a non-empty string', () => {
       /config "git\.change_branch_format" must be a non-empty string/,
     );
   }
+});
+
+// --- 20261020-172221 CR4: the epic type ----------------------------------
+//
+// The grouping parent needs no lifecycle code of its own. `review_required` is
+// already per type and `in-progress → done` is already canonical for a type
+// without it, so the short cycle falls out of configuration; a type that
+// activates no `specification` stage declares no criteria, so coverage and
+// readiness do not evaluate it either. These assertions hold that: if the
+// template ever grants the epic a Plan or a review gate, it stops being a
+// grouping parent and becomes a change that implements.
+test('20261020-172221 CR4: the shipped epic type carries no implementation and no review gate', () => {
+  const template = parseYaml(
+    fs.readFileSync(new URL('../templates/config.yml', import.meta.url), 'utf8'),
+  );
+  const epic = template.types?.epic;
+  assert.ok(epic, 'templates/config.yml must ship an `epic` type');
+  assert.ok(epic.stages.includes('request'), 'the epic states its objective in Request');
+  for (const stage of ['specification', 'plan']) {
+    assert.ok(
+      !epic.stages.includes(stage),
+      `the epic must not activate "${stage}": it carries no implementation of its own`,
+    );
+  }
+  assert.ok(!epic.review_required, 'the epic has no review of its own; its children are reviewed');
+  assert.equal(
+    template.release?.impacts?.epic,
+    'none',
+    'the children carry the release impact; counting the parent too would double it',
+  );
 });

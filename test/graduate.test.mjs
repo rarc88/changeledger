@@ -8,13 +8,15 @@ import { fileURLToPath } from 'node:url';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import { withFileLock } from '../src/atomic-write.mjs';
 import { parseChange } from '../src/change.mjs';
+import { checkRepo } from '../src/check.mjs';
+import { edit } from '../src/commands/edit.mjs';
 import { graduate, scaffoldSpec, skipGraduation } from '../src/commands/graduate.mjs';
 import { init } from '../src/commands/init.mjs';
 import { newChange } from '../src/commands/new.mjs';
 import { VERSION } from '../src/framing.mjs';
 import { loadRepo } from '../src/repo.mjs';
 import { parseSpec } from '../src/spec.mjs';
-import { STATE_REF, STATE_ROOT, writeActivation } from '../src/state-store.mjs';
+import { mutateState, STATE_REF, STATE_ROOT, writeActivation } from '../src/state-store.mjs';
 import { stampVersion } from '../src/writer.mjs';
 import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
@@ -65,6 +67,14 @@ El sistema soporta login OAuth.
   return { root, file, id: '20260613-120000' };
 }
 
+// Applies `mutate` to the repo's parsed config.yml and writes it back.
+function setRepoConfig(root, mutate) {
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  const config = parseYaml(fs.readFileSync(configFile, 'utf8'));
+  mutate(config);
+  fs.writeFileSync(configFile, stringifyYaml(config));
+}
+
 // Writes an existing spec with a known body and a stale `updated`.
 function seedSpec(root, name, body) {
   const specsDir = path.join(root, '.changeledger', 'specs');
@@ -80,8 +90,9 @@ function seedSpec(root, name, body) {
 // Activated variant: the change document (from `repo()`) and, optionally, a
 // pre-existing spec both live only in the state ref's snapshot — nothing on
 // disk backs either, so a fallback to the worktree would fail outright.
-function activatedRepo({ specName, specBody, prepare = (text) => text } = {}) {
+function activatedRepo({ specName, specBody, prepare = (text) => text, configure } = {}) {
   const { root, file, id } = repo();
+  if (configure) setRepoConfig(root, configure);
   const changeName = path.basename(file);
   const changeText = prepare(fs.readFileSync(file, 'utf8'));
   fs.rmSync(file);
@@ -580,6 +591,93 @@ test('103551 CR2 correction: graduate rejects a heading after an indented pseudo
   assert.equal(fs.readFileSync(specFile, 'utf8'), before.spec);
 });
 
+// 20261023-094844: `--into` refuses with one line per criterion heading, the
+// same lines `check` reports, in document order, in both layouts.
+const TWO_CRITERIA_SPEC_BODY =
+  '\n# Verdad\n\n### CR1 — una verdad\n\nTexto.\n\n### CR2 — otra verdad\n\nMás.\n';
+const TWO_CRITERIA_REFUSAL =
+  /^Error: spec contains change-local criterion heading "CR1"; rewrite it as durable current truth\nspec contains change-local criterion heading "CR2"; rewrite it as durable current truth$/;
+
+test('20261023-094844 CR4 (worktree): graduate --into names every criterion heading without writing', () => {
+  const { root, file, id } = repo();
+  const specFile = seedSpec(root, 'verdad.md', TWO_CRITERIA_SPEC_BODY);
+  const before = {
+    change: fs.readFileSync(file, 'utf8'),
+    spec: fs.readFileSync(specFile, 'utf8'),
+  };
+
+  assert.throws(() => graduate(id, 'verdad', root, { into: true }), TWO_CRITERIA_REFUSAL);
+  assert.equal(fs.readFileSync(file, 'utf8'), before.change);
+  assert.equal(fs.readFileSync(specFile, 'utf8'), before.spec);
+});
+
+test('20261023-094844 CR4 (state ref): graduate --into names every criterion heading without writing', () => {
+  const { root, id, changeName } = activatedRepo({
+    specName: 'verdad.md',
+    specBody: TWO_CRITERIA_SPEC_BODY,
+  });
+  const tip = stateRefTip(root);
+  const before = {
+    change: stateDocText(root, tip, `changes/${changeName}`),
+    spec: stateDocText(root, tip, 'specs/verdad.md'),
+  };
+
+  assert.throws(() => graduate(id, 'verdad', root, { into: true }), TWO_CRITERIA_REFUSAL);
+  assert.equal(stateRefTip(root), tip);
+  assert.equal(stateDocText(root, tip, `changes/${changeName}`), before.change);
+  assert.equal(stateDocText(root, tip, 'specs/verdad.md'), before.spec);
+});
+
+// 20261023-094844 CR5 — the day after: a seed carrying two criteria is refined
+// one criterion per `edit spec:`, and `--into` accepts the result.
+const CR1_BLOCK =
+  '### CR1 — El sistema soporta login OAuth\n- **Given** un usuario\n- **When** inicia sesión con OAuth\n- **Then** entra';
+const CR2_BLOCK =
+  '### CR2 — El sistema cierra la sesión\n- **Given** una sesión abierta\n- **When** el usuario sale\n- **Then** la sesión termina';
+
+test('20261023-094844 CR5: a two-criterion seed is refined in two edits and graduates', () => {
+  const { root, id } = activatedRepo({
+    prepare: (text) =>
+      text.replace(
+        '## Specification\n\nEl sistema soporta login OAuth.\n',
+        `## Specification\n\n${CR1_BLOCK}\n\n${CR2_BLOCK}\n`,
+      ),
+  });
+  const specDoc = () => stateDocText(root, stateRefTip(root), 'specs/verdad.md');
+  const verdadErrors = () =>
+    checkRepo(loadRepo(root))
+      .errors.filter((e) => e.file === 'verdad.md')
+      .map((e) => e.message);
+  const editSpec = (text) => {
+    const from = path.join(root, 'incoming.md');
+    fs.writeFileSync(from, text);
+    return edit('spec:verdad', { from }, root);
+  };
+
+  scaffoldSpec(id, 'verdad', root);
+  const seed = specDoc();
+  assert.ok(seed.includes(CR1_BLOCK) && seed.includes(CR2_BLOCK), seed);
+
+  const first = editSpec(
+    seed
+      .replace('<!-- changeledger:spec-scaffold -->\n\n', '')
+      .replace(CR1_BLOCK, 'Un usuario que inicia sesión con OAuth entra.'),
+  );
+  assert.equal(first.changed, true);
+  assert.deepEqual(verdadErrors(), [
+    'spec contains change-local criterion heading "CR2"; rewrite it as durable current truth',
+  ]);
+
+  const second = editSpec(
+    specDoc().replace(CR2_BLOCK, 'Cuando el usuario sale, la sesión termina.'),
+  );
+  assert.equal(second.changed, true);
+  assert.deepEqual(verdadErrors(), []);
+
+  graduate(id, 'verdad', root, { into: true });
+  assert.deepEqual(parseSpec(specDoc()).frontmatter.graduated_from, [id]);
+});
+
 test('skipGraduation marks reviewed, logs the reason, creates no spec (CR2)', () => {
   const { root, file, id } = repo();
   const out = skipGraduation(id, 'bug fix, sin verdad persistente', root);
@@ -938,3 +1036,270 @@ for (const [layout, build] of Object.entries(graduationLayouts)) {
     assert.equal(versionEvents(added).length, 1);
   });
 }
+
+// --- 20261018-131621 CR10/CR11/CR12: graduation seals the merge-derived acceptance ---
+//
+// Acceptance is telemetry, never a gate: graduation records it when git shows
+// the change's branch landed on the integration branch, and proceeds exactly
+// as before when it does not.
+
+const ACCEPT_BRANCH = 'feature/20260613-120000';
+const BRANCH_LINE = `- **2026-06-13T12:30:00Z** \`[branch]\` set: ${ACCEPT_BRANCH} (auto)`;
+
+const withBranchLine = (text) => `${text.replace(/\s*$/, '')}\n${BRANCH_LINE}\n`;
+
+// Git history in which `ACCEPT_BRANCH` may or may not have landed on `dev`.
+// The ledger files stay UNTRACKED on purpose: no checkout here may rewrite the
+// document the command under test is about to mutate.
+function seedAcceptanceHistory(root, { merged = true } = {}) {
+  const git = (args) =>
+    execFileSync('git', args, { cwd: root, encoding: 'utf8', env: sanitizedEnv() });
+  git(['commit', '-q', '--allow-empty', '-m', 'chore: root']);
+  git(['branch', 'dev']);
+  git(['checkout', '-q', '-b', ACCEPT_BRANCH, 'dev']);
+  git(['commit', '-q', '--allow-empty', '-m', 'feat: work']);
+  git(['checkout', '-q', 'dev']);
+  if (merged) git(['merge', '--no-ff', '-q', '-m', 'merge', ACCEPT_BRANCH]);
+  return git;
+}
+
+// The merge commit `mergeRecord` must find: dev's tip once the merge landed.
+function landedMerge(git) {
+  const [sha, seconds] = git(['log', '-1', '--format=%H %ct', 'dev']).trim().split(' ');
+  return {
+    sha: sha.slice(0, 7),
+    at: new Date(Number(seconds) * 1000).toISOString().replace(/\.\d{3}Z$/, 'Z'),
+  };
+}
+
+function acceptanceRepo({ merged = true, branchLine = true, integration = 'dev' } = {}) {
+  const { root, file, id } = repo();
+  setRepoConfig(root, (config) => {
+    config.git.integration_branch = integration;
+  });
+  if (branchLine) fs.writeFileSync(file, withBranchLine(fs.readFileSync(file, 'utf8')));
+  initGitFixture(root);
+  const git = seedAcceptanceHistory(root, { merged });
+  return { root, file, id, git };
+}
+
+const logOf = (text) => parseChange(text).stages.find((s) => s.key === 'log').body;
+const acceptedLines = (text) =>
+  logOf(text)
+    .split('\n')
+    .filter((line) => line.includes('[validation]'));
+
+test('20261018-131621 CR10: graduate --skip seals the acceptance derived from the merge', () => {
+  const { root, file, id, git } = acceptanceRepo();
+  const merge = landedMerge(git);
+
+  skipGraduation(id, 'sin verdad persistente', root);
+
+  const text = fs.readFileSync(file, 'utf8');
+  assert.equal(parseChange(text).frontmatter.accepted_at, merge.at);
+  assert.deepEqual(
+    acceptedLines(text).map((line) => line.replace(/^- \*\*[^*]+\*\* /, '')),
+    [`\`[validation]\` accepted (merged ${merge.sha})`],
+  );
+  assert.match(logOf(text), /`\[graduation\]` skipped: sin verdad persistente$/m);
+});
+
+test('20261018-131621 CR10: graduate --into seals the acceptance too', () => {
+  const { root, file, id, git } = acceptanceRepo();
+  const merge = landedMerge(git);
+  seedSpec(root, 'architecture.md', '\n# Arch\n\nCuerpo intacto.\n');
+
+  graduate(id, 'architecture', root, { into: true });
+
+  const text = fs.readFileSync(file, 'utf8');
+  assert.equal(parseChange(text).frontmatter.accepted_at, merge.at);
+  assert.equal(acceptedLines(text).length, 1);
+  assert.match(logOf(text), new RegExp(`accepted \\(merged ${merge.sha}\\)$`, 'm'));
+  assert.match(logOf(text), /`\[graduation\]` spec: `architecture\.md`$/m);
+});
+
+test('20261018-131621 CR10: the activated --skip path seals in the same commit', () => {
+  const { root, id, changeName } = activatedRepo({
+    prepare: withBranchLine,
+    configure: (config) => {
+      config.git.integration_branch = 'dev';
+    },
+  });
+  const git = seedAcceptanceHistory(root);
+  const merge = landedMerge(git);
+  const before = stateRefTip(root);
+
+  skipGraduation(id, 'sin verdad persistente', root);
+
+  const tip = stateRefTip(root);
+  assert.equal(
+    execFileSync('git', ['rev-list', '--count', `${before}..${tip}`], {
+      encoding: 'utf8',
+      cwd: root,
+      env: sanitizedEnv(),
+    }).trim(),
+    '1',
+    'frontmatter field and Log entry must land atomically with the graduation',
+  );
+  const text = stateDocText(root, tip, `changes/${changeName}`);
+  assert.equal(parseChange(text).frontmatter.accepted_at, merge.at);
+  assert.equal(acceptedLines(text).length, 1);
+});
+
+test('20261018-131621 CR10: the activated --into path seals in the same commit', () => {
+  const { root, id, changeName } = activatedRepo({
+    specName: 'architecture.md',
+    specBody: '\n# Arch\n\nCuerpo intacto.\n',
+    prepare: withBranchLine,
+    configure: (config) => {
+      config.git.integration_branch = 'dev';
+    },
+  });
+  const git = seedAcceptanceHistory(root);
+  const merge = landedMerge(git);
+  const before = stateRefTip(root);
+
+  graduate(id, 'architecture', root, { into: true });
+
+  const tip = stateRefTip(root);
+  assert.equal(
+    execFileSync('git', ['rev-list', '--count', `${before}..${tip}`], {
+      encoding: 'utf8',
+      cwd: root,
+      env: sanitizedEnv(),
+    }).trim(),
+    '1',
+  );
+  const text = stateDocText(root, tip, `changes/${changeName}`);
+  assert.equal(parseChange(text).frontmatter.accepted_at, merge.at);
+  assert.equal(acceptedLines(text).length, 1);
+});
+
+test('20261018-131621 CR10: --new leaves the graduation pending and stamps nothing', () => {
+  const { root, file, id } = acceptanceRepo();
+
+  scaffoldSpec(id, 'architecture', root);
+
+  const text = fs.readFileSync(file, 'utf8');
+  assert.equal('accepted_at' in parseChange(text).frontmatter, false);
+  assert.deepEqual(acceptedLines(text), []);
+});
+
+test('20261018-131621 CR11: without a merge no acceptance is invented', () => {
+  const { root, file, id } = acceptanceRepo({ merged: false });
+
+  skipGraduation(id, 'sin verdad persistente', root);
+
+  const text = fs.readFileSync(file, 'utf8');
+  assert.equal('accepted_at' in parseChange(text).frontmatter, false);
+  assert.deepEqual(acceptedLines(text), []);
+  assert.equal(parseChange(text).frontmatter.reviewed, true);
+  assert.match(logOf(text), /`\[graduation\]` skipped: sin verdad persistente$/m);
+});
+
+test('20261018-131621 CR10: a second graduation does not stamp the acceptance twice', () => {
+  const { root, file, id } = acceptanceRepo();
+  seedSpec(root, 'architecture.md', '\n# Arch\n\nCuerpo intacto.\n');
+  seedSpec(root, 'lifecycle.md', '\n# Lifecycle\n\nCuerpo intacto.\n');
+
+  graduate(id, 'architecture', root, { into: true });
+  const once = fs.readFileSync(file, 'utf8');
+  graduate(id, 'lifecycle', root, { into: true });
+  const twice = fs.readFileSync(file, 'utf8');
+
+  assert.equal(acceptedLines(twice).length, 1, 'one acceptance line after two graduations');
+  assert.equal(
+    parseChange(twice).frontmatter.accepted_at,
+    parseChange(once).frontmatter.accepted_at,
+  );
+});
+
+test('20261018-131621 CR12: a change with no recorded branch graduates all the same', () => {
+  const { root, file, id } = acceptanceRepo({ branchLine: false });
+
+  assert.doesNotThrow(() => skipGraduation(id, 'sin verdad persistente', root));
+
+  const text = fs.readFileSync(file, 'utf8');
+  assert.equal('accepted_at' in parseChange(text).frontmatter, false);
+  assert.deepEqual(acceptedLines(text), []);
+  assert.equal(parseChange(text).frontmatter.reviewed, true);
+});
+
+// --- 20261020-172221 CR5: the epic reconciles, the children do not --------
+//
+// Twenty children of one effort would otherwise reconcile the same spec twenty
+// times. `--skip` stays open for the child: the decision still has to be
+// recorded on it, it just resolves to "the parent reconciles this".
+
+function childOf(parentId) {
+  const { root, file, id } = repo();
+  const text = fs
+    .readFileSync(file, 'utf8')
+    .replace('depends_on: []', `depends_on: []\nparent: "${parentId}"`);
+  fs.writeFileSync(file, text);
+  const parentFile = path.join(root, '.changeledger', 'changes', `${parentId}-epic.md`);
+  fs.writeFileSync(
+    parentFile,
+    `---\nid: "${parentId}"\ntitle: Épica\ntype: epic\nstatus: done\ncreated: 2026-06-13T11:00:00Z\ndepends_on: []\n---\n\n## Request\n\nObjetivo.\n\n## Proposal\n\nFrontera.\n\n## Log\n\n- **2026-06-13T11:00:00Z** \`[note]\` created\n`,
+  );
+  return { root, file, id, parentId };
+}
+
+test('20261020-172221 CR5: a child cannot link a spec and the refusal names its parent', () => {
+  const { root, id, parentId } = childOf('20260613-110000');
+  for (const attempt of [
+    () => scaffoldSpec(id, 'alguna-spec', root),
+    () => graduate(id, 'alguna-spec', root, { into: true }),
+  ]) {
+    assert.throws(attempt, (error) => {
+      assert.match(error.message, new RegExp(`belongs to ${parentId}`));
+      assert.match(error.message, /--skip/);
+      return true;
+    });
+  }
+  assert.ok(
+    !fs.existsSync(path.join(root, '.changeledger', 'specs', 'alguna-spec.md')),
+    'a refused graduation must write nothing',
+  );
+});
+
+test('20261020-172221 CR5: the child still records its own decision with --skip', () => {
+  const { root, file, id } = childOf('20260613-110000');
+  skipGraduation(id, 'la reconcilia su épica', root);
+  const text = fs.readFileSync(file, 'utf8');
+  assert.match(text, /`\[graduation\]` skipped/);
+  assert.match(text, /reviewed: true/);
+});
+
+test('20261020-172221 CR5: the epic itself graduates like any other change', () => {
+  const { root } = childOf('20260613-110000');
+  assert.doesNotThrow(() => scaffoldSpec('20260613-110000', 'flujo', root));
+  assert.ok(fs.existsSync(path.join(root, '.changeledger', 'specs', 'flujo.md')));
+});
+
+// The activated seat has its own `requireSpecLinkAllowed` call, and the shared
+// fixture never gives a change a `parent` — so a regression there would land
+// silently. This is the layout asymmetry that already cost this change three
+// defects; the guard is pinned on both sides now.
+test('20261020-172221 CR5: an activated repo refuses a child linking a spec too', () => {
+  const parentId = '20260613-110000';
+  const { root } = activatedRepo({
+    specName: 'architecture.md',
+    specBody: '\nArch truth.\n',
+    prepare: (text) => text.replace('depends_on: []', `depends_on: []\nparent: "${parentId}"`),
+  });
+  // The epic has to exist for `check` to accept the child, and it lands on the
+  // same ref the activated repo reads from.
+  const parentText = `---\nid: "${parentId}"\ntitle: Épica\ntype: epic\nstatus: done\ncreated: 2026-06-13T11:00:00Z\ndepends_on: []\n---\n\n## Request\n\nObjetivo.\n\n## Proposal\n\nFrontera.\n\n## Log\n\n- **2026-06-13T11:00:00Z** \`[note]\` created\n`;
+  mutateState(root, { expectedRevision: stateRefTip(root), message: 'chore: epic' }, (stage) => {
+    stage.write(`changes/${parentId}-epic.md`, parentText);
+  });
+
+  assert.throws(
+    () => graduate('20260613-120000', 'architecture', root, { into: true }),
+    (error) => {
+      assert.match(error.message, new RegExp(`belongs to ${parentId}`));
+      return true;
+    },
+  );
+});

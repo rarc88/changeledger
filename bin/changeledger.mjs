@@ -12,12 +12,10 @@ import {
   list,
   log,
   owner,
-  reopen,
   review,
   show,
   status,
   task,
-  validation,
 } from '../src/commands/agent.mjs';
 import { AGENT_ROLES, agentContext } from '../src/commands/agent-context.mjs';
 import { agentPrompt } from '../src/commands/agent-prompt.mjs';
@@ -44,12 +42,7 @@ import {
   loadEffectiveConfig,
 } from '../src/config.mjs';
 import { applyMigration } from '../src/config-migration.mjs';
-import {
-  LOG_EVENT_DEFINITIONS,
-  REVIEW_VERDICTS,
-  TASK_ACTIONS,
-  VALIDATION_VERDICTS,
-} from '../src/lifecycle.mjs';
+import { LOG_EVENT_DEFINITIONS, REVIEW_VERDICTS, TASK_ACTIONS } from '../src/lifecycle.mjs';
 import { nowUtc } from '../src/paths.mjs';
 import { RELEASE_IMPACTS } from '../src/release.mjs';
 import {
@@ -112,14 +105,16 @@ function configuredDomainsHelp() {
 }
 
 const LOG_EVENT_PRODUCERS = Object.freeze({
-  status: [
-    'changeledger approve',
-    'changeledger status',
-    'changeledger discard',
-    'changeledger reopen',
-  ],
+  status: ['changeledger approve', 'changeledger status', 'changeledger discard'],
   review: ['changeledger review'],
-  validation: ['changeledger validation'],
+  // The `in-validation → <to>` arm is retired with the status and survives only
+  // so Logs written while it existed keep parsing; the acceptance arm is live
+  // and has two seats, because a branch that lands after the graduation is
+  // stamped later by `sync`.
+  validation: [
+    'changeledger graduate (the accepted (merged <sha>) arm, at graduation)',
+    'changeledger sync (the same arm, when the merge lands after the graduation; no command writes the in-validation arm any more)',
+  ],
   owner: ['changeledger owner', 'changeledger status (automatic when work starts)'],
   branch: ['changeledger branch', 'changeledger status (automatic when work starts)'],
   graduation: ['changeledger graduate'],
@@ -177,7 +172,7 @@ Run \`changeledger context\` first in any repo unless a ChangeLedger delegation
 prompt identifies your role and tells you to run \`agent-context\` instead.
 
   changeledger init | register | new | edit | apply | view | check | fix | context | agent-context
-  changeledger commit | status | approve | validation | discard | review | owner
+  changeledger commit | status | approve | discard | review | owner
   changeledger archive | log | task | list | show | search | analyze | graduate | config | release
   changeledger cutover | activate | import | sync
 
@@ -293,6 +288,7 @@ program
   .argument('<slug>', 'English filename slug, e.g. self-describing-cli-help')
   .argument('<title...>', 'content title, written in the repo language (config.yml: language)')
   .option('--owner <name>', 'set the initial owner (defaults to the local git identity)')
+  .option('--parent <id>', 'create this change as a child of that epic')
   .option('--print', 'emit the scaffold to stdout and write nothing, in either mode')
   .option('--from <file>', 'land this already composed document ("-" reads stdin)')
   .addHelpText(
@@ -307,6 +303,7 @@ program
       '  changeledger new feature self-describing-cli-help "Self-describing CLI help"',
       '  changeledger new feature seam "Costura" --print > draft.md',
       '  changeledger new feature seam "Costura" --from draft.md',
+      '  changeledger new bug leak "Fuga" --parent 20260613-110000',
     ].join('\n'),
   )
   .action(
@@ -316,15 +313,36 @@ program
       if (options.owner && options.from) {
         throw new Error('the document passed to --from declares its own owner; drop --owner');
       }
+      // Same rule as --owner: a field the incoming document owns is refused,
+      // never dropped. `--parent` used to vanish here, and since `--from` is
+      // the only way to create a change in an activated repo, that was the
+      // main path (20261020-172221 D2).
+      if (options.parent && options.from) {
+        throw new Error('the document passed to --from declares its own parent; drop --parent');
+      }
       if (options.print) {
         process.stdout.write(
-          scaffoldChange({ type, slug, title, owner: options.owner, now: nowUtc() }).text,
+          scaffoldChange({
+            type,
+            slug,
+            title,
+            owner: options.owner,
+            parent: options.parent,
+            now: nowUtc(),
+          }).text,
         );
         return;
       }
       const file = options.from
         ? newChangeFrom({ type, slug, title, from: options.from })
-        : newChange({ type, slug, title, owner: options.owner, now: nowUtc() });
+        : newChange({
+            type,
+            slug,
+            title,
+            owner: options.owner,
+            parent: options.parent,
+            now: nowUtc(),
+          });
       console.log(`Created ${file}`);
     }),
   );
@@ -479,8 +497,8 @@ program
       'and runs every guard `new --from`/`edit` run, byte-identical included; a',
       '`new` entry may add "slug" to name the file (derived from the title if absent).',
       'An event entry is {"op": "status"|"log"|"task"|"owner", "id": "<id>", ...} and',
-      "runs its own command's validations. `approve`, `validation`, `review` and",
-      '`discard` stay individual commands and are refused here by name.',
+      "runs its own command's validations. `approve`, `review` and `discard` stay",
+      'individual commands and are refused here by name.',
       '',
       'Examples:',
       '  changeledger apply --from batch.json --dry-run',
@@ -535,6 +553,10 @@ program
       'change covers: the subject carries no marker and the body becomes exactly',
       '"ChangeLedger: none — <reason>". It never falls back to the in-progress',
       'change, and cannot be combined with --id.',
+      '',
+      'A failed `pre-commit` hook leaves the index staged. Inspect the staged set',
+      'with `git diff --cached --name-only` before retrying: fixing the cause is not',
+      "enough if the index kept the previous attempt's files.",
       '',
       'Examples:',
       '  changeledger commit -m "feat(cli): add helper"',
@@ -681,9 +703,8 @@ program
       '',
       'Change id (e.g. changeledger context 20260630-225212): loads the pack inferred',
       "from that change's current lifecycle status — you never choose this pack",
-      'yourself. Lifecycle overlays such as blocked, validation, close and discarded',
-      'are inferred the same way from the change id; they are not modes you pass',
-      'explicitly.',
+      'yourself. Lifecycle overlays such as close and discarded are inferred the same way',
+      'from the change id; they are not modes you pass explicitly.',
       '',
       'Examples:',
       '  changeledger context',
@@ -707,10 +728,6 @@ program
       'Prints a fill-in-the-blanks delegation prompt for the given role. Works',
       'outside a ChangeLedger repo — the skeletons ship inside the package.',
       '',
-      '`post-review` is a read-only inspection of a change already in',
-      '`in-validation`, after review already passed; it never issues a verdict or',
-      'moves the change.',
-      '',
       '`graduation-review` is a read-only check of the spec reconciliation drafted',
       'for a change already `done`, before the first `--into`; it never moves the',
       'change.',
@@ -719,7 +736,6 @@ program
       '  changeledger agent-prompt investigation',
       '  changeledger agent-prompt implementation',
       '  changeledger agent-prompt review',
-      '  changeledger agent-prompt post-review',
       '  changeledger agent-prompt graduation-review',
     ].join('\n'),
   )
@@ -731,7 +747,7 @@ program
   .addArgument(closedArgument('<role>', AGENT_ROLES.join(' | '), AGENT_ROLES))
   .argument(
     '[change-id]',
-    'optional for investigation; required for implementation, review, post-review and graduation-review',
+    'optional for investigation; required for implementation, review and graduation-review',
   )
   .addHelpText(
     'after',
@@ -741,10 +757,6 @@ program
       'identifies you as that role. This replaces the normal core bootstrap for',
       'the delegated leaf; normal agents still run `changeledger context` first.',
       '',
-      '`post-review` requires a change in `in-validation`; it is read-only',
-      'inspection after review already passed, and never issues a verdict or',
-      'moves the change.',
-      '',
       '`graduation-review` requires a change in `done`; it is a read-only check of',
       'the spec reconciliation before the first `--into`, and never moves the change.',
       '',
@@ -753,7 +765,6 @@ program
       '  changeledger agent-context investigation <id>',
       '  changeledger agent-context implementation <id>',
       '  changeledger agent-context review <id>',
-      '  changeledger agent-context post-review <id>',
       '  changeledger agent-context graduation-review <id>',
     ].join('\n'),
   )
@@ -766,26 +777,43 @@ program
   .addArgument(
     closedArgument(
       '<status>',
-      'a status configured in .changeledger/config.yml (statuses:), e.g. in-progress, in-review, blocked',
+      'a status configured in .changeledger/config.yml (statuses:), e.g. in-progress, in-review',
       CONFIGURED_DOMAINS?.statuses,
     ),
   )
+  .argument('[reason...]', 'why delivered work is being sent back to `in-progress`')
+  .option('--human', 'attribute the return from `done` to an explicit human decision')
   .addHelpText(
     'after',
     [
       '',
       'Terminal moves are not accepted here: use `changeledger discard <id> "<reason>"`',
-      'to discard. Human-owned moves use the viewer, `changeledger approve <id>`,',
-      'or `changeledger validation <id> pass` after an explicit human prompt.',
+      'to discard. Human-owned moves use the viewer or `changeledger approve <id>`',
+      'after an explicit human prompt.',
+      '',
+      '`--human` marks the return from `done` as a human rejection — the only',
+      'edge the rejection metric counts. Without it the return belongs to the agent.',
       '',
       'Examples:',
       '  changeledger status <id> in-progress',
-      '  changeledger status <id> blocked',
+      '  changeledger status <id> in-review',
+      '  changeledger status <id> in-progress --human "<reason>"',
     ].join('\n'),
   )
   .action(
-    action((id, st) => {
-      const { warnings } = status(id, st, process.cwd(), { actor: 'agent' });
+    action((id, st, reasonParts, options) => {
+      // `--human` attributes one edge and nothing else: accepting it anywhere
+      // would hand the agent the human approval seat that
+      // `assertStatusDestinationAllowed` exists to deny it.
+      if (options.human && st !== 'in-progress') {
+        throw new Error(
+          'the `--human` flag only attributes the return to `in-progress`; to approve a draft use `changeledger approve <id>`',
+        );
+      }
+      const { warnings } = status(id, st, process.cwd(), {
+        actor: options.human ? 'human' : 'agent',
+        reason: reasonParts.join(' ').trim() || undefined,
+      });
       for (const warning of warnings) console.error(warning);
       console.log(`#${id} → ${st}`);
     }),
@@ -814,59 +842,6 @@ program
   );
 
 program
-  .command('validation')
-  .description('transmit an explicit human validation decision, or reject as the agent')
-  .argument('<id>')
-  .addArgument(closedArgument('<verdict>', VALIDATION_VERDICTS.join('|'), VALIDATION_VERDICTS))
-  .argument('[reason...]')
-  .option('--human', 'attribute a fail verdict to an explicit human decision via conversation')
-  .addHelpText(
-    'after',
-    [
-      '',
-      '`pass` and `fail --human` are human-owned: run only after an explicit human',
-      'decision in the conversation. Never infer acceptance or rejection.',
-      'Plain `fail` remains an agent-owned rejection and always requires a reason.',
-      '',
-      'Examples:',
-      '  changeledger validation <id> pass',
-      '  changeledger validation <id> fail "<reason>"',
-      '  changeledger validation <id> fail --human "<reason>"',
-    ].join('\n'),
-  )
-  .action(
-    action((id, verdict, reasonParts, options) => {
-      const reason = (reasonParts ?? []).join(' ').trim();
-      if (verdict === 'pass') {
-        if (reason) throw new Error('validation pass does not accept a reason');
-        if (options.human) throw new Error('validation pass is already human-owned; omit --human');
-        validation(id, 'pass', { actor: 'human', channel: 'conversation' });
-      } else if (verdict === 'fail') {
-        validation(id, 'fail', {
-          reason,
-          actor: options.human ? 'human' : 'agent',
-          channel: options.human ? 'conversation' : 'agent',
-        });
-      } else {
-        throw new Error(`Unknown validation verdict "${verdict}" (use pass|fail)`);
-      }
-      console.log(`#${id} validation ${verdict}${options.human ? ' --human' : ''}`);
-    }),
-  );
-
-program
-  .command('reopen')
-  .description('reopen a provisional done change with a reason')
-  .argument('<id>')
-  .argument('<reason...>')
-  .action(
-    action((id, reasonParts) => {
-      reopen(id, reasonParts.join(' ').trim(), process.cwd(), { actor: 'agent' });
-      console.log(`#${id} → in-progress`);
-    }),
-  );
-
-program
   .command('discard')
   .description('discard a change (terminal; keeps the record and reason)')
   .argument('<id>')
@@ -884,24 +859,23 @@ program
   .argument('<id>')
   .addArgument(closedArgument('<verdict>', REVIEW_VERDICTS.join('|'), REVIEW_VERDICTS))
   .argument('[reason...]')
-  .addOption(new Option('--retry', 'route a failed review back to in-progress').conflicts('block'))
-  .addOption(new Option('--block', 'route a failed review to blocked').conflicts('retry'))
   .addHelpText(
     'after',
     [
       '',
+      '`pass` delivers the change to `done`; `fail` returns it to `in-progress`.',
+      'The failure class belongs in the reason, not in a flag.',
+      '',
       'Examples:',
       '  changeledger review <id> pass',
-      '  changeledger review <id> fail --retry "<reason>"',
-      '  changeledger review <id> fail --block "<reason>"',
+      '  changeledger review <id> fail "<reason>"',
     ].join('\n'),
   )
   .action(
-    action((id, verdict, reasonParts, options) => {
-      const mode = options.retry ? 'retry' : options.block ? 'block' : undefined;
+    action((id, verdict, reasonParts) => {
       const reason = reasonParts.join(' ').trim() || undefined;
-      review(id, verdict, { mode, reason });
-      console.log(`#${id} review ${verdict}${mode ? ` --${mode}` : ''}`);
+      review(id, verdict, { reason });
+      console.log(`#${id} review ${verdict}`);
     }),
   );
 
@@ -954,9 +928,15 @@ program
   .option('--graduated', 'archive every done change already graduated or skipped (takes no id)')
   .option('--owner <name>', 'with --graduated, filter by exact owner name')
   .option('--unowned', 'with --graduated, filter changes without an owner')
+  .option('--keep-branch', 'with an id, do not delete the local branch even when it is merged')
   .addHelpText(
     'after',
     [
+      '',
+      'Archiving one change by id deletes the local branch it recorded, but only',
+      'once that change is done or discarded and that branch is already merged into',
+      'the integration branch — never an unmerged one, and never a remote reference.',
+      '--graduated archives in bulk and deletes no branches.',
       '',
       'Examples:',
       '  changeledger archive <id>',
@@ -977,14 +957,23 @@ program
       }
       if (options.graduated) {
         if (id) throw new Error('archive --graduated does not take an id');
+        // Refused rather than ignored: --graduated deletes no branches, so the
+        // flag would read as a promise the bulk path never made.
+        if (options.keepBranch) {
+          throw new Error('--keep-branch takes an id: archive --graduated deletes no branches');
+        }
         const archived = archiveGraduated({ owner: options.owner, unowned: options.unowned });
         for (const c of archived) console.log(`#${c.id} ${c.title}`);
         console.log(`Archived ${archived.length} change(s)`);
         return;
       }
       if (!id) throw new Error('archive requires <id> or --graduated');
-      archive(id);
+      const { branch, branchOutcome } = archive(id, process.cwd(), {
+        keepBranch: options.keepBranch,
+      });
       console.log(`#${id} archived`);
+      if (branchOutcome === null) console.log(`Deleted local branch ${branch}.`);
+      else if (branch) console.log(`Local branch not deleted: ${branchOutcome}.`);
     }),
   );
 
@@ -1044,6 +1033,7 @@ program
   )
   .option('--owner <name>', 'filter by exact owner name; incompatible with --unowned')
   .option('--unowned', 'list changes without an owner; incompatible with --owner')
+  .option('--parent <id>', 'list the children of that epic')
   .option('--pending <kind>', 'filter pending work (graduation|archive)')
   .option('--archived', 'list only archived changes; incompatible with --all')
   .option('--all', 'include archived and non-archived changes; incompatible with --archived')
@@ -1054,9 +1044,10 @@ program
       '',
       'Examples:',
       '  changeledger list --status approved',
-      '  changeledger list --owner "Roberto Ruiz" --status in-validation',
+      '  changeledger list --owner "Roberto Ruiz" --status in-review',
       '  changeledger list --unowned',
       '  changeledger list --pending graduation',
+      '  changeledger list --parent 20260613-110000',
       '  changeledger list --pending archive',
       '  changeledger list --archived',
       '  changeledger list --type feature --json',
@@ -1069,6 +1060,7 @@ program
         type: options.type,
         owner: options.owner,
         unowned: options.unowned,
+        parent: options.parent,
         pending: options.pending,
         archived: options.archived,
         all: options.all,
@@ -1090,7 +1082,16 @@ program
     action((id, options) => {
       const c = show(id);
       if (options.json) console.log(JSON.stringify(c, null, 2));
-      else console.log(`#${c.id} ${c.frontmatter.title} [${c.frontmatter.status}]`);
+      else {
+        console.log(`#${c.id} ${c.frontmatter.title} [${c.frontmatter.status}]`);
+        if (c.frontmatter.parent) console.log(`  parent: #${c.frontmatter.parent}`);
+        for (const child of c.children) {
+          const hidden = child.archived ? ' (archived)' : '';
+          console.log(
+            `  child: ${String(child.status).padEnd(12)} #${child.id}  ${child.title}${hidden}`,
+          );
+        }
+      }
     }),
   );
 

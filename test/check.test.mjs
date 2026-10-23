@@ -6,7 +6,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { parse as parseYaml } from 'yaml';
 import { parseChange } from '../src/change.mjs';
-import { checkRepo, checkUsageGitConfig } from '../src/check.mjs';
+import { checkRepo, checkUsageGitConfig, LEGACY_EDGES } from '../src/check.mjs';
 import { check } from '../src/commands/check.mjs';
 import { init as initializeRepo } from '../src/commands/init.mjs';
 import {
@@ -17,7 +17,7 @@ import {
 } from '../src/config.mjs';
 import { ensureReference } from '../src/contract.mjs';
 import { VERSION } from '../src/framing.mjs';
-import { LOG_EVENT_TYPES } from '../src/lifecycle.mjs';
+import { CANONICAL_STATUSES, canTransition, LOG_EVENT_TYPES } from '../src/lifecycle.mjs';
 import { templatesDir } from '../src/paths.mjs';
 import { RELEASE_IMPACTS } from '../src/release.mjs';
 import { loadRepo } from '../src/repo.mjs';
@@ -32,7 +32,7 @@ process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'changeled
 
 const config = {
   changes_dir: '.changeledger/changes',
-  statuses: ['draft', 'approved', 'in-progress', 'in-validation', 'blocked', 'done'],
+  statuses: ['draft', 'approved', 'in-progress', 'in-review', 'done'],
   stages: ['request', 'investigation', 'proposal', 'specification', 'plan', 'log'],
   types: {
     feature: { stages: ['request', 'plan', 'log'] },
@@ -325,6 +325,180 @@ test('105456 CR1/CR3: related_to is non-blocking and permits external references
     frontmatter: { id: '20260613-130000', related_to: ['20260613-120000'] },
   });
   assert.deepEqual(run([a, b]).errors, []);
+});
+
+// --- 20261020-172221: the grouping edge ---------------------------------
+//
+// `parent` exists because `depends_on` + `related_to` collapse a real repo into
+// one component — 739 of 994 changes in one consuming repo — so asking what
+// belongs to an epic has no answer. These tests hold the two properties that
+// keep it from becoming a third way to build that same blob: it is validated
+// outside the relation graph, and the hierarchy is two levels deep.
+
+const epic = (id, over = {}) => change({ frontmatter: { id, type: 'feature', ...over } });
+
+test('20261020-172221 CR1: parent must be a single existing id, never the change itself', () => {
+  assert.ok(
+    msgs(run([epic('20260613-120000', { parent: ['20260613-130000'] })]).errors).includes(
+      'parent must be a single change id, not a list',
+    ),
+  );
+  assert.ok(
+    msgs(run([epic('20260613-120000', { parent: '20260613-130000' })]).errors).includes(
+      'parent references missing change "20260613-130000"',
+    ),
+  );
+  assert.ok(
+    msgs(run([epic('20260613-120000', { parent: '20260613-120000' })]).errors).includes(
+      'parent cannot reference its own change "20260613-120000"',
+    ),
+  );
+  const parent = epic('20260613-130000');
+  const child = epic('20260613-120000', { parent: '20260613-130000' });
+  assert.deepEqual(run([parent, child]).errors, []);
+});
+
+test('20261020-172221 CR2: a third level and a cycle are rejected, and told apart', () => {
+  const third = run([
+    epic('20260613-110000'),
+    epic('20260613-120000', { parent: '20260613-110000' }),
+    epic('20260613-130000', { parent: '20260613-120000' }),
+  ]).errors;
+  assert.ok(
+    msgs(third).some((m) => /declares a parent of its own: the hierarchy is two levels/.test(m)),
+    `expected the third-level message, got: ${msgs(third).join(' | ')}`,
+  );
+
+  const cycle = run([
+    epic('20260613-120000', { parent: '20260613-130000' }),
+    epic('20260613-130000', { parent: '20260613-120000' }),
+  ]).errors;
+  assert.ok(
+    msgs(cycle).some((m) => /^parent cycle: /.test(m)),
+    `expected a parent-cycle message, got: ${msgs(cycle).join(' | ')}`,
+  );
+  // Told apart: the cycle must not be reported as a third level, which would
+  // send the human to split a hierarchy that is actually contradictory.
+  assert.ok(!msgs(cycle).some((m) => /two levels/.test(m)));
+
+  // Any length, not just two: a three-link cycle is still a cycle. The first
+  // implementation reported it as three third-level errors, because its depth
+  // counter had already passed the threshold before it could look.
+  const long = run([
+    epic('20260613-110000', { parent: '20260613-130000' }),
+    epic('20260613-120000', { parent: '20260613-110000' }),
+    epic('20260613-130000', { parent: '20260613-120000' }),
+  ]).errors;
+  assert.ok(
+    msgs(long).some((m) => /^parent cycle: /.test(m)),
+    `expected a parent-cycle message for a 3-cycle, got: ${msgs(long).join(' | ')}`,
+  );
+  assert.ok(!msgs(long).some((m) => /two levels/.test(m)));
+});
+
+test('20261020-172221 CR1: a malformed parent is named as such, not called a list', () => {
+  for (const malformed of ['not-an-id', '']) {
+    const errors = msgs(run([epic('20260613-120000', { parent: malformed })]).errors);
+    assert.ok(errors.includes(`parent "${malformed}" is not a change id`), errors.join(' | '));
+    assert.ok(!errors.some((m) => /not a list/.test(m)));
+    // One defect, one diagnostic: reading a malformed value as a reference too
+    // reported the same field twice with two different fixes.
+    assert.ok(!errors.some((m) => /references missing change/.test(m)), errors.join(' | '));
+  }
+});
+
+// Archiving hides a document; it does not resolve the work its children carry.
+// The first cut put this clause in the per-document subject loop, where it
+// inherited the frozen-history exemption, so `archive <epic>` turned a red
+// repo green and every creation seat then accepted new children under it
+// (20261020-172221 D1 of round 5).
+test('20261020-172221 CR6: archiving the parent does not retire the closure rule', () => {
+  const open = epic('20260613-120000', { parent: '20260613-110000', status: 'in-progress' });
+  const reported = (parentOverrides) =>
+    msgs(run([epic('20260613-110000', parentOverrides), open]).errors).some((m) =>
+      /unresolved children/.test(m),
+    );
+
+  assert.ok(reported({ status: 'done' }), 'a done parent with a live child is an error');
+  assert.ok(
+    reported({ status: 'done', archived: true }),
+    'archiving the parent must not silence it: the fix is on the child, which is live',
+  );
+});
+
+// The closure invariant is a repo rule, not only a write-seat guard. `apply`
+// validates its accumulated candidate through `checkRepo`, so this is what
+// catches an entry order that closes the parent before the child exists, and
+// it is what a new route to `done` inherits for free (20261020-172221 D1/D2).
+test('20261020-172221 CR6: check reports a done parent whose children are still open', () => {
+  const parent = epic('20260613-110000', { status: 'done' });
+  const open = epic('20260613-120000', { parent: '20260613-110000', status: 'in-progress' });
+  const errors = msgs(run([parent, open]).errors);
+  assert.ok(
+    errors.some((m) => /still has unresolved children: 20260613-120000 \(in-progress\)/.test(m)),
+    errors.join(' | '),
+  );
+
+  for (const resolved of ['done', 'discarded']) {
+    const closed = epic('20260613-120000', { parent: '20260613-110000', status: resolved });
+    assert.ok(
+      !msgs(run([parent, closed]).errors).some((m) => /unresolved children/.test(m)),
+      `a ${resolved} child does not hold its parent open`,
+    );
+  }
+
+  // A live parent is not the subject: the rule is about closing, not about
+  // having children.
+  assert.ok(
+    !msgs(run([epic('20260613-110000', { status: 'in-progress' }), open]).errors).some((m) =>
+      /unresolved children/.test(m),
+    ),
+  );
+});
+
+test('20261020-172221 CR3: sharing a parent connects nothing and needs no backlink', () => {
+  const parent = epic('20260613-110000');
+  const a = epic('20260613-120000', { parent: '20260613-110000' });
+  const b = epic('20260613-130000', { parent: '20260613-110000' });
+  // No backlink obligation on the parent, no relation inferred between siblings,
+  // and no dependency cycle from a hierarchy that is legal.
+  assert.deepEqual(run([parent, a, b]).errors, []);
+
+  // An empty error list stays empty whether or not `parent` is an edge, so it
+  // proves nothing on its own. This does: the parent depends on its own child,
+  // which is legal — the hierarchy is not a dependency — and becomes a cycle
+  // the moment `parent` joins the graph `check` walks.
+  const dependsOnItsChild = epic('20260613-110000', { depends_on: ['20260613-120000'] });
+  assert.deepEqual(
+    msgs(run([dependsOnItsChild, a]).errors),
+    [],
+    'a parent that depends on its child is not a cycle: `parent` is not an edge of that graph',
+  );
+
+  // Both ends, like `related_to`: an epic naming its own child used to warn,
+  // and the remedy the warning names is `depends_on` or `related_to` — the
+  // transitive edge this grouping exists to avoid (20261020-172221 D3a).
+  const epicNamingItsChild = change({
+    frontmatter: { id: '20260613-110000' },
+    stages: [{ key: 'request', body: 'Incluye 20260613-120000.' }, { key: 'log' }],
+  });
+  assert.ok(
+    !msgs(run([epicNamingItsChild, a]).warnings).some((m) => /mentions change/.test(m)),
+    'a declared child must not warn on the parent end either',
+  );
+
+  // The parent is a declared link, so naming it in prose is not an undeclared
+  // mention — the warning exists to catch ids that escape the model, and a
+  // parent has not escaped it.
+  const naming = change({
+    frontmatter: { id: '20260613-120000', parent: '20260613-110000' },
+    stages: [{ key: 'request', body: 'Hijo de 20260613-110000.' }, { key: 'log' }],
+  });
+  const { warnings } = run([parent, naming]);
+  assert.ok(
+    !msgs(warnings).some((m) => /mentions change "20260613-110000"/.test(m)),
+    `a declared parent must not warn as an undeclared mention: ${msgs(warnings).join(' | ')}`,
+  );
 });
 
 test('105456 CR2: related_to validates list, local destination and self-reference', () => {
@@ -742,27 +916,6 @@ test('174310 CR2: a malformed git.release_branch is reported once, not once more
   assert.deepEqual(msgs(errors), ['config "git.release_branch" must be a non-empty string']);
 });
 
-test('171002 CR1/CR5: every config with done requires in-validation before it', () => {
-  const missing = {
-    ...config,
-    statuses: ['draft', 'approved', 'in-progress', 'blocked', 'done'],
-  };
-  assert.ok(
-    msgs(checkRepo({ config: missing, changes: [] }).errors).some((m) =>
-      /must include "in-validation" before "done"/.test(m),
-    ),
-  );
-  const misplaced = {
-    ...config,
-    statuses: ['draft', 'approved', 'in-progress', 'in-review', 'done', 'in-validation'],
-  };
-  assert.ok(
-    msgs(checkRepo({ config: misplaced, changes: [] }).errors).some((m) =>
-      /"in-validation" must appear before "done"/.test(m),
-    ),
-  );
-});
-
 test('config type referencing an unknown stage is an error', () => {
   const bad = { ...config, types: { feature: { stages: ['request', 'banana'] } } };
   const { errors } = checkRepo({ config: bad, changes: [] });
@@ -966,6 +1119,84 @@ tags: [architecture]
     ),
     text,
   );
+});
+
+// 20261023-094844: one error per visible criterion heading, each with its own
+// stable text, so rewriting one heading removes exactly one error and leaves
+// the others' text unchanged for the admission diff.
+const TWO_CRITERIA_BODY =
+  '# Verdad\n\n### CR1 — una verdad\n\nTexto.\n\n### CR2 — otra verdad\n\nMás.\n';
+const TWO_CRITERIA_ERRORS = [
+  'spec contains change-local criterion heading "CR1"; rewrite it as durable current truth',
+  'spec contains change-local criterion heading "CR2"; rewrite it as durable current truth',
+];
+
+test('20261023-094844 CR1: a spec reports one error per criterion heading, in document order', () => {
+  const { errors } = runS([change()], [spec({ name: 'verdad.md', body: TWO_CRITERIA_BODY })]);
+  assert.deepEqual(msgs(errors.filter((e) => e.file === 'verdad.md')), TWO_CRITERIA_ERRORS);
+});
+
+test('20261023-094844 CR1: changeledger check prints both heading errors and fails', () => {
+  const root = frozenFixture(
+    {},
+    {
+      'verdad.md': `---\ntitle: Verdad\nupdated: 2026-08-06T00:00:00Z\ntags: [verdad]\n---\n${TWO_CRITERIA_BODY}`,
+    },
+  );
+
+  const { code, text } = runCheck(root);
+  assert.equal(code, 1);
+  const printed = text.split('\n').filter((line) => /change-local criterion heading/.test(line));
+  assert.equal(printed.length, 2, text);
+  TWO_CRITERIA_ERRORS.forEach((message, index) => {
+    assert.ok(printed[index].includes(message), text);
+  });
+});
+
+// Round 1 found no test behind "one error per heading": a dedupe survived the
+// suite and would have let an edit add a second `### CR1` to a spec that
+// already has one. Two identical headings are two errors, and the admission
+// diff is a multiset, so removing one of them leaves exactly one.
+test('20261023-094844 CR1: a duplicated criterion heading is reported once per occurrence', () => {
+  const { errors } = runS(
+    [change()],
+    [spec({ name: 'verdad.md', body: '# Verdad\n\n### CR1 — una\n\n### CR1 — otra vez\n' })],
+  );
+  assert.deepEqual(msgs(errors.filter((e) => e.file === 'verdad.md')), [
+    TWO_CRITERIA_ERRORS[0],
+    TWO_CRITERIA_ERRORS[0],
+  ]);
+});
+
+test('20261023-094844 CR2: each heading form yields exactly one error, not only ATX level 3', () => {
+  const forms = [
+    '# CR1 — nivel 1',
+    '###### CR1 — nivel 6',
+    'CR1 — Setext\n---',
+    '> ### CR1 — en cita',
+    '- ### CR1 — en lista',
+  ];
+  for (const form of forms) {
+    const { errors } = runS(
+      [change()],
+      [spec({ name: 'verdad.md', body: `# Verdad\n\n${form}\n` })],
+    );
+    assert.deepEqual(
+      msgs(errors.filter((e) => e.file === 'verdad.md')),
+      [TWO_CRITERIA_ERRORS[0]],
+      form,
+    );
+  }
+});
+
+test('20261023-094844 CR2: a single criterion heading yields exactly one error with the same text', () => {
+  const { errors } = runS(
+    [change()],
+    [spec({ name: 'verdad.md', body: '# Verdad\n\n### CR33 — algo\n' })],
+  );
+  assert.deepEqual(msgs(errors.filter((e) => e.file === 'verdad.md')), [
+    'spec contains change-local criterion heading "CR33"; rewrite it as durable current truth',
+  ]);
 });
 
 test('CR1: a change graduating to a missing spec is an error', () => {
@@ -1248,7 +1479,7 @@ test('151221 CR4: duplicate criteria are an error', () => {
 
 const tddConfig = {
   changes_dir: '.changeledger/changes',
-  statuses: ['draft', 'approved', 'in-progress', 'in-validation', 'blocked', 'done'],
+  statuses: ['draft', 'approved', 'in-progress', 'in-review', 'done'],
   stages: ['request', 'specification', 'plan', 'log'],
   types: {
     feature: { stages: ['request', 'specification', 'plan', 'log'] },
@@ -2504,19 +2735,18 @@ ${logLines.join('\n')}
 `;
 }
 
-test('225210 CR1: a repeated review verdict after in-validation is an error with line and expectation', () => {
+test('225210 CR1: a repeated review verdict after delivery is an error with line and expectation', () => {
   const text = seqChange('done', [
     '- **2026-06-13T12:10:00Z** `[status]` draft → approved',
     '- **2026-06-13T12:20:00Z** `[status]` approved → in-progress',
     '- **2026-06-13T12:30:00Z** `[status]` in-progress → in-review',
-    '- **2026-06-13T12:40:00Z** `[review]` in-review → in-validation (delegated subagent, clean context)',
-    '- **2026-06-13T12:50:00Z** `[review]` in-review → in-validation (delegated subagent, clean context)',
-    '- **2026-06-13T13:00:00Z** `[validation]` in-validation → done (human accepted)',
+    '- **2026-06-13T12:40:00Z** `[review]` in-review → done (delegated subagent, clean context)',
+    '- **2026-06-13T12:50:00Z** `[review]` in-review → done (delegated subagent, clean context)',
   ]);
   const e = msgs(covResult(text).errors);
   assert.ok(
     e.some((m) =>
-      /Log line \d+: transition "in-review → in-validation" starts from "in-review" but the reconstructed status is "in-validation"/.test(
+      /Log line \d+: transition "in-review → done" starts from "in-review" but the reconstructed status is "done"/.test(
         m,
       ),
     ),
@@ -2529,10 +2759,9 @@ test('225210 CR2: canonical sequences pass; self-loops, skips and final mismatch
     '- **2026-06-13T12:10:00Z** `[status]` draft → approved',
     '- **2026-06-13T12:20:00Z** `[status]` approved → in-progress',
     '- **2026-06-13T12:30:00Z** `[status]` in-progress → in-review',
-    '- **2026-06-13T12:40:00Z** `[review]` in-review → in-progress (retry): reason',
+    '- **2026-06-13T12:40:00Z** `[review]` in-review → in-progress: reason',
     '- **2026-06-13T12:45:00Z** `[status]` in-progress → in-review',
-    '- **2026-06-13T12:50:00Z** `[review]` in-review → in-validation (delegated subagent, clean context)',
-    '- **2026-06-13T13:00:00Z** `[validation]` in-validation → done (human accepted)',
+    '- **2026-06-13T12:50:00Z** `[review]` in-review → done (delegated subagent, clean context)',
   ]);
   assert.deepEqual(
     msgs(covResult(ok).errors).filter((m) => /Log line/.test(m)),
@@ -2565,17 +2794,15 @@ test('225210 CR2: canonical sequences pass; self-loops, skips and final mismatch
   );
 });
 
-test('150232 CR6: sequence validation accepts reopen followed by normal gates', () => {
+test('150232 CR6: sequence validation accepts a return from done followed by normal gates', () => {
   const text = seqChange('done', [
     '- **2026-06-13T12:10:00Z** `[status]` draft → approved',
     '- **2026-06-13T12:20:00Z** `[status]` approved → in-progress',
     '- **2026-06-13T12:30:00Z** `[status]` in-progress → in-review',
-    '- **2026-06-13T12:40:00Z** `[review]` in-review → in-validation (delegated subagent, clean context)',
-    '- **2026-06-13T12:50:00Z** `[validation]` in-validation → done (human accepted)',
+    '- **2026-06-13T12:40:00Z** `[review]` in-review → done (delegated subagent, clean context)',
     '- **2026-06-13T13:00:00Z** `[status]` done → in-progress (human reopened): fix',
     '- **2026-06-13T13:10:00Z** `[status]` in-progress → in-review',
-    '- **2026-06-13T13:20:00Z** `[review]` in-review → in-validation (delegated subagent, clean context)',
-    '- **2026-06-13T13:30:00Z** `[validation]` in-validation → done (human accepted)',
+    '- **2026-06-13T13:20:00Z** `[review]` in-review → done (delegated subagent, clean context)',
   ]);
   assert.deepEqual(
     msgs(covResult(text).errors).filter((m) => /Log line|reconstructs status/.test(m)),
@@ -2583,18 +2810,32 @@ test('150232 CR6: sequence validation accepts reopen followed by normal gates', 
   );
 });
 
-test('225210 CR3: bounded legacy closes stay readable, not errors', () => {
-  const legacyReviewClose = seqChange('done', [
+// 20261018-131621 — the legacy-edge decision for the two retired statuses:
+// `LEGACY_EDGES` was NOT widened for them. `checkLifecycleSequence` already
+// abandons the replay at the first event naming a status the graph does not
+// model, so a Log written under the old contract is tolerated by that same
+// rule — the one the contract has always used for custom statuses — instead of
+// by a second, parallel allowance that would have to be carried forever.
+test('20261018-131621: a live Log naming a retired status is tolerated, not diagnosed', () => {
+  const text = seqChange('done', [
     '- **2026-06-13T12:10:00Z** `[status]` draft → approved',
     '- **2026-06-13T12:20:00Z** `[status]` approved → in-progress',
     '- **2026-06-13T12:30:00Z** `[status]` in-progress → in-review',
-    '- **2026-06-13T12:40:00Z** `[status]` in-review → done',
+    '- **2026-06-13T12:40:00Z** `[review]` in-review → in-validation (delegated subagent, clean context)',
+    '- **2026-06-13T12:50:00Z** `[validation]` in-validation → done (human accepted)',
   ]);
   assert.deepEqual(
-    msgs(covResult(legacyReviewClose).errors).filter((m) => /Log/.test(m)),
+    msgs(covResult(text).errors).filter((m) => /Log line|reconstructs status/.test(m)),
     [],
   );
+});
 
+// The review close this used to admit is now the defect 20261019-184719 CR1
+// names: `in-review → done` is canonical, so a `[status]` form is a delivery
+// that skipped the verdict, not readable history. The direct close is still
+// legal history — and canonical today, which is why it no longer needs
+// `LEGACY_EDGES` either.
+test('225210 CR3: the bounded legacy direct close stays readable, not an error', () => {
   const legacyDirectClose = seqChange('done', [
     '- **2026-06-13T12:10:00Z** `[status]` draft → approved',
     '- **2026-06-13T12:20:00Z** `[status]` approved → in-progress',
@@ -3197,7 +3438,7 @@ language: en
 tdd: true
 changes_dir: .changeledger/changes
 specs_dir: .changeledger/specs
-statuses: [draft, approved, in-progress, in-review, in-validation, blocked, done, discarded]
+statuses: [draft, approved, in-progress, in-review, done, discarded]
 stages: [request, investigation, proposal, specification, plan, log]
 types:
   refactor:
@@ -3536,7 +3777,7 @@ language: en
 tdd: true
 changes_dir: .changeledger/changes
 specs_dir: .changeledger/specs
-statuses: [draft, approved, in-progress, in-review, in-validation, blocked, done, discarded]
+statuses: [draft, approved, in-progress, in-review, done, discarded]
 stages: [request, investigation, proposal, specification, plan, log]
 types:
   quick:
@@ -4510,4 +4751,470 @@ test('174407 CR11: without git.integration_branch the auto-detected base remains
   const out = captureOutput();
   assert.equal(check(['--commits'], fx.root, out), 0, out.diagnostics.join('\n'));
   assert.deepEqual(out.calls, ['✓ commits main..HEAD valid']);
+});
+
+// --- 131621: in-validation and blocked leave the lifecycle ---
+
+const SIX_STATUSES = ['draft', 'approved', 'in-progress', 'in-review', 'done', 'discarded'];
+const SIX_STATUS_FIXTURE_CONFIG = FROZEN_FIXTURE_CONFIG.replace(
+  'schema_version: 5',
+  'schema_version: 6',
+)
+  .replace(/^statuses: .*$/m, `statuses: [${SIX_STATUSES.join(', ')}]`)
+  .concat(`min_cli_version: ${VERSION}\n`);
+
+test('131621 CR1: the repo config declares exactly the six remaining statuses', () => {
+  const text = fs.readFileSync(path.resolve('.changeledger/config.yml'), 'utf8');
+  assert.deepEqual(parseYaml(text).statuses, SIX_STATUSES);
+  assert.doesNotMatch(text, /in-validation/);
+  assert.doesNotMatch(text, /blocked/);
+});
+
+const RETIRED_STATUS_MESSAGES = {
+  'in-validation': 'status "in-validation" is retired: move it to "done" or "in-progress"',
+  blocked: 'status "blocked" is retired: move it to "in-progress" and record a [!] task',
+};
+
+test('131621 CR2: a live document in a retired status names the status and its destination', () => {
+  for (const [status, message] of Object.entries(RETIRED_STATUS_MESSAGES)) {
+    const id = '20260101-000000';
+    const root = frozenFixture(
+      { [`${id}-live.md`]: missingSpecification({ status }) },
+      {},
+      {},
+      SIX_STATUS_FIXTURE_CONFIG,
+    );
+    const { code, text } = runCheck(root, [id]);
+    assert.equal(code, 1, status);
+    assert.ok(text.includes(message), `${status}: ${text}`);
+    assert.doesNotMatch(text, /unknown status/);
+  }
+});
+
+test('131621 CR2: a status outside the lifecycle stays an unknown status', () => {
+  const { errors } = checkRepo({
+    config: { ...config, statuses: SIX_STATUSES },
+    changes: [change({ frontmatter: { status: 'paused' } })],
+  });
+  assert.ok(msgs(errors).some((m) => /unknown status "paused"/.test(m)));
+  assert.ok(!msgs(errors).some((m) => /is retired/.test(m)));
+});
+
+const RETIRED_HISTORY_LOG = `## Log
+- **2026-06-13T12:00:00Z** \`[status]\` approved → in-progress
+- **2026-06-13T12:10:00Z** \`[status]\` in-progress → blocked
+- **2026-06-13T12:20:00Z** \`[status]\` blocked → in-progress
+- **2026-06-13T12:30:00Z** \`[review]\` in-review → in-validation (delegated subagent)
+- **2026-06-13T12:40:00Z** \`[validation]\` in-validation → done (human accepted)
+`;
+
+test('131621 CR3: archived and discarded history naming retired statuses stays valid', () => {
+  const body = (over) =>
+    `---\n${frontmatter(over)}\n---\n\n## Request\n\nX\n\n## Proposal\n\nX\n\n## Plan\n\nX\n\n${RETIRED_HISTORY_LOG}`;
+  const root = frozenFixture(
+    {
+      '20260101-000000-archived.md': body({ archived: 'true' }),
+      '20260102-000000-discarded.md': body({ id: '20260102-000000', status: 'discarded' }),
+    },
+    {},
+    {},
+    SIX_STATUS_FIXTURE_CONFIG,
+  );
+  const { code, out, text } = runCheck(root);
+  assert.equal(code, 0, text);
+  assert.deepEqual(out.diagnostics, []);
+});
+
+// --- pending acceptance (20261018-131621 CR22: check reports, never writes) ---
+
+const ACCEPT_ID = '20261018-131621';
+const ACCEPT_CONFIG = `changes_dir: .changeledger/changes
+statuses: [draft, approved, in-progress, in-review, done, discarded]
+stages: [request, investigation, proposal, specification, plan, log]
+git:
+  integration_branch: dev
+  change_branch_format: "{type}/{id}"
+types:
+  feature:
+    stages: [request, plan, log]
+`;
+
+function acceptDoc({
+  branchLine = `- **2026-10-18T14:45:55Z** \`[branch]\` set: feature/${ACCEPT_ID} (auto)`,
+  acceptedAt,
+} = {}) {
+  return [
+    '---',
+    `id: "${ACCEPT_ID}"`,
+    'title: Acceptance telemetry',
+    'type: feature',
+    'status: done',
+    'created: 2026-10-18T13:16:21Z',
+    'depends_on: []',
+    ...(acceptedAt ? [`accepted_at: ${acceptedAt}`] : []),
+    `branch: feature/${ACCEPT_ID}`,
+    '---',
+    '',
+    '## Request',
+    '',
+    'Telemetry, not a gate.',
+    '',
+    '## Plan',
+    '',
+    '- [x] Ship it',
+    '  - **Target:** `src/x.mjs`',
+    '  - **Verify:** `node --test test/x.test.mjs`',
+    '  - **Resolved:** `2026-10-18T14:45:56Z`',
+    '',
+    '## Log',
+    '',
+    '- **2026-10-18T14:45:53Z** `[status]` draft → approved',
+    '- **2026-10-18T14:45:54Z** `[status]` approved → in-progress',
+    ...(branchLine ? [branchLine] : []),
+    '- **2026-10-18T14:45:56Z** `[status]` in-progress → done',
+    '',
+  ].join('\n');
+}
+
+// A repo whose change was worked on `feature/<id>`; `merged` decides whether
+// that branch ever landed on the integration branch `dev`.
+function acceptFixture({ merged = true, doc = acceptDoc(), config = ACCEPT_CONFIG } = {}) {
+  const { root, git } = gitFixture();
+  const changesDir = path.join(root, '.changeledger', 'changes');
+  fs.mkdirSync(changesDir, { recursive: true });
+  fs.writeFileSync(path.join(root, '.changeledger', 'config.yml'), config);
+  const file = path.join(changesDir, `${ACCEPT_ID}-acceptance.md`);
+  fs.writeFileSync(file, doc);
+
+  git(['branch', 'dev']);
+  git(['checkout', '-q', '-b', `feature/${ACCEPT_ID}`, 'dev']);
+  fs.writeFileSync(path.join(root, 'work.txt'), 'work\n');
+  git(['add', 'work.txt']);
+  git(['commit', '-q', '-m', `feat(x): work [#${ACCEPT_ID}]`]);
+  git(['checkout', '-q', 'dev']);
+  if (merged)
+    git(['merge', '--no-ff', '-q', '-m', `merge [#${ACCEPT_ID}]`, `feature/${ACCEPT_ID}`]);
+  return { root, git, file };
+}
+
+test('20261018-131621 CR22: check warns that a merged done change is accepted, exits 0 and writes nothing', () => {
+  const { root, file } = acceptFixture();
+  const before = fs.readFileSync(file);
+
+  const out = captureOutput();
+  const code = check([ACCEPT_ID], root, out);
+
+  assert.equal(code, 0, out.diagnostics.join('\n'));
+  const warning = out.diagnostics.find((d) => d.includes('accepted'));
+  assert.ok(warning, `expected an acceptance warning, got: ${out.diagnostics.join('\n')}`);
+  assert.match(warning, /^ {2}warn {3}/);
+  assert.ok(
+    warning.includes(`${ACCEPT_ID}-acceptance.md`),
+    `warning must name the change: ${warning}`,
+  );
+  assert.deepEqual(fs.readFileSync(file), before, 'check must leave the document byte-for-byte');
+});
+
+test('20261018-131621 CR22: an unmerged branch draws no acceptance warning', () => {
+  const { root } = acceptFixture({ merged: false });
+
+  const out = captureOutput();
+  assert.equal(check([ACCEPT_ID], root, out), 0, out.diagnostics.join('\n'));
+  assert.deepEqual(out.diagnostics, []);
+});
+
+test('20261018-131621 CR22: a change already stamped draws no acceptance warning', () => {
+  const { root } = acceptFixture({ doc: acceptDoc({ acceptedAt: '2026-10-18T10:00:00Z' }) });
+
+  const out = captureOutput();
+  assert.equal(check([ACCEPT_ID], root, out), 0, out.diagnostics.join('\n'));
+  assert.deepEqual(out.diagnostics, []);
+});
+
+test('20261018-131621 CR22: a change with no [branch] entry draws no acceptance warning', () => {
+  const { root } = acceptFixture({ doc: acceptDoc({ branchLine: '' }) });
+
+  const out = captureOutput();
+  assert.equal(check([ACCEPT_ID], root, out), 0, out.diagnostics.join('\n'));
+  assert.deepEqual(out.diagnostics, []);
+});
+
+test('20261018-131621 CR22: a rebound branch is read from the last [branch] entry', () => {
+  // The change started on `feature/abandoned`, which did land on dev, and was
+  // rebound to `feature/<id>`, which did not. Acceptance belongs to the branch
+  // the change is on now, so the abandoned merge must not claim it.
+  const { root, git } = acceptFixture({ merged: false });
+  git(['checkout', '-q', '-b', 'feature/abandoned', 'dev']);
+  fs.writeFileSync(path.join(root, 'abandoned.txt'), 'x\n');
+  git(['add', 'abandoned.txt']);
+  git(['commit', '-q', '-m', `feat(x): abandoned [#${ACCEPT_ID}]`]);
+  git(['checkout', '-q', 'dev']);
+  git(['merge', '--no-ff', '-q', '-m', 'merge abandoned', 'feature/abandoned']);
+
+  const file = path.join(root, '.changeledger', 'changes', `${ACCEPT_ID}-acceptance.md`);
+  fs.writeFileSync(
+    file,
+    fs
+      .readFileSync(file, 'utf8')
+      .replace(
+        `- **2026-10-18T14:45:55Z** \`[branch]\` set: feature/${ACCEPT_ID} (auto)`,
+        [
+          '- **2026-10-18T14:45:55Z** `[branch]` set: feature/abandoned (auto)',
+          `- **2026-10-18T14:45:55Z** \`[branch]\` set: feature/${ACCEPT_ID}`,
+        ].join('\n'),
+      ),
+  );
+
+  const out = captureOutput();
+  check([ACCEPT_ID], root, out);
+  assert.deepEqual(
+    out.diagnostics.filter((d) => d.includes('accepted')),
+    [],
+  );
+});
+
+test('20261018-131621 CR22: only a delivered change is reported as accepted', () => {
+  const { root } = acceptFixture({
+    doc: acceptDoc()
+      .replace('status: done', 'status: in-progress')
+      .replace('- **2026-10-18T14:45:56Z** `[status]` in-progress → done\n', '')
+      .replace('- [x] Ship it', '- [ ] Ship it')
+      .replace('  - **Resolved:** `2026-10-18T14:45:56Z`\n', ''),
+  });
+
+  const out = captureOutput();
+  check([ACCEPT_ID], root, out);
+  assert.deepEqual(
+    out.diagnostics.filter((d) => d.includes('accepted')),
+    [],
+  );
+});
+
+test('20261018-131621 CR22: a malformed integration branch is a config error, not a crash', () => {
+  const { root } = acceptFixture({
+    config: ACCEPT_CONFIG.replace('  integration_branch: dev', '  integration_branch: 42'),
+  });
+
+  const out = captureOutput();
+  assert.equal(check([ACCEPT_ID], root, out), 1);
+  assert.ok(
+    out.diagnostics.some((d) => d.includes('git.integration_branch')),
+    out.diagnostics.join('\n'),
+  );
+});
+
+test('20261018-131621 CR22: without a declared integration branch there is nothing to detect', () => {
+  const { root } = acceptFixture({
+    config: ACCEPT_CONFIG.replace('  integration_branch: dev\n', ''),
+  });
+
+  const out = captureOutput();
+  assert.equal(check([ACCEPT_ID], root, out), 0, out.diagnostics.join('\n'));
+  assert.deepEqual(out.diagnostics, []);
+});
+
+// The git-fed findings `check` already had (`checkUsageGitConfig`) are
+// repo-wide only; this one must reach a single named subject too, which is the
+// scope CR22 actually asks for. The sweep is pinned here so the warning cannot
+// later be moved behind that `!id` guard. (The fixture is a bare scratch repo,
+// so the sweep also reports the missing AGENTS.md — the exit code is not the
+// subject of this test.)
+test('20261018-131621 CR22: the repo-wide sweep reports acceptance too', () => {
+  const { root } = acceptFixture();
+
+  const out = captureOutput();
+  check([], root, out);
+  assert.ok(
+    out.diagnostics.some((d) => d.includes('accepted')),
+    out.diagnostics.join('\n'),
+  );
+});
+
+// 20261018-131621 CR10. Once `graduate` stamps `[validation] accepted (merged
+// <sha>)`, that event has no `from`/`to`. The sequence replay must step over
+// it: treating it as an unmodellable status would abandon the replay at the
+// line — and with it the frontmatter reconciliation that closes the document.
+test('20261018-131621 CR10: an accepted validation entry does not abandon the lifecycle replay', () => {
+  const log = [
+    '- **2026-06-13T12:01:00Z** `[status]` draft → approved',
+    '- **2026-06-13T12:02:00Z** `[status]` approved → in-progress',
+    '- **2026-06-13T12:03:00Z** `[status]` in-progress → in-review',
+    '- **2026-06-13T12:04:00Z** `[review]` in-review → done',
+    '- **2026-06-13T12:05:00Z** `[validation]` accepted (merged abc1234)',
+  ];
+  assert.deepEqual(msgs(run([versionLogChange('done', log)]).errors), []);
+  assert.match(
+    msgs(run([versionLogChange('approved', log)]).errors).join('\n'),
+    /Log reconstructs status "done" but frontmatter says "approved"/,
+  );
+  // And a defect recorded after the acceptance is still reported.
+  assert.match(
+    msgs(
+      run([
+        versionLogChange('done', [...log, '- **2026-06-13T12:06:00Z** `[status]` done → approved']),
+      ]).errors,
+    ).join('\n'),
+    /invalid lifecycle transition "done → approved"/,
+  );
+});
+
+// --- 20261019-184719 CR1: delivery from in-review needs a verdict ----------
+//
+// `review pass` made `in-review → done` a canonical edge, so the graph alone
+// can no longer tell a reviewed delivery from a hand-written `[status]` one.
+// These two documents differ in exactly that one tag.
+
+const VERDICT_ID = '20261019-000001';
+const VERDICT_CONFIG = `changes_dir: .changeledger/changes
+statuses: [draft, approved, in-progress, in-review, done, discarded]
+stages: [request, investigation, proposal, specification, plan, log]
+types:
+  feature:
+    stages: [request, specification, plan, log]
+    review_required: true
+`;
+
+function verdictDoc(deliveryLine, history = []) {
+  return [
+    '---',
+    `id: "${VERDICT_ID}"`,
+    'title: Delivery from review',
+    'type: feature',
+    'status: done',
+    'created: 2026-10-19T00:00:01Z',
+    'depends_on: []',
+    '---',
+    '',
+    '## Request',
+    '',
+    'r',
+    '',
+    '## Specification',
+    '',
+    '### CR1 — c',
+    '- **Given** a',
+    '- **When** b',
+    '- **Then** c',
+    '',
+    '## Plan',
+    '',
+    '- [x] Update `src/a.mjs`',
+    '  - **Target:** `src/a.mjs`',
+    '  - **Verify:** `node --test test/a.test.mjs`',
+    '  - **Criteria:** CR1',
+    '  - **Resolved:** `2026-10-19T00:10:00Z`',
+    '',
+    '## Log',
+    '',
+    '- **2026-10-19T00:01:00Z** `[status]` draft → approved',
+    '- **2026-10-19T00:02:00Z** `[status]` approved → in-progress',
+    '- **2026-10-19T00:03:00Z** `[status]` in-progress → in-review',
+    ...history,
+    deliveryLine,
+    '',
+  ].join('\n');
+}
+
+function verdictRepo(deliveryLine, history = []) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-verdict-'));
+  const changesDir = path.join(root, '.changeledger', 'changes');
+  fs.mkdirSync(changesDir, { recursive: true });
+  fs.writeFileSync(path.join(root, '.changeledger', 'config.yml'), VERDICT_CONFIG);
+  fs.writeFileSync(
+    path.join(changesDir, `${VERDICT_ID}-delivery.md`),
+    verdictDoc(deliveryLine, history),
+  );
+  return root;
+}
+
+test('20261019-184719 CR1: a [status] delivery from in-review fails check and names the verdict seat', () => {
+  const root = verdictRepo('- **2026-10-19T00:04:00Z** `[status]` in-review → done');
+
+  const out = captureOutput();
+  const code = check([VERDICT_ID], root, out);
+
+  assert.equal(code, 1, `expected a non-zero exit, got ${code}: ${out.diagnostics.join('\n')}`);
+  assert.ok(
+    out.diagnostics.some((d) => d.includes(`changeledger review ${VERDICT_ID} pass`)),
+    `expected the verdict seat to be named: ${out.diagnostics.join('\n')}`,
+  );
+});
+
+test('20261019-184719 CR1: the same delivery recorded as a [review] verdict exits 0', () => {
+  const root = verdictRepo('- **2026-10-19T00:04:00Z** `[review]` in-review → done');
+
+  const out = captureOutput();
+  const code = check([VERDICT_ID], root, out);
+
+  assert.equal(code, 0, out.diagnostics.join('\n'));
+});
+
+// --- 20261019-184719 CR3: the pending-acceptance warning reaches archived ---
+
+// A Log that lived through a retired status is the population CR1 was written
+// for: in the two consuming repos most of what is not archived names
+// `in-validation` or `blocked` somewhere in its Log. The replay abandons at
+// the first non-canonical status, so a gate that sat below that check was void
+// in exactly those documents.
+test('20261019-184719 CR1: a retired status earlier in the Log does not mask the delivery', () => {
+  const root = verdictRepo('- **2026-10-19T00:06:00Z** `[status]` in-review → done', [
+    '- **2026-10-19T00:04:00Z** `[status]` in-review → in-validation',
+    '- **2026-10-19T00:05:00Z** `[status]` in-validation → in-review',
+  ]);
+
+  const out = captureOutput();
+  const code = check([VERDICT_ID], root, out);
+
+  assert.equal(code, 1, `expected a non-zero exit, got ${code}: ${out.diagnostics.join('\n')}`);
+  assert.ok(
+    out.diagnostics.some((d) => d.includes(`changeledger review ${VERDICT_ID} pass`)),
+    `expected the verdict seat to be named: ${out.diagnostics.join('\n')}`,
+  );
+});
+
+test('20261019-184719 CR3: an archived done change with a merged branch is warned like a live one', () => {
+  const live = acceptFixture();
+  const liveOut = captureOutput();
+  check([ACCEPT_ID], live.root, liveOut);
+  const liveWarning = liveOut.diagnostics.find((d) => d.includes('accepted'));
+  assert.ok(liveWarning, 'the live subject must warn, otherwise this test proves nothing');
+
+  const archived = acceptFixture({
+    doc: acceptDoc().replace('status: done', 'status: done\narchived: true'),
+  });
+  const out = captureOutput();
+  check([ACCEPT_ID], archived.root, out);
+
+  const warning = out.diagnostics.find((d) => d.includes('accepted'));
+  assert.ok(warning, `expected the archived change to warn too: ${out.diagnostics.join('\n')}`);
+  // The two fixtures are independent git repos, so only the merge sha differs.
+  const withoutSha = (line) => line.replace(/merged [0-9a-f]{7,40}/, 'merged <sha>');
+  assert.equal(
+    withoutSha(warning),
+    withoutSha(liveWarning),
+    'the archived change must be named exactly as the live one',
+  );
+});
+
+// --- 20261019-184719 CR7: no legacy edge duplicates a canonical one --------
+//
+// The invariant, not the membership: `LEGACY_EDGES` exists only to tolerate
+// history the current graph refuses. An edge `TRANSITIONS` already allows does
+// no work there and hides which of the two authorities decided a replay.
+
+test('20261019-184719 CR7: every LEGACY_EDGES entry names canonical statuses and a non-canonical edge', () => {
+  const canonical = new Set(CANONICAL_STATUSES);
+  assert.ok(LEGACY_EDGES.size > 0, 'an empty allowance would make this vacuous');
+  for (const edge of LEGACY_EDGES) {
+    const [from, to] = edge.split('→');
+    assert.ok(
+      canonical.has(from) && canonical.has(to),
+      `legacy edge "${edge}" names a status the graph does not model`,
+    );
+    assert.equal(
+      canTransition(from, to),
+      false,
+      `legacy edge "${edge}" is already canonical in TRANSITIONS — it allows nothing`,
+    );
+  }
 });

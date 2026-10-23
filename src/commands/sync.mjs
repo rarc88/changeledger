@@ -23,17 +23,23 @@
 // is pushed. Publishing a local tip that is ahead runs none of them.
 //
 // It is never blocking. No remote, no remote ref, an unreachable remote or a
-// checkout that is not activated are informative no-ops with exit 0: no other
+// checkout that is not activated transport nothing and exit 0: no other
 // command consults `sync`, waits for it, or changes behavior when it has never
-// run. What it must never do is guess — a document that changed on both sides
+// run. "Transports nothing" is the whole of that promise — the acceptance seal
+// below is local reconciliation of the ledger, not publication, and runs in
+// whichever layout the repo operates in. What it must never do is guess — a document that changed on both sides
 // stops and reports, because the state ceiling puts automatic multi-source
 // conflict resolution outside the tool.
 
 import path from 'node:path';
+import { writeLedgerFiles } from '../change-store.mjs';
+import { pendingAcceptances } from '../check.mjs';
 import { findChangeledgerDir } from '../config.mjs';
 import { VERSION } from '../framing.mjs';
 import { capturedRun, isAncestor } from '../git.mjs';
 import { treeEntries } from '../git-batch.mjs';
+import { nowUtc } from '../paths.mjs';
+import { loadRepo } from '../repo.mjs';
 import {
   advanceStateRef,
   commitMergedState,
@@ -44,6 +50,7 @@ import {
   STATE_ROOT,
 } from '../state-store.mjs';
 import { assertCliAdmitted } from '../version-guard.mjs';
+import { appendLogEvent, setAcceptedAt } from '../writer.mjs';
 
 // The branch name the state ref carries inside `refs/heads/`, and therefore the
 // suffix of its remote-tracking copy under `refs/remotes/<remote>/`.
@@ -283,6 +290,71 @@ function publishedTrackingRef(repoRoot, run) {
   return optionalRefOid(repoRoot, ref, run) === null ? null : { remote, ref };
 }
 
+// A ledger `loadRepo` cannot parse is a defect `check` reports and `sync` has
+// never had an opinion about: it moved refs without reading a single document.
+// Reading one now must not make a malformed spec the reason a journal can no
+// longer travel, so the read — and only the read — degrades to a warning. A
+// write that then fails is the seal's own problem and propagates.
+function readableRepo(cwd, output, run) {
+  try {
+    return loadRepo(cwd, { run });
+  } catch (error) {
+    output.warn(
+      `Warning: could not read the ledger to seal pending acceptances (${error.message}) — run \`changeledger check\`. Nothing else about this sync changes.`,
+    );
+    return null;
+  }
+}
+
+// The acceptance `graduate` could not reach. `sealAcceptance` consults the
+// merge at graduation time and nothing retries it afterwards, so a branch that
+// lands on the integration branch AFTER the graduation leaves `accepted_at`
+// unstamped forever — `check` then warns about it on every run with no seat
+// able to clear the warning. `sync` is the only command that runs for the
+// ledger as a whole rather than to advance one named change, so the retry
+// belongs here.
+//
+// Telemetry, never a gate, exactly as at graduation: `pendingAcceptances`
+// resolves every git uncertainty to "not pending" (no recorded branch, no
+// declared or malformed integration branch, a branch deleted or never
+// fetched), so a repo seals nothing rather than failing. Detection reads local
+// refs only — no remote is consulted — which is why this runs BEFORE the
+// remote is resolved: a repo with no remote publishes nothing and still seals.
+// For the same reason it runs before the activation gate: the defect is a
+// property of the ledger, not of the transport, and a worktree-layout repo
+// — which is what a repo that never ran `cutover` is — would otherwise be the
+// one layout where the warning can never clear. `writeLedgerFiles` already
+// routes the write to worktree files when there is no snapshot.
+//
+// Archived changes are sealed too, by the same reasoning `pendingAcceptances`
+// documents: in the very case this exists for, the merge lands after the
+// archive, so the stamp records a new, git-derived fact instead of rewriting
+// a finished deliberation. It appends, never rewrites — but `appendLogEvent`
+// also stamps the CLI version when the document's last one is older, so a
+// change sealed under a newer CLI gains that line too, exactly as it would at
+// graduation.
+function sealPendingAcceptances(cwd, output, run) {
+  const repo = readableRepo(cwd, output, run);
+  if (repo === null) return;
+  const pending = pendingAcceptances(repo.repoRoot, repo, run);
+  if (pending.length === 0) return;
+
+  const at = nowUtc();
+  const entries = pending.map(({ change, record }) => ({
+    file: change.file,
+    relPath: `changes/${change.name}`,
+    text: appendLogEvent(setAcceptedAt(change.text, record.at), {
+      at,
+      type: 'validation',
+      outcome: 'accepted',
+      sha: record.sha,
+    }),
+  }));
+  const sealed = pending.map(({ change, record }) => `${change.frontmatter.id} (${record.sha})`);
+  writeLedgerFiles(repo, entries, { message: `seal: acceptance for ${sealed.join(', ')}`, run });
+  output.log(`Sealed the acceptance of ${sealed.join(', ')}.`);
+}
+
 export function sync(
   { status = false } = {},
   cwd = process.cwd(),
@@ -297,12 +369,25 @@ export function sync(
     );
   }
   const repoRoot = path.dirname(changeledgerDir);
+  const activated = resolveOwnedActivation(repoRoot, run) !== null;
+
+  // The seal is above the activation gate because it reconciles the local
+  // ledger rather than publishing state, and the repos that need it most are
+  // the ones still on the worktree layout. Two exclusions. `--status` is a
+  // freshness report that writes nothing by definition. And a checkout holding
+  // the state ref without having adopted it has two candidate homes for the
+  // write and no basis to choose between them, so it seals nothing and says
+  // only what it has always said.
+  let local = readStateRef(repoRoot, run);
+  if (!status && (activated || local === null)) {
+    sealPendingAcceptances(cwd, output, run);
+    local = readStateRef(repoRoot, run);
+  }
 
   // Activation is the local checkout's own decision and never travels with the
   // ref: a fetch must not be able to change how a repo operates. So an
   // unactivated checkout is told what the manual step is and nothing else.
-  const local = readStateRef(repoRoot, run);
-  if (resolveOwnedActivation(repoRoot, run) === null) {
+  if (!activated) {
     if (local !== null) {
       output.log(
         `${STATE_REF} is present but this checkout is not activated — run \`changeledger activate\` to adopt it. sync changed nothing.`,

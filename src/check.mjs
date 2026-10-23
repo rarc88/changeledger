@@ -6,7 +6,7 @@
 // repository loading and printing.
 
 import { marked } from 'marked';
-import { parseChange } from './change.mjs';
+import { childrenOpenError, parseChange } from './change.mjs';
 import {
   changeBranchFormat,
   integrationBranch,
@@ -18,6 +18,7 @@ import {
   usageCollector,
 } from './config.mjs';
 import { hasFixableDefects } from './fix.mjs';
+import { mergeRecord } from './git.mjs';
 import { CANONICAL_STATUSES, canTransition, LOG_EVENT_TYPES, parseLogEvent } from './lifecycle.mjs';
 import { compareVersions, parseVersion, RELEASE_IMPACTS } from './release.mjs';
 import {
@@ -90,7 +91,83 @@ export function checkUsageGitConfig(repoRoot, run) {
   }
 }
 
+// Every `done` change whose acceptance git already proves while `accepted_at`
+// is still unstamped, paired with the merge that proves it. Single authority
+// for the predicate: `check` turns each entry into a warning and `sync` turns
+// each into the stamp, so the two can never disagree about which changes are
+// pending.
+//
+// Like `checkUsageGitConfig`, this needs the filesystem, so it stays out of
+// the pure `checkRepo`: the callers feed it the repo they loaded. The branch
+// comes from the change's own `[branch]` record, never from the checkout, and
+// every uncertainty (no branch, no declared integration branch, a branch
+// deleted or never fetched) resolves to "not pending".
+//
+// Archived changes are subjects here, unlike in the per-document loop
+// (20261019-184719 CR3). The frozen-history rule exempts what could only be
+// "fixed" by rewriting finished work; this is the opposite case — the merge
+// that proves acceptance routinely lands AFTER the graduation that archived
+// the change, so the datum is new, derived from git, and append-only.
+// Skipping them would make the warning permanently unclearable.
+export function pendingAcceptances(repoRoot, { config, changes = [] }, run) {
+  let integration;
+  try {
+    integration = integrationBranch(config);
+  } catch {
+    return []; // checkConfig already reports a malformed git.integration_branch
+  }
+  // No `if (!integration) return []` short-circuit: `mergeRecord` is the single
+  // authority on what counts as undetectable, and an undeclared integration
+  // branch resolves there without a subprocess.
+
+  const pending = [];
+  for (const change of changes) {
+    const fm = change.frontmatter ?? {};
+    if (fm.status !== 'done' || fm.accepted_at) continue;
+    const record = mergeRecord(repoRoot, recordedBranch(change), integration, run);
+    if (record) pending.push({ change, record, integration });
+  }
+  return pending;
+}
+
+// Acceptance is telemetry, not a gate: `graduate` stamps `accepted_at` from
+// the merge and `sync` seals what it could not reach, while `check` only ever
+// says it is missing. It must stay a WARNING that never writes — `check` runs
+// inside the versioned `hooks/pre-commit` and in CI, where a document rewrite
+// is not an option and a non-zero exit would turn a merge that simply has not
+// been graduated yet into a broken build.
+export function checkPendingAcceptance(repoRoot, repo, run) {
+  return pendingAcceptances(repoRoot, repo, run).map(({ change, record, integration }) => ({
+    file: change.name ?? '(repo)',
+    // `sync` is the seat that clears this for every subject, graduated or not;
+    // `graduate` can only seal a change whose graduation is still pending.
+    message: `accepted in ${integration} (merged ${record.sha}) but accepted_at is not stamped — run \`changeledger sync\``,
+  }));
+}
+
+// The branch a change was worked on, as its Log records it: the LAST
+// `[branch]` event wins, because rebinding is legal and `cleared` means the
+// change has no branch again.
+export function recordedBranch(c) {
+  const log = (c.stages ?? []).find((s) => s.key === 'log');
+  if (!log) return null;
+  let branch = null;
+  for (const line of log.body.split('\n')) {
+    const event = parseLogEvent(line);
+    if (event?.type === 'branch') branch = event.branch;
+  }
+  return branch;
+}
+
 const TERMINAL_STATUSES = ['done', 'discarded'];
+
+// Statuses removed from the lifecycle (20261018-131621). Only a live document
+// can still carry one — frozen history is never a subject — so the diagnostic
+// names the hand edit that resolves it instead of a generic unknown status.
+const RETIRED_STATUS_FIXES = {
+  'in-validation': 'move it to "done" or "in-progress"',
+  blocked: 'move it to "in-progress" and record a [!] task',
+};
 
 // `checkConfig` already reports a malformed `git.release_branch`, so it reads
 // here as "nothing to add" rather than as a second error on every change.
@@ -137,7 +214,7 @@ export function checkRepo({ config, changes, specs = [], releases = [], usage = 
   const counts = { validated: targets.length, notValidated: scoped.length - targets.length };
 
   const knownIds = new Set(changes.map((c) => String(c.frontmatter?.id ?? '')).filter(Boolean));
-  const incomingRelations = relatedBacklinks(changes);
+  const incomingRelations = declaredBacklinks(changes);
 
   for (const c of targets) {
     const fm = c.frontmatter ?? {};
@@ -161,7 +238,9 @@ export function checkRepo({ config, changes, specs = [], releases = [], usage = 
     if (fm.type && !types[fm.type]) {
       err(c, `unknown type "${fm.type}"; valid types: ${Object.keys(types).join(', ')}`);
     }
-    if (fm.status && !statuses.includes(fm.status)) {
+    if (RETIRED_STATUS_FIXES[fm.status]) {
+      err(c, `status "${fm.status}" is retired: ${RETIRED_STATUS_FIXES[fm.status]}`);
+    } else if (fm.status && !statuses.includes(fm.status)) {
       err(c, `unknown status "${fm.status}"; valid statuses: ${statuses.join(', ')}`);
     }
     // A change of a release type that no declared branch can host is stuck: its
@@ -173,6 +252,12 @@ export function checkRepo({ config, changes, specs = [], releases = [], usage = 
     }
     if ('depends_on' in fm && !Array.isArray(fm.depends_on)) err(c, 'depends_on must be a list');
     if ('related_to' in fm && !Array.isArray(fm.related_to)) err(c, 'related_to must be a list');
+    if ('parent' in fm) {
+      if (Array.isArray(fm.parent)) err(c, 'parent must be a single change id, not a list');
+      else if (typeof fm.parent !== 'string' || !ID_FORM.test(fm.parent)) {
+        err(c, `parent "${fm.parent}" is not a change id`);
+      }
+    }
     if ('archived' in fm && typeof fm.archived !== 'boolean') err(c, 'archived must be a boolean');
     if ('reviewed' in fm && typeof fm.reviewed !== 'boolean') err(c, 'reviewed must be a boolean');
     if ('release_impact' in fm && !RELEASE_IMPACTS.includes(fm.release_impact)) {
@@ -218,11 +303,9 @@ export function checkRepo({ config, changes, specs = [], releases = [], usage = 
       const pending = tasks.filter((t) => t.state !== 'done').length;
       err(c, `status is "done" but ${pending} task(s) are not done`);
     }
-    if (fm.status === 'blocked' && tasks.length && !tasks.some((t) => t.state === 'blocked')) {
-      warn(c, 'status is "blocked" but no task is marked [!]');
-    }
 
     checkCoverage(c, fm, active, config, { warn, err, asStatus: opts.asStatus });
+    checkDeliveryVerdict(c, fm, err);
     checkLifecycleSequence(c, fm, err);
     checkUnclassifiedMentions(c, knownIds, incomingRelations, warn);
   }
@@ -274,6 +357,9 @@ export function checkRepo({ config, changes, specs = [], releases = [], usage = 
     }
   }
 
+  checkParents(changes, ids, err);
+  checkChildrenResolved(changes, err);
+
   const cycle = findCycle(graph);
   if (cycle) err(null, `dependency cycle: ${cycle.join(' → ')}`);
 
@@ -318,18 +404,26 @@ function usageRecordIssue({ name, record, error }) {
   return null;
 }
 
-function relatedBacklinks(changes) {
+// Every declared structural link that points AT a change, so naming its own
+// counterpart in prose is not an undeclared mention. `related_to` was exempt
+// in both directions and `parent` only in the child's, so an epic naming its
+// own child warned — and the remedy the warning names is `depends_on` or
+// `related_to`, the transitive edge this grouping exists to avoid
+// (20261020-172221 D3a).
+function declaredBacklinks(changes) {
   const incoming = new Map();
+  const add = (target, source) => {
+    if (target.includes(':')) return;
+    if (!incoming.has(target)) incoming.set(target, new Set());
+    incoming.get(target).add(source);
+  };
   for (const change of changes) {
     const source = String(change.frontmatter?.id ?? '');
+    if (!source) continue;
     const relations = change.frontmatter?.related_to;
-    if (!source || !Array.isArray(relations)) continue;
-    for (const raw of relations) {
-      const target = String(raw);
-      if (target.includes(':')) continue;
-      if (!incoming.has(target)) incoming.set(target, new Set());
-      incoming.get(target).add(source);
-    }
+    if (Array.isArray(relations)) for (const raw of relations) add(String(raw), source);
+    const parent = change.frontmatter?.parent;
+    if (typeof parent === 'string') add(parent, source);
   }
   return incoming;
 }
@@ -349,14 +443,100 @@ function textOutsideFences(text) {
   return visible.join('\n');
 }
 
-export function specDurabilityIssue(body) {
-  let criterion;
+// One message per heading, each naming only its own criterion: the admission
+// diff keys errors by file and message, so a rewrite that removes one heading
+// must remove exactly one message and leave the others' text unchanged.
+export function specDurabilityIssues(body) {
+  const issues = [];
   marked.walkTokens(marked.lexer(String(body ?? '')), (token) => {
-    if (criterion || token.type !== 'heading') return;
-    criterion = String(token.text).match(/^(CR\d+)\b/)?.[1];
+    if (token.type !== 'heading') return;
+    const criterion = String(token.text).match(/^(CR\d+)\b/)?.[1];
+    if (criterion) {
+      issues.push(
+        `spec contains change-local criterion heading "${criterion}"; rewrite it as durable current truth`,
+      );
+    }
   });
-  if (!criterion) return null;
-  return `spec contains change-local criterion heading "${criterion}"; rewrite it as durable current truth`;
+  return issues;
+}
+
+// `parent` is the grouping edge, and it is deliberately NOT a second entry into
+// the relation graph above. `depends_on` and `related_to` are transitive by
+// nature — chained, `related_to` collapses two thirds of a real repo into one
+// component, which is why asking what belongs to an epic has no answer today.
+// So this edge is validated on its own and never joins `graph`: sharing a
+// parent connects nothing, and a parent needs no backlink.
+//
+// Two levels, not a tree. A parent that may itself have a parent is the same
+// transitive structure again, one field along. Walking upward catches both
+// defects with one traversal, and the two are reported apart because the fix
+// differs: a cycle is a contradiction, a third level is a modelling choice the
+// human has to make.
+// The closure invariant as a repo rule, not only as a write-seat guard:
+// `apply` validates its accumulated candidate through `checkRepo`, so an entry
+// order that closes the parent before the child exists is caught all the same
+// (20261020-172221 D2). The write seats keep their own fail-fast guard, which
+// refuses before any in-memory mutation and names the fix.
+//
+// Repo-wide, NOT a per-document diagnostic: the first cut put it in the
+// subject loop, where it inherited the frozen-history exemption, so archiving
+// an epic turned a red repo green and every creation seat then accepted new
+// children under it. The exemption exists because a diagnostic about finished
+// work could only be fixed by rewriting it — and that is not this case: the
+// fix is to resolve the child, which is live. `frozenReason`'s own comment
+// already says a frozen change stays DATA for every repo-wide invariant.
+function checkChildrenResolved(changes, err) {
+  for (const c of changes) {
+    if (c.frontmatter?.status !== 'done') continue;
+    const message = childrenOpenError(changes, c.frontmatter.id);
+    if (message) err(c, message);
+  }
+}
+
+function checkParents(changes, ids, err) {
+  const parentOf = new Map();
+  for (const c of changes) {
+    const id = c.frontmatter?.id;
+    const parent = c.frontmatter?.parent;
+    if (id && typeof parent === 'string') parentOf.set(String(id), String(parent));
+  }
+  for (const c of changes) {
+    if (frozenReason(c) !== null) continue;
+    const id = String(c.frontmatter?.id ?? '');
+    const parent = parentOf.get(id);
+    if (parent === undefined) continue;
+    // A malformed value is already reported once as a shape error; reading it
+    // as a reference too would charge one defect two diagnostics.
+    if (!ID_FORM.test(parent)) continue;
+    if (parent === id) {
+      err(c, `parent cannot reference its own change "${parent}"`);
+      continue;
+    }
+    if (!ids.has(parent)) {
+      err(c, `parent references missing change "${parent}"`);
+      continue;
+    }
+    if (!parentOf.has(parent)) continue;
+    // The parent has a parent of its own, which breaks the two levels. Which
+    // way it breaks them is decided by where the walk upward ends: back at this
+    // change is a cycle of any length, anywhere else is a third level. The two
+    // need different fixes — a cycle is a contradiction, a third level is a
+    // modelling choice — so they are never reported as each other.
+    const chain = new Set([id]);
+    let cursor = parent;
+    while (cursor !== undefined && !chain.has(cursor)) {
+      chain.add(cursor);
+      cursor = parentOf.get(cursor);
+    }
+    if (cursor === id) {
+      err(c, `parent cycle: ${[...chain, id].join(' → ')}`);
+    } else {
+      err(
+        c,
+        `parent "${parent}" declares a parent of its own: the hierarchy is two levels, an epic and its children`,
+      );
+    }
+  }
 }
 
 function checkUnclassifiedMentions(change, knownIds, incomingRelations, warn) {
@@ -368,6 +548,7 @@ function checkUnclassifiedMentions(change, knownIds, incomingRelations, warn) {
     [
       ...(Array.isArray(fm.depends_on) ? fm.depends_on : []),
       ...(Array.isArray(fm.related_to) ? fm.related_to : []),
+      ...(typeof fm.parent === 'string' ? [fm.parent] : []),
       ...(incomingRelations.get(ownId) ?? []),
     ].map(String),
   );
@@ -424,6 +605,15 @@ export function newErrors(baseline, candidate) {
     }
     return true;
   });
+}
+
+// The admission rule of the document write seats (20261022-213751): the
+// `check` errors of `candidate`, a whole repo with the write in place, that
+// `repo` does not already carry. `new`, `new --from`, `edit <id>`,
+// `edit spec:` and `apply` gate on this one diff, and so does the standalone
+// `task` command (20261023-094931).
+export function introducedErrors(repo, candidate) {
+  return newErrors(checkRepo(repo).errors, checkRepo(candidate).errors);
 }
 
 function errorKey(e) {
@@ -603,8 +793,7 @@ function checkSpecs(changes, specs, changeIds, err, warn) {
 
   for (const s of specs) {
     const fm = s.frontmatter ?? {};
-    const durabilityIssue = specDurabilityIssue(s.body);
-    if (durabilityIssue) err(s, durabilityIssue);
+    for (const issue of specDurabilityIssues(s.body)) err(s, issue);
     if (fm.updated && !ISO_UTC.test(fm.updated)) err(s, `updated not ISO 8601 UTC: ${fm.updated}`);
 
     let graduatedFrom = [];
@@ -673,14 +862,55 @@ function checkConflictMarkers(c, err) {
 // `in-validation` became the universal human gate) stays readable without
 // relaxing the current graph for new work (20260630-225210 CR3). Two bounded
 // allowances, both covered by fixtures mirroring real history:
-// - LEGACY_EDGES: closing/skipping edges old flows wrote literally.
+// - LEGACY_EDGES: skipping edges old flows wrote literally and `TRANSITIONS`
+//   still refuses. An edge the graph has since adopted does no work here and
+//   only hides which of the two authorities admitted a replay, so it is
+//   removed: `in-review → done` and `in-progress → done` both became canonical
+//   with the retirement of `in-validation` (20261019-184719 CR7).
 // - Gap resync: old writers did not log every early move (draft → approved,
 //   approved → in-progress). An explicit `status:` origin may fast-forward the
 //   reconstruction, but only forward and only across pre-review states —
 //   implied review/validation origins always require the exact sequence.
-const LEGACY_EDGES = new Set(['in-review→done', 'in-progress→done', 'draft→in-progress']);
+export const LEGACY_EDGES = new Set(['draft→in-progress']);
 const LEGACY_RESYNC_RANK = { draft: 0, approved: 1, 'in-progress': 2 };
 const CANONICAL = new Set(CANONICAL_STATUSES);
+
+// The exit from review belongs to the reviewer's verdict. `review pass` made
+// `in-review → done` canonical (20261018-131621), which cost the replay its
+// only way to tell a reviewed delivery from a `[status]` one. The command
+// seats refuse the `[status]` form (`statusMutation`); this is the same
+// refusal for the hand-edited document `spec.md` declares a legitimate path,
+// and the normal one in the consuming repos.
+//
+// Its own pass, not a step of the replay: the replay abandons the document at
+// the first status it cannot model, and a Log that lived through
+// `in-validation` is exactly where a hand-edited delivery would hide. Inside
+// the replay this gate was void in every such document, which is most of what
+// is still in flight in the repos that lived through the retirement.
+function checkDeliveryVerdict(c, fm, err) {
+  // Only a delivered document, which is CR1's own Given. Wider, the diagnostic
+  // would name `review <id> pass` on a change that is no longer in review, so
+  // the remedy it prints could not be taken.
+  if (fm.status !== 'done') return;
+  let inLog = false;
+  const lines = (c.text ?? '').split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    if (/^##\s/.test(lines[i])) {
+      inLog = /^##\s+Log\s*$/.test(lines[i]);
+      continue;
+    }
+    if (!inLog) continue;
+    const event = parseLogEvent(lines[i]);
+    if (!event || event.type === 'review') continue;
+    if (event.from === 'in-review' && event.to === 'done') {
+      err(
+        c,
+        `Log line ${i + 1}: the review verdict delivers a change in review: use \`changeledger review ${fm.id} pass\``,
+      );
+      return;
+    }
+  }
+}
 
 // Replays `## Log` lifecycle events from `draft` against the transition graph
 // in lifecycle.mjs. Stops at the first inconsistency to avoid cascading noise.
@@ -709,6 +939,10 @@ function checkLifecycleSequence(c, fm, err) {
       continue;
     }
     if (!['status', 'review', 'validation'].includes(event.type)) continue;
+    // `[validation] accepted (merged <sha>)` is acceptance telemetry, not a
+    // move: it records no origin, so it is skipped rather than read as an
+    // unmodellable status, which would abandon the replay at that line.
+    if (event.outcome === 'accepted') continue;
     if (!CANONICAL.has(event.from) || !CANONICAL.has(event.to)) return;
     events += 1;
     if (event.from !== current) {
@@ -899,21 +1133,6 @@ function checkConfig(config, err) {
   }
   const minCliVersionError = minCliVersionDeclarationError(c);
   if (minCliVersionError) err(null, minCliVersionError);
-  if (
-    Array.isArray(c.statuses) &&
-    c.statuses.includes('done') &&
-    !c.statuses.includes('in-validation')
-  ) {
-    err(null, 'config statuses must include "in-validation" before "done"');
-  }
-  if (
-    Array.isArray(c.statuses) &&
-    c.statuses.includes('in-validation') &&
-    c.statuses.includes('done') &&
-    c.statuses.indexOf('in-validation') > c.statuses.indexOf('done')
-  ) {
-    err(null, 'config status "in-validation" must appear before "done"');
-  }
   // changes_dir/specs_dir must stay inside the repo. The pure checker catches
   // shape escapes (absolute paths, `..` traversal); the symlink case is enforced
   // at command time by resolveRepoPath, which needs IO.

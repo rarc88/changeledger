@@ -1,8 +1,7 @@
 // The change lifecycle as an explicit, testable graph — the single authority on
 // which status moves are legal. Shared by the CLI (`changeledger status`) and the viewer
 // so both decide validity the same way. The viewer layers an extra human-only
-// policy on top (approval plus final acceptance); it never relaxes
-// this graph.
+// policy on top (approval); it never relaxes this graph.
 
 import { isValidCliVersion } from './cli-version.mjs';
 
@@ -11,26 +10,22 @@ export const CANONICAL_STATUSES = [
   'approved',
   'in-progress',
   'in-review',
-  'in-validation',
-  'blocked',
   'done',
   'discarded',
 ];
 
-// from → set of allowed next states. Forward progress plus the blocked round
-// trip and the review/validation gates; regressions, skips and self-loops are
-// absent and therefore rejected. `in-review` is optional by type;
-// `in-validation` is the universal human gate before done. Review or validation
-// may route back to in-progress, while review may also block. `discarded` is a
-// terminal tombstone reachable only before either closing gate. `done` has one
-// policy-gated provisional reopen edge; generic status commands do not own it.
+// from → set of allowed next states. Forward progress plus the review gate;
+// regressions, skips and self-loops are absent and therefore rejected.
+// `in-review` is optional by type: a `review_required` type delivers through
+// it, any other delivers straight from in-progress. `done` means "delivered,
+// pending human acceptance" — review may instead route back to in-progress,
+// and so may `done` while the change is not yet published in a release.
+// `discarded` is a terminal tombstone reachable only before delivery.
 const TRANSITIONS = {
   draft: ['approved', 'discarded'],
   approved: ['in-progress', 'discarded'],
-  'in-progress': ['in-review', 'in-validation', 'blocked', 'discarded'],
-  'in-review': ['in-validation', 'in-progress', 'blocked'],
-  'in-validation': ['done', 'in-progress'],
-  blocked: ['in-progress', 'discarded'],
+  'in-progress': ['in-review', 'done', 'discarded'],
+  'in-review': ['done', 'in-progress'],
   done: ['in-progress'],
   discarded: [],
 };
@@ -45,11 +40,10 @@ export function canTransition(from, to) {
 // repo with custom statuses keeps the prior enum-only behavior, since this graph
 // cannot reason about states it does not model.
 //
-// The review gate, symmetric on both sides: a `review_required` type cannot skip
-// from in-progress to human validation, and a type without it cannot enter
-// review at all — it activates neither `specification` nor `plan`, so a reviewer
-// would have no criterion and no task to inspect. All canonical changes must
-// pass through `in-validation` before done. `opts.reviewRequired` comes from the
+// The review gate, symmetric on both sides: a `review_required` type cannot
+// deliver straight from in-progress, and a type without it cannot enter review
+// at all — it activates neither `specification` nor `plan`, so a reviewer would
+// have no criterion and no task to inspect. `opts.reviewRequired` comes from the
 // change's type in config.yml.
 export function assertTransition(from, to, { type, reviewRequired = false } = {}) {
   if (!canonical.has(from) || !canonical.has(to)) return;
@@ -57,25 +51,33 @@ export function assertTransition(from, to, { type, reviewRequired = false } = {}
   if (!canTransition(from, to)) {
     throw new Error(`invalid lifecycle transition: ${from} → ${to}`);
   }
-  if (reviewRequired && from === 'in-progress' && to === 'in-validation') {
+  if (reviewRequired && from === 'in-progress' && to === 'done') {
     const subject = type ? `${type} changes` : 'changes';
-    throw new Error(`${subject} must be reviewed before validation — move to in-review first`);
+    throw new Error(`${subject} must be reviewed before delivery — move to in-review first`);
   }
   if (!reviewRequired && from === 'in-progress' && to === 'in-review') {
     if (!type) {
       throw new Error('cannot decide review entry: the change declares no type');
     }
-    throw new Error(`${type} changes do not require review — move to in-validation instead`);
+    throw new Error(`${type} changes do not require review — move to done instead`);
   }
 }
 
 export const REVIEW_VERDICTS = ['pass', 'fail'];
-export const VALIDATION_VERDICTS = ['pass', 'fail'];
 export const TASK_ACTIONS = ['done', 'block'];
 
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
 const LOG_EVENT = /^- \*\*([^*]+)\*\* `\[([a-z]+)\]`(?: (.*))?$/;
 const TRANSITION_PAYLOAD = /^([a-z-]+) → ([a-z-]+)(?: \(([^)]*)\))?(?:: ([\s\S]+))?$/;
+// The merge-derived acceptance arm of `[validation]`. A short sha only: the
+// payload is read back by tooling, so it carries the identity of the merge
+// and nothing a human might paraphrase.
+const ACCEPTED_PAYLOAD = /^accepted \(merged ([0-9a-f]{7,40})\)$/;
+
+function parseAcceptedPayload(payload) {
+  const accepted = payload.match(ACCEPTED_PAYLOAD);
+  return accepted ? { outcome: 'accepted', sha: accepted[1] } : null;
+}
 
 function parseTransitionPayload(payload, type) {
   const transition = payload.match(TRANSITION_PAYLOAD);
@@ -129,15 +131,22 @@ export const LOG_EVENT_DEFINITIONS = Object.freeze({
   }),
   review: Object.freeze({
     form: 'in-review → <to> [(detail)] [: reason]',
-    canonicalPayload: 'in-review → in-validation',
+    canonicalPayload: 'in-review → done',
     transition: true,
     parse: (payload) => parseTransitionPayload(payload, 'review'),
   }),
+  // Acceptance keeps one event type across the two eras (20261018-131621
+  // CR10). `accepted (merged <sha>)` is what `graduate` stamps now that
+  // acceptance is a datum derived from the merge; the `in-validation → <to>`
+  // arm is the retired gate's, and must keep parsing or every historical
+  // acceptance line in the archive turns into an "invalid typed event"
+  // diagnostic.
   validation: Object.freeze({
-    form: 'in-validation → <to> [(detail)] [: reason]',
+    form: 'in-validation → <to> [(detail)] [: reason] | accepted (merged <sha>)',
     canonicalPayload: 'in-validation → done',
     transition: true,
-    parse: (payload) => parseTransitionPayload(payload, 'validation'),
+    parse: (payload) =>
+      parseAcceptedPayload(payload) ?? parseTransitionPayload(payload, 'validation'),
   }),
   owner: Object.freeze({
     form: 'set: <owner> [(auto)] | cleared',
@@ -201,7 +210,9 @@ export function serializeLogEvent(event) {
   const type = String(event?.type ?? '');
   let payload;
 
-  if (['status', 'review', 'validation'].includes(type)) {
+  if (type === 'validation' && event.outcome === 'accepted') {
+    payload = `accepted (merged ${event.sha})`;
+  } else if (['status', 'review', 'validation'].includes(type)) {
     payload = `${event.from} → ${event.to}`;
     if (event.detail) payload += ` (${event.detail})`;
     if (event.reason) payload += `: ${event.reason}`;

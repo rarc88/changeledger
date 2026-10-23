@@ -1059,3 +1059,282 @@ test('20261012-141809 CR6: a reconciliation does not publish a rewritten usage r
   assert.equal(refOid(a, STATE_REF), localTip, 'the local state ref must keep its oid');
   assert.equal(refOid(remote, STATE_REF), rewritten, 'the remote must not change');
 });
+
+// --- 20261019-184719 CR2: sync seals the acceptance graduation missed ------
+//
+// `sealAcceptance` reads the merge at graduation time and nothing retries it,
+// so a branch that lands AFTER the graduation leaves `accepted_at` unstamped
+// forever. These fixtures reproduce exactly that order, in a repo with no
+// remote at all: publishing is a no-op there, merge detection is local.
+
+const SEAL_ID = '20261019-000002';
+
+const SEAL_STATE_CONFIG = `project_id: fixture01
+changes_dir: .changeledger/changes
+statuses: [draft, approved, in-progress, in-review, done, discarded]
+stages: [request, log]
+git:
+  integration_branch: main
+types:
+  quick:
+    stages: [request, log]
+`;
+
+function sealChangeText({ accepted = false, archived = false } = {}) {
+  return [
+    '---',
+    `id: "${SEAL_ID}"`,
+    'title: Delivered before its branch landed',
+    'type: quick',
+    'status: done',
+    ...(archived ? ['archived: true'] : []),
+    'created: 2026-10-19T00:00:02Z',
+    'depends_on: []',
+    ...(accepted ? ['accepted_at: 2026-10-19T00:00:00Z'] : []),
+    `branch: feature/${SEAL_ID}`,
+    '---',
+    '',
+    '## Request',
+    '',
+    'Graduated while the branch was still open.',
+    '',
+    '## Log',
+    '',
+    '- **2026-10-19T00:01:00Z** `[status]` draft → approved',
+    '- **2026-10-19T00:02:00Z** `[status]` approved → in-progress',
+    `- **2026-10-19T00:03:00Z** \`[branch]\` set: feature/${SEAL_ID} (auto)`,
+    '- **2026-10-19T00:04:00Z** `[status]` in-progress → done',
+    '- **2026-10-19T00:05:00Z** `[graduation]` skipped',
+    '',
+  ].join('\n');
+}
+
+// An activated repo with NO remote, holding one `done` change whose branch
+// `merged` decides was landed on the integration branch after the graduation.
+function sealFixture({ merged = true, text = sealChangeText() } = {}) {
+  const { root } = activatedRepo({
+    files: defaultStateFiles({
+      projectId: 'fixture01',
+      extra: {
+        '.changeledger-state/config.yml': SEAL_STATE_CONFIG,
+        '.changeledger-state/specs/demo-spec.md': ledgerSpecText(),
+        [`.changeledger-state/changes/${SEAL_ID}-sealed.md`]: text,
+      },
+    }),
+  });
+  git(root, ['checkout', '-q', '-b', `feature/${SEAL_ID}`, 'main']);
+  fs.writeFileSync(path.join(root, 'work.txt'), 'work\n');
+  git(root, ['add', 'work.txt']);
+  git(root, ['commit', '-q', '-m', `fix(x): work [#${SEAL_ID}]`]);
+  git(root, ['checkout', '-q', 'main']);
+  if (merged) {
+    git(root, ['merge', '--no-ff', '-q', '-m', `merge [#${SEAL_ID}]`, `feature/${SEAL_ID}`]);
+  }
+  return root;
+}
+
+function sealedDocument(root) {
+  return git(root, ['show', `${STATE_REF}:.changeledger-state/changes/${SEAL_ID}-sealed.md`]);
+}
+
+// The merge commit's own instant, in the ISO form `accepted_at` carries.
+function mergeInstant(root) {
+  const seconds = Number(git(root, ['log', '-1', '--format=%ct', 'main']));
+  return new Date(seconds * 1000).toISOString().replace(/\.\d{3}Z$/, 'Z');
+}
+
+function mergeShortSha(root) {
+  return git(root, ['log', '-1', '--format=%H', 'main']).slice(0, 7);
+}
+
+test('20261019-184719 CR2: sync seals a pending acceptance in a repo with no remote', () => {
+  const root = sealFixture();
+  assert.equal(git(root, ['remote']), '', 'the fixture must configure no remote');
+  assert.ok(!sealedDocument(root).includes('accepted_at:'), 'the change starts unstamped');
+
+  const { code, out, err } = cli(root, 'sync');
+
+  assert.equal(code, 0, `${out}${err}`);
+  const document = sealedDocument(root);
+  assert.ok(
+    document.includes(`accepted_at: ${mergeInstant(root)}`),
+    `expected accepted_at at the merge instant, got:\n${document}`,
+  );
+  assert.ok(
+    document.includes(`\`[validation]\` accepted (merged ${mergeShortSha(root)})`),
+    `expected the acceptance Log entry, got:\n${document}`,
+  );
+});
+
+test('20261019-184719 CR2: a done change whose branch is unmerged receives nothing', () => {
+  const root = sealFixture({ merged: false });
+  const before = sealedDocument(root);
+
+  const { code, out, err } = cli(root, 'sync');
+
+  assert.equal(code, 0, `${out}${err}`);
+  assert.equal(sealedDocument(root), before, 'an unmerged branch must leave the document alone');
+});
+
+test('20261019-184719 CR2: a change already stamped is not sealed twice', () => {
+  const root = sealFixture({ text: sealChangeText({ accepted: true }) });
+  const before = sealedDocument(root);
+
+  const { code, out, err } = cli(root, 'sync');
+
+  assert.equal(code, 0, `${out}${err}`);
+  assert.equal(sealedDocument(root), before, 'sealing must be idempotent');
+});
+
+// The decision CR2 leaves open, pinned: archival freezes deliberation, not
+// telemetry git derives afterwards. In the very case this exists for the merge
+// lands after the archive, so skipping archived changes would leave `check`'s
+// pending-acceptance warning (CR3) permanently unclearable.
+test('20261019-184719 CR2: an archived change is sealed too, so its CR3 warning can clear', () => {
+  const root = sealFixture({ text: sealChangeText({ archived: true }) });
+
+  const { code, out, err } = cli(root, 'sync');
+
+  assert.equal(code, 0, `${out}${err}`);
+  const document = sealedDocument(root);
+  assert.ok(
+    document.includes(`accepted_at: ${mergeInstant(root)}`),
+    `expected the archived change to be sealed, got:\n${document}`,
+  );
+  assert.equal(check_warnsAboutAcceptance(root), false, 'the pending warning must now clear');
+});
+
+// `check` after the seal: no acceptance warning survives it.
+function check_warnsAboutAcceptance(root) {
+  const { out } = cli(root, 'check', SEAL_ID);
+  return out.includes('accepted_at is not stamped');
+}
+
+// Reading the ledger is new to `sync`, which until now moved refs without
+// parsing a single document. A ledger it cannot parse must not become the
+// reason a journal stops travelling.
+test('20261019-184719 CR2: a ledger that cannot be parsed warns and does not block the sync', () => {
+  const { root } = activatedRepo({
+    files: defaultStateFiles({
+      projectId: 'fixture01',
+      extra: { '.changeledger-state/config.yml': SEAL_STATE_CONFIG },
+    }),
+  });
+
+  const { code, out, err } = cli(root, 'sync');
+
+  assert.equal(code, 0, `${out}${err}`);
+  assert.ok(
+    err.includes('could not read the ledger to seal pending acceptances'),
+    `expected the unreadable-ledger warning, got: ${err}`,
+  );
+  assert.ok(out.includes('Nothing to sync'), `sync must still report its own outcome: ${out}`);
+});
+
+// The seal commits over the state ref, so the tip the comparison publishes is
+// the one the seal left behind, never the one read before it.
+test('20261019-184719 CR2: the tip sync publishes is the sealed one', () => {
+  const root = sealFixture();
+  const remote = tmpdir('changeledger-seal-remote-');
+  initGitFixture(remote, { args: ['--bare', '-b', 'main'] });
+  git(root, ['remote', 'add', 'origin', remote]);
+  const beforeSeal = refOid(root, STATE_REF);
+
+  const { code, out, err } = cli(root, 'sync');
+
+  assert.equal(code, 0, `${out}${err}`);
+  const sealedTip = refOid(root, STATE_REF);
+  assert.notEqual(sealedTip, beforeSeal, 'the seal must have committed something to publish');
+  assert.equal(refOid(remote, STATE_REF), sealedTip, 'the remote must hold the sealed tip');
+});
+
+// A repo that never ran `cutover`: no state ref, no activation, the ledger in
+// worktree files. This is what all three consuming repos are, so a seal that
+// only ran in an activated repo would never run where the defect was found.
+// `mergedWorktreeRepo` reproduces the same order as `sealFixture` — graduation
+// first, merge second — one layout down.
+function mergedWorktreeRepo(files) {
+  const { root } = seedLedgerRepo({ files });
+  git(root, ['checkout', '-q', '-b', `feature/${SEAL_ID}`, 'main']);
+  fs.writeFileSync(path.join(root, 'work.txt'), 'work\n');
+  git(root, ['add', 'work.txt']);
+  git(root, ['commit', '-q', '-m', `fix(x): work [#${SEAL_ID}]`]);
+  git(root, ['checkout', '-q', 'main']);
+  git(root, ['merge', '--no-ff', '-q', '-m', `merge [#${SEAL_ID}]`, `feature/${SEAL_ID}`]);
+  return root;
+}
+
+const SEAL_CHANGE_FILE = `.changeledger/changes/${SEAL_ID}-sealed.md`;
+
+function worktreeDocument(root) {
+  return fs.readFileSync(path.join(root, SEAL_CHANGE_FILE), 'utf8');
+}
+
+test('20261019-184719 CR2: a worktree-layout repo seals without ever being activated', () => {
+  const root = mergedWorktreeRepo({
+    '.changeledger/config.yml': SEAL_STATE_CONFIG,
+    [SEAL_CHANGE_FILE]: sealChangeText(),
+  });
+
+  const { code, out, err } = cli(root, 'sync');
+
+  assert.equal(code, 0, `${out}${err}`);
+  assert.equal(optionalOid(root, STATE_REF), null, 'sealing must not create a state ref');
+  const document = worktreeDocument(root);
+  assert.ok(
+    document.includes(`accepted_at: ${mergeInstant(root)}`),
+    `expected the worktree document to be sealed, got:\n${document}`,
+  );
+  assert.ok(
+    document.includes(`\`[validation]\` accepted (merged ${mergeShortSha(root)})`),
+    `expected the acceptance Log entry, got:\n${document}`,
+  );
+  assert.ok(out.includes(NOTHING_MESSAGE), `sync must still report its own outcome: ${out}`);
+});
+
+// The one case above the gate that must NOT seal: the ref exists but this
+// checkout has not adopted it, so the worktree files and the snapshot are two
+// candidate homes for the write and nothing says which is truth yet.
+test('20261019-184719 CR2: a checkout holding an unadopted state ref seals nothing', () => {
+  const root = mergedWorktreeRepo({
+    '.changeledger/config.yml': SEAL_STATE_CONFIG,
+    [SEAL_CHANGE_FILE]: sealChangeText(),
+  });
+  const revision = commitTree(
+    root,
+    buildTree(
+      root,
+      defaultStateFiles({
+        projectId: 'fixture01',
+        extra: {
+          '.changeledger-state/config.yml': SEAL_STATE_CONFIG,
+          [`.changeledger-state/changes/${SEAL_ID}-sealed.md`]: sealChangeText(),
+        },
+      }),
+    ),
+    { message: 'chore: state' },
+  );
+  updateRef(root, STATE_REF, revision);
+  const before = worktreeDocument(root);
+
+  const { code, out, err } = cli(root, 'sync');
+
+  assert.equal(code, 0, `${out}${err}`);
+  assert.equal(worktreeDocument(root), before, 'the worktree document must be untouched');
+  assert.equal(refOid(root, STATE_REF), revision, 'the unadopted ref must not move');
+  assert.ok(out.includes('sync changed nothing'), `expected the activate reminder, got: ${out}`);
+});
+
+// `--status` is the offline freshness report: it resolves no remote and writes
+// nothing, so the seal is deliberately not on its path.
+test('20261019-184719 CR2: --status reports without sealing anything', () => {
+  const root = sealFixture();
+  const before = sealedDocument(root);
+  const tip = refOid(root, STATE_REF);
+
+  const { code, out, err } = cli(root, 'sync', '--status');
+
+  assert.equal(code, 0, `${out}${err}`);
+  assert.equal(sealedDocument(root), before, '--status must leave the document untouched');
+  assert.equal(refOid(root, STATE_REF), tip, '--status must move no ref');
+});

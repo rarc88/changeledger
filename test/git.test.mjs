@@ -10,15 +10,17 @@ import {
   checkoutBranch,
   currentBranch,
   defaultGhRun,
+  defaultRun,
   githubLogin,
   gitPrefix,
   gitRefs,
   isAncestor,
   isValidBranchName,
+  mergeRecord,
   mutatingRun,
   ownerHandle,
 } from '../src/git.mjs';
-import { sanitizedEnv } from './helpers/git-env.mjs';
+import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 
 const SEP = String.fromCharCode(31);
 const RECORD_SEP = String.fromCharCode(30);
@@ -213,6 +215,11 @@ test('124836 CR7: no test creates a change without injecting an identity', () =>
         // right after `new`: a literal `--help` sitting in some other argument,
         // such as a fixture title, must not exempt a call that really creates.
         if (/'new',\s*'(-h|--help)'/.test(call.text)) continue;
+        // `new --from` lands a composed document and never resolves an
+        // identity: `newChangeFrom` takes the owner from the document, so it
+        // reaches no resolver and `--owner` beside it is refused outright
+        // (20261020-172221 D2). Exempt for the same reason as `--help`.
+        if (call.text.includes("'--from'")) continue;
         if (call.text.includes('--owner')) continue;
         offenders.push(`${suite}:${call.line} spawned \`new\` without --owner`);
       }
@@ -557,4 +564,129 @@ test('151640 CR5: assertCommitObject never peels through ^{commit} (rejects a tr
   }).trim();
 
   assert.throws(() => assertCommitObject(root, tree), /resolves to a tree, not a commit/);
+});
+
+// --- mergeRecord (20261018-131621 CR10/CR11/CR12: acceptance derived from a
+// local merge, never from a remote and never from the current checkout) ---
+
+function initFixture(root) {
+  initGitFixture(root);
+  execFileSync('git', ['checkout', '-q', '-b', 'dev'], { cwd: root, env: sanitizedEnv() });
+  execFileSync('git', ['commit', '--allow-empty', '-qm', 'root'], {
+    cwd: root,
+    env: sanitizedEnv(),
+  });
+  return root;
+}
+
+function git(root, args) {
+  return execFileSync('git', args, { cwd: root, env: sanitizedEnv(), encoding: 'utf8' });
+}
+
+function workBranch(root, name) {
+  git(root, ['checkout', '-q', '-b', name]);
+  git(root, ['commit', '--allow-empty', '-qm', `work on ${name}`]);
+  git(root, ['checkout', '-q', 'dev']);
+}
+
+test('20261018-131621 CR10: a branch merged into the integration branch yields the merge commit sha and instant', () => {
+  const root = initFixture(fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-merge-')));
+  workBranch(root, 'feature/x');
+  git(root, ['merge', '--no-ff', '-q', '-m', 'merge feature/x', 'feature/x']);
+
+  const record = mergeRecord(root, 'feature/x', 'dev');
+  const head = git(root, ['rev-parse', 'HEAD']).trim();
+  const when = git(root, ['log', '-1', '--format=%ct', 'HEAD']).trim();
+
+  assert.equal(record.sha, head.slice(0, 7));
+  assert.equal(record.at, new Date(Number(when) * 1000).toISOString().replace(/\.\d{3}Z$/, 'Z'));
+  assert.match(record.at, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
+});
+
+test('20261018-131621 CR11: a branch that is not merged into the integration branch yields no record', () => {
+  const root = initFixture(fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-merge-')));
+  workBranch(root, 'feature/x');
+
+  assert.equal(mergeRecord(root, 'feature/x', 'dev'), null);
+});
+
+test('20261018-131621 CR12: a branch absent from the local repo is no merge, not an error', () => {
+  const root = initFixture(fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-merge-')));
+
+  assert.equal(mergeRecord(root, 'feature/gone', 'dev'), null);
+  assert.equal(mergeRecord(root, '', 'dev'), null);
+
+  // A change with no recorded branch must not be interpolated into a ref name:
+  // `refs/heads/${undefined}` is a legal branch name, and a repo that happens
+  // to hold it would hand that change someone else's merge.
+  workBranch(root, 'undefined');
+  git(root, ['merge', '--no-ff', '-q', '-m', 'merge undefined', 'undefined']);
+  assert.equal(mergeRecord(root, undefined, 'dev'), null);
+  assert.equal(mergeRecord(root, 'feature/gone', undefined), null);
+});
+
+test('20261018-131621 CR12: a deleted branch is not resurrected through a same-named tag', () => {
+  const root = initFixture(fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-merge-')));
+  workBranch(root, 'feature/x');
+  git(root, ['merge', '--no-ff', '-q', '-m', 'merge feature/x', 'feature/x']);
+  git(root, ['branch', '-q', '-D', 'feature/x']);
+  // gitrevisions(7) resolves the full ref of an absent branch through
+  // `refs/tags/<name>` (20261012-175147), so a tag a fetch or `git tag` can
+  // create would otherwise hand the deleted branch a merge it no longer has.
+  git(root, ['tag', 'refs/heads/feature/x', 'HEAD^2']);
+
+  assert.equal(mergeRecord(root, 'feature/x', 'dev'), null);
+});
+
+test('20261018-131621 CR11: an absent integration branch is not resolved through a same-named tag', () => {
+  const root = initFixture(fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-merge-')));
+  workBranch(root, 'feature/x');
+  git(root, ['merge', '--no-ff', '-q', '-m', 'merge feature/x', 'feature/x']);
+  git(root, ['tag', 'refs/heads/integration', 'HEAD']);
+
+  assert.equal(mergeRecord(root, 'feature/x', 'integration'), null);
+});
+
+test('20261018-131621 CR10: an integration branch absent locally yields no record instead of reaching for a remote', () => {
+  const root = initFixture(fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-merge-')));
+  workBranch(root, 'feature/x');
+  git(root, ['merge', '--no-ff', '-q', '-m', 'merge feature/x', 'feature/x']);
+  // The merge really happened on `dev`; `integration` names a branch this clone
+  // does not have, which must read as "nothing detected", not as a fetch.
+  assert.equal(mergeRecord(root, 'feature/x', 'integration'), null);
+
+  const calls = [];
+  const spy = (args, cwd) => {
+    calls.push(args);
+    return defaultRun(args, cwd);
+  };
+  mergeRecord(root, 'feature/x', 'integration', spy);
+  assert.ok(
+    calls.every((args) => !args.some((a) => /origin|fetch|ls-remote/.test(String(a)))),
+    'merge detection must never consult a remote',
+  );
+});
+
+test('20261018-131621 CR10: a fast-forwarded branch is accepted at its own tip', () => {
+  const root = initFixture(fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-merge-')));
+  workBranch(root, 'feature/x');
+  git(root, ['merge', '--ff-only', '-q', 'feature/x']);
+
+  const tip = git(root, ['rev-parse', 'refs/heads/feature/x']).trim();
+  const record = mergeRecord(root, 'feature/x', 'dev');
+
+  assert.equal(record.sha, tip.slice(0, 7));
+  assert.match(record.at, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
+});
+
+test('20261018-131621 CR10: the merge that landed the branch wins over later merges', () => {
+  const root = initFixture(fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-merge-')));
+  workBranch(root, 'feature/x');
+  git(root, ['merge', '--no-ff', '-q', '-m', 'merge feature/x', 'feature/x']);
+  const landing = git(root, ['rev-parse', 'HEAD']).trim();
+
+  workBranch(root, 'feature/y');
+  git(root, ['merge', '--no-ff', '-q', '-m', 'merge feature/y', 'feature/y']);
+
+  assert.equal(mergeRecord(root, 'feature/x', 'dev').sha, landing.slice(0, 7));
 });

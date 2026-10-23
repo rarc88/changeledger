@@ -26,13 +26,11 @@ const STATUS_CONTEXT = {
   approved: { mode: 'implement', fragments: MODE_CONTEXT.implement },
   'in-progress': { mode: 'implement', fragments: MODE_CONTEXT.implement },
   'in-review': { mode: 'review', fragments: MODE_CONTEXT.review },
-  blocked: { mode: 'blocked', fragments: ['blocked', 'handoff'] },
-  'in-validation': { mode: 'validation', fragments: ['validation'] },
   done: { mode: 'close', fragments: ['close'] },
   discarded: { mode: 'discarded', fragments: ['discarded'] },
 };
 const INCREMENTAL_NOTICE = `This incremental context extends the complete core context already read.
-Its one-pass full-capture rule applies here; a partial view is invalid.`;
+Read it complete in one pass, to its END line; a partial view is invalid.`;
 
 function fragment(name) {
   return fs.readFileSync(path.join(contractTemplatesDir, `${name}.md`), 'utf8').trim();

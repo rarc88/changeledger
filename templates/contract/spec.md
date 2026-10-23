@@ -2,20 +2,14 @@
 
 ## Repository layout and creation
 
-The project-owned `AGENTS.md` carries the bootstrap; run `changeledger context`
-before acting and `changeledger new` to create a change. The slug is structural
+The project-owned `AGENTS.md` carries the bootstrap; `changeledger new` creates
+a change. The slug is structural
 and must be English; title and narrative follow the configured language. Files
 remain the source of truth and may be edited directly, but prefer the CLI for
 timestamps, enums and markers that are easy to mistype.
 
-One concern per change. If a request mixes unrelated concerns, propose separate
-changes and create them only after explicit human authorization. Work necessary
-for an already authorized objective stays in that change's Specification, Plan
-and Log. If related work materially expands observable scope, obtain explicit
-human authorization; independent work belongs in a separate change.
-Approval in conversation must explicitly identify the draft and order approval;
-praise, a request to continue, or the agent's recommendation does not authorize
-`changeledger approve`.
+A request that mixes unrelated concerns becomes separate changes, created only
+after explicit human authorization.
 
 ## Change document
 
@@ -26,15 +20,25 @@ headings. Required and optional frontmatter:
 ---
 id: "20260613-134548"
 title: Short, clear title
-type: feature                  # feature | bug | hotfix | audit | refactor | chore | quick | documentation
+type: feature                  # a configured type; `new --help` lists them
 status: draft                  # lifecycle value
 created: 2026-06-13T13:45:48Z # full ISO 8601 UTC
 depends_on: []                 # change ids or external project:id refs
 related_to: []                 # optional non-blocking discovery links
+parent: "<id>"                 # optional: the epic this change belongs to
 owner: ana                     # optional
 release_impact: minor          # optional: none | patch | minor | major
 ---
 ```
+
+A multi-change effort declares one epic — a change of a type that carries no
+implementation — and each child names it in `parent`. The edge is exclusive and
+deliberately outside the relation graph: sharing a parent connects nothing, and
+the hierarchy is two levels, never a tree. The epic is approved on objective and
+frontier and **never enumerates its children at approval**; they are created as
+the work discovers them, which is the same rule as not planning before
+investigating, one level up. It cannot reach `done` while a child is neither
+`done` nor `discarded`.
 
 Use `depends_on` only for execution prerequisites: dependencies can block
 lifecycle progress and cycles. Use optional `related_to` for useful context that
@@ -66,8 +70,8 @@ the code actually does, and changes no application code. The shipped type turns
 `tdd` off and has no Plan, so write its execution rules as its own CRs while
 drafting: the perimeter is fixed in the draft from who calls what, never from
 textual matches; every claim cites path and symbol; the human decides every
-divergence from an existing spec before `in-review`, else the change goes
-`blocked`; corrections to existing specs are drafted inside the change, where
+divergence from an existing spec before `in-review`, and the change waits on a `[!]`
+task until they do; corrections to existing specs are drafted inside the change, where
 the reviewer sees them.
 
 When you classify a problem as a defect and the `Effective policy:` line
@@ -142,7 +146,8 @@ Markers encode state; structured children carry every trace, never a position:
 
 `Support` (value optional) marks operational work such as test suites, reading, blast-radius analysis or scaffolding. It needs no CR or target/verification readiness checks and cannot replace a criterion for observable behaviour.
 
-Pre-existing Plan tasks without structured children migrate to this grammar with `changeledger fix --plan-tags`, and legacy task metadata or Log events migrate with `changeledger fix --structured-sections` (both previewed with `--dry-run`).
+`changeledger fix --plan-tags` migrates Plan tasks without structured children; `--structured-sections` migrates legacy task metadata and Log events; preview either with `--dry-run`.
+
 
 ## IDs and language
 

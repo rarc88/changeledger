@@ -234,20 +234,27 @@ function versionAt(events, at) {
   return version;
 }
 
-// A failed verdict in the Log: `[review] in-review → in-progress` (fail
-// --retry), `[review] in-review → blocked` (fail --block) or
-// `[validation] in-validation → in-progress` (fail). The lifecycle has no
-// `in-validation → blocked` edge.
-const FAILED_VERDICT_TARGETS = Object.freeze({
-  review: ['in-progress', 'blocked'],
-  validation: ['in-progress'],
-});
+// A failed verdict in the Log, matched as a whole edge: `[review] in-review →
+// in-progress` (fail --retry), `[review] in-review → blocked` (the retired
+// fail --block), `[validation] in-validation → in-progress` (the retired
+// gate's fail) and `[status] done → in-progress`, the human rejection of
+// delivered work now that acceptance is derived from the merge
+// (20261018-131621 CR29). The `status` arm is why the origin is part of the
+// key: `approved → in-progress` is work starting, not rework.
+const FAILED_VERDICT_EDGES = Object.freeze(
+  new Set([
+    'review:in-review:in-progress',
+    'review:in-review:blocked',
+    'validation:in-validation:in-progress',
+    'status:done:in-progress',
+  ]),
+);
 
 // The instant of the change's first failed verdict, or null. `segmentName`
 // calls every `in-progress` segment closed at or after it `rework`.
 function reworkSince(events) {
   const failures = events
-    .filter((e) => FAILED_VERDICT_TARGETS[e.type]?.includes(e.to))
+    .filter((e) => FAILED_VERDICT_EDGES.has(`${e.type}:${e.from}:${e.to}`))
     .map((e) => e.at)
     .sort(compare);
   return failures[0] ?? null;

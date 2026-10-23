@@ -362,23 +362,20 @@ test('214902 CR5/CR6: the installed contract regrows no retired commit rule', ()
   }
 });
 
-test('171002 CR1-CR5: installed contract gives done one human-accepted meaning', () => {
+test('171002 CR1-CR5: installed contract gives done one delivered meaning', () => {
   const contract = contractText();
   // Anchored to the row's own cells, not just its label: an unanchored `.*`
   // reaches past this row's own mechanism into the next row's `changeledger
   // status` cell post-normalization, so the pin can pass while this row's own
   // mechanism is wrong.
   assert.match(contract, /in-progress → in-review \| agent \| `changeledger status`/);
-  assert.match(contract, /in-review → in-validation.*`changeledger review <id> pass`/);
-  assert.match(contract, /in-progress → in-validation \(no review\).*`changeledger status`/);
-  // Widened reach after normalization (intra-fragment newlines no longer block
-  // `.*`) let this pin drift onto the next row's unrelated "human"/"viewer": tied
-  // to the accept command so only this row's own content can satisfy it.
-  assert.match(
-    contract,
-    /in-validation → done.*human.*viewer.*`changeledger validation <id> pass`/,
-  );
-  assert.match(contract, /human accepted the complete result/);
+  assert.match(contract, /in-review → done.*`changeledger review <id> pass`/);
+  assert.match(contract, /in-progress → done \(no review\).*`changeledger status`/);
+  // 20261018-131621 retired the human-acceptance transition: `done` is the
+  // delivery, and acceptance is the merge, recorded as telemetry. The meaning is
+  // pinned as an obligation, not as a sentence — any wording that says `done` is
+  // delivered satisfies it.
+  assert.match(contract, /`done`[^.|]{0,40}deliver\w*/i);
   // 20260730-002730 retired the two sentence pins that stood here. The transition rows
   // above are table cells, and the lifecycle value's own terminality is asserted by the
   // enum literal rather than by the sentence explaining it.
@@ -448,8 +445,6 @@ test('CR1: init seeds in-review and review_required per type (review-gate)', () 
     'approved',
     'in-progress',
     'in-review',
-    'in-validation',
-    'blocked',
     'done',
     'discarded',
   ]);
@@ -1372,6 +1367,50 @@ test('124656 CR3: `status <id> in-review` exits non-zero and names every readine
   assert.match(failure.stderr, /Plan task for CR1 must name target and verification/);
   assert.equal(fs.readFileSync(file, 'utf8'), before, 'the refusal must not touch the document');
   assert.equal(parseChange(before).frontmatter.status, 'in-progress');
+});
+
+// 20261023-094931 CR1 — the `task` seat's candidate refusal where the
+// orchestrator stands: the whole message on stderr and a non-zero exit, with
+// the activated state ref left where it was.
+test('20261023-094931 CR1: `task <id> block 1 r` on a done change prints the refusal and exits non-zero', async () => {
+  const root = tmp();
+  init(root);
+  const id = '20260601-100000';
+  const name = `${id}-graduable.md`;
+  const text = `---\nid: "${id}"\ntitle: Verdad graduable\ntype: feature\nstatus: done\ncreated: 2026-06-01T10:00:00Z\ndepends_on: []\n---\n\n## Request\n\nPetición cerrada.\n\n## Investigation\n\nInvestigación cerrada.\n\n## Proposal\n\nPropuesta cerrada.\n\n## Specification\n\n### CR1 — una verdad graduable\n- **Given** un repo\n- **When** algo ocurre\n- **Then** pasa algo\n\n## Plan\n\n- [x] Hacer la verdad\n  - **Criteria:** CR1\n  - **Resolved:** \`2026-06-01T10:00:00Z\`\n\n## Log\n\n- **2026-06-01T10:00:00Z** \`[note]\` created\n`;
+  const configText = fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8');
+  initGitFixture(root);
+  const tree = buildTree(root, {
+    '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
+    '.changeledger-state/config.yml': configText,
+    [`.changeledger-state/changes/${name}`]: text,
+  });
+  updateRef(root, STATE_REF, commitTree(root, tree, { message: 'chore: state' }));
+  writeActivation(root, { stateRef: STATE_REF });
+  const tip = () =>
+    execFileSync('git', ['rev-parse', STATE_REF], {
+      cwd: root,
+      env: sanitizedEnv(),
+      encoding: 'utf8',
+    }).trim();
+  const before = tip();
+  const bin = path.resolve('bin/changeledger.mjs');
+
+  const failure = await execFileAsync(process.execPath, [bin, 'task', id, 'block', '1', 'r'], {
+    cwd: root,
+    env: sanitizedEnv(),
+  }).then(
+    (ok) => ({ code: 0, ...ok }),
+    (error) => error,
+  );
+
+  assert.notEqual(failure.code, 0);
+  assert.equal(
+    failure.stderr,
+    `Error: task ${id} 1 block refused, nothing was written — the resulting candidate carries 1 validation error(s):\n  ${name}: status is "done" but 1 task(s) are not done\n`,
+  );
+  assert.equal(tip(), before);
+  assert.equal(readSnapshot(root).documents[`changes/${name}`], text);
 });
 
 // 20260728-151336 CR4 — the CLI composes the `ChangeLedger: none — <reason>`
