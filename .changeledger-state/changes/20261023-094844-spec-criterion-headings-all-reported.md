@@ -4,9 +4,9 @@ title: check reporta cada heading CRn de una spec, no solo el primero
 type: bug
 status: in-progress
 created: 2026-10-23T09:48:44Z
-depends_on: []
+depends_on: ["20261022-213751"]
 branch: bug/20261023-094844
-related_to: ["20261022-213751"]
+related_to: []
 owner: raruiz-hiberuscom
 ---
 
