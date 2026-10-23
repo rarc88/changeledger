@@ -133,3 +133,4 @@ estable y se fija en los criterios.
 - **2026-10-23T10:34:15Z** `[status]` approved → in-progress
 - **2026-10-23T10:34:15Z** `[branch]` set: bug/20261023-094844 (auto)
 - **2026-10-23T10:34:40Z** `[note]` Rama bug/20261023-094844 creada desde dev (39c44516) por orden del humano, pero dev no contiene #20261022-213751 (PR 19 abierto): en dev prepareSpecEdit sigue filtrando por fichero y CR3/CR5 (reescritura parcial aceptada por edit spec:) no pueden pasar sin esa regla. depends_on declarado; la base de la rama vuelve al humano antes de implementar.
+- **2026-10-23T10:35:27Z** `[note]` Por orden del humano, la rama bug/20261023-094844 se recoloca sobre bug/20261022-213751 (6d19abba) y la implementación sigue apilada; el PR irá contra esa rama o contra dev cuando el PR 19 se fusione.
