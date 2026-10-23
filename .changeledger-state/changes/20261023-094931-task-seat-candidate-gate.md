@@ -118,10 +118,11 @@ se declara estable y se fija en CR1.
   - **Verify:** `node --test test/agent.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4
   - **Resolved:** `2026-10-23T12:10:31Z`
-- [ ] Rechazo del `bin` en stderr y código de salida
+- [x] Rechazo del `bin` en stderr y código de salida
   - **Target:** `test/cli.test.mjs`
   - **Verify:** `node --test test/cli.test.mjs`
   - **Criteria:** CR1
+  - **Resolved:** `2026-10-23T12:10:31Z`
 - [ ] Operación «marcar una tarea» en la matriz de sedes
   - **Target:** `test/seats-matrix.test.mjs`
   - **Verify:** `node --test test/seats-matrix.test.mjs`
