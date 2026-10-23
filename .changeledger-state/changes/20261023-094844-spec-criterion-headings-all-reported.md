@@ -2,7 +2,7 @@
 id: "20261023-094844"
 title: check reporta cada heading CRn de una spec, no solo el primero
 type: bug
-status: in-review
+status: in-progress
 created: 2026-10-23T09:48:44Z
 depends_on: ["20261022-213751"]
 branch: bug/20261023-094844
@@ -143,3 +143,4 @@ estable y se fija en los criterios.
 - **2026-10-23T10:46:18Z** `[note]` Tarea 5: pnpm verify — biome limpio (134 ficheros), suite 2134/2135; el único fallo es 'CR6: the skeletons ship in the publishable package' (npm 12, preexistente en dev, ajeno a este change); changeledger check en verde por separado.
 - **2026-10-23T10:46:19Z** `[status]` in-progress → in-review
 - **2026-10-23T10:46:29Z** `[note]` Mandato de la revisión (ronda 1): auditoría completa del diff bug/20261022-213751..HEAD —un commit: src/check.mjs, src/commands/graduate.mjs, test/{check,graduate,edit,apply}.test.mjs— contra CR1-CR5 y contra la superficie que el change gobierna: specDurabilityIssues y sus tres consumidores (bucle de specs de checkRepo y las dos ramas de graduate --into). Fuera del mandato se reporta sin inspeccionar.
+- **2026-10-23T11:01:32Z** `[review]` in-review → in-progress: ronda 1 (auditoría completa): CR1-CR5 confirmados con mutantes por sitio; un defecto. Los comentarios de src/check.mjs y de los tests afirman 'un error por heading', pero ningún test ejercita un heading CRn duplicado: el mutante que deduplica (return [...new Set(issues)]) sobrevive a la suite completa y cambia la admisión (añadir un segundo ### CR1 a una spec que ya lo tiene pasa a aceptarse). Mismo tipo, menor: 'un solo heading produce exactamente un error' solo se ejecuta con ###. Clasificación: enumeración incompleta dentro de la estrategia verificada; corrección normal sobre el mismo diff.
