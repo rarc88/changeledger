@@ -374,10 +374,11 @@ las nombra como divergencia conocida.
   - **Verify:** `node --test test/agent.test.mjs`
   - **Criteria:** CR5
   - **Resolved:** `2026-10-23T23:19:09Z`
-- [ ] Retirar `readiness` de la plantilla, de la migración a v4 y de la config de este repo en la ref de estado y su espejo
+- [x] Retirar `readiness` de la plantilla, de la migración a v4 y de la config de este repo en la ref de estado y su espejo
   - **Target:** `templates/config.yml`, `src/config-migration.mjs`, `.changeledger/config.yml`
   - **Verify:** `node --test test/config-migration.test.mjs test/cli.test.mjs`
   - **Criteria:** CR6
+  - **Resolved:** `2026-10-23T23:19:10Z`
 - [x] Quitar del viewer el fieldset del DoR, `applyReadinessPatch` y la clave en `PATCH_ALLOWED`, y reescribir el texto del panel de aprobación
   - **Target:** `src/viewer/domain.mjs`, `src/viewer/public/app.js`, `src/viewer/public/view-parts.js`
   - **Verify:** `node --test test/view.test.mjs test/viewer-metadata.test.mjs`
