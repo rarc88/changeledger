@@ -787,9 +787,11 @@ test('20261022-213751 CR7: a pending `graduate --new` scaffold does not block th
 
 // `apply`'s own candidate gate, `assertCandidateClean`: every per-entry seat
 // passes, and the error only exists once the event has rewritten the document.
-// Blocking the only task of a `done` change is such an event: the `task` seat
-// does not refuse it, so the refusal is the candidate's, in both modes, and
-// names only that one error.
+// Blocking the only task of a `done` change is such an event: `taskMutation`
+// does not refuse it (it checks the task line, not the change's status), so
+// inside a manifest the refusal is the candidate's, in both modes, and names
+// only that one error. The standalone `task` command runs the same candidate
+// rule at its own seat (20261023-094931).
 const doneWithResolvedTask = doneChange.replace(
   '## Plan\n',
   '## Plan\n\n- [x] Hacer la verdad\n  - **Criteria:** CR1\n  - **Resolved:** `2026-06-01T10:00:00Z`\n',

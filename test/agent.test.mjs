@@ -1367,6 +1367,183 @@ test('task done marks the task with a timestamp', () => {
   assert.match(t.resolvedAt, /^\d{4}-\d{2}-\d{2}T/);
 });
 
+// --- 20261023-094931: the `task` seat runs `apply`'s candidate rule ---------
+//
+// `task` and `apply {"op": "task"}` share `taskMutation`; before this change
+// `apply` alone judged the document it produces. These pin the rule on the
+// standalone seat: an error the write introduces refuses it in both layouts,
+// and one the repo already carried does not (worktree layout, CR4).
+
+const GATE_DONE_ID = '20260601-100000';
+const GATE_DONE_NAME = `${GATE_DONE_ID}-graduable.md`;
+const gateDoneChange = `---
+id: "${GATE_DONE_ID}"
+title: Verdad graduable
+type: feature
+status: done
+created: 2026-06-01T10:00:00Z
+depends_on: []
+---
+
+## Request
+
+Petición cerrada.
+
+## Investigation
+
+Investigación cerrada.
+
+## Proposal
+
+Propuesta cerrada.
+
+## Specification
+
+### CR1 — una verdad graduable
+- **Given** un repo
+- **When** algo ocurre
+- **Then** pasa algo
+
+## Plan
+
+- [x] Hacer la verdad
+  - **Criteria:** CR1
+  - **Resolved:** \`2026-06-01T10:00:00Z\`
+
+## Log
+
+- **2026-06-01T10:00:00Z** \`[note]\` created
+`;
+
+const gateInProgress = (id) => ({
+  [`${id}-en-curso.md`]: `---\nid: "${id}"\ntitle: En curso\ntype: chore\nstatus: in-progress\ncreated: 2026-06-13T12:00:00Z\ndepends_on: []\n---\n\n## Request\n\nAlgo.\n\n## Plan\n\n- [ ] Hacer la cosa\n\n## Log\n\n- **2026-06-13T12:00:00Z** \`[status]\` draft → approved\n- **2026-06-13T12:01:00Z** \`[status]\` approved → in-progress\n`,
+});
+
+const GATE_BROKEN_NAME = '20260613-200000-roto.md';
+const gateBroken = {
+  [GATE_BROKEN_NAME]:
+    '---\nid: "20260613-200000"\ntitle: Roto\ntype: quick\nstatus: draft\ncreated: 2026-06-13T20:00:00Z\ndepends_on: []\nparent: "20200101-000000"\n---\n\n## Request\n\nAlgo.\n\n## Log\n',
+};
+
+// `docs` maps a change filename to its text: written to the worktree, or
+// committed only to the state ref when `activated`.
+function taskGateRepo(docs, { activated = false } = {}) {
+  const root = fs.realpathSync.native(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-task-gate-')),
+  );
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  init(root);
+  if (!activated) {
+    for (const [name, text] of Object.entries(docs)) {
+      fs.writeFileSync(path.join(root, '.changeledger', 'changes', name), text);
+    }
+    return root;
+  }
+  const configText = fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8');
+  initGitFixture(root);
+  const tree = buildTree(root, {
+    '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
+    '.changeledger-state/config.yml': configText,
+    ...Object.fromEntries(
+      Object.entries(docs).map(([name, text]) => [`.changeledger-state/changes/${name}`, text]),
+    ),
+  });
+  updateRef(root, STATE_REF, commitTree(root, tree, { message: 'chore: state' }));
+  writeActivation(root, { stateRef: STATE_REF });
+  return root;
+}
+
+const repoErrors = (root) => checkRepo(loadRepo(root)).errors.map((e) => `${e.file}: ${e.message}`);
+
+const taskRefusal = (id, n, action, lines) =>
+  `task ${id} ${n} ${action} refused, nothing was written — the resulting candidate carries ${lines.length} validation error(s):\n${lines.map((line) => `  ${line}`).join('\n')}`;
+
+const NOT_DONE_LINE = `${GATE_DONE_NAME}: status is "done" but 1 task(s) are not done`;
+
+test('20261023-094931 CR1: task block on a done change is refused and the state tip does not move', () => {
+  const root = taskGateRepo({ [GATE_DONE_NAME]: gateDoneChange }, { activated: true });
+  assert.deepEqual(repoErrors(root), [], 'the fixture must start clean');
+  const tip = stateRefTip(root);
+
+  assert.throws(
+    () => task(GATE_DONE_ID, 'block', 1, 'r', root),
+    (e) => {
+      assert.equal(e.message, taskRefusal(GATE_DONE_ID, 1, 'block', [NOT_DONE_LINE]));
+      return true;
+    },
+  );
+  assert.equal(stateRefTip(root), tip);
+  assert.equal(stateDocText(root, tip, `changes/${GATE_DONE_NAME}`), gateDoneChange);
+});
+
+test('20261023-094931 CR2: task block on a done change is refused in the worktree layout', () => {
+  const root = taskGateRepo({ [GATE_DONE_NAME]: gateDoneChange });
+  assert.deepEqual(repoErrors(root), [], 'the fixture must start clean');
+  const file = path.join(root, '.changeledger', 'changes', GATE_DONE_NAME);
+
+  assert.throws(
+    () => task(GATE_DONE_ID, 'block', 1, 'r', root),
+    (e) => {
+      assert.equal(e.message, taskRefusal(GATE_DONE_ID, 1, 'block', [NOT_DONE_LINE]));
+      return true;
+    },
+  );
+  assert.equal(fs.readFileSync(file, 'utf8'), gateDoneChange);
+});
+
+test('20261023-094931 CR3: task done and task block on an in-progress change still land', () => {
+  const root = taskGateRepo({
+    ...gateInProgress('20260613-120000'),
+    ...gateInProgress('20260613-121000'),
+  });
+  assert.deepEqual(repoErrors(root), [], 'the fixture must start clean');
+  const read = (id) =>
+    parseChange(
+      fs.readFileSync(path.join(root, '.changeledger', 'changes', `${id}-en-curso.md`), 'utf8'),
+    ).tasks[0];
+
+  task('20260613-120000', 'done', 1, '', root);
+  const done = read('20260613-120000');
+  assert.equal(done.state, 'done');
+  assert.match(done.resolvedAt, /^\d{4}-\d{2}-\d{2}T/);
+
+  task('20260613-121000', 'block', 1, 'r', root);
+  const blocked = read('20260613-121000');
+  assert.equal(blocked.state, 'blocked');
+  assert.equal(blocked.reason, 'r');
+});
+
+test('20261023-094931 CR4: an unrelated pre-existing error neither blocks task nor joins its refusal', () => {
+  const root = taskGateRepo({
+    ...gateInProgress('20260613-120000'),
+    ...gateBroken,
+    [GATE_DONE_NAME]: gateDoneChange,
+  });
+  const brokenLine = `${GATE_BROKEN_NAME}: parent references missing change "20200101-000000"`;
+  assert.deepEqual(repoErrors(root), [brokenLine], 'the break must be the one error before');
+
+  assert.doesNotThrow(() => task('20260613-120000', 'done', 1, '', root));
+
+  const file = path.join(root, '.changeledger', 'changes', GATE_DONE_NAME);
+  assert.throws(
+    () => task(GATE_DONE_ID, 'block', 1, 'r', root),
+    (e) => {
+      assert.equal(e.message, taskRefusal(GATE_DONE_ID, 1, 'block', [NOT_DONE_LINE]));
+      return true;
+    },
+  );
+  assert.equal(fs.readFileSync(file, 'utf8'), gateDoneChange);
+});
+
+// The gate loads the whole worktree ledger, which `task` did not before; an
+// unparseable sibling must keep costing nothing, as in 150231 CR6.
+test('20261023-094931: the task gate ignores an unrelated unparseable change in the worktree', () => {
+  const root = taskGateRepo(gateInProgress('20260613-120000'));
+  fs.writeFileSync(path.join(root, '.changeledger', 'changes', 'broken.md'), 'not frontmatter\n');
+
+  assert.doesNotThrow(() => task('20260613-120000', 'done', 1, '', root));
+});
+
 test('125007 CR6: log appends an opaque typed note', () => {
   const { root, file, id } = repoWithChange();
   const message = 'status: draft → done — [graduation] spec: fake.md';

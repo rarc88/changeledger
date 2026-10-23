@@ -1369,6 +1369,50 @@ test('124656 CR3: `status <id> in-review` exits non-zero and names every readine
   assert.equal(parseChange(before).frontmatter.status, 'in-progress');
 });
 
+// 20261023-094931 CR1 — the `task` seat's candidate refusal where the
+// orchestrator stands: the whole message on stderr and a non-zero exit, with
+// the activated state ref left where it was.
+test('20261023-094931 CR1: `task <id> block 1 r` on a done change prints the refusal and exits non-zero', async () => {
+  const root = tmp();
+  init(root);
+  const id = '20260601-100000';
+  const name = `${id}-graduable.md`;
+  const text = `---\nid: "${id}"\ntitle: Verdad graduable\ntype: feature\nstatus: done\ncreated: 2026-06-01T10:00:00Z\ndepends_on: []\n---\n\n## Request\n\nPetición cerrada.\n\n## Investigation\n\nInvestigación cerrada.\n\n## Proposal\n\nPropuesta cerrada.\n\n## Specification\n\n### CR1 — una verdad graduable\n- **Given** un repo\n- **When** algo ocurre\n- **Then** pasa algo\n\n## Plan\n\n- [x] Hacer la verdad\n  - **Criteria:** CR1\n  - **Resolved:** \`2026-06-01T10:00:00Z\`\n\n## Log\n\n- **2026-06-01T10:00:00Z** \`[note]\` created\n`;
+  const configText = fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8');
+  initGitFixture(root);
+  const tree = buildTree(root, {
+    '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
+    '.changeledger-state/config.yml': configText,
+    [`.changeledger-state/changes/${name}`]: text,
+  });
+  updateRef(root, STATE_REF, commitTree(root, tree, { message: 'chore: state' }));
+  writeActivation(root, { stateRef: STATE_REF });
+  const tip = () =>
+    execFileSync('git', ['rev-parse', STATE_REF], {
+      cwd: root,
+      env: sanitizedEnv(),
+      encoding: 'utf8',
+    }).trim();
+  const before = tip();
+  const bin = path.resolve('bin/changeledger.mjs');
+
+  const failure = await execFileAsync(process.execPath, [bin, 'task', id, 'block', '1', 'r'], {
+    cwd: root,
+    env: sanitizedEnv(),
+  }).then(
+    (ok) => ({ code: 0, ...ok }),
+    (error) => error,
+  );
+
+  assert.notEqual(failure.code, 0);
+  assert.equal(
+    failure.stderr,
+    `Error: task ${id} 1 block refused, nothing was written — the resulting candidate carries 1 validation error(s):\n  ${name}: status is "done" but 1 task(s) are not done\n`,
+  );
+  assert.equal(tip(), before);
+  assert.equal(readSnapshot(root).documents[`changes/${name}`], text);
+});
+
 // 20260728-151336 CR4 — the CLI composes the `ChangeLedger: none — <reason>`
 // operational-commit declaration and refuses to combine it with --id.
 test('151336 CR4: --no-change and --id are mutually exclusive and create no commit', () => {

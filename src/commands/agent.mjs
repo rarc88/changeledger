@@ -7,7 +7,12 @@ import path from 'node:path';
 import { mutateFileAtomic } from '../atomic-write.mjs';
 import { assertChildrenResolved, parseChange } from '../change.mjs';
 import { mutateLedgerFile, repoIsActivated, writeLedgerFiles } from '../change-store.mjs';
-import { assertChangeTextValid, assertStagesNotEmpty, recordedBranch } from '../check.mjs';
+import {
+  assertChangeTextValid,
+  assertStagesNotEmpty,
+  introducedErrors,
+  recordedBranch,
+} from '../check.mjs';
 import {
   changeIntegrationBranch,
   findChangeledgerDir,
@@ -723,12 +728,42 @@ export function taskMutation(action, n, reason) {
   };
 }
 
+// The transform does not consult the change's status, so the document it
+// produces is judged here by the rule `apply` runs on its candidate: the
+// `check` errors the write introduces refuse it, the ones the repo already
+// carried do not (20261023-094931). Blocking the only task of a `done` change
+// used to land here while the same manifest entry was refused. The worktree
+// layout gets a loaded repo to diff against, isolated like `siblingChanges` so
+// an unparseable sibling does not cost a mark on another change.
 export function task(id, action, n, reason, cwd = process.cwd()) {
-  const { repo, target } = locate(cwd, id);
-  mutateLedgerFile(repo, target, taskMutation(action, n, reason), {
-    message: `task: ${id} ${n} ${action}`,
-  });
+  const { repo, target, repoRoot } = locate(cwd, id);
+  const loaded = repo.state ? repo : loadRepo(repoRoot, { isolateChangeErrors: true });
+  const mutate = taskMutation(action, n, reason);
+  mutateLedgerFile(
+    repo,
+    target,
+    (text) => {
+      const next = mutate(text);
+      assertTaskCandidateClean(loaded, id, next, `task ${id} ${n} ${action}`);
+      return next;
+    },
+    { message: `task: ${id} ${n} ${action}` },
+  );
   return target.file;
+}
+
+// Shaped like `apply`'s `assertCandidateClean`, naming this seat instead.
+function assertTaskCandidateClean(repo, id, text, subject) {
+  const changes = repo.changes.map((c) =>
+    String(c.frontmatter.id) === String(id) ? { ...c, text, ...parseChange(text) } : c,
+  );
+  const errors = introducedErrors(repo, { ...repo, changes });
+  if (!errors.length) return;
+  throw new Error(
+    `${subject} refused, nothing was written — the resulting candidate carries ${errors.length} validation error(s):\n${errors
+      .map((e) => `  ${e.file}: ${e.message}`)
+      .join('\n')}`,
+  );
 }
 
 export function list(
