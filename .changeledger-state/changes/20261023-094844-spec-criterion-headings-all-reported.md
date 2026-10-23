@@ -2,7 +2,7 @@
 id: "20261023-094844"
 title: check reporta cada heading CRn de una spec, no solo el primero
 type: bug
-status: draft
+status: approved
 created: 2026-10-23T09:48:44Z
 depends_on: []
 related_to: ["20261022-213751"]
@@ -128,3 +128,4 @@ estable y se fija en los criterios.
 
 ## Log
 - **2026-10-23T09:48:44Z** `[version]` 0.18.0
+- **2026-10-23T09:58:29Z** `[status]` draft → approved (human via conversation)
