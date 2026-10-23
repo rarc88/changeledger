@@ -30,3 +30,4 @@ Solo test; sin cambio de comportamiento ni de empaquetado.
 - **2026-10-23T13:44:05Z** `[status]` draft → approved (human via conversation)
 - **2026-10-23T13:44:11Z** `[status]` approved → in-progress
 - **2026-10-23T13:44:11Z** `[branch]` set: quick/20261023-134240 (auto)
+- **2026-10-23T13:48:28Z** `[note]` TDD: el test estaba en rojo con npm 12.2 ('TypeError: Cannot read properties of undefined (reading "files")'); con la lectura de array u objeto pasa 12/12. Mutante en copia: quitar templates/ de files en package.json lo pone en rojo con 'package missing investigation skeleton', así que no está verde por vacío. pnpm verify entero en verde por primera vez en esta máquina: biome 134 ficheros, suite 2146/2146, check en verde, exit 0.
