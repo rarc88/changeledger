@@ -2,7 +2,7 @@
 id: "20261023-181753"
 title: "El humano aprueba objetivo y frontera; Specification y Plan nacen en in-progress y el Definition of Ready se retira"
 type: feature
-status: in-review
+status: in-progress
 created: 2026-10-23T18:17:53Z
 depends_on: []
 branch: feature/20261023-181753
@@ -427,3 +427,4 @@ las nombra como divergencia conocida.
 - **2026-10-23T23:39:41Z** `[note]` Decisión no registrada antes (D8): el error 'Plan task references unknown criterion' deja de depender de tdd y se emite también con tdd: false, donde antes el motor de cobertura lo eximía. Razón: una referencia rota es integridad estructural, como una etapa desconocida, no una política de pruebas. Cambio de comportamiento para consumidores con tdd: false que tengan tareas citando criterios inexistentes; lo cubre el test 'CR4: tdd off does not exempt a task citing an undeclared criterion' y va a las notas de la siguiente release.
 - **2026-10-23T23:57:44Z** `[status]` in-progress → in-review
 - **2026-10-23T23:57:48Z** `[note]` Corrección de la ronda 1 lista y sin commitear (diff de 7 ficheros sobre a6ed53a2): D2 con fenceTracker compartido por splitStages y parseRequestSections y test de fences; D1 con la frase del paso 3 narrada a las etapas que el tipo activa; D3, D4, D5 y D9 como se nombraron. D6, D7 y D8 en las notas anteriores. Gate completo en verde (2138 tests). Mandato de la revisión de confirmación: sólo los nueve defectos nombrados y las regresiones que la corrección introduzca; lo adyacente se reporta como follow-up.
+- **2026-10-24T00:05:18Z** `[review]` in-review → in-progress: Confirmación ronda 1: D1 y D3–D9 confirmados; D2 sigue abierto en un borde: splitStages recorta el cuerpo de cada etapa y una primera línea de fence con sangría de 4 espacios pasa a ser apertura sólo para parseRequestSections, que lee el cuerpo recortado; con la fase invertida un Request cuyos dos headings están dentro de un fence a columna 0 se aprueba (ejecutado). Falsifica además las frases de acuerdo entre lectores en los comentarios de fenceTracker, parseRequestSections y el test de fences. Sin regresiones; gate verde.
