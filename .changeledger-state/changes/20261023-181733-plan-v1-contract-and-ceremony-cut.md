@@ -107,9 +107,9 @@ hijo que dependa de ellas hasta que estén tomadas y anotadas en este Log.
    change propio con una métrica de `analyze` por change, no una regla del
    contrato.
 
-## Proposal
+### Proposal
 
-### Solución elegida
+#### Solución elegida
 
 Una épica como padre, el mecanismo que `20261020-172221` construyó para esto, y
 debajo un hijo por área del plan, cada uno con revisión independiente. El orden
@@ -143,7 +143,7 @@ Los hijos nacen aprobados sobre objetivo y frontera ya desde el primero, que es
 el que convierte esa forma en regla del contrato: la épica aplica a sus propios
 hijos el modelo que construye.
 
-### Alternativas descartadas
+#### Alternativas descartadas
 
 - **Un solo change grande.** Viola el techo de complejidad del core y repite lo
   que las matrices de `20261021-223918` enseñaron: ocho rondas de revisión y
@@ -156,7 +156,7 @@ hijos el modelo que construye.
   consumidores reciben ya la retirada de estados, y cada hijo que rompa
   compatibilidad se acumula para un único salto de mayor al cerrar la épica.
 
-### Escenarios
+#### Escenarios
 
 - **Un hijo descubre que el plan se equivoca contra lo que el código enseña.**
   Se enmienda dentro de la frontera pre-autorizada y queda en su Log; si lo que

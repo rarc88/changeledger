@@ -1,7 +1,7 @@
 ---
 id: "20261023-181453"
 title: Los tests contaminan el registro global del usuario
-type: bug
+type: change
 status: draft
 created: 2026-10-23T18:14:53Z
 depends_on: []
@@ -44,7 +44,7 @@ Queda fuera:
 - Añadir `scripts/**` a `readiness.target_patterns`, pese a que es lo que hoy
   deja este documento en warning: ver Investigation.
 
-## Investigation
+### Investigation
 
 `registryDir()` en `src/registry.mjs` resuelve el home con
 `process.env.CHANGELEDGER_HOME || os.homedir()`, e `init()` registra siempre el
