@@ -37,7 +37,7 @@ export function registerRepo(cwd = process.cwd(), output = console) {
   const schemaVersion = getSchemaVersion(config);
   if (schemaVersion < SUPPORTED_SCHEMA_VERSION) {
     output.warn(
-      `warn  .changeledger/config.yml: config schema ${schemaVersion} is outdated; run \`changeledger config migrate --dry-run\``,
+      `warn  .changeledger/config.yml: config schema ${schemaVersion} is outdated; run \`changeledger config migrate\``,
     );
   }
 

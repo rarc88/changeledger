@@ -12,21 +12,17 @@
 // completely untouched and reported under `manual` — the defect requires
 // judgment (unknown criterion), not a mechanical rewrite.
 //
-// This module is also the converter from the old positional Plan grammar to the
-// tag grammar (`--plan-tags`, 20260729-203257) and therefore the last legal home
-// of positional parsing. Recognition of the task line itself is not its own: it
-// comes from `src/task.mjs`, the single seat (CR6), and is re-exported below so
-// the identity of that seat is assertable.
+// `repairLiveDocument` brings a live document to the two-type, four-stage
+// form (20261024-121022); the command decides which documents are live.
+// Recognition of the task line itself is not this module's own: it comes from
+// `src/task.mjs`, the single seat, and is re-exported below so the identity of
+// that seat is assertable.
 import { parseChange } from './change.mjs';
-import { parseLogEvent, serializeLogEvent } from './lifecycle.mjs';
-import { matchLenientTaskLine, matchTaskLine } from './task.mjs';
+import { matchLenientTaskLine } from './task.mjs';
 
-export { matchLenientTaskLine, matchTaskLine };
+export { matchLenientTaskLine };
 
 const NEAR_ISO = /^(\d{4})-(\d{1,2})-(\d{1,2})[ T](\d{1,2}):(\d{2}):(\d{2})(?:\.\d+)?(Z)?$/;
-const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
-const LEGACY_LOG =
-  /^- (?:\*\*(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)\*\*|(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)) — (.*)$/;
 
 export function computeFixes(text) {
   const criteria = new Set(parseChange(text).criteria ?? []);
@@ -65,206 +61,128 @@ export function hasFixableDefects(text) {
   }
 }
 
-export function migrateStructuredSections(text) {
-  const lines = String(text).split('\n');
-  const output = [];
+// The types and stages retired by 20261024-121022. A live document carrying
+// one is rewritten: the type becomes `change`, and each retired stage's body
+// moves under `## Request` as a `###` subsection after the Request's own
+// content, in document order, its own headings one level deeper so the
+// hierarchy survives. An empty retired stage simply disappears. Which
+// documents are live is the caller's question (`frozenReason`): this function
+// never sees frozen history.
+const RETIRED_TYPES = [
+  'feature',
+  'bug',
+  'hotfix',
+  'audit',
+  'refactor',
+  'chore',
+  'quick',
+  'documentation',
+];
+const RETIRED_STAGES = new Map([
+  ['investigation', 'Investigation'],
+  ['proposal', 'Proposal'],
+]);
+const FRONTMATTER = /^---\n[\s\S]*?\n---\n?/;
+
+export function repairLiveDocument(text) {
   const applied = [];
   const manual = [];
-  let section = '';
+  const frontmatter = text.match(FRONTMATTER);
+  if (!frontmatter) return { text, applied, manual, changed: false };
 
-  for (let index = 0; index < lines.length; index++) {
-    const line = lines[index];
-    const heading = line.match(/^##\s+(.+?)\s*$/);
-    if (heading) {
-      section = heading[1].toLowerCase();
-      output.push(line);
-      continue;
-    }
-
-    if (section === 'plan') {
-      const task = matchTaskLine(line);
-      const alreadyStructured = /^ {2}- \*\*(?:Resolved|Blocked):\*\*/.test(lines[index + 1] ?? '');
-      if (task && !alreadyStructured && task.mark !== ' ') {
-        const separator = task.content.lastIndexOf(' — ');
-        const separators = task.content.match(/ — /g)?.length ?? 0;
-        const suffix = separator === -1 ? '' : task.content.slice(separator + 3);
-        const description = separator === -1 ? task.content : task.content.slice(0, separator);
-        if (task.mark === 'x' && ISO_UTC.test(suffix)) {
-          output.push(`- [x] ${description}`, `  - **Resolved:** \`${suffix}\``);
-          applied.push(`line ${index + 1}: migrated resolved task metadata`);
-          continue;
-        }
-        if (task.mark === '!' && separator !== -1 && separators === 1 && suffix.trim()) {
-          output.push(`- [!] ${description}`, `  - **Blocked:** ${suffix}`);
-          applied.push(`line ${index + 1}: migrated blocked task metadata`);
-          continue;
-        }
-        manual.push(`line ${index + 1}: ambiguous legacy task metadata`);
-      }
-    }
-
-    if (section === 'log' && /^- /.test(line)) {
-      if (parseLogEvent(line)) {
-        output.push(line);
-        continue;
-      }
-      const legacy = line.match(LEGACY_LOG);
-      if (legacy) {
-        output.push(serializeLogEvent(parseLegacyLogEvent(legacy[1] ?? legacy[2], legacy[3])));
-        applied.push(`line ${index + 1}: migrated typed Log event`);
-        continue;
-      }
-      manual.push(`line ${index + 1}: untyped Log entry has no migratable timestamp`);
-    }
-
-    output.push(line);
+  let head = frontmatter[0];
+  const type = head.match(/^type:[ \t]*(["']?)([^"'\s]+)\1[ \t]*$/m);
+  if (type && RETIRED_TYPES.includes(type[2])) {
+    head = head.replace(type[0], 'type: change');
+    applied.push(`type ${type[2]} → change`);
   }
 
-  const migrated = output.join('\n');
-  return { text: migrated, applied, manual, changed: migrated !== text };
+  const body = foldRetiredStages(text.slice(frontmatter[0].length), applied, manual);
+  const repaired = `${head}${body}`;
+  return { text: repaired, applied, manual, changed: repaired !== text };
 }
 
-// Converter from the old positional Plan grammar to the tag grammar
-// (20260729-203257 CR5). Deterministic and idempotent: it only ever moves a
-// trailing marker or a single `verify:` clause out of the description and into a
-// child, so a document already in the tag grammar comes out byte-identical.
-//
-// The positional literals below are the LEGAL residue of the old grammar — this
-// function's whole subject matter — and exist nowhere else in `src/`.
-const FINAL_CR_GROUP = /\(([^)]*\bCR\d+[^)]*)\)\s*$/;
-const FINAL_SUPPORT = /\s*\(support\)\s*$/;
-const VERIFY_CLAUSE = 'verify:';
-
-export function migratePlanTags(text) {
-  const lines = String(text).split('\n');
-  const output = [];
-  const applied = [];
-  const manual = [];
-  let inPlan = false;
-
-  for (let index = 0; index < lines.length; index++) {
-    const line = lines[index];
-    if (/^##\s+/.test(line)) {
-      inPlan = /^##\s+Plan\s*$/.test(line);
-      output.push(line);
-      continue;
+function foldRetiredStages(body, applied, manual) {
+  const segments = splitSegments(body);
+  const retired = segments.filter((segment) => RETIRED_STAGES.has(segment.key));
+  if (!retired.length) return body;
+  const request = segments.find((segment) => segment.key === 'request');
+  if (!request) {
+    for (const segment of retired) {
+      manual.push(`## ${RETIRED_STAGES.get(segment.key)} has no ## Request to move under`);
     }
-    const task = inPlan ? matchTaskLine(line) : null;
-    if (!task) {
-      output.push(line);
-      continue;
-    }
-
-    const converted = convertLegacyTask(task.content, index + 1);
-    manual.push(...converted.manual);
-    if (!converted.children.length) {
-      output.push(line);
-      continue;
-    }
-    output.push(`- [${task.mark}] ${converted.description}`, ...converted.children);
-    applied.push(`line ${index + 1}: migrated Plan task tags`);
+    return body;
   }
 
-  const migrated = output.join('\n');
-  return { text: migrated, applied, manual, changed: migrated !== text };
+  const moved = [];
+  for (const segment of retired) {
+    const name = RETIRED_STAGES.get(segment.key);
+    const content = trimBlankLines(segment.lines);
+    if (!content.length) {
+      applied.push(`removed empty ## ${name}`);
+      continue;
+    }
+    moved.push('', `### ${name}`, '', ...demoteHeadings(content));
+    applied.push(`## ${name} → ### ${name} under ## Request`);
+  }
+  if (moved.length) {
+    const own = trimTrailingBlankLines(request.lines);
+    let tail = request.lines.slice(own.length);
+    const last = segments.filter((segment) => !retired.includes(segment)).at(-1) === request;
+    if (!tail.length && !last) tail = [''];
+    request.lines = [...own, ...moved, ...tail];
+  }
+  return segments
+    .filter((segment) => !retired.includes(segment))
+    .flatMap((segment) =>
+      segment.heading === null ? segment.lines : [segment.heading, ...segment.lines],
+    )
+    .join('\n');
 }
 
-function convertLegacyTask(content, lineNo) {
-  const manual = [];
-  const children = [];
-  let description = content.trim();
-
-  const group = description.match(FINAL_CR_GROUP);
-  const criteria = group ? (group[1].match(/CR\d+/g) ?? []) : [];
-  if (group) description = description.slice(0, group.index).trim();
-
-  const support = FINAL_SUPPORT.test(description);
-  if (support) description = description.replace(FINAL_SUPPORT, '').trim();
-
-  // Exactly one clause is unambiguous. Zero leaves nothing to move; several leave
-  // no deterministic tail. Both cases keep the description intact and say so.
-  const occurrences = description.split(VERIFY_CLAUSE).length - 1;
-  let verify = '';
-  if (occurrences === 1) {
-    const at = description.indexOf(VERIFY_CLAUSE);
-    verify = description.slice(at + VERIFY_CLAUSE.length).trim();
-    if (verify)
-      description = description
-        .slice(0, at)
-        .replace(/[;,]?\s*$/, '')
-        .trim();
+// Splits a body at its `## ` headings outside code fences; joining the
+// segments back reproduces the body byte for byte.
+function splitSegments(body) {
+  const segments = [{ key: null, heading: null, lines: [] }];
+  const isFenced = fenceTracker();
+  for (const line of body.split('\n')) {
+    const heading = isFenced(line) ? null : line.match(/^##\s+(.+?)\s*$/);
+    if (heading) segments.push({ key: heading[1].toLowerCase(), heading: line, lines: [] });
+    else segments.at(-1).lines.push(line);
   }
-  if (!verify) {
-    manual.push(
-      occurrences <= 1
-        ? `line ${lineNo}: no verify: clause to migrate — add **Verify:** by hand`
-        : `line ${lineNo}: ${occurrences} verify: clauses — add **Verify:** by hand`,
-    );
-  }
-
-  // A description reduced to nothing would stop being a task line: refuse.
-  if (!description) {
-    manual.push(`line ${lineNo}: migrating would leave the task without a description`);
-    return { description: content.trim(), children: [], manual };
-  }
-
-  if (verify) children.push(`  - **Verify:** ${verify}`);
-  if (criteria.length) children.push(`  - **Criteria:** ${criteria.join(', ')}`);
-  if (support) children.push('  - **Support:**');
-  return { description, children, manual };
+  return segments;
 }
 
-function parseLegacyLogEvent(at, message) {
-  for (const [type, prefix, from] of [
-    ['status', 'status: ', null],
-    ['review', 'review → ', 'in-review'],
-    ['validation', 'validation → ', 'in-validation'],
-  ]) {
-    if (!message.startsWith(prefix)) continue;
-    const payload =
-      type === 'status'
-        ? message.slice(prefix.length)
-        : `${from} → ${message.slice(prefix.length)}`;
-    const transition = payload.match(/^([a-z-]+) → ([a-z-]+)(?: \(([^)]*)\))?(?:: ([\s\S]+))?$/);
-    if (transition) {
-      const event = { at, type, from: transition[1], to: transition[2] };
-      if (transition[3]) event.detail = transition[3];
-      if (transition[4]) event.reason = transition[4];
-      return event;
-    }
-  }
+function demoteHeadings(lines) {
+  const isFenced = fenceTracker();
+  return lines.map((line) => (!isFenced(line) && /^#{3,5}\s/.test(line) ? `#${line}` : line));
+}
 
-  if (message === 'owner cleared') return { at, type: 'owner', owner: null };
-  const owner = message.match(/^owner → (.+?)( \(auto\))?$/);
-  if (owner) {
-    return {
-      at,
-      type: 'owner',
-      owner: owner[1],
-      ...(owner[2] ? { automatic: true } : {}),
-    };
-  }
-  const graduated = message.match(/^graduado a spec `([^`]+)`(?: \((.*)\))?$/i);
-  if (graduated) {
-    return {
-      at,
-      type: 'graduation',
-      outcome: 'spec',
-      spec: graduated[1],
-      ...(graduated[2] ? { detail: graduated[2] } : {}),
-    };
-  }
-  const skipped = message.match(/^graduation skipped(?:: ([\s\S]+))?$/);
-  if (skipped) {
-    return {
-      at,
-      type: 'graduation',
-      outcome: 'skipped',
-      ...(skipped[1] ? { reason: skipped[1] } : {}),
-    };
-  }
-  if (message === 'archived') return { at, type: 'archive' };
-  return { at, type: 'note', message };
+function trimTrailingBlankLines(lines) {
+  let end = lines.length;
+  while (end > 0 && !lines[end - 1].trim()) end -= 1;
+  return lines.slice(0, end);
+}
+
+function trimBlankLines(lines) {
+  const kept = trimTrailingBlankLines(lines);
+  let start = 0;
+  while (start < kept.length && !kept[start].trim()) start += 1;
+  return kept.slice(start);
+}
+
+// The fence rule `src/change.mjs` applies when it splits stages: a fence
+// closes only on a run of its own character at least as long as the opener.
+// A copy, because that module keeps its tracker private.
+function fenceTracker() {
+  let fence = null;
+  return (line) => {
+    const mark = line.match(/^(`{3,}|~{3,})/);
+    if (!mark) return fence !== null;
+    if (!fence) fence = { char: mark[1][0], length: mark[1].length };
+    else if (mark[1][0] === fence.char && mark[1].length >= fence.length) fence = null;
+    return true;
+  };
 }
 
 function fixTaskLine(rawLine, declaredCR, lineNo) {

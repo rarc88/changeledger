@@ -293,3 +293,21 @@ test('150300 CR3: register repairs semantic changes and preserves surrounding by
   assert.ok(repaired.includes(REFERENCE.trim()));
   assert.doesNotMatch(repaired, /run `changeledger check` directly/);
 });
+
+test('20261024-121022 CR13: register warns on an outdated schema naming config migrate, without writing', () => {
+  const dir = initializedRepo();
+  const configFile = path.join(dir, '.changeledger', 'config.yml');
+  fs.writeFileSync(configFile, 'schema_version: 6\nproject_id: "abc1234567"\nproject_name: test\n');
+  const before = fs.readFileSync(configFile, 'utf8');
+  const warnings = [];
+
+  registerRepo(dir, { warn: (msg) => warnings.push(msg), log: () => {} });
+
+  assert.deepEqual(
+    warnings.filter((msg) => msg.includes('config schema')),
+    [
+      'warn  .changeledger/config.yml: config schema 6 is outdated; run `changeledger config migrate`',
+    ],
+  );
+  assert.equal(fs.readFileSync(configFile, 'utf8'), before);
+});
