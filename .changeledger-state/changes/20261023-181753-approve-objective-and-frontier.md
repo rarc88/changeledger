@@ -2,7 +2,7 @@
 id: "20261023-181753"
 title: "El humano aprueba objetivo y frontera; Specification y Plan nacen en in-progress y el Definition of Ready se retira"
 type: feature
-status: in-progress
+status: in-review
 created: 2026-10-23T18:17:53Z
 depends_on: []
 branch: feature/20261023-181753
@@ -435,3 +435,4 @@ las nombra como divergencia conocida.
 - **2026-10-24T00:22:59Z** `[note]` Clasificación: enumeración incompleta de la misma clase (D2) convertida en una corrección más ancha que la frontera. Tercer fail sobre el mismo change: el ciclo de corrección acotado del contrato devuelve al humano la elección entre seguir en una ronda 3 confinada —mantener trim() en los cuerpos de etapa y entregar a parseRequestSections la porción sin recortar del Request, con test de que un Plan y una Specification con primera línea indentada parsean como en HEAD— o re-alcanzar. Recomendación del orquestador: ronda 3 confinada; el arreglo es local a src/change.mjs y su test.
 - **2026-10-24T11:07:17Z** `[note]` Ronda 3 autorizada por el humano (2026-10-24), confinada al lector del Request: trim() se mantiene en los cuerpos de etapa, parseRequestSections recibe la porción sin recortar del Request, y un test fija que un Plan y una Specification con primera línea indentada parsean como en HEAD.
 - **2026-10-24T11:10:34Z** `[note]` Corrección de la ronda 3, confinada: splitStages vuelve a trim() en body y conserva en cada etapa un campo raw con las líneas tal como las recorrió; assertApprovable entrega request.raw a parseRequestSections, así que el lector del Request cuenta los mismos delimitadores de fence que splitStages y ningún otro lector de cuerpos cambia. Tests: en change.test, un Plan cuya primera tarea y una Specification cuyo primer CRn van con sangría parsean como en HEAD (rojo con la corrección de la ronda 2, verde ahora); en agent.test se mantiene el del Request con primera línea indentada. Mutantes, uno a uno y restaurados por copia idéntica: entregar request.body al lector (rojo), dejar body sin trim (rojo), recortar la sangría al acumular raw (rojo). Decisión no especificada: raw es un campo adicional de cada etapa que devuelve parseChange; sólo lo lee assertApprovable.
+- **2026-10-24T11:14:41Z** `[status]` in-progress → in-review
