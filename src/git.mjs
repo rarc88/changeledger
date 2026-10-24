@@ -3,6 +3,7 @@
 // logic is testable without a real repo. Any git failure yields empty refs.
 
 import { execFileSync } from 'node:child_process';
+import path from 'node:path';
 
 const SEP = String.fromCharCode(31); // ASCII unit separator — safe field delimiter
 const RECORD_SEP = String.fromCharCode(30);
@@ -358,9 +359,11 @@ export function uncommittedPaths(cwd, run = capturedRun) {
     .map((entry) => entry.slice(3));
 }
 
-// The worktree that has local branch `branch` checked out, as git reports it
-// (`%(worktreepath)`, git >= 2.23), or '' when none does. Every failure throws
-// with its cause: a gate reads it.
+// The worktree that has local branch `branch` checked out (`%(worktreepath)`,
+// git >= 2.23), or '' when none does. Git prints the path with forward
+// slashes, on Windows too; it is returned in the platform's own form, the one
+// `fs.realpathSync.native` yields. Every failure throws with its cause: a
+// gate reads it.
 export function branchWorktree(cwd, branch, run = capturedRun) {
   let out;
   try {
@@ -368,7 +371,8 @@ export function branchWorktree(cwd, branch, run = capturedRun) {
   } catch (e) {
     throw new Error(gitFailure(e, `cannot tell where "${branch}" is checked out`), { cause: e });
   }
-  return String(out).replace(/\n$/, '');
+  const reported = String(out).replace(/\n$/, '');
+  return reported === '' ? '' : path.resolve(reported);
 }
 
 // `show-ref --verify` exits 1 exactly when the ref is absent; any other failure
