@@ -8,6 +8,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { JSDOM } from 'jsdom';
+import { parseDocument } from 'yaml';
 import { parseChange } from '../src/change.mjs';
 import { writeLedgerFiles } from '../src/change-store.mjs';
 import { review, status, task } from '../src/commands/agent.mjs';
@@ -41,6 +42,7 @@ import { encodeProjectPath } from '../src/usage-collector.mjs';
 import { cleanMissingProjects, readLedgerDocument, serialize } from '../src/viewer/domain.mjs';
 import { SHARED_MODULES } from '../src/viewer/server/router.mjs';
 import { setBranch, stampVersion } from '../src/writer.mjs';
+import { parseYaml } from '../src/yaml.mjs';
 import { claudeRunner, ledgerUsageRecords } from './helpers/ccusage.mjs';
 import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
@@ -124,16 +126,15 @@ function lowerHeaders(headers) {
 // 20261023-181753: approve requires the Request's `### Objective` and
 // `### Frontier` with a body, and `in-review` requires a Specification that
 // declares a criterion. One shared fill for every fixture in this file that
-// walks a scaffolded feature change to `approved` or beyond.
+// walks a scaffolded change to `approved` or beyond.
 function fillNarrativeStages(text) {
   return text
-    .replace('## Request\n', '## Request\n\n### Objective\n\nO\n\n### Frontier\n\nF\n')
-    .replace('## Investigation\n', '## Investigation\n\nI\n')
-    .replace('## Proposal\n', '## Proposal\n\nP\n')
+    .replace('### Objective\n', '### Objective\n\nO\n')
+    .replace('### Frontier\n', '### Frontier\n\nF\n')
     .replace('## Specification\n', '## Specification\n\n### CR1 — S\n\nS\n');
 }
 
-function fillFeatureStages(text) {
+function fillChangeStages(text) {
   return fillNarrativeStages(text).replace(
     '## Plan\n',
     '## Plan\n\n- [ ] do it\n  - **Support:**\n',
@@ -142,11 +143,11 @@ function fillFeatureStages(text) {
 
 function draftChange(root) {
   const file = newChange(
-    { type: 'feature', slug: 'x', title: 'X', now: '2026-06-13T12:00:00Z' },
+    { type: 'change', slug: 'x', title: 'X', now: '2026-06-13T12:00:00Z' },
     root,
     { ownerHandle: () => '' },
   );
-  const text = fillFeatureStages(fs.readFileSync(file, 'utf8'));
+  const text = fillChangeStages(fs.readFileSync(file, 'utf8'));
   fs.writeFileSync(file, text);
   const { id } = parseChange(text).frontmatter;
   const { current } = resolveProjects(root, true);
@@ -502,7 +503,7 @@ test('174429: /api/repo returns serialized data through the async loader path', 
   isolatedHome();
   const root = newRepo();
   const file = newChange(
-    { type: 'bug', slug: 'async-api', title: 'Async API', now: '2026-06-13T12:00:00Z' },
+    { type: 'change', slug: 'async-api', title: 'Async API', now: '2026-06-13T12:00:00Z' },
     root,
     { ownerHandle: () => '' },
   );
@@ -547,7 +548,7 @@ test('20260805-052741 CR7: /api/repo exposes a set branch', async () => {
   isolatedHome();
   const root = newRepo();
   const file = newChange(
-    { type: 'bug', slug: 'branch-api', title: 'Branch API', now: '2026-06-13T12:00:00Z' },
+    { type: 'change', slug: 'branch-api', title: 'Branch API', now: '2026-06-13T12:00:00Z' },
     root,
     { ownerHandle: () => '' },
   );
@@ -570,7 +571,7 @@ function activatedViewerFixture() {
   initGitFixture(root);
 
   const changeDoc = (id, title) =>
-    `---\nid: "${id}"\ntitle: ${title}\ntype: feature\nstatus: draft\ncreated: 2026-08-08T00:00:00Z\ndepends_on: []\n---\n\n## Request\n\nHi.\n`;
+    `---\nid: "${id}"\ntitle: ${title}\ntype: change\nstatus: draft\ncreated: 2026-08-08T00:00:00Z\ndepends_on: []\n---\n\n## Request\n\nHi.\n`;
 
   fs.writeFileSync(
     path.join(root, '.changeledger', 'changes', 'only-worktree.md'),
@@ -606,7 +607,7 @@ test('152809 CR1/CR4: /api/repo isolates invalid changes in deterministic order'
   const root = newRepo();
   newChange(
     {
-      type: 'bug',
+      type: 'change',
       slug: 'valid',
       title: 'Valid change',
       now: '2026-08-04T12:00:00Z',
@@ -618,7 +619,7 @@ test('152809 CR1/CR4: /api/repo isolates invalid changes in deterministic order'
   const invalid = (id, title) => `---
 id: "${id}"
 title: ${title}
-type: bug
+type: change
 status: in-progress
 created: 2026-08-04T12:00:01Z
 depends_on: []
@@ -656,7 +657,7 @@ test('152809 CR1: loadRepoAsync isolates an individual change read failure', asy
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
   isolatedHome();
   init(root);
-  newChange({ type: 'bug', slug: 'valid', title: 'Valid', now: '2026-08-04T12:00:00Z' }, root, {
+  newChange({ type: 'change', slug: 'valid', title: 'Valid', now: '2026-08-04T12:00:00Z' }, root, {
     ownerHandle: () => '',
   });
   fs.mkdirSync(path.join(root, '.changeledger', 'changes', 'unreadable.md'));
@@ -707,7 +708,7 @@ test('141643 CR3: /api/repo serializes canonical pending graduation for markers 
   isolatedHome();
   const root = newRepo();
   const writeChange = ({ slug, now, status = 'done', reviewed, graduationMarker = false }) => {
-    const file = newChange({ type: 'bug', slug, title: slug, now }, root, {
+    const file = newChange({ type: 'change', slug, title: slug, now }, root, {
       ownerHandle: () => '',
     });
     let text = fs
@@ -1282,6 +1283,32 @@ function newRepo() {
   return root;
 }
 
+// A schema-6 config as a consumer holds it before `config migrate` (CR12):
+// the given schema-7 text plus the retired type matrix, readiness and statuses.
+function schema6Config(text) {
+  const doc = parseDocument(text);
+  doc.set('schema_version', 6);
+  doc.deleteIn(['release', 'default_impact']);
+  doc.setIn(['release', 'impacts'], { feature: 'minor', quick: 'patch' });
+  doc.set('stages', ['request', 'investigation', 'proposal', 'specification', 'plan', 'log']);
+  doc.set('types', {
+    feature: { stages: ['request', 'specification', 'plan', 'log'], review_required: true },
+    quick: { stages: ['request', 'log'] },
+  });
+  doc.set('readiness', { target_patterns: ['src/**'] });
+  doc.set('statuses', [
+    'draft',
+    'approved',
+    'in-progress',
+    'in-review',
+    'in-validation',
+    'blocked',
+    'done',
+    'discarded',
+  ]);
+  return doc.toString();
+}
+
 function disableChangeBranchFormat(root) {
   const configFile = path.join(root, '.changeledger', 'config.yml');
   fs.writeFileSync(
@@ -1376,7 +1403,7 @@ test('searchProjects groups matches and drops projects with none', () => {
   const fakeRepo = (titles) => ({
     changes: titles.map((t, i) => ({
       text: `body ${t}`,
-      frontmatter: { id: `2026010${i}-000000`, title: t, type: 'feature', status: 'draft' },
+      frontmatter: { id: `2026010${i}-000000`, title: t, type: 'change', status: 'draft' },
     })),
   });
   const projects = [
@@ -1402,11 +1429,11 @@ test('CR1: changeStatus moves the lifecycle and logs it', () => {
   isolatedHome();
   const root = newRepo();
   const file = newChange(
-    { type: 'feature', slug: 'x', title: 'X', now: '2026-06-13T12:00:00Z' },
+    { type: 'change', slug: 'x', title: 'X', now: '2026-06-13T12:00:00Z' },
     root,
     { ownerHandle: () => '' },
   );
-  fs.writeFileSync(file, fillFeatureStages(fs.readFileSync(file, 'utf8')));
+  fs.writeFileSync(file, fillChangeStages(fs.readFileSync(file, 'utf8')));
   const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
   const { projects, current } = resolveProjects(root, false);
   const res = changeStatus(projects, { project: current, id, status: 'approved' });
@@ -1476,11 +1503,11 @@ for (const layout of ['legacy', 'state ref']) {
 function deliveredViewerChange(root) {
   disableChangeBranchFormat(root);
   const file = newChange(
-    { type: 'feature', slug: 'rejected', title: 'Rejected', now: '2026-06-13T12:00:00Z' },
+    { type: 'change', slug: 'rejected', title: 'Rejected', now: '2026-06-13T12:00:00Z' },
     root,
     { ownerHandle: () => '' },
   );
-  fs.writeFileSync(file, fillFeatureStages(fs.readFileSync(file, 'utf8')));
+  fs.writeFileSync(file, fillChangeStages(fs.readFileSync(file, 'utf8')));
   const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
   status(id, 'approved', root);
   status(id, 'in-progress', root, { ownerHandle: () => '' });
@@ -1580,13 +1607,16 @@ test('150231 CR2: the viewer reports a scoped validation failure and preserves t
   const root = newRepo();
   disableChangeBranchFormat(root);
   const file = newChange(
-    { type: 'feature', slug: 'incomplete', title: 'Incomplete', now: '2026-06-13T12:00:00Z' },
+    { type: 'change', slug: 'incomplete', title: 'Incomplete', now: '2026-06-13T12:00:00Z' },
     root,
     { ownerHandle: () => '' },
   );
   fs.writeFileSync(
     file,
-    fillNarrativeStages(fs.readFileSync(file, 'utf8')).replace('## Specification\n', ''),
+    fillNarrativeStages(fs.readFileSync(file, 'utf8')).replace(
+      '## Specification\n',
+      '## Investigation\n\nI\n\n## Specification\n',
+    ),
   );
   const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
   const before = fs.readFileSync(file, 'utf8');
@@ -1596,6 +1626,7 @@ test('150231 CR2: the viewer reports a scoped validation failure and preserves t
 
   assert.equal(result.code, 400);
   assert.match(result.body.error, /failed scoped validation/);
+  assert.match(result.body.error, /unknown stage "## investigation"/);
   assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
 
@@ -1604,11 +1635,11 @@ test('150231 CR6: a viewer move ignores an unrelated unparseable change', () => 
   const root = newRepo();
   disableChangeBranchFormat(root);
   const file = newChange(
-    { type: 'feature', slug: 'selected', title: 'Selected', now: '2026-06-13T12:00:00Z' },
+    { type: 'change', slug: 'selected', title: 'Selected', now: '2026-06-13T12:00:00Z' },
     root,
     { ownerHandle: () => '' },
   );
-  fs.writeFileSync(file, fillFeatureStages(fs.readFileSync(file, 'utf8')));
+  fs.writeFileSync(file, fillChangeStages(fs.readFileSync(file, 'utf8')));
   const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
   fs.writeFileSync(path.join(root, '.changeledger', 'changes', 'broken.md'), 'broken\n');
   const { projects, current } = resolveProjects(root, false);
@@ -1624,11 +1655,11 @@ test('150232 CR1/CR2: the viewer returns a done change only with a reason', () =
   const root = newRepo();
   disableChangeBranchFormat(root);
   const file = newChange(
-    { type: 'feature', slug: 'reopen', title: 'Reopen', now: '2026-06-13T12:00:00Z' },
+    { type: 'change', slug: 'reopen', title: 'Reopen', now: '2026-06-13T12:00:00Z' },
     root,
     { ownerHandle: () => '' },
   );
-  fs.writeFileSync(file, fillFeatureStages(fs.readFileSync(file, 'utf8')));
+  fs.writeFileSync(file, fillChangeStages(fs.readFileSync(file, 'utf8')));
   const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
   status(id, 'approved', root);
   status(id, 'in-progress', root, { ownerHandle: () => '' });
@@ -1656,11 +1687,11 @@ test('20261018-131621 CR9/CR16: the viewer refuses to return a change shipped in
   const root = newRepo();
   disableChangeBranchFormat(root);
   const file = newChange(
-    { type: 'feature', slug: 'shipped', title: 'Shipped', now: '2026-06-13T12:00:00Z' },
+    { type: 'change', slug: 'shipped', title: 'Shipped', now: '2026-06-13T12:00:00Z' },
     root,
     { ownerHandle: () => '' },
   );
-  fs.writeFileSync(file, fillFeatureStages(fs.readFileSync(file, 'utf8')));
+  fs.writeFileSync(file, fillChangeStages(fs.readFileSync(file, 'utf8')));
   const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
   status(id, 'approved', root);
   status(id, 'in-progress', root, { ownerHandle: () => '' });
@@ -1695,11 +1726,11 @@ test('171002 CR2: changeStatus rejects agent-owned or premature moves without wr
   isolatedHome();
   const root = newRepo();
   const file = newChange(
-    { type: 'feature', slug: 'x', title: 'X', now: '2026-06-13T12:00:00Z' },
+    { type: 'change', slug: 'x', title: 'X', now: '2026-06-13T12:00:00Z' },
     root,
     { ownerHandle: () => '' },
   );
-  fs.writeFileSync(file, fillFeatureStages(fs.readFileSync(file, 'utf8')));
+  fs.writeFileSync(file, fillChangeStages(fs.readFileSync(file, 'utf8')));
   const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
   const { projects, current } = resolveProjects(root, false);
 
@@ -1961,18 +1992,15 @@ test('111218 CR4: wrong-shaped config returns validation error and preserves the
   assert.match(httpResult.body, /statuses/);
 });
 
-test('111218 CR4: malformed type definitions return 400 instead of escaping', () => {
+test('111218 CR4: type definitions, malformed or not, return 400 instead of escaping', () => {
   isolatedHome();
   const root = newRepo();
   const { projects, current } = resolveProjects(root, false);
   const configFile = path.join(root, '.changeledger', 'config.yml');
   const read = readProjectConfig(projects, current);
   const candidates = [
-    read.body.content.replace(/^types:$/m, 'types: feature'),
-    read.body.content.replace(
-      /types:\n {2}feature:\n {4}stages: \[[^\n]+/,
-      'types:\n  feature:\n    stages:\n      request: true',
-    ),
+    `${read.body.content}types: feature\n`,
+    `${read.body.content}types:\n  feature:\n    stages:\n      request: true\n`,
   ];
 
   for (const content of candidates) {
@@ -2337,11 +2365,11 @@ test('113924 CR3: readProjectConfigStructured returns config object and schema m
   assert.ok(typeof result.body.content === 'string');
   assert.ok(typeof result.body.revision === 'string');
   assert.equal(typeof result.body.schemaVersion, 'number');
-  assert.equal(result.body.supported, 6);
+  assert.equal(result.body.supported, 7);
   assert.ok(typeof result.body.config === 'object');
   assert.ok('language' in result.body.config);
   assert.ok('tdd' in result.body.config);
-  assert.ok('types' in result.body.config);
+  assert.equal('types' in result.body.config, false);
 });
 
 test('113924 CR4: patchProjectConfig only changes patched field, preserves comments and custom keys', () => {
@@ -2517,6 +2545,119 @@ test('20261023-181753 CR8: the served app carries no Definition of Ready form', 
   assert.doesNotMatch(res.body, /test-grade/);
 });
 
+// Applies each patch to the same pristine config and returns what lands on
+// disk, so a patch's effect is compared against the empty patch's.
+function configAfterPatch(root, projects, current) {
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  const original = fs.readFileSync(configFile, 'utf8');
+  return (patch) => {
+    fs.writeFileSync(configFile, original);
+    const { body } = readProjectConfigStructured(projects, current);
+    const result = patchProjectConfig(projects, {
+      project: current,
+      revision: body.revision,
+      patch,
+    });
+    return { result, after: fs.readFileSync(configFile, 'utf8') };
+  };
+}
+
+test('20261024-121022 CR16: a config PATCH carrying types or stages leaves the config as a PATCH with no accepted keys leaves it', () => {
+  isolatedHome();
+  const root = newRepo();
+  const { projects, current } = resolveProjects(root, false);
+  const patched = configAfterPatch(root, projects, current);
+
+  const baseline = patched({});
+  assert.equal(baseline.result.code, 200, baseline.result.body?.error);
+  for (const patch of [
+    { types: { change: { review_required: false, stages: ['request', 'log'] } } },
+    { types: { feature: { review_required: false } } },
+    { stages: ['request', 'specification', 'plan', 'log'] },
+    { stages: ['log', 'request'] },
+  ]) {
+    const { result, after } = patched(patch);
+    assert.equal(result.code, 200, `${JSON.stringify(patch)}: ${result.body?.error}`);
+    assert.equal(after, baseline.after, JSON.stringify(patch));
+  }
+});
+
+test('20261024-121022 CR16: a config PATCH writes release.default_impact and never release.impacts', () => {
+  isolatedHome();
+  const root = newRepo();
+  const { projects, current } = resolveProjects(root, false);
+  const patched = configAfterPatch(root, projects, current);
+  const baseline = patched({});
+
+  const minor = patched({ release: { default_impact: 'minor' } });
+  assert.equal(minor.result.code, 200, minor.result.body?.error);
+  assert.equal(parseYaml(minor.after).release.default_impact, 'minor');
+
+  const impacts = patched({ release: { impacts: { change: 'major' } } });
+  assert.equal(impacts.result.code, 200, impacts.result.body?.error);
+  assert.equal(impacts.after, baseline.after);
+
+  const invalid = patched({ release: { default_impact: 'big' } });
+  assert.equal(invalid.result.code, 400);
+  assert.equal(
+    invalid.result.body.error,
+    'config "release.default_impact" must be one of: none, patch, minor, major',
+  );
+  assert.equal(
+    invalid.after,
+    fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8'),
+  );
+});
+
+test('20261024-121022 CR16: the served app carries no type or stage matrix form and offers a default SemVer impact', async () => {
+  isolatedHome();
+  const res = await memoryRequest(newRepo(), { path: '/app.js' });
+  assert.equal(res.status, 200);
+  for (const retired of [
+    /Change types/,
+    /Lifecycle stages/,
+    /Active stages/,
+    /Review policy/,
+    /Stages used by a change type cannot be removed/,
+    /review_required_/,
+    /impact_\$\{/,
+    /stages_\$\{/,
+    /release\.impacts|\.impacts\b/,
+  ]) {
+    assert.doesNotMatch(res.body, retired);
+  }
+  assert.match(res.body, /Default SemVer impact/);
+  assert.match(res.body, /default_impact/);
+});
+
+test('20261024-121022 CR16: the board type list is change and epic, never read from the config', () => {
+  const payload = serialize({
+    repoRoot: '/repos/alpha',
+    config: { language: 'en', statuses: ['done'], types: { feature: {}, bug: {} } },
+    changes: [],
+    specs: [],
+    changeErrors: [],
+  });
+  assert.deepEqual(payload.types, ['change', 'epic']);
+  assert.deepEqual(
+    serialize({ repoRoot: '/r', config: { statuses: [] }, changes: [], specs: [] }).types,
+    ['change', 'epic'],
+  );
+});
+
+test('20261024-121022 CR16: the stylesheet gives change and epic their own colour', async () => {
+  isolatedHome();
+  const res = await memoryRequest(newRepo(), { path: '/styles.css' });
+  assert.equal(res.status, 200);
+  const root = res.body.match(/:root\s*\{[^}]*\}/)?.[0] ?? '';
+  const colour = (name) => root.match(new RegExp(`--${name}:\\s*([^;]+);`))?.[1];
+  assert.ok(colour('change'), 'the :root block declares --change');
+  assert.ok(colour('epic'), 'the :root block declares --epic');
+  assert.notEqual(colour('change'), colour('epic'));
+  assert.notEqual(colour('change'), colour('chore'), '--chore is the unknown-type fallback');
+  assert.notEqual(colour('epic'), colour('chore'), '--chore is the unknown-type fallback');
+});
+
 test('113924 CR5: patch rejects invalid changes_dir (path traversal)', () => {
   isolatedHome();
   const root = newRepo();
@@ -2568,7 +2709,7 @@ test('113924 CR6 atomic: applyConfigMigration revision check and write are atomi
   const { projects, current } = resolveProjects(root, false);
 
   const configFile = path.join(root, '.changeledger', 'config.yml');
-  const text = fs.readFileSync(configFile, 'utf8').replace(/^schema_version: \d+\n/m, '');
+  const text = schema6Config(fs.readFileSync(configFile, 'utf8'));
   fs.writeFileSync(configFile, text);
   // A stale revision is checked while mutateFileAtomic holds the file lock.
   const staleResult = applyConfigMigration(projects, { project: current, revision: 'stale' });
@@ -2598,8 +2739,7 @@ test('113924 CR7: previewConfigMigration does not write and returns candidate YA
   const { projects, current } = resolveProjects(root, false);
 
   const configFile = path.join(root, '.changeledger', 'config.yml');
-  // Downgrade to schema 0
-  const text = fs.readFileSync(configFile, 'utf8').replace(/^schema_version: \d+\n/m, '');
+  const text = schema6Config(fs.readFileSync(configFile, 'utf8'));
   fs.writeFileSync(configFile, text);
   const before = fs.readFileSync(configFile, 'utf8');
 
@@ -2607,7 +2747,8 @@ test('113924 CR7: previewConfigMigration does not write and returns candidate YA
   assert.equal(result.code, 200);
   assert.equal(result.body.project_id, current);
   assert.equal(result.body.repository_path, path.resolve(root));
-  assert.ok(result.body.yaml.includes('schema_version: 6'));
+  assert.match(result.body.summary, /^Config migration 6 → 7 \(dry run\)$/);
+  assert.ok(result.body.yaml.includes('schema_version: 7'));
   assert.ok(result.body.yaml.includes(`min_cli_version: ${VERSION}`));
   assert.match(result.body.yaml, /change_branch_format: "\{type\}\/\{id\}"/);
   assert.ok(result.body.changes.length > 0);
@@ -2630,7 +2771,7 @@ test('113924 CR8: applyConfigMigration uses buildMigration engine and writes ato
   const { projects, current } = resolveProjects(root, false);
 
   const configFile = path.join(root, '.changeledger', 'config.yml');
-  const text = fs.readFileSync(configFile, 'utf8').replace(/^schema_version: \d+\n/m, '');
+  const text = schema6Config(fs.readFileSync(configFile, 'utf8'));
   fs.writeFileSync(configFile, text);
   const { body } = readProjectConfigStructured(projects, current);
 
@@ -2640,7 +2781,7 @@ test('113924 CR8: applyConfigMigration uses buildMigration engine and writes ato
   assert.equal(result.body.repository_path, path.resolve(root));
   assert.ok(result.body.ok);
   const migrated = fs.readFileSync(configFile, 'utf8');
-  assert.ok(migrated.includes('schema_version: 6'));
+  assert.ok(migrated.includes('schema_version: 7'));
   assert.ok(migrated.includes(`min_cli_version: ${VERSION}`));
   assert.match(migrated, /change_branch_format: "\{type\}\/\{id\}"/);
   // Verify idempotent
@@ -2658,7 +2799,7 @@ test('113924 CR9: read never triggers migration implicitly', () => {
   const { projects, current } = resolveProjects(root, false);
 
   const configFile = path.join(root, '.changeledger', 'config.yml');
-  const text = fs.readFileSync(configFile, 'utf8').replace(/^schema_version: \d+\n/m, '');
+  const text = schema6Config(fs.readFileSync(configFile, 'utf8'));
   fs.writeFileSync(configFile, text);
   const before = fs.readFileSync(configFile, 'utf8');
 
@@ -2678,7 +2819,7 @@ test('113924 CR10: patchProjectConfig fails closed for future schema', () => {
   const configFile = path.join(root, '.changeledger', 'config.yml');
   const text = fs
     .readFileSync(configFile, 'utf8')
-    .replace(/schema_version: \d+/, 'schema_version: 7');
+    .replace(/schema_version: \d+/, 'schema_version: 8');
   fs.writeFileSync(configFile, text);
   const { body } = readProjectConfigStructured(projects, current);
 
@@ -2698,7 +2839,7 @@ test('113924 CR10: raw domain and HTTP writes fail closed for future schema', as
   const configFile = path.join(root, '.changeledger', 'config.yml');
   const future = fs
     .readFileSync(configFile, 'utf8')
-    .replace(/schema_version: \d+/, 'schema_version: 7');
+    .replace(/schema_version: \d+/, 'schema_version: 8');
   fs.writeFileSync(configFile, future);
   const read = readProjectConfig(projects, current);
   const candidate = future.replace(/language: en/, 'language: fr');
@@ -2709,7 +2850,7 @@ test('113924 CR10: raw domain and HTTP writes fail closed for future schema', as
     revision: read.body.revision,
   });
   assert.equal(direct.code, 400);
-  assert.match(direct.body.error, /config schema 7 is newer than supported schema 6/);
+  assert.match(direct.body.error, /config schema 8 is newer than supported schema 7/);
   assert.equal(fs.readFileSync(configFile, 'utf8'), future);
 
   const response = await memoryRequest(root, {
@@ -2725,7 +2866,7 @@ test('113924 CR10: raw domain and HTTP writes fail closed for future schema', as
     localOnly: false,
   });
   assert.equal(response.status, 400);
-  assert.match(response.body, /config schema 7 is newer than supported schema 6/);
+  assert.match(response.body, /config schema 8 is newer than supported schema 7/);
   assert.equal(fs.readFileSync(configFile, 'utf8'), future);
 });
 
@@ -2736,7 +2877,7 @@ test('161652 CR4/CR5: viewer preview reads and config writes share the future-sc
   const configFile = path.join(root, '.changeledger', 'config.yml');
   const future = fs
     .readFileSync(configFile, 'utf8')
-    .replace(/schema_version: \d+/, 'schema_version: 7');
+    .replace(/schema_version: \d+/, 'schema_version: 8');
   fs.writeFileSync(configFile, future);
   const read = readProjectConfig(projects, current);
   let lockAttempts = 0;
@@ -2745,7 +2886,7 @@ test('161652 CR4/CR5: viewer preview reads and config writes share the future-sc
     throw new Error('lock must not be acquired');
   };
   const expected =
-    'config schema 7 is newer than supported schema 6; update ChangeLedger before writing';
+    'config schema 8 is newer than supported schema 7; update ChangeLedger before writing';
 
   const preview = previewConfigMigration(projects, current);
   assert.equal(preview.code, 400);
@@ -2804,50 +2945,75 @@ test('225212 CR4: view accepts "." combined with a port', async () => {
   }
 });
 
-// 20260711-162556 CR4 — schema 1 repos get the migration offered in the viewer
-test('162556 CR4: previewConfigMigration offers the current schema with quick additions', () => {
+test('20261024-121022 CR15: the viewer serves the preview and the application of the 6 → 7 migration', async () => {
   isolatedHome();
   const root = newRepo();
-  const { projects, current } = resolveProjects(root, false);
-
+  const { current } = resolveProjects(root, false);
   const configFile = path.join(root, '.changeledger', 'config.yml');
-  // Downgrade to schema 1: pre-quick template state
-  const schema1 = fs
-    .readFileSync(configFile, 'utf8')
-    .replace(/^schema_version: \d+$/m, 'schema_version: 1')
-    .replace(/^ {4}quick: patch\n/m, '')
-    .replace(/^ {2}quick:\n {4}stages: \[.*\]\n/m, '');
-  fs.writeFileSync(configFile, schema1);
-  assert.doesNotMatch(schema1, /quick/, 'fixture must not contain quick');
+  const schema6 = schema6Config(fs.readFileSync(configFile, 'utf8'));
+  fs.writeFileSync(configFile, schema6);
 
-  const structured = readProjectConfigStructured(projects, current);
-  assert.equal(structured.body.schemaVersion, 1);
-  assert.equal(structured.body.supported, 6);
-
-  const preview = previewConfigMigration(projects, current);
-  assert.equal(preview.code, 200);
-  assert.match(preview.body.summary, /Config migration 1 → 6/);
-  assert.ok(preview.body.changes.some((c) => c.includes('types.quick')));
-  assert.ok(preview.body.changes.some((c) => c.includes('release.impacts.quick: patch')));
-  assert.ok(preview.body.changes.some((c) => c.includes('min_cli_version')));
-  assert.match(preview.body.yaml, /^schema_version: 6$/m);
-  assert.ok(preview.body.yaml.includes(`min_cli_version: ${VERSION}`));
-  assert.match(preview.body.yaml, /change_branch_format: "\{type\}\/\{id\}"/);
-  assert.equal(fs.readFileSync(configFile, 'utf8'), schema1, 'preview must not write');
-
-  // Apply lands the additions and becomes terminal
-  const applied = applyConfigMigration(projects, {
-    project: current,
-    revision: structured.body.revision,
+  const read = await memoryRequest(root, {
+    path: `/api/project-config-structured?project=${current}`,
+    localOnly: false,
   });
-  assert.equal(applied.code, 200);
+  const structured = JSON.parse(read.body);
+  assert.equal(structured.schemaVersion, 6);
+  assert.equal(structured.supported, 7);
+
+  const previewed = await memoryRequest(root, {
+    path: `/api/project-config-migrate-preview?project=${current}&revision=${structured.revision}`,
+    localOnly: false,
+  });
+  assert.equal(previewed.status, 200, previewed.body);
+  const preview = JSON.parse(previewed.body);
+  assert.equal(preview.summary, 'Config migration 6 → 7 (dry run)');
+  for (const line of [
+    'updated schema_version: 6 → 7',
+    'removed types',
+    'removed stages',
+    'replaced release.impacts with release.default_impact: patch',
+    'removed readiness',
+    'removed retired statuses: in-validation, blocked',
+  ]) {
+    assert.ok(preview.changes.includes(line), `${line} in ${JSON.stringify(preview.changes)}`);
+  }
+  assert.equal(fs.readFileSync(configFile, 'utf8'), schema6, 'preview must not write');
+
+  const applied = await memoryRequest(root, {
+    method: 'POST',
+    path: '/api/project-config-migrate-apply',
+    headers: { 'Content-Type': 'application/json', 'x-changeledger-token': TOKEN },
+    body: JSON.stringify({
+      project: current,
+      repository_path: path.resolve(root),
+      revision: structured.revision,
+    }),
+    localOnly: false,
+  });
+  assert.equal(applied.status, 200, applied.body);
   const after = fs.readFileSync(configFile, 'utf8');
-  assert.match(after, /^schema_version: 6$/m);
-  assert.match(after, /change_branch_format: "\{type\}\/\{id\}"/);
-  assert.match(after, /quick:\s*\n\s+stages: \[request, log\]/);
-  assert.match(after, /quick: patch/);
-  const again = previewConfigMigration(projects, current);
-  assert.equal(again.body.already_current, true);
+  assert.equal(after, preview.yaml);
+  const migrated = parseYaml(after);
+  assert.equal(migrated.schema_version, 7);
+  for (const retired of ['types', 'stages', 'readiness']) {
+    assert.equal(retired in migrated, false, retired);
+  }
+  assert.deepEqual(migrated.release, { default_impact: 'patch' });
+  assert.deepEqual(migrated.statuses, [
+    'draft',
+    'approved',
+    'in-progress',
+    'in-review',
+    'done',
+    'discarded',
+  ]);
+
+  const again = await memoryRequest(root, {
+    path: `/api/project-config-migrate-preview?project=${current}`,
+    localOnly: false,
+  });
+  assert.equal(JSON.parse(again.body).already_current, true);
 });
 
 // 20260808-151643 CR6 — the viewer's config writes land where the read
@@ -2935,7 +3101,7 @@ test('CR6: patchProjectConfig on an activated project writes the ref, worktree s
 
 test('CR6: applyConfigMigration on an activated project writes the ref, worktree stays intact', () => {
   const { root, projects, current, configText } = activatedConfigFixture();
-  const downgraded = configText.replace(/^schema_version: \d+$/m, 'schema_version: 1');
+  const downgraded = schema6Config(configText);
   // Re-seed the ref at the downgraded config so there is a migration to
   // apply, through the real store seam so the tree bases on the current tip
   // (a raw `buildTree` here would replace the whole tree, dropping the
@@ -2955,7 +3121,7 @@ test('CR6: applyConfigMigration on an activated project writes the ref, worktree
   assert.equal(result.code, 200);
   const tip = stateRefTip(root);
   assert.notEqual(tip, before);
-  assert.match(stateConfigText(root, tip), /^schema_version: 6$/m);
+  assert.match(stateConfigText(root, tip), /^schema_version: 7$/m);
   assert.ok(stateConfigText(root, tip).includes(`min_cli_version: ${VERSION}`));
   assert.equal(fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8'), configText);
 });
@@ -2985,7 +3151,7 @@ test('20260809-113242 CR4: activated raw and structured config reads serve state
 
 test('234920 CR6: activated migration preview uses the structured-read revision and ref content, not the malformed marker', () => {
   const { root, projects, current, configText } = activatedConfigFixture();
-  const downgraded = configText.replace(/^schema_version: \d+$/m, 'schema_version: 1');
+  const downgraded = schema6Config(configText);
   writeLedgerFiles(
     { repoRoot: root, state: { revision: stateRefTip(root) } },
     [{ relPath: 'config.yml', text: downgraded }],
@@ -3000,7 +3166,7 @@ test('234920 CR6: activated migration preview uses the structured-read revision 
   const result = previewConfigMigration(projects, current, structured.body.revision);
 
   assert.equal(result.code, 200, result.body.error);
-  assert.match(result.body.summary, /Config migration 1 → 6 \(dry run\)/);
+  assert.match(result.body.summary, /Config migration 6 → 7 \(dry run\)/);
   assert.equal(result.body.yaml, buildMigration(downgraded).yaml);
   assert.equal(stateRefTip(root), before);
   assert.equal(stateConfigText(root, before), downgraded);
@@ -3011,11 +3177,11 @@ test('20260809-113242 CR6/CR10: viewer status transition ignores a malformed sta
   isolatedHome();
   const root = newRepo();
   const file = newChange(
-    { type: 'feature', slug: 'ref-only', title: 'Ref only', now: '2026-08-09T12:00:00Z' },
+    { type: 'change', slug: 'ref-only', title: 'Ref only', now: '2026-08-09T12:00:00Z' },
     root,
     { ownerHandle: () => '' },
   );
-  const text = fillFeatureStages(fs.readFileSync(file, 'utf8'));
+  const text = fillChangeStages(fs.readFileSync(file, 'utf8'));
   fs.writeFileSync(file, text);
   const id = parseChange(text).frontmatter.id;
   const configText = fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8');
@@ -3119,7 +3285,7 @@ test('CR8: patchProjectConfig on an activated project surfaces a stale write as 
 
 test('CR8: applyConfigMigration on an activated project surfaces a stale write as 409, ref and snapshot untouched by the loser', () => {
   const { root, projects, current, configText } = activatedConfigFixture();
-  const downgraded = configText.replace(/^schema_version: \d+$/m, 'schema_version: 1');
+  const downgraded = schema6Config(configText);
   writeLedgerFiles(
     { repoRoot: root, state: { revision: stateRefTip(root) } },
     [{ relPath: 'config.yml', text: downgraded }],
@@ -3140,7 +3306,7 @@ test('CR8: applyConfigMigration on an activated project surfaces a stale write a
   const tip = stateRefTip(root);
   assert.notEqual(tip, before, 'only the racer advanced the ref');
   assert.match(stateConfigText(root, tip), /project_name: Concurrent/);
-  assert.match(stateConfigText(root, tip), /^schema_version: 1$/m);
+  assert.match(stateConfigText(root, tip), /^schema_version: 6$/m);
 });
 
 // 20260924-184354 CR7 — the viewer is exempt from the CLI dispatch guard, but

@@ -11,6 +11,8 @@
   --audit: #a371f7;
   --refactor: #d29922;
   --chore: #6e7681;
+  --change: #5b9dff;
+  --epic: #a371f7;
   --done: #3fb950;
   --blocked: #f85149;
   --status-draft: #8b929e;
@@ -1928,37 +1930,14 @@ body {
   height: 16px;
   accent-color: var(--accent);
 }
-.config-type-row {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 6px 0;
-  margin: 0;
-  border: 0;
-  border-bottom: 1px solid var(--line);
-  flex-wrap: wrap;
-}
-.config-type-row:last-child {
-  border-bottom: none;
-}
-.config-group .config-type-row legend {
-  min-width: 80px;
-  font-size: 13px;
-  color: var(--text);
-  text-transform: none;
-  letter-spacing: normal;
-  margin: 0;
-}
-.config-type-row label:first-of-type {
-  flex: 1 1 240px;
-}
-.config-type-row select {
-  padding: 4px 8px;
+.config-group select {
+  align-self: flex-start;
+  padding: 6px 10px;
   border: 1px solid var(--line);
   border-radius: 6px;
   background: var(--bg);
   color: var(--text);
-  font-size: 12px;
+  font-size: 13px;
 }
 .config-note {
   font-size: 11px;

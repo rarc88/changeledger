@@ -92,7 +92,7 @@ export function serialize(repo) {
   return {
     language: repo.config.language ?? 'en',
     statuses: repo.config.statuses ?? [],
-    types: Object.keys(repo.config.types ?? {}),
+    types: ['change', 'epic'],
     metrics: computeMetrics(repo.changes, { now: nowUtc() }),
     changes: repo.changes.map((c) => ({
       id: c.frontmatter.id,
@@ -809,7 +809,7 @@ function patchProjectConfigImpl(projects, payload, { mutateConfig = mutateFileAt
       const config = doc.toJS() ?? {};
       assertSupportedSchema(config);
 
-      applyPatch(doc, payload.patch, config);
+      applyPatch(doc, payload.patch);
 
       const patched = doc.toString();
       const candidate = parseYaml(patched);
@@ -968,8 +968,6 @@ const PATCH_ALLOWED = new Set([
   'changes_dir',
   'specs_dir',
   'statuses',
-  'stages',
-  'types',
   'release',
   'git',
 ]);
@@ -983,29 +981,16 @@ const CANONICAL_STATUSES_REQUIRED = new Set([
   'discarded',
 ]);
 
-const CANONICAL_STAGES_REQUIRED = new Set([
-  'request',
-  'investigation',
-  'proposal',
-  'specification',
-  'plan',
-  'log',
-]);
-
-function applyPatch(doc, patch, currentConfig) {
+function applyPatch(doc, patch) {
   for (const [key, value] of Object.entries(patch)) {
     if (!PATCH_ALLOWED.has(key)) continue;
 
-    if (key === 'types') {
-      applyTypesPatch(doc, value, currentConfig.types ?? {});
-    } else if (key === 'release') {
+    if (key === 'release') {
       applyReleasePatch(doc, value);
     } else if (key === 'git') {
       applyGitPatch(doc, value);
     } else if (key === 'statuses') {
       applyRequiredListPatch(doc, 'statuses', value, CANONICAL_STATUSES_REQUIRED);
-    } else if (key === 'stages') {
-      applyRequiredListPatch(doc, 'stages', value, CANONICAL_STAGES_REQUIRED);
     } else {
       doc.set(key, value);
     }
@@ -1023,28 +1008,14 @@ function applyRequiredListPatch(doc, key, proposed, required) {
   doc.set(key, proposed);
 }
 
-function applyTypesPatch(doc, typesPatch, currentTypes) {
-  for (const [typeName, typeDef] of Object.entries(typesPatch)) {
-    if (!Object.hasOwn(currentTypes, typeName)) continue; // don't add new types
-    if (!typeDef || typeof typeDef !== 'object') continue;
-    if (Array.isArray(typeDef.stages)) {
-      doc.setIn(['types', typeName, 'stages'], typeDef.stages);
-    }
-    if (typeof typeDef.review_required === 'boolean') {
-      doc.setIn(['types', typeName, 'review_required'], typeDef.review_required);
-    } else if (typeDef.review_required === null) {
-      doc.deleteIn(['types', typeName, 'review_required']);
-    }
-  }
-}
-
+// Only `release.default_impact` is editable; any other release key in the
+// patch, `impacts` included, is ignored like a non-allowlisted field. Its value
+// is validated by `checkRepo` on the candidate.
 function applyReleasePatch(doc, releasePatch) {
-  if (releasePatch.impacts && typeof releasePatch.impacts === 'object') {
-    for (const [type, impact] of Object.entries(releasePatch.impacts)) {
-      if (impact === null) doc.deleteIn(['release', 'impacts', type]);
-      else doc.setIn(['release', 'impacts', type], impact);
-    }
+  if (!releasePatch || typeof releasePatch !== 'object' || !('default_impact' in releasePatch)) {
+    return;
   }
+  doc.setIn(['release', 'default_impact'], releasePatch.default_impact);
 }
 
 function applyGitPatch(doc, gitPatch) {
