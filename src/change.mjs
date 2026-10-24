@@ -55,20 +55,23 @@ function parseCriteria(specBody) {
 
 // What the human approves, declared in `## Request` as `### Objective` and
 // `### Frontier`. Any other `###` heading there is free prose and closes the
-// subsection before it. Returns one entry per subsection: found ones in
-// document order, then the missing ones; `filled` is true when at least one
-// non-blank line sits under the heading.
+// subsection before it; a heading inside a code fence is body, as in
+// `splitStages`. Returns one entry per subsection: found ones in document
+// order, then the missing ones; `filled` is true when at least one non-blank
+// line sits under the heading.
 const REQUEST_SECTIONS = ['Objective', 'Frontier'];
 
 export function parseRequestSections(requestBody) {
   const filled = new Map();
   let current = null;
+  const isFenced = fenceTracker();
   for (const line of requestBody.split('\n')) {
-    const heading = line.match(/^###\s+(Objective|Frontier)\s*$/);
+    const fenced = isFenced(line);
+    const heading = fenced ? null : line.match(/^###\s+(Objective|Frontier)\s*$/);
     if (heading) {
       current = heading[1];
       if (!filled.has(current)) filled.set(current, false);
-    } else if (/^###\s/.test(line)) {
+    } else if (!fenced && /^###\s/.test(line)) {
       current = null;
     } else if (current && line.trim()) {
       filled.set(current, true);
@@ -84,29 +87,58 @@ export function parseRequestSections(requestBody) {
   ];
 }
 
-function splitStages(body) {
+// Line-by-line code-fence state shared by `splitStages` and
+// `parseRequestSections`, so both agree on where a heading is. The returned
+// function answers, for each line in order, whether it is a fence delimiter or
+// lies inside a fence; a fence closes only on a run of its own character at
+// least as long as the opener, and an unterminated one runs to the end of the
+// input.
+function fenceTracker() {
+  let fence = null;
+  return (line) => {
+    const fenceMark = line.match(/^(`{3,}|~{3,})/);
+    if (!fenceMark) return fence !== null;
+    if (!fence) fence = { char: fenceMark[1][0], length: fenceMark[1].length };
+    else if (fenceMark[1][0] === fence.char && fenceMark[1].length >= fence.length) fence = null;
+    return true;
+  };
+}
+
+// One walk over the body, fence-aware: each stage keeps its lines exactly as
+// this walk saw them.
+function walkStages(body) {
   const stages = [];
   let current = null;
-  let fence = null;
+  const isFenced = fenceTracker();
   for (const line of body.split('\n')) {
-    const fenceMark = line.match(/^(`{3,}|~{3,})/);
-    if (fenceMark) {
-      if (!fence) fence = { char: fenceMark[1][0], length: fenceMark[1].length };
-      else if (fenceMark[1][0] === fence.char && fenceMark[1].length >= fence.length) fence = null;
-      if (current) current.body += `${line}\n`;
-      continue;
-    }
-
-    const m = fence ? null : line.match(/^##\s+(.+?)\s*$/);
+    const m = isFenced(line) ? null : line.match(/^##\s+(.+?)\s*$/);
     if (m) {
-      current = { key: m[1].trim().toLowerCase(), heading: m[1].trim(), body: '' };
+      current = { key: m[1].trim().toLowerCase(), heading: m[1].trim(), source: '' };
       stages.push(current);
     } else if (current) {
-      current.body += `${line}\n`;
+      current.source += `${line}\n`;
     }
   }
-  for (const s of stages) s.body = s.body.trim();
   return stages;
+}
+
+// The stages every reader consumes, each body trimmed as a whole.
+function splitStages(body) {
+  return walkStages(body).map(({ key, heading, source }) => ({
+    key,
+    heading,
+    body: source.trim(),
+  }));
+}
+
+// The untrimmed lines of one stage, for a reader that must count the same
+// fence delimiters `walkStages` counted (`parseRequestSections`): trimming
+// the first line would turn an indented fence line, no delimiter here, into
+// one there. Null when the stage is absent.
+export function stageSource(text, key) {
+  const fm = text.match(FRONTMATTER);
+  const body = fm ? text.slice(fm[0].length) : text;
+  return walkStages(body).find((s) => s.key === key)?.source ?? null;
 }
 
 // The two invariants the grouping parent imposes, pure over the changes handed

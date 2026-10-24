@@ -8,7 +8,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
-import { parseChange } from '../src/change.mjs';
+import { parseChange, parseRequestSections } from '../src/change.mjs';
 import { writeLedgerFiles } from '../src/change-store.mjs';
 import { checkRepo } from '../src/check.mjs';
 import {
@@ -1357,6 +1357,86 @@ test('20261023-181753 CR2: other level-3 headings in the Request stay free prose
   approve(id, root);
 
   assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'approved');
+});
+
+// The Request is read with the same fence handling as `splitStages`, so the
+// two readers of one document agree on where a heading is.
+test('20261023-181753 CR2: a heading inside a code fence is neither a subsection nor its end', () => {
+  for (const [fence, closer] of [
+    ['```', '```'],
+    ['~~~', '~~~'],
+    ['````', '`````'],
+  ]) {
+    const fencedFrontier = `### Objective\n\nO\n\n${fence}\n### Frontier\n${closer}\n`;
+    const refused = emptyRepo();
+    const refusedId = '20261023-120006';
+    const refusedFile = writeDraft(refused, refusedId, requestDraft(refusedId, fencedFrontier));
+    const before = fs.readFileSync(refusedFile, 'utf8');
+
+    assert.throws(() => approve(refusedId, refused), {
+      message: 'cannot approve: "### Frontier" is missing',
+    });
+    assert.equal(fs.readFileSync(refusedFile, 'utf8'), before);
+
+    // A fenced `### Notes` inside Frontier neither closes it nor hides the
+    // real body after it; the Objective's only body line is fenced too.
+    const fencedNotes = `### Objective\n\n${fence}\n### Notes\n${closer}\n\n### Frontier\n\n${fence}\n## Plan\n### Notes\n${closer}\nF\n`;
+    const approved = emptyRepo();
+    const approvedId = '20261023-120007';
+    const approvedFile = writeDraft(approved, approvedId, requestDraft(approvedId, fencedNotes));
+
+    approve(approvedId, approved);
+
+    assert.equal(parseChange(fs.readFileSync(approvedFile, 'utf8')).frontmatter.status, 'approved');
+  }
+  // A fence closes only on a run of its own character at least as long as the
+  // opener: `~~~` inside a backtick fence and ``` inside a ```` fence leave it
+  // open, so the `### Frontier` after them stays fenced.
+  for (const [opener, inner] of [
+    ['```', '~~~'],
+    ['````', '```'],
+  ]) {
+    const mixed = emptyRepo();
+    const mixedId = '20261023-120008';
+    writeDraft(
+      mixed,
+      mixedId,
+      requestDraft(
+        mixedId,
+        `### Objective\n\nO\n\n${opener}\n${inner}\n### Frontier\n\nF\n${opener}\n`,
+      ),
+    );
+    assert.throws(() => approve(mixedId, mixed), {
+      message: 'cannot approve: "### Frontier" is missing',
+    });
+  }
+  // An unterminated fence runs to the end of the Request. Through `approve` it
+  // also swallows every later stage in `splitStages`, so the structural check
+  // answers first; the reader itself is asserted here.
+  assert.deepEqual(parseRequestSections('### Objective\n\nO\n\n```\n### Frontier\n\nF\n'), [
+    { name: 'Objective', present: true, filled: true },
+    { name: 'Frontier', present: false, filled: false },
+  ]);
+});
+
+// The stage body handed to the Request reader keeps each line's indentation:
+// a first line of four spaces and a fence is no fence for `splitStages`, and
+// trimming it would open one for `parseRequestSections` alone, inverting the
+// two readers' fence phase so headings fenced at column 0 count as present.
+test('20261023-181753 CR2: an indented first line of the Request does not open a fence for the reader', () => {
+  const root = emptyRepo();
+  const id = '20261023-120009';
+  const file = writeDraft(
+    root,
+    id,
+    requestDraft(id, '    ```\n\n```\n### Objective\n\nO\n\n### Frontier\n\nF\n```\n'),
+  );
+  const before = fs.readFileSync(file, 'utf8');
+
+  assert.throws(() => approve(id, root), {
+    message: 'cannot approve: "### Objective", "### Frontier" are missing',
+  });
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
 
 // An approved request-only feature, moved to in-progress, with the given

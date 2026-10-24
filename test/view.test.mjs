@@ -8,7 +8,6 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { JSDOM } from 'jsdom';
-import { parseDocument } from 'yaml';
 import { parseChange } from '../src/change.mjs';
 import { writeLedgerFiles } from '../src/change-store.mjs';
 import { review, status, task } from '../src/commands/agent.mjs';
@@ -2481,27 +2480,31 @@ test('113924 CR5: patch explicitly rejects project_id in patch payload', () => {
   assert.match(result.body.error, /project_id cannot be changed/);
 });
 
-test('20261023-181753 CR8: a config PATCH carrying readiness leaves the config byte-identical', () => {
+test('20261023-181753 CR8: a config PATCH carrying readiness leaves the config as a PATCH with no accepted keys leaves it', () => {
   isolatedHome();
   const root = newRepo();
   const { projects, current } = resolveProjects(root, false);
   const configFile = path.join(root, '.changeledger', 'config.yml');
-  // Any accepted PATCH re-serializes the document, so the fixture starts in the
-  // serializer's own form: a byte that moves is then the patch's doing.
-  const doc = parseDocument(fs.readFileSync(configFile, 'utf8'), { merge: false });
-  doc.set('readiness', { target_patterns: ['lib/**'], verification_patterns: ['verify:'] });
-  const kept = doc.toString();
-  fs.writeFileSync(configFile, kept);
-  const { body } = readProjectConfigStructured(projects, current);
+  const original = fs.readFileSync(configFile, 'utf8');
+  const patched = (patch) => {
+    fs.writeFileSync(configFile, original);
+    const { body } = readProjectConfigStructured(projects, current);
+    const result = patchProjectConfig(projects, {
+      project: current,
+      revision: body.revision,
+      patch,
+    });
+    assert.equal(result.code, 200, result.body?.error);
+    return fs.readFileSync(configFile, 'utf8');
+  };
 
-  const result = patchProjectConfig(projects, {
-    project: current,
-    revision: body.revision,
-    patch: { readiness: { target_patterns: ['src/**'], verification_patterns: ['test/**'] } },
+  const baseline = patched({});
+  const withReadiness = patched({
+    readiness: { target_patterns: ['src/**'], verification_patterns: ['test/**'] },
   });
 
-  assert.equal(result.code, 200, result.body?.error);
-  assert.equal(fs.readFileSync(configFile, 'utf8'), kept);
+  assert.equal(withReadiness, baseline);
+  assert.doesNotMatch(withReadiness, /readiness/);
 });
 
 test('20261023-181753 CR8: the served app carries no Definition of Ready form', async () => {

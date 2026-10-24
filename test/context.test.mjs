@@ -3799,7 +3799,7 @@ test('181753 CR7: core states the scope test against the approved objective and 
   assert.match(core, /(pre-?authori[sz]ed|frontier)/i);
 });
 
-test('181753 CR7: implement is governed by objective and frontier and gates in-review on them', () => {
+test('181753 CR7: implement is governed by objective and frontier and gates in-review on Specification and Plan', () => {
   const implement = flattened(buildContext('implement', repo()));
   assert.match(implement, /objective and frontier/i);
   assert.match(implement, /in-review[^.]{0,80}(Specification|Plan)/);

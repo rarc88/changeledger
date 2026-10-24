@@ -4357,3 +4357,23 @@ test('20261023-181753 CR2: a document with no Request is refused as missing', ()
     message: 'cannot approve: "## Request" is missing',
   });
 });
+
+// A consumer config keeps its `readiness` block after the upgrade: the key is
+// ignored, well-formed or not.
+test('20261023-181753 CR6: a config that still carries a readiness block gets no diagnostic', () => {
+  for (const readiness of [
+    'readiness:\n  target_patterns: ["src/**"]\n  verification_patterns: ["test/**"]\n',
+    'readiness: 5\n',
+  ]) {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-readiness-'));
+    fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+    initializeRepo(root);
+    fs.appendFileSync(path.join(root, '.changeledger', 'config.yml'), readiness);
+    const repo = loadRepo(root);
+
+    const { errors, warnings } = checkRepo(repo);
+
+    assert.notEqual(repo.config.readiness, undefined);
+    assert.deepEqual([...msgs(errors), ...msgs(warnings)], []);
+  }
+});

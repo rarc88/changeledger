@@ -6,7 +6,7 @@
 // repository loading and printing.
 
 import { marked } from 'marked';
-import { childrenOpenError, parseChange, parseRequestSections } from './change.mjs';
+import { childrenOpenError, parseChange, parseRequestSections, stageSource } from './change.mjs';
 import {
   changeBranchFormat,
   integrationBranch,
@@ -42,8 +42,8 @@ const REVIEWABLE_STAGES = ['specification', 'plan'];
 const SEED_STAGES = ['investigation', 'proposal', 'specification'];
 
 // Effective tdd of a change type: `types.<type>.tdd` when it is a boolean, else
-// the global `tdd`, else on. Single authority — the review-stage rule, context
-// policy lines and fragment selection all ask here, never re-derive. An
+// the global `tdd`, else on. The review-stage rule (`stagesRequiredByReview`)
+// and the context policy line ask here rather than re-deriving it. An
 // undefined `type` resolves the global value.
 export const DEFAULT_TDD = true;
 
@@ -639,7 +639,8 @@ export function assertApprovable(text) {
   const request = parseChange(text).stages.find((s) => s.key === 'request');
   if (!request) throw new Error('cannot approve: "## Request" is missing');
   if (!request.body) throw new Error('cannot approve: "## Request" is empty');
-  const sections = parseRequestSections(request.body);
+  // The untrimmed lines, so the reader counts the fences the stage walk saw.
+  const sections = parseRequestSections(stageSource(text, 'request'));
   const missing = sections.filter((s) => !s.present).map((s) => `"### ${s.name}"`);
   const empty = sections.filter((s) => s.present && !s.filled).map((s) => `"### ${s.name}"`);
   const defects = [];
