@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 import { createRequire } from 'node:module';
 import path from 'node:path';
-import { Argument, Command, Help, Option } from 'commander';
+import { Argument, Command, Help, InvalidArgumentError, Option } from 'commander';
+import { CANONICAL_STAGES, CHANGE_TYPES } from '../src/change.mjs';
 import { activate } from '../src/commands/activate.mjs';
 import {
   approve,
@@ -26,11 +27,11 @@ import { commit } from '../src/commands/commit.mjs';
 import { context } from '../src/commands/context.mjs';
 import { cutover } from '../src/commands/cutover.mjs';
 import { edit } from '../src/commands/edit.mjs';
-import { FIX_MIGRATION_MODES, fix } from '../src/commands/fix.mjs';
+import { fix } from '../src/commands/fix.mjs';
 import { graduate, scaffoldSpec, skipGraduation } from '../src/commands/graduate.mjs';
 import { importFromRef } from '../src/commands/import.mjs';
 import { init } from '../src/commands/init.mjs';
-import { newChange, newChangeFrom, scaffoldChange } from '../src/commands/new.mjs';
+import { newChange, newChangeFrom, requireType, scaffoldChange } from '../src/commands/new.mjs';
 import { registerRepo } from '../src/commands/register.mjs';
 import { initReleaseHistory, recordRelease, releasePlan } from '../src/commands/release.mjs';
 import { runSearch } from '../src/commands/search.mjs';
@@ -72,11 +73,7 @@ function configuredDomains(cwd = process.cwd()) {
     const changeledgerDir = findChangeledgerDir(cwd);
     if (!changeledgerDir) return null;
     const config = loadEffectiveConfig(path.dirname(changeledgerDir), changeledgerDir);
-    return {
-      types: config.types && typeof config.types === 'object' ? Object.keys(config.types) : [],
-      statuses: Array.isArray(config.statuses) ? config.statuses : [],
-      stages: Array.isArray(config.stages) ? config.stages : [],
-    };
+    return { statuses: Array.isArray(config.statuses) ? config.statuses : [] };
   } catch {
     return null;
   }
@@ -94,14 +91,29 @@ function closedOption(flags, description, choices) {
   return choices?.length ? option.choices(choices) : option;
 }
 
+// Types and stages are fixed in code; statuses are still read from the repo.
 function configuredDomainsHelp() {
-  if (!CONFIGURED_DOMAINS) return [];
   return [
     '',
-    `effective types: ${CONFIGURED_DOMAINS.types.join(', ')}`,
-    `effective statuses: ${CONFIGURED_DOMAINS.statuses.join(', ')}`,
-    `effective stages: ${CONFIGURED_DOMAINS.stages.join(', ')}`,
+    `types: ${CHANGE_TYPES.join(', ')}`,
+    `stages: ${CANONICAL_STAGES.join(', ')}`,
+    ...(CONFIGURED_DOMAINS
+      ? [`effective statuses: ${CONFIGURED_DOMAINS.statuses.join(', ')}`]
+      : []),
   ];
+}
+
+// `new` shows the two types as choices but refuses with the creation seat's
+// own message, so the CLI and `requireType` cannot word it differently.
+function changeTypeArgument() {
+  return new Argument('<type>', 'change or epic').choices(CHANGE_TYPES).argParser((value) => {
+    try {
+      requireType(value);
+    } catch (error) {
+      throw new InvalidArgumentError(error.message);
+    }
+    return value;
+  });
 }
 
 const LOG_EVENT_PRODUCERS = Object.freeze({
@@ -278,13 +290,7 @@ program
 program
   .command('new')
   .description('scaffold a new change')
-  .addArgument(
-    closedArgument(
-      '<type>',
-      'a type key configured in .changeledger/config.yml (types:)',
-      CONFIGURED_DOMAINS?.types,
-    ),
-  )
+  .addArgument(changeTypeArgument())
   .argument('<slug>', 'English filename slug, e.g. self-describing-cli-help')
   .argument('<title...>', 'content title, written in the repo language (config.yml: language)')
   .option('--owner <name>', 'set the initial owner (defaults to the local git identity)')
@@ -300,10 +306,10 @@ program
       'whole with `--from`. An inactive repo still scaffolds into the worktree.',
       '',
       'Examples:',
-      '  changeledger new feature self-describing-cli-help "Self-describing CLI help"',
-      '  changeledger new feature seam "Costura" --print > draft.md',
-      '  changeledger new feature seam "Costura" --from draft.md',
-      '  changeledger new bug leak "Fuga" --parent 20260613-110000',
+      '  changeledger new change self-describing-cli-help "Self-describing CLI help"',
+      '  changeledger new change seam "Costura" --print > draft.md',
+      '  changeledger new change seam "Costura" --from draft.md',
+      '  changeledger new change leak "Fuga" --parent 20260613-110000',
     ].join('\n'),
   )
   .action(
@@ -401,44 +407,21 @@ program
 
 program
   .command('fix')
-  .description('repair mechanical, unambiguous format defects (or one change)')
+  .description(
+    'repair mechanical format defects and migrate live documents: a retired type becomes `change`, `## Investigation`/`## Proposal` fold under the Request (or one change)',
+  )
   .argument('[id]')
   .option('--dry-run', 'print the proposed diff without writing')
-  .addOption(
-    new Option(
-      '--graduation-links',
-      'migrate graduation provenance from recognized Logs and legacy spec markers',
-    ).conflicts(['structuredSections', 'planTags']),
-  )
-  .addOption(
-    new Option(
-      '--structured-sections',
-      'migrate resolved/blocked task metadata and recognized legacy Log entries',
-    ).conflicts(['graduationLinks', 'planTags']),
-  )
-  .addOption(
-    new Option(
-      '--plan-tags',
-      'migrate Plan criteria, support and verify children from positional tags',
-    ).conflicts(['graduationLinks', 'structuredSections']),
-  )
   .addHelpText(
     'after',
     [
       '',
       'default repairs: checkbox markers [ x ]/[X], legacy hyphen separators, near-ISO UTC timestamps',
-      `migration modes are mutually exclusive; run exactly one at a time: ${FIX_MIGRATION_MODES.join(', ')}`,
     ].join('\n'),
   )
   .action((id, options) => {
     try {
-      const args = [
-        ...(id ? [id] : []),
-        ...(options.dryRun ? ['--dry-run'] : []),
-        ...(options.graduationLinks ? ['--graduation-links'] : []),
-        ...(options.structuredSections ? ['--structured-sections'] : []),
-        ...(options.planTags ? ['--plan-tags'] : []),
-      ];
+      const args = [...(id ? [id] : []), ...(options.dryRun ? ['--dry-run'] : [])];
       process.exit(fix(args));
     } catch (e) {
       if (e instanceof LedgerConflictError) {
@@ -1024,13 +1007,7 @@ program
       CONFIGURED_DOMAINS?.statuses,
     ),
   )
-  .addOption(
-    closedOption(
-      '--type <type>',
-      'filter by a type configured in .changeledger/config.yml (types:)',
-      CONFIGURED_DOMAINS?.types,
-    ),
-  )
+  .addOption(closedOption('--type <type>', 'filter by type', CHANGE_TYPES))
   .option('--owner <name>', 'filter by exact owner name; incompatible with --unowned')
   .option('--unowned', 'list changes without an owner; incompatible with --owner')
   .option('--parent <id>', 'list the children of that epic')
@@ -1050,7 +1027,7 @@ program
       '  changeledger list --parent 20260613-110000',
       '  changeledger list --pending archive',
       '  changeledger list --archived',
-      '  changeledger list --type feature --json',
+      '  changeledger list --type change --json',
     ].join('\n'),
   )
   .action(
@@ -1100,13 +1077,7 @@ program
   .description('deterministic lexical search over changes (incl. archived) and specs')
   .argument('<query...>', 'search terms')
   .option('--limit <n>', 'max results (default 10)')
-  .addOption(
-    closedOption(
-      '--type <type>',
-      'filter by a change type configured in .changeledger/config.yml (types:); excludes specs',
-      CONFIGURED_DOMAINS?.types,
-    ),
-  )
+  .addOption(closedOption('--type <type>', 'filter by change type; excludes specs', CHANGE_TYPES))
   .addOption(
     closedOption(
       '--status <status>',
@@ -1121,7 +1092,7 @@ program
       '',
       'Examples:',
       '  changeledger search wallet',
-      '  changeledger search wallet --type bug --status done',
+      '  changeledger search wallet --type change --status done',
       '  changeledger search "app check" --json',
     ].join('\n'),
   )
@@ -1201,7 +1172,7 @@ const configCommand = program
 
 configCommand
   .command('migrate')
-  .description('migrate .changeledger/config.yml to the current schema')
+  .description('migrate .changeledger/config.yml from schema 6 to 7')
   .option('--dry-run', 'show the migration plan and candidate YAML without writing')
   .action(
     action((options) => {

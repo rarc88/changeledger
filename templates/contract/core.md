@@ -19,7 +19,7 @@ context is not, so never load one speculatively and never reload one already hel
 | asks what is pending | `changeledger list --status <s>`, `--pending graduation`, `--pending archive` |
 | asks to review finished work | `changeledger context review` in a fresh clean context |
 | asks to release | `changeledger context release` |
-| requests an edit no change covers | ask the human: `quick` type or operational edit |
+| requests an edit no change covers | ask the human: a `change` with Request and Log, or an operational edit |
 | gives a verdict | transmit it with the lifecycle command; never infer one |
 
 ## Protect the orchestrator's context
@@ -80,8 +80,9 @@ rework the orchestrator pays for twice.
 If no approved or in-progress change applies, do not silently edit repository files. Create
 or update a change, or ask the human whether a purely operational, reversible edit with no
 persistent truth or observable behavior change should be done directly. If unsure, document
-it in ChangeLedger. For small, reversible, single-concern work with observable behavior, use
-the `quick` type instead of bypassing documentation — see `changeledger context spec`.
+it in ChangeLedger. Small work with observable behavior is still a `change`, never a bypass of
+documentation: it goes from `in-progress` to `done` directly only when git shows it touches no
+code, otherwise it is reviewed like any other — see `changeledger context implement`.
 
 Humans consume changes in `changeledger view`; write for the rendered view.
 

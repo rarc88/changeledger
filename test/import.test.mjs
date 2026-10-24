@@ -104,7 +104,7 @@ function changeText({
   body = 'Demo multibyte: café, mañana, 東京.',
   logs = [],
 } = {}) {
-  return `---\nid: "${id}"\ntitle: Añadir soporté ☂\ntype: quick\nstatus: ${STATUS_AFTER(logs)}\ncreated: 2026-08-08T00:00:00Z\ndepends_on: []\n---\n\n## Request\n\n${body}\n\n## Log\n${logs.map((l) => `${l}\n`).join('')}`;
+  return `---\nid: "${id}"\ntitle: Añadir soporté ☂\ntype: change\nstatus: ${STATUS_AFTER(logs)}\ncreated: 2026-08-08T00:00:00Z\ndepends_on: []\n---\n\n## Request\n\n${body}\n\n## Log\n${logs.map((l) => `${l}\n`).join('')}`;
 }
 
 // An activated repo (cut over on `main`) plus a branch that still carries the
@@ -386,8 +386,14 @@ test('20260809-113241 CR10: an annotated tag is refused, never peeled to its com
 
 // --- CR11: an invalid source document aborts before anything is written ------
 
-test('20260809-113241 CR11: a source change with no ## Log aborts naming the document', () => {
-  const broken = changeText({ id: NEW_ID }).replace('\n## Log\n', '\n');
+// Retargeted by 20261024-121022: a change no longer needs `## Log` (no stage is
+// activated by type), so the invalid source carries a retired `## Investigation`
+// stage instead — the same class of defect, one today's rules report.
+test('20260809-113241 CR11: a source change with an unknown stage aborts naming the document', () => {
+  const broken = changeText({ id: NEW_ID }).replace(
+    '\n## Log\n',
+    '\n## Investigation\n\nLegacy.\n\n## Log\n',
+  );
   const root = activatedRepo({ sourceFiles: { [NEW_FILE]: broken } });
   const before = stateRevision(root);
 
@@ -395,7 +401,7 @@ test('20260809-113241 CR11: a source change with no ## Log aborts naming the doc
 
   assert.notEqual(code, 0);
   assert.match(err, /20260101-000001-new\.md/);
-  assert.match(err, /log/i);
+  assert.match(err, /unknown stage "## investigation"/);
   assert.equal(stateRevision(root), before);
   assert.equal(NEW_DOC in readSnapshot(root).documents, false);
 });

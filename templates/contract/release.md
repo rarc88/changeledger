@@ -11,8 +11,9 @@
 agent: consume that exact machine-readable membership and version when applying
 stack-specific release steps.
 
-Defaults live under `release.impacts` in `.changeledger/config.yml`; a change may
-override its type with `release_impact` (`none|patch|minor|major`).
+`release.default_impact` in `.changeledger/config.yml` (default `patch`) weighs a
+done change; a change overrides it with `release_impact` (`none|patch|minor|major`),
+and an epic always weighs `none`: its children carry the impact.
 
 ChangeLedger owns portable membership and SemVer. The operating agent owns
 stack-specific version files, project gates, commits, tags and publishing.

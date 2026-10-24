@@ -47,13 +47,13 @@ function selectedChange(role, changeId, repo) {
     if (parseFailure) throw new Error(`Change "${changeId}" failed to parse: ${parseFailure}`);
     throw error;
   }
-  const { id, status, type } = resolved.frontmatter;
+  const { frontmatter } = resolved;
   const allowed = ALLOWED_STATUSES[role];
-  if (allowed && !allowed.includes(status)) {
+  if (allowed && !allowed.includes(frontmatter.status)) {
     const expected = allowed.join(' or ');
-    throw new Error(`role ${role} requires change status ${expected}; got ${status}`);
+    throw new Error(`role ${role} requires change status ${expected}; got ${frontmatter.status}`);
   }
-  return { id, type, text: resolved.text };
+  return { id: frontmatter.id, frontmatter, text: resolved.text };
 }
 
 export function buildAgentContext(role, changeId, cwd = process.cwd()) {
@@ -70,8 +70,8 @@ export function buildAgentContext(role, changeId, cwd = process.cwd()) {
   const sections = [
     beginSentinel('AGENT CONTEXT', `role: ${role}${change} — v${VERSION}`),
     // The delegate's capsule conditions its obligations on this line, so a
-    // selected change publishes its own type's tdd; no change, the global one.
-    transversalPolicy(config, { type: selected?.type }),
+    // selected change publishes its own tdd; no change, the global one.
+    transversalPolicy(config, selected?.frontmatter),
     capsule(role),
   ];
   if (selected) sections.push('---\n\n# Selected change', selected.text.trim());

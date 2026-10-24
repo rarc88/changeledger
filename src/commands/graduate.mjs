@@ -164,14 +164,11 @@ export function scaffoldSpec(id, slug, cwd = process.cwd()) {
   const change = requireSpecLinkAllowed(requireGraduationReady(config, changeName, changeText));
   if (specTarget) throw new Error(`Spec "${specName}" already exists`);
 
-  // A type may name the stage its seed comes from (`types.<type>.seed_stage`);
-  // without one, the Specification and then the Proposal.
-  const declared = config.types?.[change.frontmatter.type]?.seed_stage;
+  // The seed is the Specification; a change without one seeds from its
+  // Request, where investigation and proposal live as free prose.
   const seedStage =
-    typeof declared === 'string'
-      ? change.stages.find((stage) => stage.key === declared)
-      : (change.stages.find((stage) => stage.key === 'specification') ??
-        change.stages.find((stage) => stage.key === 'proposal'));
+    change.stages.find((stage) => stage.key === 'specification') ??
+    change.stages.find((stage) => stage.key === 'request');
   const seed = seedStage ? seedStage.body : '';
   const content = `---
 title: ${serializeScalar(change.frontmatter.title)}

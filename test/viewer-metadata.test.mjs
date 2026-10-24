@@ -136,7 +136,7 @@ test('152809 CR2/CR3: repo load renders redacted errors beside valid content', a
   assert.equal(delimiterMatrix.length, 39);
   const payload = serialize({
     repoRoot: privateRoot,
-    config: { language: 'en', statuses: ['done'], types: { bug: {} } },
+    config: { language: 'en', statuses: ['done'] },
     changes: [
       {
         frontmatter: {
@@ -1081,7 +1081,7 @@ const recoveredPayloadText = () =>
     repository_path: '/repos/alpha',
     ...serialize({
       repoRoot: '/repos/alpha',
-      config: { language: 'en', statuses: ['done'], types: { bug: {} } },
+      config: { language: 'en', statuses: ['done'] },
       changes: [
         {
           frontmatter: {
@@ -1293,7 +1293,7 @@ const projectPayloadText = (project, change, changeErrors = []) =>
     repository_path: `/repos/${project}`,
     ...serialize({
       repoRoot: `/repos/${project}`,
-      config: { language: 'en', statuses: ['draft', 'done'], types: { [change.type]: {} } },
+      config: { language: 'en', statuses: ['draft', 'done'] },
       changes: [
         {
           frontmatter: { status: 'draft', created: '2026-10-12T12:00:00Z', ...change },
@@ -1311,7 +1311,7 @@ const alphaPayloadText = () =>
   projectPayloadText('alpha', {
     id: '20261012-120000',
     title: 'Alpha change',
-    type: 'bug',
+    type: 'change',
     owner: 'ana',
   });
 
@@ -1395,7 +1395,7 @@ test('20261012-125604 CR3: filters do not offer another project values after a f
       [...fixture.querySelectorAll(`${selector} [data-choice]`)].map(
         (input) => input.dataset.choice,
       );
-    assert.deepEqual(choices('#type-filter'), ['bug']);
+    assert.deepEqual(choices('#type-filter'), ['change', 'epic']);
     assert.deepEqual(choices('#owner-filter'), ['ana']);
     assert.ok(fixture.querySelectorAll('#status-filter [data-status]').length > 0);
     assert.equal(fixture.querySelector('#lang').textContent, 'en');
@@ -1407,7 +1407,10 @@ test('20261012-125604 CR3: filters do not offer another project values after a f
     for (const selector of ['#type-filter', '#owner-filter']) {
       fixture.querySelector(`${selector} .filter-menu`).open = true;
       assert.deepEqual(choices(selector), [], `${selector} offers no alpha values`);
-      assert.doesNotMatch(fixture.querySelector(selector).textContent, /\bbug\b|\bana\b/);
+      assert.doesNotMatch(
+        fixture.querySelector(selector).textContent,
+        /\bchange\b|\bepic\b|\bana\b/,
+      );
     }
     // The same rebuild drops the previous project statuses and language, and the
     // status menu keeps them out when one of its own toggles re-renders it.
@@ -1432,14 +1435,14 @@ const filterChoices = (fixture, selector) => {
 const alphaWithInvalidDocumentText = () =>
   projectPayloadText(
     'alpha',
-    { id: '20261012-120000', title: 'Alpha change', type: 'bug', owner: 'ana' },
+    { id: '20261012-120000', title: 'Alpha change', type: 'change', owner: 'ana' },
     [{ name: 'broken.md', message: 'Alpha broken document' }],
   );
 
 test('20261012-125604 CR5/CR6: while the selected project loads, filters and warning are not the previous project', async () => {
   await withFailedLoadFixture(async (fixture) => {
     assert.equal(await load(async () => alphaWithInvalidDocumentText()), true);
-    assert.deepEqual(filterChoices(fixture, '#type-filter'), ['bug']);
+    assert.deepEqual(filterChoices(fixture, '#type-filter'), ['change', 'epic']);
     assert.deepEqual(filterChoices(fixture, '#owner-filter'), ['ana']);
     assert.match(fixture.querySelector('#change-errors').textContent, /broken\.md/);
     addBetaProject();
@@ -1489,14 +1492,14 @@ test('20261012-125604 CR6: a failed reload of the loaded project keeps its own f
   await withFailedLoadFixture(async (fixture) => {
     assert.equal(await load(async () => alphaWithInvalidDocumentText()), true);
     assert.equal(await load(failingLoad), false);
-    assert.deepEqual(filterChoices(fixture, '#type-filter'), ['bug']);
+    assert.deepEqual(filterChoices(fixture, '#type-filter'), ['change', 'epic']);
     assert.match(fixture.querySelector('#change-errors').textContent, /broken\.md/);
   });
 });
 
 const loadAlphaWithInvalidDocument = async (fixture) => {
   assert.equal(await load(async () => alphaWithInvalidDocumentText()), true);
-  assert.deepEqual(filterChoices(fixture, '#type-filter'), ['bug']);
+  assert.deepEqual(filterChoices(fixture, '#type-filter'), ['change', 'epic']);
   assert.match(fixture.querySelector('#change-errors').textContent, /broken\.md/);
   addBetaProject();
 };
@@ -1644,7 +1647,7 @@ test('20261012-125604 CR5/CR6: switching back to the project whose payload is he
     assertNoAlphaShell(fixture, 'while beta loads');
     const toAlpha = selectViewerProject('alpha', { loadProject: () => load(() => alpha.promise) });
     try {
-      assert.deepEqual(filterChoices(fixture, '#type-filter'), ['bug']);
+      assert.deepEqual(filterChoices(fixture, '#type-filter'), ['change', 'epic']);
       assert.deepEqual(filterChoices(fixture, '#owner-filter'), ['ana']);
       assert.match(fixture.querySelector('#change-errors')?.textContent ?? '', /broken\.md/);
     } finally {
@@ -3151,8 +3154,8 @@ test('113924 CR10: future schema shows readonly raw and no save button', () => {
   assert.equal(formTab, undefined, 'no Form tab for future schema');
 });
 
-// Form mode: project_name field, lifecycle section, types with stages
-test('113924 CR3 form: form renders project_name, lifecycle statuses, type stages and internal fields', () => {
+// Form mode: project_name field, lifecycle section and internal fields
+test('113924 CR3 form: form renders project_name, lifecycle statuses and internal fields', () => {
   const root = parse(
     projectsViewTemplate(
       [{ id: 'aaa111', name: 'alpha', path: '/repos/alpha', alive: true }],
@@ -3169,9 +3172,6 @@ test('113924 CR3 form: form renders project_name, lifecycle statuses, type stage
           language: 'es',
           tdd: true,
           statuses: ['draft', 'approved', 'in-progress', 'done'],
-          stages: ['request', 'plan', 'log'],
-          types: { feature: { stages: ['request', 'plan', 'log'], review_required: true } },
-          release: { impacts: { feature: 'minor' } },
           changes_dir: '.changeledger/changes',
           specs_dir: '.changeledger/specs',
         },
@@ -3194,8 +3194,6 @@ test('113924 CR3 form: form renders project_name, lifecycle statuses, type stage
     root.querySelector('textarea[name="statuses"]').value,
     'draft\napproved\nin-progress\ndone',
   );
-  assert.equal(root.querySelector('textarea[name="stages"]').value, 'request\nplan\nlog');
-  assert.equal(root.querySelector('textarea[name="stages_feature"]').value, 'request\nplan\nlog');
 
   // Internal section shows project_id
   const internalText = root.querySelector('.config-group-internal')?.textContent ?? '';
@@ -3302,7 +3300,7 @@ test('113924 CR11: bindProjectViewActions marks dirty and fires markDirty handle
         revision: 'rev',
         schemaVersion: 1,
         supported: 1,
-        config: { project_id: 'aaa111', language: 'en', types: {}, statuses: [], stages: [] },
+        config: { project_id: 'aaa111', language: 'en', statuses: [] },
       },
       false,
     ),
@@ -3321,7 +3319,7 @@ test('113924 CR11: bindProjectViewActions marks dirty and fires markDirty handle
   }
 });
 
-test('113924 CR3 lifecycle: statuses and stages render as editable controls', () => {
+test('113924 CR3 lifecycle: statuses render as an editable control', () => {
   const root = parse(
     projectsViewTemplate(
       [{ id: 'aaa111', name: 'alpha', path: '/repos/alpha', alive: true }],
@@ -3334,8 +3332,6 @@ test('113924 CR3 lifecycle: statuses and stages render as editable controls', ()
         config: {
           project_id: 'aaa111',
           statuses: ['draft', 'approved', 'in-progress', 'in-validation', 'done', 'my-custom'],
-          stages: ['request', 'plan', 'log'],
-          types: {},
           language: 'en',
         },
       },
@@ -3343,7 +3339,6 @@ test('113924 CR3 lifecycle: statuses and stages render as editable controls', ()
     ),
   );
   assert.match(root.querySelector('textarea[name="statuses"]')?.value ?? '', /my-custom/);
-  assert.equal(root.querySelector('textarea[name="stages"]')?.value, 'request\nplan\nlog');
 });
 
 test('113924 CR4: form emits only fields changed by the human', () => {
@@ -3392,8 +3387,6 @@ test('20261023-181753 CR8: the config form edits no Definition of Ready, even wh
     language: 'en',
     tdd: true,
     statuses: ['draft', 'approved', 'in-progress', 'in-review', 'done', 'discarded'],
-    stages: ['request', 'investigation', 'proposal', 'specification', 'plan', 'log'],
-    types: {},
     readiness: { target_patterns: ['lib/**'], verification_patterns: ['verify:'] },
   };
   const root = parse(
@@ -3418,6 +3411,127 @@ test('20261023-181753 CR8: the config form edits no Definition of Ready, even wh
   assert.deepEqual(collectFormPatch(form, config), { language: 'fr' });
 });
 
+const SCHEMA_7_CONFIG = {
+  schema_version: 7,
+  project_id: 'aaa111',
+  project_name: 'alpha',
+  language: 'en',
+  tdd: true,
+  changes_dir: '.changeledger/changes',
+  specs_dir: '.changeledger/specs',
+  statuses: ['draft', 'approved', 'in-progress', 'in-review', 'done', 'discarded'],
+  git: { integration_branch: 'dev' },
+};
+
+const configFormFor = (config) =>
+  parse(
+    projectsViewTemplate(
+      [{ id: 'aaa111', name: 'alpha', path: '/repos/alpha', alive: true }],
+      'aaa111',
+      { content: '', revision: 'rev', schemaVersion: 7, supported: 7, config },
+      false,
+    ),
+  ).querySelector('[data-config-form]');
+
+test('20261024-121022 CR16: the config form has no Change types or Lifecycle stages fieldset, even when the config keeps them', () => {
+  const config = {
+    ...SCHEMA_7_CONFIG,
+    stages: ['request', 'investigation', 'proposal', 'specification', 'plan', 'log'],
+    types: { feature: { stages: ['request', 'plan', 'log'], review_required: true } },
+    release: { impacts: { feature: 'minor' } },
+  };
+  const form = configFormFor(config);
+  const legends = [...form.querySelectorAll('legend')].map((l) => l.textContent.trim());
+  assert.equal(legends.includes('Change types'), false, `legends: ${legends}`);
+  assert.equal(legends.includes('Lifecycle stages'), false, `legends: ${legends}`);
+  assert.equal(legends.includes('feature'), false, `legends: ${legends}`);
+  assert.doesNotMatch(form.textContent, /Active stages|Review policy|Canonical stage order/);
+  assert.doesNotMatch(form.textContent, /Stages used by a change type cannot be removed/);
+  assert.equal(form.elements.stages, undefined);
+  assert.equal(form.elements.stages_feature, undefined);
+  assert.equal(form.elements.review_required_feature, undefined);
+  assert.equal(form.elements.impact_feature, undefined);
+  form.elements.language.value = 'fr';
+  assert.deepEqual(collectFormPatch(form, config), { language: 'fr' });
+});
+
+test('20261024-121022 CR16: the config form edits release.default_impact with the four SemVer values', () => {
+  const form = configFormFor({ ...SCHEMA_7_CONFIG, release: { default_impact: 'minor' } });
+  const select = form.elements.default_impact;
+  assert.equal(select.tagName, 'SELECT');
+  assert.match(select.closest('label').textContent, /Default SemVer impact/);
+  assert.deepEqual(
+    [...select.options].map((o) => o.value),
+    ['none', 'patch', 'minor', 'major'],
+  );
+  assert.equal(select.value, 'minor');
+  const config = { ...SCHEMA_7_CONFIG, release: { default_impact: 'minor' } };
+  assert.deepEqual(collectFormPatch(form, config), {});
+  select.value = 'major';
+  assert.deepEqual(collectFormPatch(form, config), { release: { default_impact: 'major' } });
+
+  // Without the key the effective default is `patch` (CR9), and keeping it
+  // emits nothing.
+  const unset = configFormFor(SCHEMA_7_CONFIG);
+  assert.equal(unset.elements.default_impact.value, 'patch');
+  assert.deepEqual(collectFormPatch(unset, SCHEMA_7_CONFIG), {});
+  unset.elements.default_impact.value = 'none';
+  assert.deepEqual(collectFormPatch(unset, SCHEMA_7_CONFIG), {
+    release: { default_impact: 'none' },
+  });
+});
+
+test('20261024-121022 CR16: the board and the type filter work with change and epic', () => {
+  const changeOf = (id, type) => ({
+    frontmatter: { id, title: type, type, status: 'draft', created: '2026-10-24T12:00:00Z' },
+    stages: [],
+    tasks: [],
+    progress: { total: 0, done: 0, blocked: 0 },
+  });
+  const payload = serialize({
+    repoRoot: '/repos/alpha',
+    config: { language: 'en', statuses: ['draft', 'done'] },
+    changes: [changeOf('20261024-120000', 'change'), changeOf('20261024-120001', 'epic')],
+    specs: [],
+  });
+  assert.deepEqual(payload.types, ['change', 'epic']);
+
+  const host = document.createElement('div');
+  const selected = new Set();
+  renderChoiceFilter(
+    host,
+    'Type',
+    payload.types,
+    selected,
+    (type) => selected.add(type),
+    () => {},
+  );
+  assert.deepEqual(
+    [...host.querySelectorAll('[data-choice]')].map((input) => input.dataset.choice),
+    ['change', 'epic'],
+  );
+  const filters = {
+    text: '',
+    types: new Set(['epic']),
+    owners: new Set(),
+    includeUnassigned: false,
+    statuses: new Set(),
+    showArchived: false,
+    showDiscarded: false,
+  };
+  assert.deepEqual(
+    payload.changes.filter((c) => isVisible(c, filters)).map((c) => c.type),
+    ['epic'],
+  );
+
+  const board = document.createElement('div');
+  render(html`${payload.changes.map(card)}`, board);
+  assert.deepEqual(
+    [...board.querySelectorAll('.card')].map((el) => el.getAttribute('style')),
+    ['--type-color: var(--change)', '--type-color: var(--epic)'],
+  );
+});
+
 test('225637 CR4/CR5: form edits and clears git.integration_branch', () => {
   const config = {
     schema_version: 3,
@@ -3437,8 +3551,6 @@ test('225637 CR4/CR5: form edits and clears git.integration_branch', () => {
       'done',
       'discarded',
     ],
-    stages: ['request', 'investigation', 'proposal', 'specification', 'plan', 'log'],
-    types: {},
     git: { integration_branch: 'dev', custom: 'keep' },
   };
   const root = parse(
@@ -3476,8 +3588,6 @@ test('161655 CR6: form edits and clears git.change_branch_format without patchin
       'done',
       'discarded',
     ],
-    stages: ['request', 'investigation', 'proposal', 'specification', 'plan', 'log'],
-    types: {},
     git: { integration_branch: 'dev', change_branch_format: 'work/{id}', custom: 'keep' },
   };
   const root = parse(
@@ -3497,32 +3607,6 @@ test('161655 CR6: form edits and clears git.change_branch_format without patchin
   });
   form.elements.change_branch_format.value = '';
   assert.deepEqual(collectFormPatch(form, config), { git: { change_branch_format: null } });
-});
-
-test('113924 CR3: custom type decisions can be configured without assumed defaults', () => {
-  const config = {
-    project_id: 'aaa111',
-    statuses: [],
-    stages: ['request', 'log'],
-    types: { experiment: { stages: ['request', 'log'] } },
-  };
-  const root = parse(
-    projectsViewTemplate(
-      [{ id: 'aaa111', name: 'alpha', path: '/repos/alpha', alive: true }],
-      'aaa111',
-      { content: '', revision: 'rev', schemaVersion: 1, supported: 1, config },
-      false,
-    ),
-  );
-  const form = root.querySelector('[data-config-form]');
-  assert.equal(form.elements.review_required_experiment.value, '');
-  assert.equal(form.elements.impact_experiment.value, '');
-  form.elements.review_required_experiment.value = 'true';
-  form.elements.impact_experiment.value = 'minor';
-  assert.deepEqual(collectFormPatch(form, config), {
-    types: { experiment: { review_required: true } },
-    release: { impacts: { experiment: 'minor' } },
-  });
 });
 
 // showToast: exported and testable (just verifies it doesn't throw in test env)
@@ -4502,7 +4586,7 @@ test('161656 CR2/CR4: managed config reads keep their captured id and path', asy
     revision: `rev-${project}`,
     schemaVersion: 2,
     supported: 2,
-    config: { project_id: project, project_name: projectName, types: {}, statuses: [], stages: [] },
+    config: { project_id: project, project_name: projectName, statuses: [] },
   });
 
   try {
@@ -4575,9 +4659,7 @@ test('161656 CR2: the latest same-project config read wins', async () => {
     config: {
       project_id: 'config-latest',
       project_name: projectName,
-      types: {},
       statuses: [],
-      stages: [],
     },
   });
 
@@ -4627,7 +4709,7 @@ test('161656 CR2/CR4: a late raw save cannot replace the next managed config', a
     revision: `rev-${project}`,
     schemaVersion: 2,
     supported: 2,
-    config: { project_id: project, project_name: projectName, types: {}, statuses: [], stages: [] },
+    config: { project_id: project, project_name: projectName, statuses: [] },
   });
 
   try {

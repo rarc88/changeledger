@@ -186,9 +186,14 @@ test('20260809-113240 CR1: cutover publishes the ledger, activates the repo and 
 
 // --- CR2: everything is validated before anything is written ----------------
 
+// Retargeted by 20261024-121022: a change no longer needs `## Log` (no stage is
+// activated by type), so the invalid document carries a retired type instead —
+// the same class of defect, one today's rules report on a live document.
 test('20260809-113240 CR2: an invalid ledger aborts naming the document, writing nothing', () => {
   const { root } = seedLedgerRepo({
-    files: defaultLedgerFiles({ changeText: ledgerChangeText({ withLog: false }) }),
+    files: defaultLedgerFiles({
+      changeText: ledgerChangeText().replace('\ntype: change\n', '\ntype: feature\n'),
+    }),
   });
   const before = head(root);
 
@@ -196,7 +201,7 @@ test('20260809-113240 CR2: an invalid ledger aborts naming the document, writing
 
   assert.notEqual(code, 0);
   assert.match(err, /20260808-000001-demo\.md/);
-  assert.match(err, /log/i);
+  assert.match(err, /type "feature" is retired: set type to "change"/);
   assert.equal(refExists(root, STATE_REF), false);
   assert.equal(refExists(root, ACTIVATION_REF), false);
   assert.equal(head(root), before);

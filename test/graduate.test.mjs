@@ -35,7 +35,7 @@ function repo() {
     `---
 id: "20260613-120000"
 title: Login OAuth
-type: feature
+type: change
 status: done
 created: 2026-06-13T12:00:00Z
 depends_on: []
@@ -45,11 +45,11 @@ depends_on: []
 
 Login OAuth.
 
-## Investigation
+### Investigation
 
 Current behavior.
 
-## Proposal
+### Proposal
 
 OAuth integration.
 
@@ -197,12 +197,12 @@ test('161652 CR3: every graduation write rejects a future schema before writing'
     const configFile = path.join(fixture.root, '.changeledger', 'config.yml');
     fs.writeFileSync(
       configFile,
-      fs.readFileSync(configFile, 'utf8').replace(/^schema_version: \d+$/m, 'schema_version: 7'),
+      fs.readFileSync(configFile, 'utf8').replace(/^schema_version: \d+$/m, 'schema_version: 8'),
     );
     const before = fs.readFileSync(fixture.file, 'utf8');
     assert.throws(
       () => mutate(fixture),
-      /^Error: config schema 7 is newer than supported schema 6; update ChangeLedger before writing$/,
+      /^Error: config schema 8 is newer than supported schema 7; update ChangeLedger before writing$/,
       name,
     );
     assert.equal(fs.readFileSync(fixture.file, 'utf8'), before, name);
@@ -387,7 +387,7 @@ test('CR2: scaffoldSpec creates a seed without resolving graduation', () => {
 
   const spec = parseSpec(fs.readFileSync(specFile, 'utf8'));
   assert.equal(spec.frontmatter.title, 'Login OAuth');
-  assert.deepEqual(spec.frontmatter.tags, ['feature']);
+  assert.deepEqual(spec.frontmatter.tags, ['change']);
   assert.deepEqual(spec.frontmatter.graduated_from, []);
   assert.match(spec.body, /soporta login OAuth/);
   assert.match(spec.body, /changeledger:spec-scaffold/);
@@ -436,7 +436,7 @@ test('162020 CR3: new and graduate share slug normalization behavior', () => {
   const { root, id } = repo();
   const changeFile = newChange(
     {
-      type: 'chore',
+      type: 'change',
       slug: 'Árbol Técnico',
       title: 'x',
       now: '2026-06-13T12:00:01Z',
@@ -491,7 +491,7 @@ function writeChange(root, id, status, extra = '') {
   const file = path.join(root, '.changeledger', 'changes', `${id}-y.md`);
   fs.writeFileSync(
     file,
-    `---\nid: "${id}"\ntitle: Y\ntype: feature\nstatus: ${status}\ncreated: 2026-01-01T00:00:00Z\ndepends_on: []\n${extra}---\n\n## Request\n\nY.\n\n## Investigation\n\nCurrent.\n\n## Proposal\n\nSelected.\n\n## Specification\n\nY.\n\n## Plan\n\n## Log\n`,
+    `---\nid: "${id}"\ntitle: Y\ntype: change\nstatus: ${status}\ncreated: 2026-01-01T00:00:00Z\ndepends_on: []\n${extra}---\n\n## Request\n\nY.\n\n### Investigation\n\nCurrent.\n\n### Proposal\n\nSelected.\n\n## Specification\n\nY.\n\n## Plan\n\n## Log\n`,
   );
   return file;
 }
@@ -855,73 +855,47 @@ test('skipGraduation on an active repo marks reviewed and logs the reason, one c
 
 const SEED_ID = '20261002-120000';
 
-// A template-initialized repo whose config declares one extra type, `notes`,
-// exactly as given, plus one `done` change of that type with the given stages.
-function seedRepo(typeDef, stages) {
+// A template-initialized repo with one `done` change carrying the given stages.
+function seedRepo(stages) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-seed-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
   init(root);
-  const configFile = path.join(root, '.changeledger', 'config.yml');
-  const config = parseYaml(fs.readFileSync(configFile, 'utf8'));
-  config.types.notes = typeDef;
-  fs.writeFileSync(configFile, stringifyYaml(config));
   const body = Object.entries(stages)
     .map(([heading, text]) => `## ${heading}\n\n${text}\n`)
     .join('\n');
   fs.writeFileSync(
     path.join(root, '.changeledger', 'changes', `${SEED_ID}-notes.md`),
-    `---\nid: "${SEED_ID}"\ntitle: Notes\ntype: notes\nstatus: done\ncreated: 2026-10-02T12:00:00Z\ndepends_on: []\n---\n\n${body}\n## Log\n\n- **2026-10-02T12:00:00Z** \`[note]\` created\n`,
+    `---\nid: "${SEED_ID}"\ntitle: Notes\ntype: change\nstatus: done\ncreated: 2026-10-02T12:00:00Z\ndepends_on: []\n---\n\n${body}\n## Log\n\n- **2026-10-02T12:00:00Z** \`[note]\` created\n`,
   );
   return root;
 }
 
-const CRITERION = '### CR1 — x\n- **Given** a\n- **When** b\n- **Then** c';
-
-test('113435 CR1: the seed comes from the stage the type declares as seed_stage', () => {
-  const root = seedRepo(
-    {
-      stages: ['request', 'investigation', 'specification', 'log'],
-      tdd: false,
-      seed_stage: 'investigation',
-    },
-    { Request: 'R.', Investigation: 'Texto observado.', Specification: CRITERION },
-  );
-  const spec = fs.readFileSync(scaffoldSpec(SEED_ID, 'mi-spec', root), 'utf8');
-  assert.match(spec, /Texto observado/);
-  assert.doesNotMatch(spec, /### CR1/);
-});
-
-test('113435 CR2: without seed_stage the seed is the Specification, else the Proposal', () => {
-  const withSpecification = seedRepo(
-    { stages: ['request', 'investigation', 'proposal', 'specification', 'log'], tdd: false },
-    {
-      Request: 'R.',
-      Investigation: 'Texto observado.',
-      Proposal: 'Texto propuesto.',
-      Specification: 'Texto especificado.',
-    },
-  );
+test('113435 CR2: the seed is the Specification, else the Request (20261024-121022)', () => {
+  const withSpecification = seedRepo({
+    Request: 'Texto pedido.\n\n### Proposal\n\nTexto propuesto.',
+    Specification: 'Texto especificado.',
+  });
   const fromSpecification = fs.readFileSync(
     scaffoldSpec(SEED_ID, 'mi-spec', withSpecification),
     'utf8',
   );
   assert.match(fromSpecification, /Texto especificado/);
-  assert.doesNotMatch(fromSpecification, /Texto propuesto|Texto observado/);
+  assert.doesNotMatch(fromSpecification, /Texto propuesto|Texto pedido/);
 
-  const withoutSpecification = seedRepo(
-    { stages: ['request', 'proposal', 'log'], tdd: false },
-    { Request: 'R.', Proposal: 'Texto propuesto.' },
-  );
-  const fromProposal = fs.readFileSync(
+  const withoutSpecification = seedRepo({
+    Request: 'Texto pedido.\n\n### Proposal\n\nTexto propuesto.',
+  });
+  const fromRequest = fs.readFileSync(
     scaffoldSpec(SEED_ID, 'mi-spec', withoutSpecification),
     'utf8',
   );
-  assert.match(fromProposal, /Texto propuesto/);
+  assert.match(fromRequest, /Texto pedido\.\n\n### Proposal\n\nTexto propuesto\./);
 });
 
-// End to end through the real binary and the shipped template: no config edit,
-// so the `documentation` seed comes from `templates/config.yml` itself.
-test('113435 CR5: a documentation change graduates from its refined Investigation', () => {
+// End to end through the real binary and the shipped template: a change with
+// no Specification seeds its spec from the Request, where its investigation
+// lives as free prose (20261024-121022).
+test('113435 CR5: a change without Specification graduates from its refined Request', () => {
   const bin = fileURLToPath(new URL('../bin/changeledger.mjs', import.meta.url));
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-seed-e2e-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
@@ -938,7 +912,7 @@ test('113435 CR5: a documentation change graduates from its refined Investigatio
     `---
 id: "${SEED_ID}"
 title: Comportamiento del endpoint
-type: documentation
+type: change
 status: done
 created: 2026-10-02T12:00:00Z
 depends_on: []
@@ -948,13 +922,9 @@ depends_on: []
 
 Documentar el endpoint.
 
-## Investigation
+### Investigation
 
 ${observed}
-
-## Specification
-
-${CRITERION}
 
 ## Log
 
@@ -1240,7 +1210,7 @@ function childOf(parentId) {
   const parentFile = path.join(root, '.changeledger', 'changes', `${parentId}-epic.md`);
   fs.writeFileSync(
     parentFile,
-    `---\nid: "${parentId}"\ntitle: Épica\ntype: epic\nstatus: done\ncreated: 2026-06-13T11:00:00Z\ndepends_on: []\n---\n\n## Request\n\nObjetivo.\n\n## Proposal\n\nFrontera.\n\n## Log\n\n- **2026-06-13T11:00:00Z** \`[note]\` created\n`,
+    `---\nid: "${parentId}"\ntitle: Épica\ntype: epic\nstatus: done\ncreated: 2026-06-13T11:00:00Z\ndepends_on: []\n---\n\n## Request\n\nObjetivo.\n\n### Proposal\n\nFrontera.\n\n## Log\n\n- **2026-06-13T11:00:00Z** \`[note]\` created\n`,
   );
   return { root, file, id, parentId };
 }
@@ -1290,7 +1260,7 @@ test('20261020-172221 CR5: an activated repo refuses a child linking a spec too'
   });
   // The epic has to exist for `check` to accept the child, and it lands on the
   // same ref the activated repo reads from.
-  const parentText = `---\nid: "${parentId}"\ntitle: Épica\ntype: epic\nstatus: done\ncreated: 2026-06-13T11:00:00Z\ndepends_on: []\n---\n\n## Request\n\nObjetivo.\n\n## Proposal\n\nFrontera.\n\n## Log\n\n- **2026-06-13T11:00:00Z** \`[note]\` created\n`;
+  const parentText = `---\nid: "${parentId}"\ntitle: Épica\ntype: epic\nstatus: done\ncreated: 2026-06-13T11:00:00Z\ndepends_on: []\n---\n\n## Request\n\nObjetivo.\n\n### Proposal\n\nFrontera.\n\n## Log\n\n- **2026-06-13T11:00:00Z** \`[note]\` created\n`;
   mutateState(root, { expectedRevision: stateRefTip(root), message: 'chore: epic' }, (stage) => {
     stage.write(`changes/${parentId}-epic.md`, parentText);
   });

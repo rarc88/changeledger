@@ -44,7 +44,7 @@ function inactiveRepo() {
       .replace(/^ {2}change_branch_format:.*$/m, '  change_branch_format: null'),
   );
   const file = newChange(
-    { type: 'quick', slug: 'x', title: 'X', now: '2026-06-13T12:00:00Z' },
+    { type: 'change', slug: 'x', title: 'X', now: '2026-06-13T12:00:00Z' },
     root,
     {
       ownerHandle: () => '',
@@ -250,7 +250,7 @@ test('CR6: activated `new` refuses to publish an empty scaffold', () => {
   const before = stateTip(root);
 
   assert.throws(
-    () => newChange({ type: 'quick', slug: 'y', title: 'Y', now: '2026-06-14T12:00:00Z' }, root),
+    () => newChange({ type: 'change', slug: 'y', title: 'Y', now: '2026-06-14T12:00:00Z' }, root),
     /--from/,
   );
   assert.equal(stateTip(root), before);
@@ -260,17 +260,20 @@ test('CR6: --print emits the scaffold in both modes and writes nothing', () => {
   const active = activatedRepo();
   const before = stateTip(active.root);
   const printed = scaffoldChange(
-    { type: 'quick', slug: 'y', title: 'Y', now: '2026-06-14T12:00:00Z' },
+    { type: 'change', slug: 'y', title: 'Y', now: '2026-06-14T12:00:00Z' },
     active.root,
     { ownerHandle: () => '' },
   );
   assert.match(printed.text, /^---\nid: "20260614-120000"\n/);
-  assert.match(printed.text, /## Request\n\n## Log\n$/);
+  assert.match(
+    printed.text,
+    /## Request\n\n### Objective\n\n### Frontier\n\n## Specification\n\n## Plan\n\n## Log\n$/,
+  );
   assert.equal(stateTip(active.root), before);
 
   const inactive = inactiveRepo();
   const scaffold = scaffoldChange(
-    { type: 'quick', slug: 'y', title: 'Y', now: '2026-06-14T12:00:00Z' },
+    { type: 'change', slug: 'y', title: 'Y', now: '2026-06-14T12:00:00Z' },
     inactive.root,
     { ownerHandle: () => '' },
   );
@@ -285,14 +288,14 @@ test('CR6: --from lands the complete document in one commit', () => {
   const { root } = activatedRepo();
   const before = stateCommits(root);
   const scaffold = scaffoldChange(
-    { type: 'quick', slug: 'y', title: 'Y', now: '2026-06-14T12:00:00Z' },
+    { type: 'change', slug: 'y', title: 'Y', now: '2026-06-14T12:00:00Z' },
     root,
     { ownerHandle: () => '' },
   );
   const document = filled(scaffold.text, 'Cuerpo completo desde el primer commit: 東京.');
 
   const written = newChangeFrom(
-    { type: 'quick', slug: 'y', title: 'Y', from: source(root, document) },
+    { type: 'change', slug: 'y', title: 'Y', from: source(root, document) },
     root,
   );
 
@@ -311,7 +314,7 @@ test('CR6: --from refuses a document whose id is already published', () => {
   const before = stateTip(root);
 
   assert.throws(
-    () => newChangeFrom({ type: 'quick', slug: 'x', title: 'X', from: source(root, text) }, root),
+    () => newChangeFrom({ type: 'change', slug: 'x', title: 'X', from: source(root, text) }, root),
     new RegExp(`id "${id}" is already taken`),
   );
   assert.equal(stateTip(root), before);
@@ -333,7 +336,7 @@ test('CR8: a CAS conflict during `newChangeFrom` propagates undisguised, no retr
 }, () => {
   const { root, revision } = activatedRepo();
   const scaffold = scaffoldChange(
-    { type: 'quick', slug: 'z', title: 'Z', now: '2026-06-15T12:00:00Z' },
+    { type: 'change', slug: 'z', title: 'Z', now: '2026-06-15T12:00:00Z' },
     root,
     { ownerHandle: () => '' },
   );
@@ -363,7 +366,10 @@ exec "${realGit}" "$@"
   try {
     assert.throws(
       () =>
-        newChangeFrom({ type: 'quick', slug: 'z', title: 'Z', from: source(root, document) }, root),
+        newChangeFrom(
+          { type: 'change', slug: 'z', title: 'Z', from: source(root, document) },
+          root,
+        ),
       /state ref moved: expected/,
     );
   } finally {
@@ -559,7 +565,7 @@ function activatedRepoWithSibling({ siblingDependsOn = [] } = {}) {
   const { root, file, name, text, id } = inactiveRepo();
   const configText = fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8');
   const sibling = scaffoldChange(
-    { type: 'quick', slug: 'sibling', title: 'Sibling', now: '2026-06-13T13:00:00Z' },
+    { type: 'change', slug: 'sibling', title: 'Sibling', now: '2026-06-13T13:00:00Z' },
     root,
     { ownerHandle: () => '' },
   );
@@ -627,7 +633,7 @@ test('CR6: --from is a repo-wide gate too — a graph break the new document int
   const { root } = activatedRepo();
   const before = stateTip(root);
   const scaffold = scaffoldChange(
-    { type: 'quick', slug: 'y', title: 'Y', now: '2026-06-14T12:00:00Z' },
+    { type: 'change', slug: 'y', title: 'Y', now: '2026-06-14T12:00:00Z' },
     root,
     { ownerHandle: () => '' },
   );
@@ -638,7 +644,7 @@ test('CR6: --from is a repo-wide gate too — a graph break the new document int
 
   assert.throws(
     () =>
-      newChangeFrom({ type: 'quick', slug: 'y', title: 'Y', from: source(root, document) }, root),
+      newChangeFrom({ type: 'change', slug: 'y', title: 'Y', from: source(root, document) }, root),
     /depends_on references missing change "20200101-000000"/,
   );
   assert.equal(stateTip(root), before);
@@ -647,14 +653,14 @@ test('CR6: --from is a repo-wide gate too — a graph break the new document int
 test('CR6: --from still lands when a pre-existing repo-wide error is unrelated to the new document', () => {
   const { root } = activatedRepoWithSibling({ siblingDependsOn: ['20200101-000000'] });
   const scaffold = scaffoldChange(
-    { type: 'quick', slug: 'y', title: 'Y', now: '2026-06-14T13:00:00Z' },
+    { type: 'change', slug: 'y', title: 'Y', now: '2026-06-14T13:00:00Z' },
     root,
     { ownerHandle: () => '' },
   );
   const document = filled(scaffold.text, 'Cuerpo limpio.');
 
   const written = newChangeFrom(
-    { type: 'quick', slug: 'y', title: 'Y', from: source(root, document) },
+    { type: 'change', slug: 'y', title: 'Y', from: source(root, document) },
     root,
   );
 

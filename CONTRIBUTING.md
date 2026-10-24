@@ -5,17 +5,20 @@ as documents under `.changeledger/` before code is written. Please follow the sa
 
 ## The flow
 
-1. **Plan first.** Scaffold a change: `changeledger new <type> <slug> "<title>"`. Fill the
-   stages your type activates (see [`AGENTS.md`](AGENTS.md)). Open `changeledger view` to
+1. **Plan first.** Scaffold a change: `changeledger new change <slug> "<title>"`. Fill its
+   objective and frontier (see [`AGENTS.md`](AGENTS.md)). Open `changeledger view` to
    read it rendered.
 2. **Get it approved.** A change starts in `draft`. Don't implement until it's
    `approved` (the human's one move, in the viewer or by editing the file).
 3. **Implement via TDD.** With `tdd: true`, write the failing test from each
    acceptance criterion (`CRn`), make it pass, refactor. Tick tasks as you go
    (`changeledger task <id> done <n>`) and move status with `changeledger status`.
-4. **Independent review.** Types with `review_required` pass through `in-review`
-   before `done` — a fresh, clean-context review verifies every `CRn` is met and
-   no residue is left.
+4. **Independent review.** A `change` passes through `in-review` before `done` — a
+   fresh, clean-context review verifies every `CRn` is met and no residue is left —
+   except for a ledger-only change. Direct `done` requires that its branch and its
+   uncommitted paths touch nothing outside the ledger and that none of its marked
+   `[#id]` commits has reached the integration branch yet; whenever git cannot tell,
+   the gate refuses and names the cause.
 5. **Graduate the truth.** On `done`, update or create the affected `specs/`
    doc (`changeledger graduate ...`), or `--skip` when there's no persistent truth.
 

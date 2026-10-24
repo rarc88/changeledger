@@ -3,7 +3,6 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { parse as parseYaml } from 'yaml';
 import {
   changeBranchFormat,
   changeIntegrationBranch,
@@ -379,56 +378,49 @@ test('181346 CR1: releaseBranch resolves like integrationBranch', () => {
   }
 });
 
-const roleConfig = (git) => ({
-  git,
-  types: {
-    fix: { stages: ['request'], integrates_into: 'release' },
-    feature: { stages: ['request'] },
-    chore: { stages: ['request'], integrates_into: 'integration' },
-  },
-});
+// Since 20261024-121022 the role is the change's own `integrates_into`.
+const roleConfig = (git) => ({ git });
+const fix = { id: '20261002-000001', type: 'change', integrates_into: 'release' };
+const feature = { id: '20261002-000002', type: 'change' };
+const chore = { id: '20261002-000003', type: 'change', integrates_into: 'integration' };
 
-test('181346 CR3/CR5: changeIntegrationBranch resolves the branch of the type role', () => {
+test('181346 CR3/CR5: changeIntegrationBranch resolves the branch of the change role', () => {
   const config = roleConfig({ integration_branch: 'dev', release_branch: 'main' });
-  assert.equal(changeIntegrationBranch(config, 'fix'), 'main');
-  assert.equal(changeIntegrationBranch(config, 'feature'), 'dev');
-  assert.equal(changeIntegrationBranch(config, 'chore'), 'dev');
-  // No type (a mode context) or an undeclared one keeps the repo value.
+  assert.equal(changeIntegrationBranch(config, fix), 'main');
+  assert.equal(changeIntegrationBranch(config, feature), 'dev');
+  assert.equal(changeIntegrationBranch(config, chore), 'dev');
+  // No change (a mode context) keeps the repo value.
   assert.equal(changeIntegrationBranch(config, undefined), 'dev');
-  assert.equal(changeIntegrationBranch(config, 'unknown'), 'dev');
 });
 
-test('181346 CR4: a release type without git.release_branch fails instead of falling back', () => {
+test('181346 CR4: a release change without git.release_branch fails instead of falling back', () => {
   for (const git of [{ integration_branch: 'dev' }, undefined]) {
     assert.throws(
-      () => changeIntegrationBranch(roleConfig(git), 'fix'),
+      () => changeIntegrationBranch(roleConfig(git), fix),
       (error) =>
-        error.message === 'type "fix" integrates into git.release_branch, which is not declared',
+        error.message ===
+        'change 20261002-000001 integrates into git.release_branch, which is not declared',
     );
   }
-  // Undeclared stays a non-error for every type that does not need it.
-  assert.equal(
-    changeIntegrationBranch(roleConfig({ integration_branch: 'dev' }), 'feature'),
-    'dev',
-  );
+  // Undeclared stays a non-error for every change that does not need it.
+  assert.equal(changeIntegrationBranch(roleConfig({ integration_branch: 'dev' }), feature), 'dev');
 });
 
 // 20261012-174310: the creation-time and check-time twin of the CR4 failure.
 
-test('174310 CR4/CR8: releaseBranchRequirementError names the action only for an undeclared release type', () => {
+test('174310 CR4/CR8: releaseBranchRequirementError names the action only for an undeclared release change', () => {
   const message =
-    'type "fix" integrates into git.release_branch, which is not declared — set git.release_branch in .changeledger/config.yml, for example "main"';
+    'change 20261002-000001 integrates into git.release_branch, which is not declared — set git.release_branch in .changeledger/config.yml, for example "main"';
   for (const git of [{ integration_branch: 'dev' }, { release_branch: null }, undefined]) {
-    assert.equal(releaseBranchRequirementError(roleConfig(git), 'fix'), message);
+    assert.equal(releaseBranchRequirementError(roleConfig(git), fix), message);
   }
-  // Declared branch, a type without the release role, an integration role and an
-  // unknown type all stay silent.
+  // A declared branch, no role and an integration role all stay silent.
   assert.equal(
-    releaseBranchRequirementError(roleConfig({ release_branch: 'main' }), 'fix'),
+    releaseBranchRequirementError(roleConfig({ release_branch: 'main' }), fix),
     undefined,
   );
-  for (const type of ['feature', 'chore', 'unknown', undefined]) {
-    assert.equal(releaseBranchRequirementError(roleConfig(undefined), type), undefined);
+  for (const change of [feature, chore]) {
+    assert.equal(releaseBranchRequirementError(roleConfig(undefined), change), undefined);
   }
 });
 
@@ -436,23 +428,24 @@ test('174310 CR8: the requirement message extends the one changeIntegrationBranc
   const config = roleConfig(undefined);
   let thrown;
   assert.throws(
-    () => changeIntegrationBranch(config, 'fix'),
+    () => changeIntegrationBranch(config, fix),
     (error) => {
       thrown = error.message;
       return true;
     },
   );
-  assert.equal(thrown, 'type "fix" integrates into git.release_branch, which is not declared');
-  assert.ok(releaseBranchRequirementError(config, 'fix').startsWith(thrown));
+  assert.equal(
+    thrown,
+    'change 20261002-000001 integrates into git.release_branch, which is not declared',
+  );
+  assert.ok(releaseBranchRequirementError(config, fix).startsWith(thrown));
 });
 
 test('181346 CR2: changeIntegrationBranch rejects an unknown integrates_into role', () => {
   const config = roleConfig({ integration_branch: 'dev', release_branch: 'main' });
-  config.types.bug = { stages: ['request'], integrates_into: 'prod' };
   assert.throws(
-    () => changeIntegrationBranch(config, 'bug'),
-    (error) =>
-      error.message === 'config type "bug": integrates_into must be "integration" or "release"',
+    () => changeIntegrationBranch(config, { ...feature, integrates_into: 'prod' }),
+    (error) => error.message === 'integrates_into must be "integration" or "release"',
   );
 });
 
@@ -517,34 +510,4 @@ test('161655 CR3: configured branch format must be a non-empty string', () => {
       /config "git\.change_branch_format" must be a non-empty string/,
     );
   }
-});
-
-// --- 20261020-172221 CR4: the epic type ----------------------------------
-//
-// The grouping parent needs no lifecycle code of its own. `review_required` is
-// already per type and `in-progress → done` is already canonical for a type
-// without it, so the short cycle falls out of configuration; a type that
-// activates no `specification` stage declares no criteria, so coverage and
-// readiness do not evaluate it either. These assertions hold that: if the
-// template ever grants the epic a Plan or a review gate, it stops being a
-// grouping parent and becomes a change that implements.
-test('20261020-172221 CR4: the shipped epic type carries no implementation and no review gate', () => {
-  const template = parseYaml(
-    fs.readFileSync(new URL('../templates/config.yml', import.meta.url), 'utf8'),
-  );
-  const epic = template.types?.epic;
-  assert.ok(epic, 'templates/config.yml must ship an `epic` type');
-  assert.ok(epic.stages.includes('request'), 'the epic states its objective in Request');
-  for (const stage of ['specification', 'plan']) {
-    assert.ok(
-      !epic.stages.includes(stage),
-      `the epic must not activate "${stage}": it carries no implementation of its own`,
-    );
-  }
-  assert.ok(!epic.review_required, 'the epic has no review of its own; its children are reviewed');
-  assert.equal(
-    template.release?.impacts?.epic,
-    'none',
-    'the children carry the release impact; counting the parent too would double it',
-  );
 });

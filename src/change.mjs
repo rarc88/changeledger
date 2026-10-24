@@ -6,6 +6,38 @@ import { parseYaml } from './yaml.mjs';
 
 const FRONTMATTER = /^---\n([\s\S]*?)\n---\n?/;
 
+// Fixed in code, like the six statuses of the lifecycle (20261024-121022): a
+// `change` carries the stages it needs, in this order, and an `epic` groups
+// children and is never implemented. No configuration key declares either.
+export const CANONICAL_STAGES = Object.freeze(['request', 'specification', 'plan', 'log']);
+export const CHANGE_TYPES = Object.freeze(['change', 'epic']);
+
+// The stages retired with the matrix, keyed and headed as a document carries
+// them. `check` points a live document holding one at `fix`, which folds it
+// under the Request.
+export const RETIRED_STAGES = Object.freeze(
+  new Map([
+    ['investigation', 'Investigation'],
+    ['proposal', 'Proposal'],
+  ]),
+);
+
+// The types retired with the matrix, each with the frontmatter it implied in
+// the last template that declared it: its release impact, the release
+// integration of `hotfix` and the tdd exemption of `documentation`. `check`
+// names the correction on a live document carrying one; `fix` makes it and
+// writes what the document does not declare itself.
+export const RETIRED_TYPES = Object.freeze({
+  feature: Object.freeze({ release_impact: 'minor' }),
+  bug: Object.freeze({ release_impact: 'patch' }),
+  hotfix: Object.freeze({ release_impact: 'patch', integrates_into: 'release' }),
+  audit: Object.freeze({ release_impact: 'none' }),
+  refactor: Object.freeze({ release_impact: 'none' }),
+  chore: Object.freeze({ release_impact: 'none' }),
+  quick: Object.freeze({ release_impact: 'patch' }),
+  documentation: Object.freeze({ release_impact: 'none', tdd: false }),
+});
+
 export function parseChange(text) {
   const fm = text.match(FRONTMATTER);
   if (!fm) throw new Error('Change is missing its frontmatter block');
@@ -87,13 +119,13 @@ export function parseRequestSections(requestBody) {
   ];
 }
 
-// Line-by-line code-fence state shared by `splitStages` and
-// `parseRequestSections`, so both agree on where a heading is. The returned
+// Line-by-line code-fence state shared by `splitStages`,
+// `parseRequestSections` and `fix`, so all agree on where a heading is. The returned
 // function answers, for each line in order, whether it is a fence delimiter or
 // lies inside a fence; a fence closes only on a run of its own character at
 // least as long as the opener, and an unterminated one runs to the end of the
 // input.
-function fenceTracker() {
+export function fenceTracker() {
   let fence = null;
   return (line) => {
     const fenceMark = line.match(/^(`{3,}|~{3,})/);

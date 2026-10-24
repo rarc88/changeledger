@@ -66,7 +66,7 @@ test('161652 CR3: new rejects a future schema before creating files or locks', (
   const configFile = path.join(root, '.changeledger', 'config.yml');
   fs.writeFileSync(
     configFile,
-    fs.readFileSync(configFile, 'utf8').replace(/^schema_version: \d+$/m, 'schema_version: 7'),
+    fs.readFileSync(configFile, 'utf8').replace(/^schema_version: \d+$/m, 'schema_version: 8'),
   );
   const changesDir = path.join(root, '.changeledger', 'changes');
   const before = fs.readdirSync(changesDir);
@@ -74,10 +74,10 @@ test('161652 CR3: new rejects a future schema before creating files or locks', (
   assert.throws(
     () =>
       newChange(
-        { type: 'feature', slug: 'future', title: 'Future', now: '2026-07-31T16:00:00Z' },
+        { type: 'change', slug: 'future', title: 'Future', now: '2026-07-31T16:00:00Z' },
         root,
       ),
-    /^Error: config schema 7 is newer than supported schema 6; update ChangeLedger before writing$/,
+    /^Error: config schema 8 is newer than supported schema 7; update ChangeLedger before writing$/,
   );
   assert.deepEqual(fs.readdirSync(changesDir), before);
 });
@@ -146,7 +146,7 @@ function commitFixtureRepo() {
 function commitFixtureWriteChange(root, id, status) {
   fs.writeFileSync(
     path.join(root, '.changeledger', 'changes', `${id}-x.md`),
-    `---\nid: "${id}"\ntitle: X\ntype: feature\nstatus: ${status}\ncreated: 2026-07-11T00:00:00Z\ndepends_on: []\n---\n\n## Request\n`,
+    `---\nid: "${id}"\ntitle: X\ntype: change\nstatus: ${status}\ncreated: 2026-07-11T00:00:00Z\ndepends_on: []\n---\n\n## Request\n`,
   );
 }
 
@@ -214,13 +214,14 @@ test('init seeds tdd:true in the config (implementation-readiness CR1)', () => {
 // `readiness` section. Its absence is pinned by `20261023-181753 CR6` in
 // `config-migration.test.mjs`.
 
-// A well-formed Ruby-flavoured bug: the Plan task names a `lib/` target and an
-// RSpec verification, nothing shaped like JavaScript.
-function rubyBug(id) {
+// A well-formed Ruby-flavoured change: the Plan task names a `lib/` target and
+// an RSpec verification, nothing shaped like JavaScript. Its investigation is
+// free prose under the Request (20261024-121022).
+function rubyChange(id) {
   return `---
 id: "${id}"
 title: Parser drops trailing commas
-type: bug
+type: change
 status: draft
 created: 2026-07-26T14:11:22Z
 depends_on: []
@@ -239,7 +240,7 @@ Trailing commas survive parsing.
 
 \`lib/parser.rb\` only.
 
-## Investigation
+### Investigation
 
 \`lib/parser.rb\` truncates the token stream.
 
@@ -263,17 +264,17 @@ Trailing commas survive parsing.
 `;
 }
 
-test('141122 CR2: a fresh non-JS repo approves a well-formed bug without tuning its config', () => {
+test('141122 CR2: a fresh non-JS repo approves a well-formed change without tuning its config', () => {
   const root = tmp();
   init(root);
 
   const file = newChange(
-    { type: 'bug', slug: 'parser', title: 'Parser', now: '2026-07-26T14:11:22Z' },
+    { type: 'change', slug: 'parser', title: 'Parser', now: '2026-07-26T14:11:22Z' },
     root,
     { ownerHandle: () => '' },
   );
   const id = parseChange(fs.readFileSync(file, 'utf8')).frontmatter.id;
-  fs.writeFileSync(file, rubyBug(id));
+  fs.writeFileSync(file, rubyChange(id));
 
   assert.doesNotThrow(() => approve(id, root));
 
@@ -284,14 +285,12 @@ test('141122 CR2: a fresh non-JS repo approves a well-formed bug without tuning 
   assert.equal(code, 0);
 });
 
-test('235628 CR3/CR8: init seeds portable release impacts and contract boundary', () => {
+test('235628 CR3/CR8: init seeds the portable default release impact and contract boundary', () => {
   const root = tmp();
   init(root);
   const cfg = fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8');
   const contract = contractText();
-  assert.match(cfg, /^release:$/m);
-  assert.match(cfg, /^ {4}feature: minor$/m);
-  assert.match(cfg, /^ {4}bug: patch$/m);
+  assert.match(cfg, /^release:\n {2}default_impact: patch$/m);
   assert.match(contract, /changeledger release plan \[--json\]/);
   // 20260730-002730 retired the portability sentence pin; the naming sweep stays.
   assert.deepEqual(
@@ -366,7 +365,7 @@ test('131649 CR2/CR9: list previews archive --graduated without writing files', 
     `---
 id: "20260613-120001"
 title: Done
-type: feature
+type: change
 status: done
 created: 2026-06-13T12:00:00Z
 reviewed: true
@@ -377,11 +376,11 @@ depends_on: []
 
 R
 
-## Investigation
+### Investigation
 
 I
 
-## Proposal
+### Proposal
 
 P
 
@@ -411,7 +410,9 @@ P
   assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
 
-test('CR1: init seeds in-review and review_required per type (review-gate)', () => {
+// 20261024-121022 retired the per-type `review_required` asserts: the template
+// no longer declares a type matrix.
+test('CR1: init seeds the in-review status (review-gate)', () => {
   const root = tmp();
   init(root);
   const cfg = loadConfig(findChangeledgerDir(root));
@@ -423,11 +424,6 @@ test('CR1: init seeds in-review and review_required per type (review-gate)', () 
     'done',
     'discarded',
   ]);
-  assert.equal(cfg.types.feature.review_required, true);
-  assert.equal(cfg.types.bug.review_required, true);
-  assert.equal(cfg.types.refactor.review_required, true);
-  assert.equal('review_required' in cfg.types.chore, false);
-  assert.equal('review_required' in cfg.types.audit, false);
 });
 
 test('reference refresh is idempotent and does not add a legacy gitignore entry', () => {
@@ -510,7 +506,7 @@ test('152809 CR5: check exits 1 and names an invalid change document', async () 
     `---
 id: "20260804-120001"
 title: "Texto" fuera
-type: bug
+type: change
 status: draft
 created: 2026-08-04T12:00:01Z
 depends_on: []
@@ -549,7 +545,12 @@ test('new uses the English slug for the file and keeps the title as content', ()
   const root = tmp();
   init(root);
   const file = newChange(
-    { type: 'bug', slug: 'token-expiry', title: 'Token expira mal', now: '2026-06-13T15:00:00Z' },
+    {
+      type: 'change',
+      slug: 'token-expiry',
+      title: 'Token expira mal',
+      now: '2026-06-13T15:00:00Z',
+    },
     root,
     { ownerHandle: () => '' },
   );
@@ -559,34 +560,35 @@ test('new uses the English slug for the file and keeps the title as content', ()
   const c = parseChange(source);
   assert.equal(c.frontmatter.id, '20260613-150000');
   assert.equal(c.frontmatter.title, 'Token expira mal');
-  assert.equal(c.frontmatter.type, 'bug');
+  assert.equal(c.frontmatter.type, 'change');
   assert.equal(c.frontmatter.status, 'draft');
   assert.equal(c.frontmatter.created, '2026-06-13T15:00:00Z');
   assert.deepEqual(c.frontmatter.related_to, []);
   assert.match(source, /depends_on: \[\]\nrelated_to: \[\]/);
   assert.deepEqual(
     c.stages.map((s) => s.key),
-    ['request', 'investigation', 'specification', 'plan', 'log'],
+    ['request', 'specification', 'plan', 'log'],
   );
 });
 
-// 20260711-103756 CR1: the `quick` lane scaffolds only Request and Log, in
-// that order, with the same frontmatter shape as any other type.
-test('103756 CR1: new scaffolds a quick change with only request and log', () => {
+// 20260711-103756 CR1, retargeted by 20261024-121022 CR4: the `quick` lane is
+// retired; the epic is the type whose written scaffold carries only Request and
+// Log, in that order, with the same frontmatter shape as a change.
+test('103756 CR1: new writes an epic with only request and log', () => {
   const root = tmp();
   init(root);
   const file = newChange(
     {
-      type: 'quick',
-      slug: 'fix-copy',
-      title: 'Corregir texto del banner',
+      type: 'epic',
+      slug: 'banner',
+      title: 'Rehacer el banner',
       now: '2026-06-13T15:00:00Z',
     },
     root,
     { ownerHandle: () => '' },
   );
   const c = parseChange(fs.readFileSync(file, 'utf8'));
-  assert.equal(c.frontmatter.type, 'quick');
+  assert.equal(c.frontmatter.type, 'epic');
   assert.equal(c.frontmatter.status, 'draft');
   assert.deepEqual(
     c.stages.map((s) => s.key),
@@ -594,22 +596,14 @@ test('103756 CR1: new scaffolds a quick change with only request and log', () =>
   );
 });
 
-// 20260711-103756 CR4: the default (unpersonalized) matrix includes `quick`
-// with request+log active and no review gate.
-test('103756 CR4: the default config matrix includes quick with no review gate', () => {
-  const root = tmp();
-  init(root);
-  const dir = findChangeledgerDir(root);
-  const config = loadConfig(dir);
-  assert.deepEqual(config.types.quick.stages, ['request', 'log']);
-  assert.equal(Boolean(config.types.quick.review_required), false);
-});
+// 20261024-121022 retired `103756 CR4`: the template no longer declares a type
+// matrix, so there is no `quick` entry to pin.
 
 test('new normalizes the slug to kebab ascii', () => {
   const root = tmp();
   init(root);
   const file = newChange(
-    { type: 'chore', slug: 'Fix CI Pipeline', title: 'x', now: '2026-06-13T15:00:00Z' },
+    { type: 'change', slug: 'Fix CI Pipeline', title: 'x', now: '2026-06-13T15:00:00Z' },
     root,
     { ownerHandle: () => '' },
   );
@@ -620,7 +614,7 @@ test('20260726-124836 CR1: new resolves owner from the injected git identity whe
   const root = tmp();
   init(root);
   const file = newChange(
-    { type: 'chore', slug: 'x', title: 'X', now: '2026-06-13T15:00:00Z' },
+    { type: 'change', slug: 'x', title: 'X', now: '2026-06-13T15:00:00Z' },
     root,
     { ownerHandle: () => 'ana' },
   );
@@ -635,7 +629,7 @@ test('20260726-124836 CR2: an explicit --owner still wins over the injected iden
   const root = tmp();
   init(root);
   const file = newChange(
-    { type: 'chore', slug: 'x', title: 'X', owner: 'leo', now: '2026-06-13T15:00:00Z' },
+    { type: 'change', slug: 'x', title: 'X', owner: 'leo', now: '2026-06-13T15:00:00Z' },
     root,
     { ownerHandle: () => 'ana' },
   );
@@ -650,7 +644,7 @@ test('20260726-124836 CR3: an unresolvable identity emits no owner line and does
   let calls = 0;
   let file;
   assert.doesNotThrow(() => {
-    file = newChange({ type: 'chore', slug: 'x', title: 'X', now: '2026-06-13T15:00:00Z' }, root, {
+    file = newChange({ type: 'change', slug: 'x', title: 'X', now: '2026-06-13T15:00:00Z' }, root, {
       ownerHandle: () => {
         calls += 1;
         return '';
@@ -678,9 +672,13 @@ test('new rejects a slug that normalizes to empty', () => {
   init(root);
   assert.throws(
     () =>
-      newChange({ type: 'bug', slug: '!!!', title: 'Título', now: '2026-06-13T15:00:00Z' }, root, {
-        ownerHandle: () => '',
-      }),
+      newChange(
+        { type: 'change', slug: '!!!', title: 'Título', now: '2026-06-13T15:00:00Z' },
+        root,
+        {
+          ownerHandle: () => '',
+        },
+      ),
     /slug must contain at least one ASCII letter or number/,
   );
   assert.deepEqual(
@@ -694,9 +692,9 @@ test('new bumps the id to stay unique within the same second', () => {
   init(root);
   const now = '2026-06-13T15:00:00Z';
   const noOwner = { ownerHandle: () => '' };
-  const a = newChange({ type: 'chore', slug: 'one', title: 'one', now }, root, noOwner);
+  const a = newChange({ type: 'change', slug: 'one', title: 'one', now }, root, noOwner);
   const before = fs.readFileSync(a, 'utf8');
-  const b = newChange({ type: 'chore', slug: 'two', title: 'two', now }, root, noOwner);
+  const b = newChange({ type: 'change', slug: 'two', title: 'two', now }, root, noOwner);
   assert.equal(path.basename(a), '20260613-150000-one.md');
   assert.equal(path.basename(b), '20260613-150001-two.md');
   assert.equal(fs.readFileSync(a, 'utf8'), before, 'existing change file is not overwritten');
@@ -716,7 +714,7 @@ test('new recovers from an orphan id lock', () => {
   fs.utimesSync(lock, stale, stale);
 
   const file = newChange(
-    { type: 'chore', slug: 'one', title: 'one', now: '2026-06-13T15:00:00Z' },
+    { type: 'change', slug: 'one', title: 'one', now: '2026-06-13T15:00:00Z' },
     root,
     { ownerHandle: () => '' },
   );
@@ -747,7 +745,7 @@ test('new tolerates a lock removed while checking whether it is stale', () => {
   };
   try {
     const file = newChange(
-      { type: 'chore', slug: 'one', title: 'one', now: '2026-06-13T15:00:00Z' },
+      { type: 'change', slug: 'one', title: 'one', now: '2026-06-13T15:00:00Z' },
       root,
       { ownerHandle: () => '' },
     );
@@ -775,7 +773,7 @@ test('190006 CR1: acquireIdLock returns null after max stale-lock retries', () =
   };
   try {
     const file = newChange(
-      { type: 'chore', slug: 'one', title: 'one', now: '2026-06-13T15:00:00Z' },
+      { type: 'change', slug: 'one', title: 'one', now: '2026-06-13T15:00:00Z' },
       root,
       { ownerHandle: () => '' },
     );
@@ -807,7 +805,7 @@ test('190006 CR4: processIsAlive returns true on EPERM — lock treated as live'
   };
   try {
     const file = newChange(
-      { type: 'chore', slug: 'one', title: 'one', now: '2026-06-13T15:00:00Z' },
+      { type: 'change', slug: 'one', title: 'one', now: '2026-06-13T15:00:00Z' },
       root,
       { ownerHandle: () => '' },
     );
@@ -834,7 +832,7 @@ test('new reserves ids atomically across concurrent processes', async () => {
       await delay(5);
     }
     const file = newChange(
-      { type: 'chore', slug: process.argv[1], title: process.argv[1], now: '2026-06-13T15:00:00Z' },
+      { type: 'change', slug: process.argv[1], title: process.argv[1], now: '2026-06-13T15:00:00Z' },
       process.argv[2],
       { ownerHandle: () => '' },
     );
@@ -901,7 +899,7 @@ test('CR4: creation on an activated repo lands the composed document in the stat
   assert.throws(
     () =>
       newChange(
-        { type: 'chore', slug: 'active-new', title: 'Active new', now: '2026-08-08T15:00:00Z' },
+        { type: 'change', slug: 'active-new', title: 'Active new', now: '2026-08-08T15:00:00Z' },
         root,
         { ownerHandle: () => '' },
       ),
@@ -910,13 +908,13 @@ test('CR4: creation on an activated repo lands the composed document in the stat
   );
 
   const scaffold = scaffoldChange(
-    { type: 'chore', slug: 'active-new', title: 'Active new', now: '2026-08-08T15:00:00Z' },
+    { type: 'change', slug: 'active-new', title: 'Active new', now: '2026-08-08T15:00:00Z' },
     root,
     { ownerHandle: () => '' },
   );
   const document = scaffold.text.replace('## Request\n', '## Request\n\nCuerpo completo.\n');
   const relPath = newChangeFrom(
-    { type: 'chore', slug: 'active-new', title: 'Active new', from: sourceFile(root, document) },
+    { type: 'change', slug: 'active-new', title: 'Active new', from: sourceFile(root, document) },
     root,
   );
 
@@ -951,7 +949,7 @@ test('20261001-155216 CR1: new records the running version as the only Log entry
   const root = tmp();
   init(root);
   const file = newChange(
-    { type: 'feature', slug: 'demo', title: 'Demo', now: '2026-10-01T10:00:00Z' },
+    { type: 'change', slug: 'demo', title: 'Demo', now: '2026-10-01T10:00:00Z' },
     root,
     { ownerHandle: () => '' },
   );
@@ -966,9 +964,9 @@ test('20261001-155216 CR1: a bumped id keeps the stamp on the created instant th
   init(root);
   const now = '2026-10-01T10:00:00Z';
   const options = { ownerHandle: () => '' };
-  newChange({ type: 'chore', slug: 'one', title: 'one', now }, root, options);
+  newChange({ type: 'change', slug: 'one', title: 'one', now }, root, options);
   const second = fs.readFileSync(
-    newChange({ type: 'chore', slug: 'two', title: 'two', now }, root, options),
+    newChange({ type: 'change', slug: 'two', title: 'two', now }, root, options),
     'utf8',
   );
   const { created } = parseChange(second).frontmatter;
@@ -981,7 +979,7 @@ test('20261001-155216 CR1: new --from on an activated repo lands the document st
   init(root);
   activate(root);
   const scaffold = scaffoldChange(
-    { type: 'feature', slug: 'demo', title: 'Demo', now: '2026-10-01T10:00:00Z' },
+    { type: 'change', slug: 'demo', title: 'Demo', now: '2026-10-01T10:00:00Z' },
     root,
     { ownerHandle: () => '' },
   );
@@ -989,7 +987,7 @@ test('20261001-155216 CR1: new --from on an activated repo lands the document st
   assert.deepEqual(logEvents(document), [], 'the composed document carries no stamp yet');
 
   const relPath = newChangeFrom(
-    { type: 'feature', slug: 'demo', title: 'Demo', from: sourceFile(root, document) },
+    { type: 'change', slug: 'demo', title: 'Demo', from: sourceFile(root, document) },
     root,
   );
 
@@ -1009,7 +1007,7 @@ test('20261001-155216 CR1: new --from keeps a stamp the document already carries
   init(root);
   activate(root);
   const scaffold = scaffoldChange(
-    { type: 'feature', slug: 'demo', title: 'Demo', now: '2026-10-01T10:00:00Z' },
+    { type: 'change', slug: 'demo', title: 'Demo', now: '2026-10-01T10:00:00Z' },
     root,
     { ownerHandle: () => '' },
   );
@@ -1020,13 +1018,13 @@ test('20261001-155216 CR1: new --from keeps a stamp the document already carries
     );
 
   const same = newChangeFrom(
-    { type: 'feature', slug: 'demo', title: 'Demo', from: sourceFile(root, stamped(VERSION)) },
+    { type: 'change', slug: 'demo', title: 'Demo', from: sourceFile(root, stamped(VERSION)) },
     root,
   );
   assert.equal(logEvents(readSnapshot(root).documents[same]).length, 1);
 
   const next = scaffoldChange(
-    { type: 'feature', slug: 'other', title: 'Other', now: '2026-10-01T11:00:00Z' },
+    { type: 'change', slug: 'other', title: 'Other', now: '2026-10-01T11:00:00Z' },
     root,
     { ownerHandle: () => '' },
   );
@@ -1035,7 +1033,7 @@ test('20261001-155216 CR1: new --from keeps a stamp the document already carries
     `## Log\n\n- **2026-10-01T11:00:00Z** \`[version]\` ${PREVIOUS_VERSION}\n`,
   );
   const other = newChangeFrom(
-    { type: 'feature', slug: 'other', title: 'Other', from: sourceFile(root, older) },
+    { type: 'change', slug: 'other', title: 'Other', from: sourceFile(root, older) },
     root,
   );
   assert.deepEqual(
@@ -1051,19 +1049,12 @@ test('20261001-155216 CR1: new --from keeps a stamp the document already carries
   );
 });
 
-test('20261001-155216 CR1: a chore, which scaffolds no Log stage, gets one that check accepts', () => {
-  const root = tmp();
-  init(root);
-  const file = newChange(
-    { type: 'chore', slug: 'tidy', title: 'Tidy', now: '2026-10-01T10:00:00Z' },
-    root,
-    { ownerHandle: () => '' },
-  );
-  const text = fs.readFileSync(file, 'utf8');
-  const { created } = parseChange(text).frontmatter;
-  assert.deepEqual(logEvents(text), [{ at: created, type: 'version', version: VERSION }]);
-  assert.equal(check([], root, silentOutput()), 0);
-});
+// 20261024-121022 retired `20261001-155216 CR1: a chore, which scaffolds no Log
+// stage, gets one that check accepts`: every scaffold now carries `## Log`, so no
+// type is left whose stamp has to create the stage. The stamp itself stays pinned
+// by `new records the running version as the only Log entry, at created`, and a
+// written scaffold passing `check` by `new reserves ids atomically across
+// concurrent processes`.
 
 // Writes the `--from` source outside the ledger layout, so it is never mistaken
 // for a document of the repo under test.
@@ -1079,12 +1070,14 @@ test('new rejects an unknown type', () => {
   assert.throws(() => newChange({ type: 'nope', title: 't', now: 'x' }, root), /Unknown type/);
 });
 
-// 20261012-174310 — a type that integrates into the release branch cannot be
-// created while `git.release_branch` is undeclared: the change would be stuck
-// without a loadable context.
-const RELEASE_REQUIREMENT =
-  'type "hotfix" integrates into git.release_branch, which is not declared — set git.release_branch in .changeledger/config.yml, for example "main"';
+// 20261012-174310, retargeted by 20261024-121022 CR10 — the release role is the
+// change's own `integrates_into`, which no scaffold carries: `new` and `--print`
+// create freely, and the composed document that declares the role is refused by
+// `--from` while `git.release_branch` is undeclared. `apply`'s `new` entry is
+// pinned by `174310 CR6` in `apply.test.mjs`.
 const NEW_AT = '2026-10-12T10:00:00Z';
+const releaseRequirement = (id) =>
+  `change ${id} integrates into git.release_branch, which is not declared — set git.release_branch in .changeledger/config.yml, for example "main"`;
 
 function setReleaseBranch(root, value) {
   const configFile = path.join(root, '.changeledger', 'config.yml');
@@ -1096,55 +1089,69 @@ function setReleaseBranch(root, value) {
   );
 }
 
+// A complete draft that integrates into the release branch.
+function releaseDraft(root, { slug, now }) {
+  const draft = scaffoldChange({ type: 'change', slug, title: 'Y', now }, root, {
+    ownerHandle: () => '',
+  });
+  return {
+    ...draft,
+    id: parseChange(draft.text).frontmatter.id,
+    text: draft.text
+      .replace('\nstatus: draft\n', '\nintegrates_into: release\nstatus: draft\n')
+      .replace('### Objective\n', '### Objective\n\nO.\n')
+      .replace('### Frontier\n', '### Frontier\n\nF.\n'),
+  };
+}
+
 const changeFiles = (root) => fs.readdirSync(path.join(root, '.changeledger', 'changes'));
 
-test('174310 CR5: new refuses a release-type change without a release branch and writes nothing', () => {
+test('174310 CR5: new --from refuses a change integrating into an undeclared release branch and writes nothing', () => {
   const root = tmp();
   init(root);
-  assert.throws(
-    () =>
-      newChange({ type: 'hotfix', slug: 'x', title: 'X', now: NEW_AT }, root, {
-        ownerHandle: () => '',
-      }),
-    (e) => e.message === RELEASE_REQUIREMENT,
-  );
-  assert.deepEqual(changeFiles(root), []);
-  assert.equal(fs.readdirSync(path.join(root, '.changeledger', 'changes')).length, 0);
-  // A type without the release role keeps being created in the same repo.
-  newChange({ type: 'bug', slug: 'x', title: 'X', now: NEW_AT }, root, { ownerHandle: () => '' });
+  // No scaffold carries the role, so `new` itself creates in the same repo.
+  newChange({ type: 'change', slug: 'x', title: 'X', now: NEW_AT }, root, {
+    ownerHandle: () => '',
+  });
   assert.equal(changeFiles(root).length, 1);
-  // Declared, the same creation succeeds.
-  setReleaseBranch(root, 'main');
-  newChange({ type: 'hotfix', slug: 'y', title: 'Y', now: NEW_AT }, root, {
-    ownerHandle: () => '',
-  });
-  assert.equal(changeFiles(root).length, 2);
-});
 
-test('174310 CR6: --print and --from refuse the same way and write nothing', () => {
-  const root = tmp();
-  init(root);
-  assert.throws(
-    () => scaffoldChange({ type: 'hotfix', slug: 'y', title: 'Y', now: NEW_AT }, root),
-    (e) => e.message === RELEASE_REQUIREMENT,
-  );
-
-  // A valid hotfix draft composed while a release branch was declared, then the
-  // branch retired before it lands.
-  setReleaseBranch(root, 'main');
-  const draft = scaffoldChange({ type: 'hotfix', slug: 'y', title: 'Y', now: NEW_AT }, root, {
-    ownerHandle: () => '',
-  });
-  setReleaseBranch(root, '');
+  const draft = releaseDraft(root, { slug: 'y', now: NEW_AT });
   assert.throws(
     () =>
       newChangeFrom(
-        { type: 'hotfix', slug: 'y', title: 'Y', from: sourceFile(root, draft.text) },
+        { type: 'change', slug: 'y', title: 'Y', from: sourceFile(root, draft.text) },
         root,
       ),
     (e) =>
       e.message.includes('the incoming document is invalid, nothing was written:') &&
-      e.message.includes(`  ${draft.name}: ${RELEASE_REQUIREMENT}`),
+      e.message.includes(`  ${draft.name}: ${releaseRequirement(draft.id)}`),
+  );
+  assert.equal(changeFiles(root).length, 1);
+
+  // Declared, the same document lands.
+  setReleaseBranch(root, 'main');
+  newChangeFrom(
+    { type: 'change', slug: 'y', title: 'Y', from: sourceFile(root, draft.text) },
+    root,
+  );
+  assert.equal(changeFiles(root).length, 2);
+});
+
+test('174310 CR6: a release draft composed while the branch was declared is refused once it is retired', () => {
+  const root = tmp();
+  init(root);
+  setReleaseBranch(root, 'main');
+  const draft = releaseDraft(root, { slug: 'y', now: NEW_AT });
+  setReleaseBranch(root, '');
+  assert.throws(
+    () =>
+      newChangeFrom(
+        { type: 'change', slug: 'y', title: 'Y', from: sourceFile(root, draft.text) },
+        root,
+      ),
+    (e) =>
+      e.message.includes('the incoming document is invalid, nothing was written:') &&
+      e.message.includes(`  ${draft.name}: ${releaseRequirement(draft.id)}`),
   );
   assert.deepEqual(changeFiles(root), []);
 });
@@ -1175,18 +1182,19 @@ function frontmatterBlock(over) {
     .join('\n');
 }
 
-// A well-formed document: the shipped config activates only `## Request` and
-// `## Plan` for `chore`, so nothing here can error or warn.
-function validChore(id, over = {}) {
-  const fm = frontmatterBlock({ id: `"${id}"`, type: 'chore', status: 'approved', ...over });
+// A well-formed document: a `change` may carry any canonical stages in order,
+// so `## Request` and `## Plan` alone can neither error nor warn.
+function validChange(id, over = {}) {
+  const fm = frontmatterBlock({ id: `"${id}"`, type: 'change', status: 'approved', ...over });
   // The Plan is left empty on purpose: since 20260729-203257 CR2 a prose line
   // inside `## Plan` is an `unrecognized Plan line` error, so filler cannot go here.
   return `---\n${fm}\n---\n\n## Request\n\nX\n\n## Plan\n`;
 }
 
-// A `bug` body without `## Specification`, a stage the shipped config activates
-// for that type: the defect today's rules report on frozen history.
-function bugMissingSpecification(id, over = {}) {
+// A body written before 20261024-121022: a retired type and a retired
+// `## Investigation` stage, defects today's rules report on a live document and
+// never on frozen history.
+function legacyBug(id, over = {}) {
   const fm = frontmatterBlock({ id: `"${id}"`, type: 'bug', status: 'done', ...over });
   return `---\n${fm}\n---\n\n## Request\n\nX\n\n## Investigation\n\nX\n\n## Plan\n\n## Log\n`;
 }
@@ -1205,9 +1213,9 @@ function lastLine(out) {
 
 test('194220 CR8: the repo-wide summary names the documents it did not validate', () => {
   const root = frozenLedger({
-    '20260101-000000-one.md': validChore('20260101-000000'),
-    '20260102-000000-two.md': validChore('20260102-000000'),
-    '20260103-000000-frozen.md': validChore('20260103-000000', {
+    '20260101-000000-one.md': validChange('20260101-000000'),
+    '20260102-000000-two.md': validChange('20260102-000000'),
+    '20260103-000000-frozen.md': validChange('20260103-000000', {
       status: 'done',
       archived: 'true',
     }),
@@ -1220,8 +1228,8 @@ test('194220 CR8: the repo-wide summary names the documents it did not validate'
 
 test('194220 CR9: with no frozen documents the summary is unchanged', () => {
   const root = frozenLedger({
-    '20260101-000000-one.md': validChore('20260101-000000'),
-    '20260102-000000-two.md': validChore('20260102-000000'),
+    '20260101-000000-one.md': validChange('20260101-000000'),
+    '20260102-000000-two.md': validChange('20260102-000000'),
   });
   const out = captureOutput();
   const code = check([], root, out);
@@ -1231,10 +1239,10 @@ test('194220 CR9: with no frozen documents the summary is unchanged', () => {
 
 test('194220 CR10: check <id> on a frozen document says it was not validated', () => {
   const root = frozenLedger({
-    '20260101-000000-archived.md': bugMissingSpecification('20260101-000000', {
+    '20260101-000000-archived.md': legacyBug('20260101-000000', {
       archived: 'true',
     }),
-    '20260102-000000-discarded.md': bugMissingSpecification('20260102-000000', {
+    '20260102-000000-discarded.md': legacyBug('20260102-000000', {
       status: 'discarded',
     }),
   });
@@ -1252,14 +1260,14 @@ test('194220 CR11: the summary names what it did not validate when it also repor
   // `mismatch.md` carries a well-formed document whose filename does not start
   // with its id: exactly one error, no warnings, and still a validated subject.
   const live = {
-    '20260101-000000-one.md': validChore('20260101-000000'),
-    'mismatch.md': validChore('20260102-000000'),
+    '20260101-000000-one.md': validChange('20260101-000000'),
+    'mismatch.md': validChange('20260102-000000'),
   };
 
   const withFrozen = captureOutput();
   const frozenRoot = frozenLedger({
     ...live,
-    '20260103-000000-frozen.md': validChore('20260103-000000', {
+    '20260103-000000-frozen.md': validChange('20260103-000000', {
       status: 'done',
       archived: 'true',
     }),
@@ -1288,7 +1296,7 @@ test('124656 CR3: `status <id> in-review` exits non-zero and names the broken re
       .replace(/^ {2}change_branch_format:.*$/m, '  change_branch_format: null'),
   );
   const file = newChange(
-    { type: 'feature', slug: 'broken', title: 'Broken', now: '2026-06-13T12:00:00Z' },
+    { type: 'change', slug: 'broken', title: 'Broken', now: '2026-06-13T12:00:00Z' },
     root,
     { ownerHandle: () => 'nobody' },
   );
@@ -1296,7 +1304,9 @@ test('124656 CR3: `status <id> in-review` exits non-zero and names the broken re
     file,
     fs
       .readFileSync(file, 'utf8')
-      .replace('## Request\n', '## Request\n\nR\n\n### Objective\n\nO\n\n### Frontier\n\nF\n')
+      .replace('## Request\n', '## Request\n\nR\n')
+      .replace('### Objective\n', '### Objective\n\nO\n')
+      .replace('### Frontier\n', '### Frontier\n\nF\n')
       .replace(
         '## Specification\n',
         '## Specification\n\n### CR1 — Something\n- **Given** a thing\n- **When** it runs\n- **Then** it holds\n',
@@ -1335,7 +1345,7 @@ test('20261023-094931 CR1: `task <id> block 1 r` on a done change prints the ref
   init(root);
   const id = '20260601-100000';
   const name = `${id}-graduable.md`;
-  const text = `---\nid: "${id}"\ntitle: Verdad graduable\ntype: feature\nstatus: done\ncreated: 2026-06-01T10:00:00Z\ndepends_on: []\n---\n\n## Request\n\nPetición cerrada.\n\n## Investigation\n\nInvestigación cerrada.\n\n## Proposal\n\nPropuesta cerrada.\n\n## Specification\n\n### CR1 — una verdad graduable\n- **Given** un repo\n- **When** algo ocurre\n- **Then** pasa algo\n\n## Plan\n\n- [x] Hacer la verdad\n  - **Criteria:** CR1\n  - **Resolved:** \`2026-06-01T10:00:00Z\`\n\n## Log\n\n- **2026-06-01T10:00:00Z** \`[note]\` created\n`;
+  const text = `---\nid: "${id}"\ntitle: Verdad graduable\ntype: change\nstatus: done\ncreated: 2026-06-01T10:00:00Z\ndepends_on: []\n---\n\n## Request\n\nPetición cerrada.\n\n### Investigation\n\nInvestigación cerrada.\n\n### Proposal\n\nPropuesta cerrada.\n\n## Specification\n\n### CR1 — una verdad graduable\n- **Given** un repo\n- **When** algo ocurre\n- **Then** pasa algo\n\n## Plan\n\n- [x] Hacer la verdad\n  - **Criteria:** CR1\n  - **Resolved:** \`2026-06-01T10:00:00Z\`\n\n## Log\n\n- **2026-06-01T10:00:00Z** \`[note]\` created\n`;
   const configText = fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8');
   initGitFixture(root);
   const tree = buildTree(root, {
@@ -1543,7 +1553,7 @@ function nestedLedger(hostRoot) {
   );
   fs.writeFileSync(
     path.join(changesDir, '20260810-000001-nested.md'),
-    '---\nid: "20260810-000001"\ntitle: Nested own change\ntype: feature\nstatus: draft\ncreated: 2026-08-10T00:00:00Z\ndepends_on: []\n---\n\n## Request\n\nMía.\n',
+    '---\nid: "20260810-000001"\ntitle: Nested own change\ntype: change\nstatus: draft\ncreated: 2026-08-10T00:00:00Z\ndepends_on: []\n---\n\n## Request\n\nMía.\n',
   );
   return { repoRoot, changesDir };
 }
@@ -1562,7 +1572,7 @@ test('20260810-120457 CR2: list, show and new from a nested project use its own 
 
   const file = newChange(
     {
-      type: 'feature',
+      type: 'change',
       slug: 'from-nested',
       title: 'Desde el anidado',
       owner: 'nested-owner',
@@ -1615,29 +1625,28 @@ test('20261023-181753 CR9: the day after — a draft with objective and frontier
   };
 
   const scaffold = scaffoldChange(
-    { type: 'feature', slug: 'day-after', title: 'Day after', now: '2026-10-23T18:00:00Z' },
+    { type: 'change', slug: 'day-after', title: 'Day after', now: '2026-10-23T18:00:00Z' },
     root,
     { ownerHandle: () => '' },
   );
-  const draft = scaffold.text.replace(
-    '## Request\n',
-    '## Request\n\n### Objective\n\nThe thing works.\n\n### Frontier\n\n`src/x.mjs` only.\n',
-  );
+  const draft = scaffold.text
+    .replace('### Objective\n', '### Objective\n\nThe thing works.\n')
+    .replace('### Frontier\n', '### Frontier\n\n`src/x.mjs` only.\n');
   const { id } = parseChange(draft).frontmatter;
   const stageBodies = (text) =>
     Object.fromEntries(parseChange(text).stages.map((stage) => [stage.key, stage.body.trim()]));
   const drafted = stageBodies(draft);
-  for (const key of ['investigation', 'proposal', 'specification', 'plan']) {
+  for (const key of ['specification', 'plan']) {
     assert.equal(drafted[key], '', `the draft's ${key} is empty`);
   }
 
-  await ok('new', 'feature', 'day-after', 'Day after', '--from', sourceFile(root, draft));
+  await ok('new', 'change', 'day-after', 'Day after', '--from', sourceFile(root, draft));
   const relPath = `changes/${id}-day-after.md`;
   const landed = () => readSnapshot(root).documents[relPath];
 
   await ok('approve', id);
   git('commit', '--allow-empty', '-q', '-m', 'chore: base');
-  git('checkout', '-q', '-b', `feature/${id}`);
+  git('checkout', '-q', '-b', `change/${id}`);
   await ok('status', id, 'in-progress');
 
   const before = stageBodies(landed());
@@ -1670,6 +1679,115 @@ test('20261023-181753 CR9: the day after — a draft with objective and frontier
     'approved → in-progress',
     'in-progress → in-review',
     'in-review → done',
+  ]);
+  await ok('check');
+});
+
+// The scenario "the day after" of 20261024-121022 on an activated repo with the
+// template config and a declared integration branch: every ledger write goes
+// through the spawned CLI, and git alone decides whether `done` needs the
+// independent review. A branch with a code path goes through `in-review` and
+// `review pass`; a branch whose only commit is under `.changeledger/` reaches
+// `done` straight from `in-progress`.
+test('20261024-121022 CR20: the day after — a change that touches code is reviewed and a ledger-only change is delivered directly', async () => {
+  const root = tmp();
+  init(root);
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  fs.writeFileSync(
+    configFile,
+    fs
+      .readFileSync(configFile, 'utf8')
+      .replace(/^ {2}integration_branch:.*$/m, '  integration_branch: main'),
+  );
+  activate(root);
+  const git = (...args) => execFileSync('git', args, { cwd: root, env: sanitizedEnv() });
+  git('checkout', '-q', '-b', 'main');
+  // What `init` wrote outside the ledger is committed with the base: the direct
+  // route also reads the checkout's uncommitted paths (CR5).
+  git('add', '-A', '--', '.', ':!.changeledger');
+  git('commit', '--allow-empty', '-q', '-m', 'chore: base');
+  const bin = path.resolve('bin/changeledger.mjs');
+  const run = (...args) =>
+    execFileAsync(process.execPath, [bin, ...args], { cwd: root, env: sanitizedEnv() }).then(
+      (ok) => ({ code: 0, ...ok }),
+      (error) => error,
+    );
+  const ok = async (...args) => {
+    const result = await run(...args);
+    assert.equal(result.code, 0, `${args.join(' ')} failed: ${result.stderr}`);
+  };
+  const landed = (id, slug) => readSnapshot(root).documents[`changes/${id}-${slug}.md`];
+  const transitions = (text) =>
+    [...text.matchAll(/`\[(status|review)\]` (\S+) → (\S+)/g)].map(
+      ([, event, from, to]) => `[${event}] ${from} → ${to}`,
+    );
+
+  // Composed with objective and frontier, landed whole, approved, and started
+  // on its own branch cut from the integration branch.
+  const start = async (slug, now) => {
+    const draft = scaffoldChange({ type: 'change', slug, title: slug, now }, root, {
+      ownerHandle: () => '',
+    })
+      .text.replace('### Objective\n', '### Objective\n\nThe thing works.\n')
+      .replace('### Frontier\n', '### Frontier\n\nOne file.\n');
+    const { id } = parseChange(draft).frontmatter;
+    await ok('new', 'change', slug, slug, '--from', sourceFile(root, draft));
+    await ok('approve', id);
+    git('checkout', '-q', 'main');
+    git('checkout', '-q', '-b', `change/${id}`);
+    await ok('status', id, 'in-progress');
+    return id;
+  };
+
+  const coded = await start('coded', '2026-10-24T12:00:00Z');
+  const written = landed(coded, 'coded')
+    .replace(
+      '## Specification\n',
+      '## Specification\n\n### CR1 — x\n- **Given** a repo\n- **When** x runs\n- **Then** it holds\n',
+    )
+    .replace(
+      '## Plan\n',
+      '## Plan\n\n- [ ] Do x\n  - **Target:** `src/x.mjs`\n  - **Verify:** `node --test test/x.test.mjs`\n  - **Criteria:** CR1\n',
+    );
+  await ok('edit', coded, '--from', sourceFile(root, written));
+  await ok('task', coded, 'done', '1');
+  fs.mkdirSync(path.join(root, 'src'));
+  fs.writeFileSync(path.join(root, 'src', 'x.mjs'), 'export const x = 1;\n');
+  git('add', 'src/x.mjs');
+  git('commit', '-q', '-m', 'feat(x): add x');
+
+  const before = landed(coded, 'coded');
+  const refused = await run('status', coded, 'done');
+  assert.notEqual(refused.code, 0);
+  assert.ok(
+    refused.stderr.includes(
+      `change ${coded} touches code outside the ledger (1 path, e.g. src/x.mjs): move it to in-review and record a verdict`,
+    ),
+    refused.stderr,
+  );
+  assert.equal(landed(coded, 'coded'), before, 'the refusal leaves the document untouched');
+  await ok('status', coded, 'in-review');
+  await ok('review', coded, 'pass');
+
+  const ledgerOnly = await start('ledger-only', '2026-10-24T12:01:00Z');
+  git('add', '.changeledger/config.yml');
+  git('commit', '-q', '-m', 'chore(ledger): track the config mirror');
+  // The draft handed to `new --from` sits in the checkout, outside the ledger.
+  fs.rmSync(path.join(root, 'incoming.md'));
+  await ok('status', ledgerOnly, 'done');
+
+  assert.equal(parseChange(landed(coded, 'coded')).frontmatter.status, 'done');
+  assert.deepEqual(transitions(landed(coded, 'coded')), [
+    '[status] draft → approved',
+    '[status] approved → in-progress',
+    '[status] in-progress → in-review',
+    '[review] in-review → done',
+  ]);
+  assert.equal(parseChange(landed(ledgerOnly, 'ledger-only')).frontmatter.status, 'done');
+  assert.deepEqual(transitions(landed(ledgerOnly, 'ledger-only')), [
+    '[status] draft → approved',
+    '[status] approved → in-progress',
+    '[status] in-progress → done',
   ]);
   await ok('check');
 });

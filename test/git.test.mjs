@@ -7,6 +7,9 @@ import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import {
   assertCommitObject,
+  attributedCommitsIn,
+  branchWorktree,
+  changedPathsInRange,
   checkoutBranch,
   currentBranch,
   defaultGhRun,
@@ -19,6 +22,7 @@ import {
   mergeRecord,
   mutatingRun,
   ownerHandle,
+  uncommittedPaths,
 } from '../src/git.mjs';
 import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 
@@ -689,4 +693,236 @@ test('20261018-131621 CR10: the merge that landed the branch wins over later mer
   git(root, ['merge', '--no-ff', '-q', '-m', 'merge feature/y', 'feature/y']);
 
   assert.equal(mergeRecord(root, 'feature/x', 'dev').sha, landing.slice(0, 7));
+});
+
+// --- changedPathsInRange (20261024-121022 CR5/CR6: the paths a change's branch
+// touched, read the way `stagedFiles` reads the index, so a direct `done` can be
+// decided from git and every doubt fails closed) ---
+
+function commitFile(root, file, content = 'x\n') {
+  fs.mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
+  fs.writeFileSync(path.join(root, file), content);
+  git(root, ['add', '--', file]);
+  git(root, ['commit', '-qm', `touch ${file}`]);
+}
+
+function branchTouching(root, name, files) {
+  git(root, ['checkout', '-q', '-b', name]);
+  for (const file of files) commitFile(root, file);
+  git(root, ['checkout', '-q', 'dev']);
+}
+
+test('20261024-121022 CR5: changedPathsInRange lists what the branch changed since it forked', () => {
+  const root = initFixture(fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-range-')));
+  branchTouching(root, 'change/x', ['src/x.mjs', '.changeledger/changes/x.md']);
+  // Work that lands on the integration branch after the fork is not the change's.
+  commitFile(root, 'later-on-dev.txt');
+
+  assert.deepEqual(changedPathsInRange(root, 'dev', 'change/x').sort(), [
+    '.changeledger/changes/x.md',
+    'src/x.mjs',
+  ]);
+});
+
+test('20261024-121022 CR5: changedPathsInRange pins the stagedFiles axes on <base>...<head>', () => {
+  const calls = [];
+  const run = (args) => {
+    calls.push(args);
+    return args[0] === 'show-ref' ? '' : 'a\0b c\0';
+  };
+  assert.deepEqual(changedPathsInRange('/repo', 'dev', 'change/x', run), ['a', 'b c']);
+  assert.deepEqual(calls.at(-1), [
+    '-c',
+    'core.quotePath=false',
+    'diff',
+    '-z',
+    '--no-renames',
+    '--no-relative',
+    '--ignore-submodules=none',
+    '--name-only',
+    'refs/heads/dev...refs/heads/change/x',
+    '--',
+  ]);
+});
+
+test('20261024-121022 CR5: changedPathsInRange keeps raw paths, splits renames and ignores diff.relative', () => {
+  const root = initFixture(fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-range-')));
+  commitFile(root, 'docs/old.md', 'same body\n'.repeat(20));
+  git(root, ['checkout', '-q', '-b', 'change/x']);
+  git(root, ['mv', 'docs/old.md', 'docs/new.md']);
+  git(root, ['commit', '-qm', 'rename']);
+  commitFile(root, 'docs/ñandú .md');
+  git(root, ['checkout', '-q', 'dev']);
+  git(root, ['config', 'diff.relative', 'true']);
+  git(root, ['config', 'core.quotePath', 'true']);
+
+  assert.deepEqual(changedPathsInRange(path.join(root, 'docs'), 'dev', 'change/x').sort(), [
+    'docs/new.md',
+    'docs/old.md',
+    'docs/ñandú .md',
+  ]);
+});
+
+test('20261024-121022 CR6: changedPathsInRange names a branch that does not exist locally', () => {
+  const root = initFixture(fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-range-')));
+  // A same-named tag must not stand in for the absent branch.
+  git(root, ['tag', 'refs/heads/change/gone']);
+  assert.throws(
+    () => changedPathsInRange(root, 'dev', 'change/gone'),
+    /^Error: branch "change\/gone" does not exist locally$/,
+  );
+  assert.throws(
+    () => changedPathsInRange(root, 'main', 'dev'),
+    /^Error: branch "main" does not exist locally$/,
+  );
+});
+
+test('20261024-121022 CR6: changedPathsInRange fails closed naming git missing, old git or the git error', () => {
+  const missing = () => {
+    const error = new Error('spawnSync git ENOENT');
+    error.code = 'ENOENT';
+    throw error;
+  };
+  assert.throws(
+    () => changedPathsInRange('/repo', 'dev', 'change/x', missing),
+    /^Error: git is not installed or not on PATH$/,
+  );
+
+  const failingDiff = (stderr) => (args) => {
+    if (args[0] === 'show-ref') return '';
+    throw new Error(`Command failed: git ${args.join(' ')}\n${stderr}`);
+  };
+  assert.throws(
+    () =>
+      changedPathsInRange(
+        '/repo',
+        'dev',
+        'change/x',
+        failingDiff("error: unknown option `no-relative'"),
+      ),
+    /^Error: git >= 2\.28 is required for --no-relative: error: unknown option `no-relative'$/,
+  );
+  assert.throws(
+    () =>
+      changedPathsInRange('/repo', 'dev', 'change/x', failingDiff('fatal: bad object deadbeef')),
+    /^Error: git diff dev\.\.\.change\/x failed: fatal: bad object deadbeef$/,
+  );
+});
+
+// --- uncommittedPaths / attributedCommitsIn (20261024-121022 CR5/CR6: the
+// working tree of the change's checkout and the change's own commits already
+// merged both close the direct route to `done`) ---
+
+test('20261024-121022 CR5: uncommittedPaths lists staged, modified and untracked paths raw from the top-level', () => {
+  const root = initFixture(fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-wt-')));
+  commitFile(root, 'docs/old.md', 'same body\n'.repeat(20));
+  commitFile(root, 'src/tracked.mjs');
+  git(root, ['mv', 'docs/old.md', 'docs/new.md']);
+  fs.writeFileSync(path.join(root, 'src', 'tracked.mjs'), 'changed\n');
+  fs.mkdirSync(path.join(root, 'deep', 'er'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'deep', 'er', 'ñandú .mjs'), 'x\n');
+  fs.writeFileSync(path.join(root, '.gitignore'), 'ignored.log\n');
+  fs.writeFileSync(path.join(root, 'ignored.log'), 'x\n');
+  git(root, ['config', 'core.quotePath', 'true']);
+  git(root, ['config', 'status.relativePaths', 'true']);
+
+  assert.deepEqual(uncommittedPaths(path.join(root, 'docs')).sort(), [
+    '.gitignore',
+    'deep/er/ñandú .mjs',
+    'docs/new.md',
+    'docs/old.md',
+    'src/tracked.mjs',
+  ]);
+  git(root, ['add', '-A']);
+  git(root, ['commit', '-qm', 'clean']);
+  assert.deepEqual(uncommittedPaths(root), []);
+});
+
+test('20261024-121022 CR5: uncommittedPaths pins its axes and fails closed naming the git error', () => {
+  const calls = [];
+  const run = (args) => {
+    calls.push(args);
+    return ' M a\0?? b c\0A  d\0';
+  };
+  assert.deepEqual(uncommittedPaths('/repo', run), ['a', 'b c', 'd']);
+  assert.deepEqual(calls.at(-1), [
+    '-c',
+    'core.quotePath=false',
+    'status',
+    '--porcelain=v1',
+    '-z',
+    '--no-renames',
+    '--untracked-files=all',
+    '--ignore-submodules=none',
+  ]);
+  assert.throws(
+    () =>
+      uncommittedPaths('/repo', () => {
+        throw new Error('Command failed: git status\nfatal: index file corrupt');
+      }),
+    /^Error: git status failed: fatal: index file corrupt$/,
+  );
+});
+
+test('20261024-121022 CR6: attributedCommitsIn lists the change commits the integration branch reaches', () => {
+  const root = initFixture(fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-marked-')));
+  const id = '20261024-140000';
+  git(root, ['checkout', '-q', '-b', 'change/x']);
+  commitFile(root, 'src/a.mjs');
+  git(root, ['commit', '-q', '--allow-empty', '-m', `feat(x): a [#${id}]`]);
+  git(root, [
+    'commit',
+    '-q',
+    '--allow-empty',
+    '-m',
+    'feat(x): b',
+    '-m',
+    `ChangeLedger: [#${id}] [#20261024-150000]`,
+  ]);
+  // Prose citing the id attributes nothing.
+  git(root, ['commit', '-q', '--allow-empty', '-m', 'chore: c', '-m', `see [#${id}]`]);
+  git(root, ['checkout', '-q', 'dev']);
+  assert.deepEqual(attributedCommitsIn(root, 'dev', id), []);
+
+  git(root, ['merge', '-q', '--ff-only', 'change/x']);
+  assert.deepEqual(
+    attributedCommitsIn(root, 'dev', id).map((c) => c.subject),
+    ['feat(x): b', `feat(x): a [#${id}]`],
+  );
+
+  assert.throws(
+    () =>
+      attributedCommitsIn('/repo', 'dev', id, () => {
+        throw new Error('Command failed: git log\nfatal: bad object');
+      }),
+    /^Error: git log dev failed: fatal: bad object$/,
+  );
+});
+
+test('20261024-121022 CR5: branchWorktree names the worktree holding a branch, or none', () => {
+  const root = fs.realpathSync.native(
+    initFixture(fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-bwt-'))),
+  );
+  git(root, ['branch', 'change/x']);
+  assert.equal(branchWorktree(root, 'change/x'), '');
+  assert.equal(branchWorktree(root, 'dev'), root);
+  const other = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-bwt-')));
+  git(root, ['worktree', 'add', '-q', other, 'change/x']);
+  assert.equal(branchWorktree(root, 'change/x'), other);
+
+  const calls = [];
+  branchWorktree('/repo', 'change/x', (args) => {
+    calls.push(args);
+    return '';
+  });
+  assert.deepEqual(calls, [['for-each-ref', '--format=%(worktreepath)', 'refs/heads/change/x']]);
+  assert.throws(
+    () =>
+      branchWorktree('/repo', 'change/x', () => {
+        throw new Error(
+          'Command failed: git for-each-ref\nfatal: unknown field name: worktreepath',
+        );
+      }),
+    /^Error: cannot tell where "change\/x" is checked out: fatal: unknown field name: worktreepath$/,
+  );
 });

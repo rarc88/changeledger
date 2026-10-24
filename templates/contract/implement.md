@@ -16,7 +16,7 @@ same holds for the default branch and any other long-lived shared branch. Create
 or switch to a work branch or ask the human before continuing. When the change
 context publishes `integration_branch`, create the change branch from it and
 integrate the finished result into it. The release branch is reserved for
-releases and for the types that integrate into it. When the change context also
+releases and for the changes that declare `integrates_into: release`. When the change context also
 publishes `back_merge_branch`, bring the integrated result into that branch as
 well and record it in the Log with `changeledger log <id>`. Inspect the worktree
 first. If unrelated changes exist, do not include them silently; ask the human
@@ -71,14 +71,16 @@ Every top-level Log entry has a strict ISO UTC timestamp and canonical type:
 
 `changeledger log --help` prints every type, its payload forms and the command that writes each, generated from the parser's own definitions. Each transition event records exactly one transition. Continuation prose is allowed, but every top-level `- ` line must be a valid typed event.
 
-When implementation and every task are complete, move to `in-review` if the type
-requires independent review by running this ordered gate — do not reconstruct it from memory:
+A `change` reaches `done` directly from `in-progress` only when nothing outside the
+ledger directories is touched by its branch, still unmerged, or by its checkout's
+uncommitted paths; otherwise it moves to `in-review` and is delivered by `review pass`. When implementation and every task are complete, run this
+ordered gate — do not reconstruct it from memory:
 1. Confirm every Plan task is complete and its verification passes.
 2. Apply the local formatter and full gates, including `changeledger check`, to the exact review candidate.
 3. `changeledger status <id> in-review`. The gate decides whether a reviewable
-   candidate exists, so it never runs after this transition; among the stages the type
-   activates, the transition to `in-review` refuses an empty Specification or Plan, or a
-   Specification declaring no `### CRn`, and leaves the document untouched.
+   candidate exists, so it never runs after this transition; the transition to `in-review` refuses a
+   missing or empty Specification or Plan, or a Specification declaring no `### CRn`, and
+   leaves the document untouched.
 4. Reapply the formatter to the change document and run `changeledger check`; if the
    candidate changes again before the reviewer sees it, repeat every affected verification.
 5. Create every outstanding implementation commit with `changeledger commit`: each
@@ -91,8 +93,8 @@ requires independent review by running this ordered gate — do not reconstruct 
 9. After that mutation, apply the formatter again and repeat affected checks,
    including `changeledger check`, before commit or handing the result to the human.
 
-Types without `review_required` pass the same local gate before
-`changeledger status <id> done`, then apply the same post-transition
+A change that touches no code passes the same local gate, with every selection
+committed, before `changeledger status <id> done`, then apply the same post-transition
 formatter and affected-check gate. The host owns these
 commands; ChangeLedger mutations never run configurable hooks or external formatters.
 
@@ -128,6 +130,6 @@ Every prompt to an implementer or corrector also states these obligations:
 - Mutate one thing at a time, confirm it fails for the right reason, restore it by editing — never with git — and prove the file is clean before the next mutant.
 - Treat figures, line numbers and pointers you were handed as data to verify, not as facts.
 - Report any orchestrator instruction that contradicts this contract instead of silently obeying it.
-- Stop and report when the work turns out to need a different type or a wider scope.
+- Stop and report when the work turns out to need a wider scope.
 - Report the list of decisions the document did not specify.
 - Deliverable prose — documentation, code and test comments, and Log notes — that quantifies universally (every, all, no, never, only, cannot, always) has the edge that would falsify it executed before it is written, or is narrowed to the incident actually observed. Correcting a review finding on prose narrows the sentence to what was executed or deletes it, and never replaces it with another universal claim. Your report lists each universally quantified sentence you added or rewrote, with the command that executed its edge.

@@ -30,7 +30,7 @@ import { edit } from '../src/commands/edit.mjs';
 import { init } from '../src/commands/init.mjs';
 import { newChange, newChangeFrom, scaffoldChange } from '../src/commands/new.mjs';
 import { loadRepo } from '../src/repo.mjs';
-import { sanitizedEnv } from './helpers/git-env.mjs';
+import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 
 function repo() {
   const root = fs.realpathSync.native(
@@ -57,10 +57,11 @@ const outcome = (fn) => {
 // --- Operation: reach `status: done` -------------------------------------
 //
 // The two seats are NOT substitutable, and that is the point: `statusMutation`
-// is the only route for a type without `review_required`, `review pass` the
-// only one for a type with it — the generic seat refuses `in-review → done`
-// outright. So the equivalence is over the DELIVERY GATES, each exercised on
-// the type its seat serves, rather than over one change driven two ways.
+// is the route for a change whose branch touches only the ledger, `review
+// pass` the one for a change in review — the generic seat refuses
+// `in-review → done` outright. So the equivalence is over the DELIVERY GATES,
+// each exercised on the change its seat serves, rather than over one change
+// driven two ways.
 
 const LOG_TO_IN_PROGRESS =
   '- **2026-06-13T12:00:00Z** `[status]` draft → approved\n' +
@@ -71,7 +72,7 @@ function choreAt(root, { plan, extra = '' }) {
   write(
     root,
     `${id}-chore.md`,
-    `---\nid: "${id}"\ntitle: Tarea\ntype: chore\nstatus: in-progress\ncreated: 2026-06-13T12:00:00Z\ndepends_on: []\n---\n\n## Request\n\nAlgo.\n\n## Plan\n\n${plan}\n\n## Log\n\n${LOG_TO_IN_PROGRESS}`,
+    `---\nid: "${id}"\ntitle: Tarea\ntype: change\nstatus: in-progress\ncreated: 2026-06-13T12:00:00Z\ndepends_on: []\n---\n\n## Request\n\nAlgo.\n\n## Plan\n\n${plan}\n\n## Log\n\n${LOG_TO_IN_PROGRESS}`,
   );
   if (extra) write(root, extra.name, extra.text);
   return id;
@@ -82,10 +83,23 @@ function refactorAt(root, { plan, extra = '' }) {
   write(
     root,
     `${id}-refactor.md`,
-    `---\nid: "${id}"\ntitle: Reorganizar\ntype: refactor\nstatus: in-review\ncreated: 2026-06-13T13:00:00Z\ndepends_on: []\n---\n\n## Request\n\nAlgo.\n\n## Proposal\n\nFrontera.\n\n## Specification\n\n- [ ] CR1 Given algo When algo Then algo\n\n## Plan\n\n${plan}\n\n## Log\n\n${LOG_TO_IN_PROGRESS}- **2026-06-13T13:01:00Z** \`[status]\` in-progress → in-review\n`,
+    `---\nid: "${id}"\ntitle: Reorganizar\ntype: change\nstatus: in-review\ncreated: 2026-06-13T13:00:00Z\ndepends_on: []\n---\n\n## Request\n\nAlgo.\n\n### Proposal\n\nFrontera.\n\n## Specification\n\n- [ ] CR1 Given algo When algo Then algo\n\n## Plan\n\n${plan}\n\n## Log\n\n${LOG_TO_IN_PROGRESS}- **2026-06-13T13:01:00Z** \`[status]\` in-progress → in-review\n`,
   );
   if (extra) write(root, extra.name, extra.text);
   return id;
+}
+
+// Since 20261024-121022 `status <id> done` asks git whether the change's
+// branch touches code. The rendered branch (`change/<id>`) is cut from `main`
+// with nothing on it, so the answer is "only the ledger" and every row judges
+// the gate it names, not that one.
+function ledgerOnlyBranch(root, id) {
+  const git = (...args) => execFileSync('git', args, { cwd: root, env: sanitizedEnv() });
+  initGitFixture(root, { args: ['-b', 'main'] });
+  git('config', 'commit.gpgsign', 'false');
+  git('add', '-A');
+  git('commit', '-q', '-m', 'chore: seed');
+  git('branch', `change/${id}`);
 }
 
 const RESOLVED_TASK = '- [x] Hacer la cosa\n  - **Resolved:** `2026-06-13T12:30:00Z`';
@@ -93,7 +107,7 @@ const OPEN_TASK = '- [ ] Hacer la cosa';
 
 const liveChild = (parent) => ({
   name: '20260613-140000-child.md',
-  text: `---\nid: "20260613-140000"\ntitle: Hijo\ntype: quick\nstatus: in-progress\ncreated: 2026-06-13T14:00:00Z\ndepends_on: []\nparent: "${parent}"\n---\n\n## Request\n\nAlgo.\n\n## Log\n\n- **2026-06-13T14:00:00Z** \`[note]\` created\n`,
+  text: `---\nid: "20260613-140000"\ntitle: Hijo\ntype: change\nstatus: in-progress\ncreated: 2026-06-13T14:00:00Z\ndepends_on: []\nparent: "${parent}"\n---\n\n## Request\n\nAlgo.\n\n## Log\n\n- **2026-06-13T14:00:00Z** \`[note]\` created\n`,
 });
 
 // Each row is one delivery gate, submitted to both seats. `expected` is what
@@ -110,6 +124,7 @@ for (const { gate, plan, child, expected } of DELIVERY_GATES) {
   test(`20261021-223918 CR1: both seats that deliver agree on ${gate}`, () => {
     const generic = repo();
     const genericId = choreAt(generic, { plan, extra: child ? liveChild('20260613-120000') : '' });
+    ledgerOnlyBranch(generic, genericId);
     const viaStatus = outcome(() => status(genericId, 'done', generic));
 
     const reviewed = repo();
@@ -150,7 +165,7 @@ function graduatedDone(root, id) {
   write(
     root,
     `${id}-hecho.md`,
-    `---\nid: "${id}"\ntitle: Hecho\ntype: chore\nstatus: done\ncreated: 2026-06-13T12:00:00Z\ndepends_on: []\nreviewed: true\n---\n\n## Request\n\nAlgo.\n\n## Plan\n\n${RESOLVED_TASK}\n\n## Log\n\n${LOG_TO_IN_PROGRESS}- **2026-06-13T12:40:00Z** \`[status]\` in-progress → done\n- **2026-06-13T12:45:00Z** \`[graduation]\` skipped: sin verdad durable\n`,
+    `---\nid: "${id}"\ntitle: Hecho\ntype: change\nstatus: done\ncreated: 2026-06-13T12:00:00Z\ndepends_on: []\nreviewed: true\n---\n\n## Request\n\nAlgo.\n\n## Plan\n\n${RESOLVED_TASK}\n\n## Log\n\n${LOG_TO_IN_PROGRESS}- **2026-06-13T12:40:00Z** \`[status]\` in-progress → done\n- **2026-06-13T12:45:00Z** \`[graduation]\` skipped: sin verdad durable\n`,
   );
   return id;
 }
@@ -252,7 +267,7 @@ test('20261021-223918 CR1/CR2: the archive seats differ only in selection, and t
     // flag and never reaches the graduation clause, so the row agreed with the
     // gate deleted (round 2 D1). The ONE thing missing here must be the
     // graduation resolution.
-    `---\nid: "${id}"\ntitle: Sin graduar\ntype: chore\nstatus: done\ncreated: 2026-06-13T16:00:00Z\ndepends_on: []\nreviewed: true\n---\n\n## Request\n\nAlgo.\n\n## Plan\n\n${RESOLVED_TASK}\n\n## Log\n\n${LOG_TO_IN_PROGRESS}- **2026-06-13T16:40:00Z** \`[status]\` in-progress → done\n`,
+    `---\nid: "${id}"\ntitle: Sin graduar\ntype: change\nstatus: done\ncreated: 2026-06-13T16:00:00Z\ndepends_on: []\nreviewed: true\n---\n\n## Request\n\nAlgo.\n\n## Plan\n\n${RESOLVED_TASK}\n\n## Log\n\n${LOG_TO_IN_PROGRESS}- **2026-06-13T16:40:00Z** \`[status]\` in-progress → done\n`,
   );
 
   assert.deepEqual(archiveGraduated({}, root), [], 'the bulk seat skips an unresolved graduation');
@@ -304,7 +319,7 @@ function hierarchy(root) {
   write(
     root,
     '20260613-180000-epica.md',
-    '---\nid: "20260613-180000"\ntitle: Épica\ntype: chore\nstatus: in-progress\ncreated: 2026-06-13T18:00:00Z\ndepends_on: []\n---\n\n## Request\n\nObjetivo.\n\n## Plan\n\n' +
+    '---\nid: "20260613-180000"\ntitle: Épica\ntype: change\nstatus: in-progress\ncreated: 2026-06-13T18:00:00Z\ndepends_on: []\n---\n\n## Request\n\nObjetivo.\n\n## Plan\n\n' +
       OPEN_TASK +
       '\n\n## Log\n\n' +
       LOG_TO_IN_PROGRESS,
@@ -316,12 +331,12 @@ function hierarchy(root) {
   write(
     root,
     '20260613-190000-sujeto.md',
-    '---\nid: "20260613-190000"\ntitle: Sujeto\ntype: quick\nstatus: draft\ncreated: 2026-06-13T19:00:00Z\ndepends_on: []\n---\n\n## Request\n\nAlgo.\n\n## Log\n',
+    '---\nid: "20260613-190000"\ntitle: Sujeto\ntype: change\nstatus: draft\ncreated: 2026-06-13T19:00:00Z\ndepends_on: []\n---\n\n## Request\n\nAlgo.\n\n## Log\n',
   );
   write(
     root,
     '20260613-170000-hijo.md',
-    '---\nid: "20260613-170000"\ntitle: Hijo\ntype: quick\nstatus: draft\ncreated: 2026-06-13T17:00:00Z\ndepends_on: []\nparent: "20260613-180000"\n---\n\n## Request\n\nAlgo.\n\n## Log\n',
+    '---\nid: "20260613-170000"\ntitle: Hijo\ntype: change\nstatus: draft\ncreated: 2026-06-13T17:00:00Z\ndepends_on: []\nparent: "20260613-180000"\n---\n\n## Request\n\nAlgo.\n\n## Log\n',
   );
 }
 
@@ -334,7 +349,7 @@ function unrelatedBreak(root) {
   write(
     root,
     '20260613-200000-roto.md',
-    '---\nid: "20260613-200000"\ntitle: Roto\ntype: quick\nstatus: draft\ncreated: 2026-06-13T20:00:00Z\ndepends_on: []\nparent: "20200101-000000"\n---\n\n## Request\n\nAlgo.\n\n## Log\n',
+    '---\nid: "20260613-200000"\ntitle: Roto\ntype: change\nstatus: draft\ncreated: 2026-06-13T20:00:00Z\ndepends_on: []\nparent: "20200101-000000"\n---\n\n## Request\n\nAlgo.\n\n## Log\n',
   );
   assert.deepEqual(
     checkRepo(loadRepo(root)).errors.map((e) => `${e.file}: ${e.message}`),
@@ -354,7 +369,7 @@ for (const { input, parent, unrelatedBreak: broken = false, expected } of ADMISS
     const scaffoldRoot = repo();
     seed(scaffoldRoot);
     const args = {
-      type: 'quick',
+      type: 'change',
       slug: 'cand',
       title: 'Cand',
       parent,
@@ -368,7 +383,7 @@ for (const { input, parent, unrelatedBreak: broken = false, expected } of ADMISS
     const source = path.join(documentRoot, 'cand.md');
     fs.writeFileSync(source, composed);
     answers['--from'] = outcome(() =>
-      newChangeFrom({ type: 'quick', slug: 'cand', title: 'Cand', from: source }, documentRoot),
+      newChangeFrom({ type: 'change', slug: 'cand', title: 'Cand', from: source }, documentRoot),
     );
 
     const batchRoot = repo();

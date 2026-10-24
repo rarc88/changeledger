@@ -668,21 +668,10 @@ test('CR11: register removes only the literal legacy gitignore line', () => {
   );
 });
 
-test('141119 CR5: refactor activates specification in every versioned artifact', () => {
-  const repoRoot = new URL('../', import.meta.url);
-  for (const file of ['.changeledger/config.yml', 'templates/config.yml']) {
-    assert.match(
-      fs.readFileSync(new URL(file, repoRoot), 'utf8'),
-      / {2}refactor:\n {4}stages: \[request, proposal, specification, plan, log\]\n {4}review_required: true\n/,
-      `${file} must activate specification for the refactor type`,
-    );
-  }
-  // 20260730-002908 retired this test's third assert: it pinned the `refactor` row of
-  // the activation matrix rendered in `templates/contract/spec.md`, and that matrix is
-  // gone — it was a render of `config.yml`, which the fragment itself declares
-  // authoritative. Consistency now rests on the single seat the two asserts above pin:
-  // there is no second copy left to drift from.
-});
+// 20261024-121022 retired `141119 CR5`: it pinned the `refactor` row of the
+// per-type stage matrix in both versioned configs, and the matrix is gone — the
+// configuration declares no `types` and no `stages` (CR11), and the four
+// canonical stages are fixed in code.
 
 // --- 20261020-172221: the epic in the contract ---------------------------
 //
@@ -810,4 +799,59 @@ test('20261020-130304 CR7: the bootstrap bound is never smaller than the core li
     BOOTSTRAP_CAPTURE_LINES >= ceiling,
     `the bootstrap captures ${BOOTSTRAP_CAPTURE_LINES} lines but core may occupy ${ceiling}`,
   );
+});
+
+// --- 20261024-121022 CR18: README, CONTRIBUTING and the CLI help follow the code ---
+
+const helpOf = (...args) => {
+  const result = spawnSync(process.execPath, [BIN, ...args], {
+    encoding: 'utf8',
+    env: sanitizedEnv(),
+  });
+  assert.equal(result.status, 0, `${args.join(' ')} failed: ${result.stderr}`);
+  return result.stdout.replace(/\s+/g, ' ');
+};
+
+const repoDoc = (name) =>
+  fs.readFileSync(new URL(`../${name}`, import.meta.url), 'utf8').replace(/\s+/g, ' ');
+
+// A retired type named as a type: a `new <type>` example, its backticked enum
+// form, `<name> type`, or the retired review key. Branch names such as
+// `feature/x` and the plain nouns of the README's prose are not types.
+const RETIRED_TYPE_MENTIONS = [
+  /review_required/,
+  /\bnew (feature|bug|quick)\b/,
+  /`(feature|bug|quick)`/,
+  /\b(feature|bug|quick) type/i,
+  /type:? (feature|bug|quick)\b/,
+];
+
+test('20261024-121022 CR18: README and CONTRIBUTING name no retired type', () => {
+  for (const name of ['README.md', 'CONTRIBUTING.md']) {
+    const text = repoDoc(name);
+    for (const pattern of RETIRED_TYPE_MENTIONS) {
+      assert.doesNotMatch(text, pattern, `${name} still names a retired type: ${pattern}`);
+    }
+  }
+});
+
+test('20261024-121022 CR18: README creates a change and describes the 6 → 7 migration', () => {
+  const readme = repoDoc('README.md');
+  assert.match(readme, /changeledger new change /);
+  assert.match(readme, /\b6\b[^.]{0,12}(→|to)[^.]{0,6}\b7\b/);
+  assert.match(readme, /changeledger config migrate/);
+  assert.match(readme, /changeledger fix\b/);
+});
+
+test('20261024-121022 CR18: the CLI help names no retired type and describes the single migration', () => {
+  for (const args of [['--help'], ['new', '--help'], ['list', '--help'], ['search', '--help']]) {
+    const help = helpOf(...args);
+    for (const pattern of RETIRED_TYPE_MENTIONS) {
+      assert.doesNotMatch(help, pattern, `${args.join(' ')} names a retired type: ${pattern}`);
+    }
+    assert.doesNotMatch(help, /\b(feature|bug|quick)\b(?![/-])/, `${args.join(' ')}`);
+  }
+  assert.match(helpOf('fix', '--help'), /retired type[^.]{0,40}`?change`?/i);
+  assert.match(helpOf('fix', '--help'), /Investigation[^.]{0,40}Proposal[^.]{0,60}Request/);
+  assert.match(helpOf('config', 'migrate', '--help'), /schema 6 to 7/);
 });

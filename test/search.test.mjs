@@ -331,13 +331,18 @@ test('among tied specs, the existing ref-descending tie-break still applies', ()
   );
 });
 
-test('CR7 — the spec context mandates changeledger search before Investigation', () => {
+// 20261024-121022 retired the Investigation stage, so the guard follows the
+// obligation — search runs before investigating — in either word order, not the
+// sentence that named the stage.
+test('CR7 — the spec context mandates changeledger search before investigating', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-search-ctx-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
   init(root);
-  const out = buildContext('spec', root);
-  assert.match(out, /changeledger search/);
-  assert.match(out, /before writing Investigation/i);
+  const out = buildContext('spec', root).replace(/\s+/g, ' ');
+  assert.match(
+    out,
+    /\bbefore investigat\w*[^.]{0,40}changeledger search|changeledger search[^.]{0,60}\bbefore investigat/i,
+  );
 });
 
 test('buildCorpus reduces changes and specs to scorable documents', () => {
