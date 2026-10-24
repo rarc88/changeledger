@@ -1,14 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { parseChange } from '../change.mjs';
+import { CHANGE_TYPES, parseChange } from '../change.mjs';
 import { repoIsActivated, writeLedgerFiles } from '../change-store.mjs';
 import { introducedErrors } from '../check.mjs';
-import {
-  findChangeledgerDir,
-  loadConfig,
-  releaseBranchRequirementError,
-  resolveRepoPath,
-} from '../config.mjs';
+import { findChangeledgerDir, loadConfig, resolveRepoPath } from '../config.mjs';
 import { assertSupportedSchema } from '../config-migration.mjs';
 import { ownerHandle as defaultOwnerHandle } from '../git.mjs';
 import { loadRepo } from '../repo.mjs';
@@ -23,7 +18,7 @@ import { readSource } from './edit.mjs';
 // which is more robust for id-collision prevention than a wall-clock timeout.
 const LOCK_MTIME_STALE_MS = 30_000;
 
-// Scaffolds a new change file with the active stages for its type.
+// Scaffolds a new change file with the stages of its type.
 // `slug` is the English filename slug (structure); `title` is the content title
 // (repo language). See `changeledger context spec`.
 export function newChange(
@@ -47,7 +42,7 @@ export function newChange(
 
   const config = loadConfig(changeledgerDir);
   assertSupportedSchema(config);
-  const typeDef = requireCreatableType(config, type);
+  requireType(type);
 
   // Born with an owner: an explicit --owner always wins; otherwise resolve the
   // local git identity. Tolerant — an unresolvable identity (ownerHandle
@@ -95,7 +90,6 @@ export function newChange(
         type,
         owner: resolvedOwner,
         parent,
-        stages: typeDef.stages,
         now: created,
       }),
       created,
@@ -125,24 +119,13 @@ export function creationEvent(id, created) {
   return { change: String(id), event: 'created', from: null, to: 'draft', at: created };
 }
 
-function requireType(config, type) {
-  const typeDef = config.types?.[type];
-  if (!typeDef) {
-    throw new Error(`Unknown type "${type}". Valid: ${Object.keys(config.types ?? {}).join(', ')}`);
+// The creation seats accept the two types and nothing else: a retired type is
+// history, never new work. The CLI argument parser asks here too, so the
+// refusal reads the same whichever seat runs first.
+export function requireType(type) {
+  if (!CHANGE_TYPES.includes(type)) {
+    throw new Error(`Unknown type "${type}". Valid: ${CHANGE_TYPES.join(', ')}`);
   }
-  return typeDef;
-}
-
-// `requireType` plus the repo-level condition that makes a change of this type
-// loadable at all: a release type needs a declared `git.release_branch`, or the
-// change would be born stuck (20261012-174310). It runs before an id is reserved
-// or a byte is written. `--from` and `apply` reach the same refusal through the
-// candidate check in `prepareNewChange`, which words it as a document defect.
-function requireCreatableType(config, type) {
-  const typeDef = requireType(config, type);
-  const requirement = releaseBranchRequirementError(config, type);
-  if (requirement) throw new Error(requirement);
-  return typeDef;
 }
 
 // The scaffold used to write straight to the worktree with no candidate check,
@@ -168,7 +151,7 @@ function assertScaffoldIntroducesNoErrors(repoRoot, candidate) {
   }
 }
 
-// Renders the scaffold — id, frontmatter and the active stage headings — and
+// Renders the scaffold — id, frontmatter and the stage headings — and
 // writes nothing anywhere. This is what `--print` emits so an author can
 // compose the whole document before it exists in either store, and what
 // `--from` is expected to be built from. The id is allocated against the
@@ -182,7 +165,7 @@ export function scaffoldChange(
 ) {
   const repo = loadRepo(cwd);
   assertSupportedSchema(repo.config);
-  const typeDef = requireCreatableType(repo.config, type);
+  requireType(type);
   let created = now;
   let id = idFromTimestamp(created);
   while (idTakenInRepo(repo, id)) {
@@ -199,7 +182,6 @@ export function scaffoldChange(
       type,
       owner: resolvedOwner,
       parent,
-      stages: typeDef.stages,
       now: created,
     }),
   };
@@ -218,7 +200,7 @@ export function newChangeFrom({ type, slug, title, from }, cwd = process.cwd(), 
   const text = readSource(from);
   const repo = loadRepo(cwd);
   assertSupportedSchema(repo.config);
-  requireType(repo.config, type);
+  requireType(type);
 
   let parsed;
   try {
@@ -265,7 +247,7 @@ export function prepareNewChange(repo, text, { slug, parsed } = {}) {
   const fm = document.frontmatter ?? {};
   const id = String(fm.id ?? '');
   const created = String(fm.created ?? '');
-  requireType(repo.config, fm.type);
+  requireType(fm.type);
   if (fm.status !== 'draft') {
     throw new Error(
       `a new change starts in "draft"; the incoming document declares "${fm.status}" — move it with \`changeledger status\` after it lands`,
@@ -374,11 +356,17 @@ export function idFromTimestamp(iso) {
   return `${y}${mo}${d}-${h}${mi}${s}`;
 }
 
-function heading(stageKey) {
-  return stageKey.charAt(0).toUpperCase() + stageKey.slice(1);
-}
+// What every scaffold seeds (20261024-121022): the Request with the objective
+// and the frontier the human approves, then the stages a `change` writes in
+// `in-progress`. An epic is never implemented, so it gets no Specification or
+// Plan.
+const REQUEST_SCAFFOLD = '## Request\n\n### Objective\n\n### Frontier\n';
+const SCAFFOLD_TAIL = {
+  change: ['## Specification\n', '## Plan\n', '## Log\n'],
+  epic: ['## Log\n'],
+};
 
-function render({ id, title, type, owner, parent, stages, now }) {
+function render({ id, title, type, owner, parent, now }) {
   const fm = [
     '---',
     `id: "${id}"`,
@@ -393,6 +381,6 @@ function render({ id, title, type, owner, parent, stages, now }) {
     '---',
     '',
   ].join('\n');
-  const body = stages.map((s) => `## ${heading(s)}\n`).join('\n');
+  const body = [REQUEST_SCAFFOLD, ...SCAFFOLD_TAIL[type]].join('\n');
   return `${fm}\n${body}`;
 }

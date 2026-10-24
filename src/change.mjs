@@ -6,6 +6,12 @@ import { parseYaml } from './yaml.mjs';
 
 const FRONTMATTER = /^---\n([\s\S]*?)\n---\n?/;
 
+// Fixed in code, like the six statuses of the lifecycle (20261024-121022): a
+// `change` carries the stages it needs, in this order, and an `epic` groups
+// children and is never implemented. No configuration key declares either.
+export const CANONICAL_STAGES = Object.freeze(['request', 'specification', 'plan', 'log']);
+export const CHANGE_TYPES = Object.freeze(['change', 'epic']);
+
 export function parseChange(text) {
   const fm = text.match(FRONTMATTER);
   if (!fm) throw new Error('Change is missing its frontmatter block');

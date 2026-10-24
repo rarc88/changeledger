@@ -58,7 +58,7 @@ function baseRepo() {
       .replace(/^ {2}change_branch_format:.*$/m, '  change_branch_format: null'),
   );
   const file = newChange(
-    { type: 'quick', slug: 'x', title: 'X', now: '2026-06-13T12:00:00Z' },
+    { type: 'change', slug: 'x', title: 'X', now: '2026-06-13T12:00:00Z' },
     root,
     {
       ownerHandle: () => '',
@@ -131,7 +131,7 @@ function filled(text, body = 'Cuerpo redactado: café, mañana, 東京.') {
 // A complete, valid draft ready to be a `new` entry's content.
 function draftFor(root, { slug, title, now, body = 'Cuerpo del draft.' }) {
   return filled(
-    scaffoldChange({ type: 'quick', slug, title, owner: 'rarc88', now }, root).text,
+    scaffoldChange({ type: 'change', slug, title, owner: 'rarc88', now }, root).text,
     body,
   );
 }
@@ -219,7 +219,7 @@ test('CR2: one invalid entry keeps the whole batch off the ref', () => {
 // 20261012-174310 — a `new` entry for a release type inherits the refusal of
 // `new --from` while `git.release_branch` is undeclared, and nothing else in the
 // manifest lands.
-test('174310 CR6: a new entry of a release type without a release branch fails the whole batch', () => {
+test('174310 CR6: a new entry integrating into an undeclared release branch fails the whole batch', () => {
   const { root, file, text, id } = inactiveRepo();
   const configFile = path.join(root, '.changeledger', 'config.yml');
   const setRelease = (value) =>
@@ -232,9 +232,9 @@ test('174310 CR6: a new entry of a release type without a release branch fails t
   setRelease('main');
   const hotfix = filled(
     scaffoldChange(
-      { type: 'hotfix', slug: 'y', title: 'Y', owner: 'rarc88', now: '2026-08-11T10:00:00Z' },
+      { type: 'change', slug: 'y', title: 'Y', owner: 'rarc88', now: '2026-08-11T10:00:00Z' },
       root,
-    ).text,
+    ).text.replace('\nstatus: draft\n', '\nintegrates_into: release\nstatus: draft\n'),
   );
   setRelease('');
   const a = draftFor(root, { slug: 'alpha', title: 'Alpha', now: '2026-08-11T11:00:00Z' });
@@ -256,7 +256,7 @@ test('174310 CR6: a new entry of a release type without a release branch fails t
       assert.match(e.message, /entry 2/);
       assert.ok(
         e.message.includes(
-          '20260811-100000-y.md: type "hotfix" integrates into git.release_branch, which is not declared — set git.release_branch in .changeledger/config.yml, for example "main"',
+          '20260811-100000-y.md: change 20260811-100000 integrates into git.release_branch, which is not declared — set git.release_branch in .changeledger/config.yml, for example "main"',
         ),
         e.message,
       );
@@ -711,7 +711,7 @@ const DONE_NAME = `${DONE_ID}-graduable.md`;
 const doneChange = `---
 id: "${DONE_ID}"
 title: Verdad graduable
-type: feature
+type: change
 status: done
 created: 2026-06-01T10:00:00Z
 depends_on: []
@@ -721,11 +721,11 @@ depends_on: []
 
 Petición cerrada.
 
-## Investigation
+### Investigation
 
 Investigación cerrada.
 
-## Proposal
+### Proposal
 
 Propuesta cerrada.
 
@@ -1079,13 +1079,13 @@ test('20261020-172221 CR6: a manifest that closes an epic cannot create a child,
     mutateState(root, { expectedRevision: readStateRef(root), message: 'chore: epic' }, (stage) => {
       stage.write(
         `changes/${epicId}-epic.md`,
-        `---\nid: "${epicId}"\ntitle: Épica\ntype: epic\nstatus: in-progress\ncreated: 2026-06-13T11:00:00Z\ndepends_on: []\n---\n\n## Request\n\nObjetivo.\n\n## Proposal\n\nFrontera.\n\n## Log\n\n- **2026-06-13T11:00:00Z** \`[status]\` draft → approved\n- **2026-06-13T11:05:00Z** \`[status]\` approved → in-progress\n`,
+        `---\nid: "${epicId}"\ntitle: Épica\ntype: epic\nstatus: in-progress\ncreated: 2026-06-13T11:00:00Z\ndepends_on: []\n---\n\n## Request\n\nObjetivo.\n\n### Proposal\n\nFrontera.\n\n## Log\n\n- **2026-06-13T11:00:00Z** \`[status]\` draft → approved\n- **2026-06-13T11:05:00Z** \`[status]\` approved → in-progress\n`,
       );
     });
     const child = filled(
       scaffoldChange(
         {
-          type: 'quick',
+          type: 'change',
           slug: 'hijo',
           title: 'Hijo',
           owner: 'rarc88',
@@ -1114,13 +1114,22 @@ test('20261020-172221 CR6: a manifest that closes an epic cannot create a child,
 test('20261020-172221 CR6: one manifest may resolve a child and close its epic', () => {
   const { root, id } = activatedRepo({
     status: 'in-progress',
-    prepare: (text) => text.replace('depends_on: []', 'depends_on: []\nparent: "20260613-110000"'),
+    prepare: (text) =>
+      text.replace(
+        'depends_on: []',
+        'depends_on: []\nparent: "20260613-110000"\nbranch: change/child',
+      ),
   });
+  // `status <id> done` asks git whether the child's branch touches code
+  // (20261024-121022): an empty branch cut from `main` touches nothing.
+  git(root, ['checkout', '-q', '-b', 'main']);
+  git(root, ['-c', 'commit.gpgsign=false', 'commit', '-q', '--allow-empty', '-m', 'chore: base']);
+  git(root, ['branch', 'change/child']);
   const epicId = '20260613-110000';
   mutateState(root, { expectedRevision: readStateRef(root), message: 'chore: epic' }, (stage) => {
     stage.write(
       `changes/${epicId}-epic.md`,
-      `---\nid: "${epicId}"\ntitle: Épica\ntype: epic\nstatus: in-progress\ncreated: 2026-06-13T11:00:00Z\ndepends_on: []\n---\n\n## Request\n\nObjetivo.\n\n## Proposal\n\nFrontera.\n\n## Log\n\n- **2026-06-13T11:00:00Z** \`[status]\` draft → approved\n- **2026-06-13T11:05:00Z** \`[status]\` approved → in-progress\n`,
+      `---\nid: "${epicId}"\ntitle: Épica\ntype: epic\nstatus: in-progress\ncreated: 2026-06-13T11:00:00Z\ndepends_on: []\n---\n\n## Request\n\nObjetivo.\n\n### Proposal\n\nFrontera.\n\n## Log\n\n- **2026-06-13T11:00:00Z** \`[status]\` draft → approved\n- **2026-06-13T11:05:00Z** \`[status]\` approved → in-progress\n`,
     );
   });
 
@@ -1135,4 +1144,21 @@ test('20261020-172221 CR6: one manifest may resolve a child and close its epic',
       root,
     ),
   );
+});
+
+test('20261024-121022 CR1: a new entry of a retired type is refused like `new`', () => {
+  const { root } = activatedRepo();
+  const tip = stateTip(root);
+  const retired = draftFor(root, {
+    slug: 'alpha',
+    title: 'Alpha',
+    now: '2026-08-11T10:00:00Z',
+  }).replace('\ntype: change\n', '\ntype: feature\n');
+
+  assert.throws(
+    () =>
+      apply({ from: manifest(root, [{ target: 'new', slug: 'alpha', content: retired }]) }, root),
+    /Unknown type "feature"\. Valid: change, epic/,
+  );
+  assert.equal(stateTip(root), tip);
 });

@@ -150,18 +150,23 @@ function latestVersion(releases) {
     .at(-1);
 }
 
+// The impact of a done change that declares no `release_impact`, when the
+// configuration declares no `release.default_impact` either.
+const DEFAULT_IMPACT = 'patch';
+
 function effectiveImpact(change, config) {
   const override = change.frontmatter.release_impact;
-  if (override !== undefined) {
-    if (!RELEASE_IMPACTS.includes(override)) {
-      throw new Error(`Change #${change.frontmatter.id} has invalid release_impact "${override}".`);
-    }
-    return override;
+  if (override !== undefined && !RELEASE_IMPACTS.includes(override)) {
+    throw new Error(`Change #${change.frontmatter.id} has invalid release_impact "${override}".`);
   }
-  const impact = config.release?.impacts?.[change.frontmatter.type];
+  // The children carry the impact; counting the epic too would double it, so
+  // not even its own `release_impact` weighs (20261024-121022 CR9).
+  if (change.frontmatter.type === 'epic') return 'none';
+  if (override !== undefined) return override;
+  const impact = config.release?.default_impact ?? DEFAULT_IMPACT;
   if (!RELEASE_IMPACTS.includes(impact)) {
     throw new Error(
-      `Change #${change.frontmatter.id} type "${change.frontmatter.type}" has no valid release impact; configure release.impacts.${change.frontmatter.type} or set release_impact.`,
+      `config "release.default_impact" must be one of: ${RELEASE_IMPACTS.join(', ')}`,
     );
   }
   return impact;

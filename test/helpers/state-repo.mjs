@@ -8,6 +8,7 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { VERSION } from '../../src/framing.mjs';
 import { STATE_REF } from '../../src/state-store.mjs';
 import { initGitFixture, sanitizedEnv } from './git-env.mjs';
 
@@ -114,30 +115,23 @@ export function updateRef(root, ref, oid, oldValue) {
 // must publish this file byte for byte, and a YAML round-trip would silently
 // drop both.
 export const ledgerConfigText = `# Fixture config — the comments must survive the cutover byte for byte.
-schema_version: 5
+schema_version: 7
+min_cli_version: ${VERSION}
 language: es
 tdd: true
 changes_dir: .changeledger/changes
 specs_dir: .changeledger/specs
 git:
   integration_branch: main
-statuses: [draft, approved, in-progress, in-review, in-validation, blocked, done, discarded]
-stages: [request, investigation, proposal, specification, plan, log]
-types:
-  quick:
-    stages: [request, log]
+statuses: [draft, approved, in-progress, in-review, done, discarded]
 release:
-  impacts:
-    quick: patch
-readiness:
-  target_patterns: ["src/**"]
-  verification_patterns: ["test/**"]
+  default_impact: patch
 project_id: "fixture01"
 project_name: fixture
 `;
 
-export const ledgerChangeText = ({ id = '20260808-000001', withLog = true } = {}) =>
-  `---\nid: "${id}"\ntitle: Añadir soporté ☂\ntype: quick\nstatus: draft\ncreated: 2026-08-08T00:00:00Z\ndepends_on: []\n---\n\n## Request\n\nDemo multibyte: café, mañana, 東京.\n${withLog ? '\n## Log\n' : ''}`;
+export const ledgerChangeText = ({ id = '20260808-000001' } = {}) =>
+  `---\nid: "${id}"\ntitle: Añadir soporté ☂\ntype: change\nstatus: draft\ncreated: 2026-08-08T00:00:00Z\ndepends_on: []\n---\n\n## Request\n\nDemo multibyte: café, mañana, 東京.\n\n## Log\n`;
 
 export const ledgerSpecText = ({ title = 'Demo spec' } = {}) =>
   `---\ntitle: ${title}\nupdated: 2026-08-08T00:00:00Z\ntags: [ demo ]\n---\n\n# ${title}\n\nContrato de ejemplo.\n`;
@@ -186,7 +180,7 @@ export const configText = ({ projectId = 'demo' } = {}) => `project_id: ${projec
 // Multibyte content (á, ñ, emoji) so byte-fidelity assertions (CR2) are not
 // vacuously true on ASCII-only text.
 export const changeText = ({ id = '20260808-000001', title = 'Añadir soporté ☂' } = {}) =>
-  `---\nid: "${id}"\ntitle: ${title}\ntype: feature\nstatus: draft\ncreated: 2026-08-08T00:00:00Z\ndepends_on: []\n---\n\n## Request\n\nDemo multibyte: café, mañana, 東京.\n`;
+  `---\nid: "${id}"\ntitle: ${title}\ntype: change\nstatus: draft\ncreated: 2026-08-08T00:00:00Z\ndepends_on: []\n---\n\n## Request\n\nDemo multibyte: café, mañana, 東京.\n`;
 
 export const specText = ({ name = 'Demo spec' } = {}) => `# ${name}\n\nContrato de ejemplo.\n`;
 

@@ -6,11 +6,18 @@
 // repository loading and printing.
 
 import { marked } from 'marked';
-import { childrenOpenError, parseChange, parseRequestSections, stageSource } from './change.mjs';
+import {
+  CANONICAL_STAGES,
+  CHANGE_TYPES,
+  childrenOpenError,
+  parseChange,
+  parseRequestSections,
+  stageSource,
+} from './change.mjs';
 import {
   changeBranchFormat,
+  integratesIntoError,
   integrationBranch,
-  integrationRoleError,
   releaseBranch,
   releaseBranchRequirementError,
   renderChangeBranch,
@@ -31,35 +38,51 @@ import { minCliVersionDeclarationError } from './version-guard.mjs';
 const REQUIRED = ['id', 'title', 'type', 'status', 'created', 'depends_on'];
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
 const ID_FORM = /^\d{8}-\d{6}$/;
-const SEMANTIC_STAGES = new Set(['request', 'investigation', 'proposal', 'specification', 'plan']);
-// Stages a `review_required` type must activate, in canonical order, when its
-// effective tdd is on; with tdd off only `specification` is required.
+const SEMANTIC_STAGES = new Set(['request', 'specification', 'plan']);
+// The stages the `in-review` gate reads, and the ones an epic never carries:
+// its children hold the implementation.
 const REVIEWABLE_STAGES = ['specification', 'plan'];
 
-// Stages that can seed a spec through `graduate --new`: the ones holding
-// persistent truth. `request` is the petition, `plan` is tasks with state
-// markers and `log` is events; none of them is a spec.
-const SEED_STAGES = ['investigation', 'proposal', 'specification'];
+// Types retired with the matrix (20261024-121022). Only a live document can
+// still carry one — frozen history is never a subject — so the diagnostic
+// names the edit that resolves it, as the retired statuses do.
+const RETIRED_TYPES = [
+  'feature',
+  'bug',
+  'hotfix',
+  'audit',
+  'refactor',
+  'chore',
+  'quick',
+  'documentation',
+];
 
-// Effective tdd of a change type: `types.<type>.tdd` when it is a boolean, else
-// the global `tdd`, else on. The review-stage rule (`stagesRequiredByReview`)
-// and the context policy line ask here rather than re-deriving it. An
-// undefined `type` resolves the global value.
+// The defect a declared `type` carries, or null when it is `change` or `epic`.
+// `check` reports it on a live document and `context <id>` refuses with it.
+export function typeError(type) {
+  if (CHANGE_TYPES.includes(type)) return null;
+  if (RETIRED_TYPES.includes(type)) return `type "${type}" is retired: set type to "change"`;
+  return `unknown type "${type}"; valid types: ${CHANGE_TYPES.join(', ')}`;
+}
+
+// Effective tdd of a change: its own `tdd` frontmatter when it is a boolean,
+// else the global `tdd`, else on. The context policy line asks here rather
+// than re-deriving it; an empty frontmatter resolves the global value.
 export const DEFAULT_TDD = true;
 
-export function effectiveTdd(config, type) {
-  const own = isMapping(config?.types) ? config.types[type]?.tdd : undefined;
-  if (typeof own === 'boolean') return own;
+export function effectiveTdd(config, frontmatter) {
+  if (typeof frontmatter?.tdd === 'boolean') return frontmatter.tdd;
   return typeof config?.tdd === 'boolean' ? config.tdd : DEFAULT_TDD;
 }
 
-// The stages a `review_required` type must activate, given its effective tdd.
-// Single authority for the rule: `checkConfig` reports what is missing and the
-// schema migration inserts it, both asking here. `config` must be the live
-// config, never a stale snapshot.
-export function stagesRequiredByReview(config, type) {
-  return effectiveTdd(config, type) ? REVIEWABLE_STAGES : ['specification'];
-}
+// Configuration keys the 6 → 7 migration removes. A key present in either
+// schema is reported with the command that removes it.
+const RETIRED_CONFIG_KEYS = [
+  ['types', (c) => 'types' in c],
+  ['stages', (c) => 'stages' in c],
+  ['release.impacts', (c) => isMapping(c.release) && 'impacts' in c.release],
+  ['readiness', (c) => 'readiness' in c],
+];
 
 // Frozen history: `archived` is one-way (there is no `unarchive`) and
 // `discarded` is a tombstone the contract forbids reopening, so a diagnostic
@@ -171,9 +194,9 @@ const RETIRED_STATUS_FIXES = {
 
 // `checkConfig` already reports a malformed `git.release_branch`, so it reads
 // here as "nothing to add" rather than as a second error on every change.
-function releaseRequirementError(config, type) {
+function releaseRequirementError(config, frontmatter) {
   try {
-    return releaseBranchRequirementError(config, type);
+    return releaseBranchRequirementError(config, frontmatter);
   } catch {
     return undefined;
   }
@@ -190,8 +213,6 @@ export function checkRepo({ config, changes, specs = [], releases = [], usage = 
   );
 
   const statuses = Array.isArray(config.statuses) ? config.statuses : [];
-  const types = isMapping(config.types) ? config.types : {};
-  const canonical = Array.isArray(config.stages) ? config.stages : [];
 
   // Scope: a single change (fast, post-write check) or the whole repo.
   let scoped = changes;
@@ -226,19 +247,23 @@ export function checkRepo({ config, changes, specs = [], releases = [], usage = 
     if (fm.id && !ID_FORM.test(String(fm.id))) err(c, `id not in YYYYMMDD-HHMMSS form: ${fm.id}`);
     if (fm.id && c.name && !c.name.startsWith(`${fm.id}-`))
       err(c, `filename does not match id "${fm.id}"`);
-    if (fm.type && !types[fm.type]) {
-      err(c, `unknown type "${fm.type}"; valid types: ${Object.keys(types).join(', ')}`);
+    if (fm.type) {
+      const defect = typeError(fm.type);
+      if (defect) err(c, defect);
     }
     if (RETIRED_STATUS_FIXES[fm.status]) {
       err(c, `status "${fm.status}" is retired: ${RETIRED_STATUS_FIXES[fm.status]}`);
     } else if (fm.status && !statuses.includes(fm.status)) {
       err(c, `unknown status "${fm.status}"; valid statuses: ${statuses.join(', ')}`);
     }
-    // A change of a release type that no declared branch can host is stuck: its
+    // A change integrating into a branch no declaration can host is stuck: its
     // context and its branch cannot load. Terminal changes are history, so
     // retiring `git.release_branch` later never turns them red (20261012-174310).
-    if (statuses.includes(fm.status) && !TERMINAL_STATUSES.includes(fm.status)) {
-      const requirement = releaseRequirementError(config, fm.type);
+    const roleError = integratesIntoError(fm);
+    if (roleError) {
+      err(c, roleError);
+    } else if (statuses.includes(fm.status) && !TERMINAL_STATUSES.includes(fm.status)) {
+      const requirement = releaseRequirementError(config, fm);
       if (requirement) err(c, requirement);
     }
     if ('depends_on' in fm && !Array.isArray(fm.depends_on)) err(c, 'depends_on must be a list');
@@ -251,6 +276,7 @@ export function checkRepo({ config, changes, specs = [], releases = [], usage = 
     }
     if ('archived' in fm && typeof fm.archived !== 'boolean') err(c, 'archived must be a boolean');
     if ('reviewed' in fm && typeof fm.reviewed !== 'boolean') err(c, 'reviewed must be a boolean');
+    if ('tdd' in fm && typeof fm.tdd !== 'boolean') err(c, 'tdd must be a boolean');
     if ('release_impact' in fm && !RELEASE_IMPACTS.includes(fm.release_impact)) {
       err(c, `release_impact "${fm.release_impact}" must be one of: ${RELEASE_IMPACTS.join(', ')}`);
     }
@@ -258,8 +284,8 @@ export function checkRepo({ config, changes, specs = [], releases = [], usage = 
     const present = (c.stages ?? []).map((s) => s.key);
     for (const s of c.stages ?? []) {
       const k = s.key;
-      if (!canonical.includes(k)) {
-        err(c, `unknown stage "## ${k}"; valid stages: ${canonical.join(', ')}`);
+      if (!CANONICAL_STAGES.includes(k)) {
+        err(c, `unknown stage "## ${k}"; valid stages: ${CANONICAL_STAGES.join(', ')}`);
       } else if (s.heading && s.heading !== canonicalHeading(k)) {
         err(c, `stage heading must be canonical: expected "## ${canonicalHeading(k)}"`);
       }
@@ -271,19 +297,15 @@ export function checkRepo({ config, changes, specs = [], releases = [], usage = 
       else seenStages.add(k);
     }
 
-    const known = present.filter((k) => canonical.includes(k));
-    const ordered = [...known].sort((a, b) => canonical.indexOf(a) - canonical.indexOf(b));
+    const known = present.filter((k) => CANONICAL_STAGES.includes(k));
+    const ordered = [...known].sort(
+      (a, b) => CANONICAL_STAGES.indexOf(a) - CANONICAL_STAGES.indexOf(b),
+    );
     if (known.join(',') !== ordered.join(',')) err(c, 'stages are out of canonical order');
 
-    const typeDefinition = isMapping(types[fm.type]) ? types[fm.type] : null;
-    const active = Array.isArray(typeDefinition?.stages) ? typeDefinition.stages : null;
-    if (active) {
-      for (const k of active)
-        if (!present.includes(k)) err(c, `missing active stage "## ${k}" for type ${fm.type}`);
-      // `log` is the lifecycle ledger — allowed on any type once status moves.
-      for (const k of known)
-        if (k !== 'log' && !active.includes(k))
-          err(c, `stage "## ${k}" is not active for type ${fm.type}`);
+    if (fm.type === 'epic') {
+      for (const k of REVIEWABLE_STAGES.filter((s) => present.includes(s)))
+        err(c, `stage "## ${k}" does not belong in an epic: its children carry the work`);
     }
 
     const tasks = c.tasks ?? [];
@@ -650,19 +672,21 @@ export function assertApprovable(text) {
 }
 
 // The implementer's exit gate, at the `in-review` seat of `statusMutation`
-// (20261023-181753 CR5): each active stage among `specification` and `plan`
-// has a body, and an active Specification declares at least one `### CRn`.
-// A stage whose heading is absent is left to the structural check.
-export function assertReviewable(config, text) {
-  const { frontmatter: fm, stages, criteria } = parseChange(text);
-  const typeDefinition = isMapping(config?.types?.[fm.type]) ? config.types[fm.type] : null;
-  const active = Array.isArray(typeDefinition?.stages) ? typeDefinition.stages : [];
-  const present = REVIEWABLE_STAGES.filter((key) => active.includes(key))
-    .map((key) => stages.find((s) => s.key === key))
-    .filter(Boolean);
-  const empty = present.filter((s) => !s.body).map((s) => `"## ${canonicalHeading(s.key)}"`);
-  if (empty.length) throw new Error(`cannot request review: ${listed(empty, 'empty')}`);
-  if (present.some((s) => s.key === 'specification') && !criteria.length) {
+// (20261023-181753 CR5, 20261024-121022): `## Specification` and `## Plan`
+// are present with a body, and the Specification declares at least one
+// `### CRn`. An epic never carries them, and never reaches this seat. `config`
+// is kept for the seat's signature; no key of it is read.
+export function assertReviewable(_config, text) {
+  const { stages, criteria } = parseChange(text);
+  const heading = (key) => `"## ${canonicalHeading(key)}"`;
+  const found = REVIEWABLE_STAGES.map((key) => stages.find((s) => s.key === key));
+  const missing = REVIEWABLE_STAGES.filter((_, i) => !found[i]).map(heading);
+  const empty = found.filter((s) => s && !s.body).map((s) => heading(s.key));
+  const defects = [];
+  if (missing.length) defects.push(listed(missing, 'missing'));
+  if (empty.length) defects.push(listed(empty, 'empty'));
+  if (defects.length) throw new Error(`cannot request review: ${defects.join('; ')}`);
+  if (!criteria.length) {
     throw new Error('cannot request review: "## Specification" declares no criterion');
   }
 }
@@ -762,7 +786,7 @@ function checkCriteria(c, criteria, err) {
 // A Plan task citing a criterion the Specification does not declare is a broken
 // reference, like an unknown stage: an error whatever the status of a validated
 // change, the draft included (20261023-181753 CR4). `parseChange` reads `### CRn` only from
-// `## Specification`, so a type without that stage declares none and any
+// `## Specification`, so a document without that stage declares none and any
 // citation it carries is unknown.
 function checkCriterionReferences(c, tasks, err) {
   const declared = new Set(c.criteria ?? []);
@@ -993,8 +1017,11 @@ function checkConfig(config, err) {
     validChangeBranchFormat = false;
     err(null, error.message);
   }
-  for (const k of ['changes_dir', 'statuses', 'stages', 'types']) {
+  for (const k of ['changes_dir', 'statuses']) {
     if (!(k in c)) err(null, `config missing "${k}"`);
+  }
+  for (const [key, present] of RETIRED_CONFIG_KEYS) {
+    if (present(c)) err(null, `config "${key}" is retired: run \`changeledger config migrate\``);
   }
   const minCliVersionError = minCliVersionDeclarationError(c);
   if (minCliVersionError) err(null, minCliVersionError);
@@ -1008,8 +1035,6 @@ function checkConfig(config, err) {
     else if (isPathEscape(v)) err(null, `config "${k}" escapes the repo root: ${v}`);
   }
   if ('statuses' in c && !Array.isArray(c.statuses)) err(null, 'config "statuses" must be a list');
-  if ('stages' in c && !Array.isArray(c.stages)) err(null, 'config "stages" must be a list');
-  if ('types' in c && !isMapping(c.types)) err(null, 'config "types" must be a mapping');
   if ('git' in c) {
     // A non-mapping `git` is one defect, reported once rather than per branch key.
     const resolvers = isMapping(c.git) ? [integrationBranch, releaseBranch] : [integrationBranch];
@@ -1021,8 +1046,9 @@ function checkConfig(config, err) {
         err(null, error.message);
       }
     }
-    // Equal branches leave a `release` type without its back-merge target and
-    // its start guard, so the pair is checked only once both resolve cleanly.
+    // Equal branches leave a change integrating into the release branch without
+    // its back-merge target and its start guard, so the pair is checked only
+    // once both resolve cleanly.
     const [integration, release] = resolved;
     if (resolved.length === 2 && integration !== undefined && integration === release) {
       err(
@@ -1031,53 +1057,7 @@ function checkConfig(config, err) {
       );
     }
   }
-  const configuredTypes = isMapping(c.types) ? c.types : {};
-  if ('release' in c) checkReleaseConfig(c.release, configuredTypes, err);
-  const canonical = Array.isArray(c.stages) ? c.stages : [];
-  for (const [type, def] of Object.entries(configuredTypes)) {
-    if (!isMapping(def)) {
-      err(null, `config type "${type}" must be a mapping`);
-      continue;
-    }
-    if (!Array.isArray(def.stages)) {
-      err(null, `config type "${type}": stages must be a list`);
-      continue;
-    }
-    for (const s of def.stages) {
-      if (!canonical.includes(s))
-        err(null, `config type "${type}" references unknown stage "${s}"`);
-    }
-    if (def && 'review_required' in def && typeof def.review_required !== 'boolean')
-      err(null, `config type "${type}": review_required must be a boolean`);
-    if ('tdd' in def && typeof def.tdd !== 'boolean')
-      err(null, `config type "${type}": tdd must be a boolean`);
-    const roleError = integrationRoleError(type, def);
-    if (roleError) err(null, roleError);
-    if ('seed_stage' in def) {
-      if (typeof def.seed_stage !== 'string')
-        err(null, `config type "${type}": seed_stage must be a string`);
-      else if (!def.stages.includes(def.seed_stage))
-        err(null, `config type "${type}": seed_stage "${def.seed_stage}" is not an active stage`);
-      else if (!SEED_STAGES.includes(def.seed_stage))
-        err(
-          null,
-          `config type "${type}": seed_stage "${def.seed_stage}" cannot seed a spec; use one of: ${SEED_STAGES.join(', ')}`,
-        );
-    }
-    // An independent reviewer needs something to verify: criteria live in
-    // `## Specification` (the only stage `parseChange` reads `### CRn` from).
-    // With tdd on, the Plan whose tasks cite them is required too; with tdd off
-    // the criteria alone are the reviewer's contract.
-    if (def.review_required === true) {
-      const missing = stagesRequiredByReview(c, type).filter((s) => !def.stages.includes(s));
-      if (missing.length) {
-        err(
-          null,
-          `config type "${type}": review_required: true requires active stages: ${missing.join(', ')}`,
-        );
-      }
-    }
-  }
+  if ('release' in c) checkReleaseConfig(c.release, err);
   return validChangeBranchFormat;
 }
 
@@ -1085,23 +1065,13 @@ function isMapping(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
-function checkReleaseConfig(release, types, err) {
-  if (!release || typeof release !== 'object' || Array.isArray(release)) {
+function checkReleaseConfig(release, err) {
+  if (!isMapping(release)) {
     err(null, 'config "release" must be a mapping');
     return;
   }
-  if (!release.impacts || typeof release.impacts !== 'object' || Array.isArray(release.impacts)) {
-    err(null, 'config "release.impacts" must be a mapping');
-    return;
-  }
-  for (const [type, impact] of Object.entries(release.impacts)) {
-    if (!(type in types)) err(null, `config release impact references unknown type "${type}"`);
-    if (!RELEASE_IMPACTS.includes(impact)) {
-      err(
-        null,
-        `config release impact "${impact}" for "${type}" must be one of: ${RELEASE_IMPACTS.join(', ')}`,
-      );
-    }
+  if ('default_impact' in release && !RELEASE_IMPACTS.includes(release.default_impact)) {
+    err(null, `config "release.default_impact" must be one of: ${RELEASE_IMPACTS.join(', ')}`);
   }
 }
 
