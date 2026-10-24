@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-10-23T18:17:53Z
 depends_on: []
+reviewed: true
 branch: feature/20261023-181753
 related_to:
   - "20260726-141121"
@@ -441,3 +442,4 @@ las nombra como divergencia conocida.
 - **2026-10-24T11:22:46Z** `[note]` Corrección de la nota anterior: el mutante 'campo source en la etapa' no se había aplicado en el primer intento (el sed no casó con la línea ya formateada en varias líneas) y el verde que registré era el del código intacto. Aplicado sobre la línea real, falla el test de la forma de la etapa en change.test y el de escrituras concurrentes en cli-bin; restaurado por copia idéntica. Los gates completos lanzados mientras hubo mutantes en el árbol se descartan; el gate válido es el que corre sobre el árbol restaurado.
 - **2026-10-24T11:28:20Z** `[status]` in-progress → in-review
 - **2026-10-24T11:35:37Z** `[review]` in-review → done (delegated subagent, clean context)
+- **2026-10-24T11:36:12Z** `[graduation]` skipped: hijo de la épica 20261023-181733: la verdad persistente (specs readiness, validation, lifecycle, contract-discovery, architecture, viewer, git-traceability, data-model) la reconcilia la épica al cerrar; las divergencias que este change deja están listadas en su Log
