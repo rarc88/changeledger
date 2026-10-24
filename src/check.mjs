@@ -12,6 +12,8 @@ import {
   childrenOpenError,
   parseChange,
   parseRequestSections,
+  RETIRED_STAGES,
+  RETIRED_TYPES,
   stageSource,
 } from './change.mjs';
 import {
@@ -43,25 +45,16 @@ const SEMANTIC_STAGES = new Set(['request', 'specification', 'plan']);
 // its children hold the implementation.
 const REVIEWABLE_STAGES = ['specification', 'plan'];
 
-// Types retired with the matrix (20261024-121022). Only a live document can
-// still carry one — frozen history is never a subject — so the diagnostic
-// names the edit that resolves it, as the retired statuses do.
-const RETIRED_TYPES = [
-  'feature',
-  'bug',
-  'hotfix',
-  'audit',
-  'refactor',
-  'chore',
-  'quick',
-  'documentation',
-];
-
 // The defect a declared `type` carries, or null when it is `change` or `epic`.
 // `check` reports it on a live document and `context <id>` refuses with it.
 export function typeError(type) {
   if (CHANGE_TYPES.includes(type)) return null;
-  if (RETIRED_TYPES.includes(type)) return `type "${type}" is retired: set type to "change"`;
+  // Only a plain string can be a retired type: `hasOwn` would coerce a list
+  // such as `[feature]` to "feature" and send the author to `fix`, which
+  // cannot read that line (20261024-121022 CR2).
+  if (typeof type === 'string' && Object.hasOwn(RETIRED_TYPES, type)) {
+    return `type "${type}" is retired: set type to "change"`;
+  }
   return `unknown type "${type}"; valid types: ${CHANGE_TYPES.join(', ')}`;
 }
 
@@ -280,12 +273,21 @@ export function checkRepo({ config, changes, specs = [], releases = [], usage = 
     if ('release_impact' in fm && !RELEASE_IMPACTS.includes(fm.release_impact)) {
       err(c, `release_impact "${fm.release_impact}" must be one of: ${RELEASE_IMPACTS.join(', ')}`);
     }
+    // An epic always weighs `none` and publishes no `tdd=`: its own value of
+    // either key has no reader, so it is named instead of silently ignored.
+    if (fm.type === 'epic') {
+      if ('release_impact' in fm) {
+        warn(c, 'release_impact on an epic is ignored: its children carry the impact');
+      }
+      if ('tdd' in fm) warn(c, 'tdd on an epic is ignored: it carries no implementation');
+    }
 
     const present = (c.stages ?? []).map((s) => s.key);
     for (const s of c.stages ?? []) {
       const k = s.key;
       if (!CANONICAL_STAGES.includes(k)) {
-        err(c, `unknown stage "## ${k}"; valid stages: ${CANONICAL_STAGES.join(', ')}`);
+        const repair = RETIRED_STAGES.has(k) ? ' — run `changeledger fix`' : '';
+        err(c, `unknown stage "## ${k}"; valid stages: ${CANONICAL_STAGES.join(', ')}${repair}`);
       } else if (s.heading && s.heading !== canonicalHeading(k)) {
         err(c, `stage heading must be canonical: expected "## ${canonicalHeading(k)}"`);
       }
@@ -674,9 +676,8 @@ export function assertApprovable(text) {
 // The implementer's exit gate, at the `in-review` seat of `statusMutation`
 // (20261023-181753 CR5, 20261024-121022): `## Specification` and `## Plan`
 // are present with a body, and the Specification declares at least one
-// `### CRn`. An epic never carries them, and never reaches this seat. `config`
-// is kept for the seat's signature; no key of it is read.
-export function assertReviewable(_config, text) {
+// `### CRn`. An epic never carries them, and never reaches this seat.
+export function assertReviewable(text) {
   const { stages, criteria } = parseChange(text);
   const heading = (key) => `"## ${canonicalHeading(key)}"`;
   const found = REVIEWABLE_STAGES.map((key) => stages.find((s) => s.key === key));

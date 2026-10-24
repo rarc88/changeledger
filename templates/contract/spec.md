@@ -6,7 +6,7 @@ The project-owned `AGENTS.md` carries the bootstrap; `changeledger new` creates
 a change. The slug is structural
 and must be English; title and narrative follow the configured language. Files
 remain the source of truth and may be edited directly, but prefer the CLI for
-timestamps, enums and markers that are easy to mistype.
+timestamps, enums and markers.
 
 A request that mixes unrelated concerns becomes separate changes, created only
 after explicit human authorization.
@@ -38,8 +38,7 @@ A multi-change effort declares one epic and each child names it in `parent`. The
 deliberately outside the relation graph: sharing a parent connects nothing, and
 the hierarchy is two levels, never a tree. The epic is approved on objective and
 frontier and **never enumerates its children at approval**; they are created as
-the work discovers them, which is the same rule as not planning before
-investigating, one level up. It cannot reach `done` while a child is neither
+the work discovers them. It cannot reach `done` while a child is neither
 `done` nor `discarded`.
 
 Use `depends_on` only for execution prerequisites: dependencies can block
@@ -60,8 +59,10 @@ Use fixed English `##` headings — `Request`, `Specification`, `Plan` and `Log`
 in that order. No type activates a stage: a change carries the ones it needs.
 Investigation and Proposal are free prose under `###` headings: inside the
 Request for what helps the human approve, inside the Specification for what is
-found with the code in front. `changeledger fix` brings a live document with a
-retired type or stage to this form, previewable with `--dry-run`.
+found with the code in front. A change that fixes a defect states its root cause
+in its investigation; a proposal states the chosen solution, the discarded
+alternatives and the scenarios. `changeledger fix`, previewable with `--dry-run`,
+repairs a live document's retired type or stage or lists it for a manual fix.
 
 Ceremony is decided by comprehension, risk and resumability, never by size,
 file count or task count:
@@ -85,13 +86,13 @@ headings in the Request are free prose. Specification and Plan are written in
 `in-progress`, with the code in front, and never return to approval: `changeledger
 context implement` owns how they evolve and the exit gate that requires them.
 
-A change that documents one topic, contrasted with what the code actually does,
+A change that documents one topic against the code
 writes its execution rules as its own CRs: the
 perimeter is fixed in the draft from who calls what, never from
 textual matches; every claim cites path and symbol; the human decides every
 divergence from an existing spec before `in-review` or `done`, and the change waits
 on a `[!]` task until they do; corrections to existing specs are drafted inside the
-change, where reviewer and human see them.
+change.
 
 When you classify a problem as a defect and the `Effective policy:` line
 publishes `release_branch=`, explicitly ask the human whether the fix integrates
@@ -109,7 +110,7 @@ remain only in prose. Do not rediscover work another change or spec already
 covers.
 
 When a relationship, flow or architecture is clearer visually, use a Mermaid
-block and keep its text as the source; the viewer renders it.
+block and keep its text as the source.
 
 ## Acceptance criteria
 

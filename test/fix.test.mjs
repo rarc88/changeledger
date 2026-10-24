@@ -288,6 +288,7 @@ const LIVE_FEATURE_FIXED = `---
 id: "20260614-100000"
 title: Live feature
 type: change
+release_impact: minor
 status: draft
 created: 2026-06-14T10:00:00Z
 depends_on: []
@@ -396,14 +397,18 @@ test('20261024-121022 CR14: the dry run lists the repairs of the live documents 
 
   const feature = out.lines.indexOf('--- 20260614-100000-live-feature.md (dry run)');
   assert.notEqual(feature, -1, out.lines.join('\n'));
-  assert.deepEqual(out.lines.slice(feature + 1, feature + 4), [
+  assert.deepEqual(out.lines.slice(feature + 1, feature + 5), [
     '  - type feature → change',
+    '  - release_impact: minor (from feature)',
     '  - ## Investigation → ### Investigation under ## Request',
     '  - ## Proposal → ### Proposal under ## Request',
   ]);
   const quick = out.lines.indexOf('--- 20260614-110000-live-quick.md (dry run)');
   assert.notEqual(quick, -1, out.lines.join('\n'));
-  assert.equal(out.lines[quick + 1], '  - type quick → change');
+  assert.deepEqual(out.lines.slice(quick + 1, quick + 3), [
+    '  - type quick → change',
+    '  - release_impact: patch (from quick)',
+  ]);
   assert.ok(out.lines.includes('20260614-120000-archived-bug.md: nothing to fix'));
 
   assert.equal(fs.readFileSync(files['20260614-100000-live-feature.md'], 'utf8'), LIVE_FEATURE);
@@ -421,7 +426,7 @@ test('20261024-121022 CR14: fix folds the retired stages under the Request and l
   );
   assert.equal(
     fs.readFileSync(files['20260614-110000-live-quick.md'], 'utf8'),
-    LIVE_QUICK.replace('type: quick', 'type: change'),
+    LIVE_QUICK.replace('type: quick', 'type: change\nrelease_impact: patch'),
   );
   assert.equal(fs.readFileSync(files['20260614-120000-archived-bug.md'], 'utf8'), ARCHIVED_BUG);
   assert.ok(out.lines.includes('fixed — 20260614-100000-live-feature.md:'));
@@ -472,9 +477,148 @@ test('20261024-121022 CR14: an empty retired stage is removed and a discarded do
     fs.readFileSync(files['20260614-130000-empty-stage.md'], 'utf8'),
     LIVE_QUICK.replace('id: "20260614-110000"', 'id: "20260614-130000"').replace(
       'type: quick',
-      'type: change',
+      'type: change\nrelease_impact: patch',
     ),
   );
   assert.ok(out.lines.includes('  - removed empty ## Investigation'));
   assert.equal(fs.readFileSync(files['20260614-140000-discarded.md'], 'utf8'), discarded);
+});
+
+// A live document keeps what its retired type implied and it does not declare
+// itself: the release impact the last template gave the type, the release
+// integration of a hotfix, the tdd exemption of documentation.
+const retiredAs = (id, type, extra = '') =>
+  LIVE_QUICK.replace('id: "20260614-110000"', `id: "${id}"`).replace(
+    'type: quick',
+    `type: ${type}${extra}`,
+  );
+
+test('20261024-121022 CR14: fix writes into the frontmatter what the retired type implied', () => {
+  const docs = {
+    '20260614-150000-hotfix.md': retiredAs('20260614-150000', 'hotfix'),
+    '20260614-160000-documentation.md': retiredAs('20260614-160000', 'documentation'),
+    '20260614-170000-declared.md': retiredAs(
+      '20260614-170000',
+      'hotfix',
+      '\nrelease_impact: major\nintegrates_into: integration',
+    ),
+    '20260614-180000-bug.md': retiredAs('20260614-180000', 'bug'),
+    '20260614-190000-audit.md': retiredAs('20260614-190000', 'audit'),
+  };
+  const { root, files } = liveLedger(docs);
+  const dry = output();
+  assert.equal(fix(['--dry-run'], root, dry), 0);
+  const listed = (name, count) => {
+    const at = dry.lines.indexOf(`--- ${name} (dry run)`);
+    assert.notEqual(at, -1, dry.lines.join('\n'));
+    return dry.lines.slice(at + 1, at + 1 + count);
+  };
+  assert.deepEqual(listed('20260614-150000-hotfix.md', 3), [
+    '  - type hotfix → change',
+    '  - release_impact: patch (from hotfix)',
+    '  - integrates_into: release (from hotfix)',
+  ]);
+  assert.deepEqual(listed('20260614-160000-documentation.md', 3), [
+    '  - type documentation → change',
+    '  - release_impact: none (from documentation)',
+    '  - tdd: false (from documentation)',
+  ]);
+  assert.deepEqual(listed('20260614-170000-declared.md', 2), [
+    '  - type hotfix → change',
+    '- type: hotfix',
+  ]);
+
+  assert.equal(fix([], root, output()), 0);
+  const read = (name) => fs.readFileSync(files[name], 'utf8');
+  assert.equal(
+    read('20260614-150000-hotfix.md'),
+    retiredAs('20260614-150000', 'change', '\nrelease_impact: patch\nintegrates_into: release'),
+  );
+  assert.equal(
+    read('20260614-160000-documentation.md'),
+    retiredAs('20260614-160000', 'change', '\nrelease_impact: none\ntdd: false'),
+  );
+  assert.equal(
+    read('20260614-170000-declared.md'),
+    retiredAs('20260614-170000', 'change', '\nrelease_impact: major\nintegrates_into: integration'),
+  );
+  assert.equal(
+    read('20260614-180000-bug.md'),
+    retiredAs('20260614-180000', 'change', '\nrelease_impact: patch'),
+  );
+  assert.equal(
+    read('20260614-190000-audit.md'),
+    retiredAs('20260614-190000', 'change', '\nrelease_impact: none'),
+  );
+
+  const once = Object.fromEntries(Object.keys(docs).map((name) => [name, read(name)]));
+  assert.equal(fix([], root, output()), 0);
+  for (const name of Object.keys(docs)) assert.equal(read(name), once[name], name);
+});
+
+test('20261024-121022 CR14: a type line with a trailing comment is repaired and an unreadable one is listed for a manual fix', () => {
+  const commented = retiredAs('20260614-200000', 'feature # old type');
+  const unreadable = retiredAs('20260614-210000', '!!str feature');
+  const quotedKey = retiredAs('20260614-220000', 'feature').replace(
+    'type: feature',
+    '"type": feature',
+  );
+  const { root, files } = liveLedger({
+    '20260614-200000-commented.md': commented,
+    '20260614-210000-unreadable.md': unreadable,
+    '20260614-220000-quoted-key.md': quotedKey,
+  });
+  const out = output();
+  assert.equal(fix([], root, out), 0);
+
+  assert.equal(
+    fs.readFileSync(files['20260614-200000-commented.md'], 'utf8'),
+    retiredAs('20260614-200000', 'change # old type', '\nrelease_impact: minor'),
+  );
+  assert.equal(fs.readFileSync(files['20260614-210000-unreadable.md'], 'utf8'), unreadable);
+  const manual = out.lines.indexOf('requires manual fix — 20260614-210000-unreadable.md:');
+  assert.notEqual(manual, -1, out.lines.join('\n'));
+  assert.equal(
+    out.lines[manual + 1],
+    '  - cannot read the type line "type: !!str feature": set type to "change" by hand',
+  );
+  assert.equal(fs.readFileSync(files['20260614-220000-quoted-key.md'], 'utf8'), quotedKey);
+  const quoted = out.lines.indexOf('requires manual fix — 20260614-220000-quoted-key.md:');
+  assert.notEqual(quoted, -1, out.lines.join('\n'));
+  assert.equal(
+    out.lines[quoted + 1],
+    '  - cannot read the type line: set type to "change" by hand',
+  );
+});
+
+// The edges of the contract's and README's sentences on `fix`: a retired stage
+// with no Request to move under is listed for a manual fix, and frozen history
+// keeps its retired type and stage while the format repairs still reach it.
+test('20261024-121022 CR14: a retired stage with no Request is listed for a manual fix', () => {
+  const noRequest = retiredAs('20260614-230000', 'change').replace(
+    /## Request\n\n### Objective\n\nSmall thing\.\n\n### Frontier\n\nOnly this\.\n\n/,
+    '## Investigation\n\nI.\n\n',
+  );
+  const { root, files } = liveLedger({ '20260614-230000-no-request.md': noRequest });
+  const out = output();
+  assert.equal(fix([], root, out), 0);
+
+  assert.equal(fs.readFileSync(files['20260614-230000-no-request.md'], 'utf8'), noRequest);
+  const manual = out.lines.indexOf('requires manual fix — 20260614-230000-no-request.md:');
+  assert.notEqual(manual, -1, out.lines.join('\n'));
+  assert.equal(out.lines[manual + 1], '  - ## Investigation has no ## Request to move under');
+});
+
+test('20261024-121022 CR14: an archived document keeps its retired type and stage and still gets the format repairs', () => {
+  const archived = ARCHIVED_BUG.replace('id: "20260614-120000"', 'id: "20260614-240000"').replace(
+    '## Log',
+    '## Plan\n\n- [X] Old task\n  - **Support:**\n  - **Resolved:** `2026-06-14T12:00:00Z`\n\n## Log',
+  );
+  const { root, files } = liveLedger({ '20260614-240000-archived-plan.md': archived });
+  assert.equal(fix([], root, output()), 0);
+
+  assert.equal(
+    fs.readFileSync(files['20260614-240000-archived-plan.md'], 'utf8'),
+    archived.replace('- [X] Old task', '- [x] Old task'),
+  );
 });

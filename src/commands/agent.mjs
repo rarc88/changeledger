@@ -24,6 +24,8 @@ import {
 } from '../config.mjs';
 import { assertSupportedSchema } from '../config-migration.mjs';
 import {
+  attributedCommitsIn,
+  branchWorktree,
   capturedRun,
   changedPathsInRange,
   currentBranch,
@@ -37,6 +39,7 @@ import {
   isAncestor,
   mergeBases,
   refExists,
+  uncommittedPaths,
 } from '../git.mjs';
 import { assertTransition, parseLogEvent } from '../lifecycle.mjs';
 import { nowUtc } from '../paths.mjs';
@@ -310,7 +313,7 @@ export function statusMutation(
     // Their own refusal comes first, so an empty Specification is named as
     // such instead of as the Plan's references to it.
     if (newStatus === 'in-review') {
-      assertReviewable(config, text);
+      assertReviewable(text);
       assertChangeTextValid(config, name, text);
     }
     // Leaving draft asserts what the human approves exists: the objective and
@@ -388,34 +391,57 @@ export function statusMutation(
 
 const changeKind = (fm) => (fm.type === 'epic' ? 'epic' : 'change');
 
-// Throws unless git shows that the change's branch touches only the ledger:
-// `changes_dir`, `specs_dir` and `.changeledger/`. The range is the one the
-// branch introduced over its integration branch (`changedPathsInRange`). Every
-// doubt — no branch, a branch git does not have, a failing git — refuses with
-// its cause, because the direct route skips the independent review and a
-// question git cannot answer must not read as "no code".
+// Throws unless git shows that the change touches only the ledger:
+// `changes_dir`, `specs_dir` and `.changeledger/`. Two reads answer it: the
+// range the branch introduced over its integration branch
+// (`changedPathsInRange`), and the uncommitted paths of the worktree that has
+// the branch checked out, wherever it is (`branchWorktree`, `uncommittedPaths`).
+// Every doubt — no branch, a branch git does not have, the change's own commits
+// already merged (the range left says nothing about what they carried), a
+// failing git — refuses with its cause, because the direct route skips the
+// independent review and a question git cannot answer must not read as
+// "no code".
 function assertTouchesOnlyLedger(config, fm, repoRoot, gitRun) {
   const verdictRoute = 'move it to in-review and record a verdict';
   const undecided = (cause) =>
     new Error(`cannot decide whether change ${fm.id} touches code: ${cause} — ${verdictRoute}`);
+  const touching = (where, paths, route) => {
+    const count = `${paths.length} ${paths.length === 1 ? 'path' : 'paths'}`;
+    return new Error(
+      `change ${fm.id} touches code outside the ledger${where} (${count}, e.g. ${paths[0]}): ${route}`,
+    );
+  };
   const head = fm.branch ?? renderChangeBranch(config, fm);
   if (!head) throw undecided('no branch recorded for it');
-  let code;
+  let ledger;
+  let committed;
+  let uncommitted;
   try {
     const base = changeIntegrationBranch(config, fm) ?? detectedBaseBranch(repoRoot, gitRun);
     if (head === base) throw new Error(`branch "${head}" is the integration branch`);
-    const ledger = ledgerPrefixes(config, repoRoot, gitRun);
-    code = changedPathsInRange(repoRoot, base, head, gitRun).filter(
-      (entry) => !ledger.some((prefix) => entry.startsWith(prefix)),
-    );
+    ledger = ledgerPrefixes(config, repoRoot, gitRun);
+    const outsideLedger = (entry) => !ledger.some((prefix) => entry.startsWith(prefix));
+    committed = changedPathsInRange(repoRoot, base, head, gitRun).filter(outsideLedger);
+    if (committed.length === 0) {
+      // The change's own commits, not ancestry: a branch with no commits of
+      // its own is an ancestor of the integration branch too, and in the
+      // activated layout that is a ledger-only change. Unmarked merged
+      // history stays a residual the range alone judges.
+      if (attributedCommitsIn(repoRoot, base, fm.id, gitRun).length > 0) {
+        throw new Error(`its commits are already merged into "${base}"`);
+      }
+      // Uncommitted work is the change's only in the worktree holding its
+      // branch, which need not be this checkout; checked out nowhere, the
+      // branch has none.
+      const worktree = branchWorktree(repoRoot, head, gitRun);
+      uncommitted = worktree ? uncommittedPaths(worktree, gitRun).filter(outsideLedger) : [];
+    }
   } catch (error) {
     throw undecided(error.message);
   }
-  if (code.length > 0) {
-    const count = `${code.length} ${code.length === 1 ? 'path' : 'paths'}`;
-    throw new Error(
-      `change ${fm.id} touches code outside the ledger (${count}, e.g. ${code[0]}): ${verdictRoute}`,
-    );
+  if (committed.length > 0) throw touching('', committed, verdictRoute);
+  if (uncommitted.length > 0) {
+    throw touching(' in uncommitted paths', uncommitted, `commit them, ${verdictRoute}`);
   }
 }
 

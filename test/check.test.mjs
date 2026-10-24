@@ -4051,6 +4051,17 @@ test('20261024-121022 CR2: an unknown type names the two valid ones', () => {
   assert.deepEqual(msgs(errors), ['unknown type "spike"; valid types: change, epic']);
 });
 
+// A `type:` that is not a plain string — a list, a mapping — is unknown, never
+// "retired": `Object.hasOwn` over the retired map would coerce `[feature]` to
+// "feature" and send the author to `fix`, which cannot read such a line.
+test('20261024-121022 CR2: a type that is not a string is unknown, not retired', () => {
+  const { errors } = checkRepo({
+    config: schema7,
+    changes: [doc(docText({ type: '[feature]' }))],
+  });
+  assert.deepEqual(msgs(errors), ['unknown type "feature"; valid types: change, epic']);
+});
+
 test('20261024-121022 CR2: frozen history carrying a retired or unknown type gets no type error', () => {
   for (const type of ['feature', 'quick', 'spike']) {
     const { errors } = checkRepo({
@@ -4094,9 +4105,22 @@ test('20261024-121022 CR3: an Investigation stage is unknown and the valid stage
     ],
   });
   assert.deepEqual(msgs(errors), [
-    'unknown stage "## investigation"; valid stages: request, specification, plan, log',
+    'unknown stage "## investigation"; valid stages: request, specification, plan, log — run `changeledger fix`',
   ]);
   assert.ok(!msgs(errors).some((m) => /missing active stage|is not active for type/.test(m)));
+});
+
+test('20261024-121022 CR3: only a retired stage names the fix that repairs it', () => {
+  const { errors } = checkRepo({
+    config: schema7,
+    changes: [
+      doc(docText({ body: '## Request\n\nR.\n\n## Proposal\n\nP.\n\n## Notes\n\nN.\n\n## Log\n' })),
+    ],
+  });
+  assert.deepEqual(msgs(errors), [
+    'unknown stage "## proposal"; valid stages: request, specification, plan, log — run `changeledger fix`',
+    'unknown stage "## notes"; valid stages: request, specification, plan, log',
+  ]);
 });
 
 test('20261024-121022 CR3: Investigation and Proposal as Request subsections are free prose', () => {
@@ -4162,6 +4186,31 @@ test('20261024-121022 CR8: effectiveTdd reads the change frontmatter, then the g
     effectiveTdd({ tdd: false, types: { change: { tdd: true } } }, { type: 'change' }),
     false,
   );
+});
+
+// The epic's `none` and its absent tdd take precedence over its own keys, so a
+// declared value would be silently ignored: check says so.
+test('20261024-121022 CR9/CR8: release_impact and tdd on an epic are warned as ignored', () => {
+  const epic = (extra) =>
+    doc(docText({ type: 'epic', extra, body: '## Request\n\nR.\n\n## Log\n' }));
+  const { errors, warnings } = checkRepo({
+    config: schema7,
+    changes: [epic('release_impact: major\ntdd: true\n')],
+  });
+  assert.deepEqual(msgs(errors), []);
+  assert.deepEqual(msgs(warnings), [
+    'release_impact on an epic is ignored: its children carry the impact',
+    'tdd on an epic is ignored: it carries no implementation',
+  ]);
+
+  const plain = checkRepo({
+    config: schema7,
+    changes: [
+      epic(''),
+      doc(docText({ id: '20261024-120001', extra: 'release_impact: major\ntdd: false\n' })),
+    ],
+  });
+  assert.deepEqual([...msgs(plain.errors), ...msgs(plain.warnings)], []);
 });
 
 test('20261024-121022 CR9: release.default_impact must be one of the four impacts', () => {
@@ -4246,24 +4295,22 @@ test('20261024-121022 CR13: a config without stages or types is complete', () =>
 // structural check that no longer reports it.
 test('20261024-121022 CR3: in-review asks for a Specification with a criterion and a Plan', () => {
   const at = (body) => docText({ status: 'in-progress', body });
-  assert.throws(() => assertReviewable({}, at('## Request\n\nR.\n\n## Log\n')), {
+  assert.throws(() => assertReviewable(at('## Request\n\nR.\n\n## Log\n')), {
     message: 'cannot request review: "## Specification", "## Plan" are missing',
   });
   assert.throws(
-    () => assertReviewable({}, at('## Request\n\nR.\n\n## Specification\n\n## Plan\n\n- [ ] t\n')),
+    () => assertReviewable(at('## Request\n\nR.\n\n## Specification\n\n## Plan\n\n- [ ] t\n')),
     { message: 'cannot request review: "## Specification" is empty' },
   );
   assert.throws(
     () =>
       assertReviewable(
-        {},
         at('## Request\n\nR.\n\n## Specification\n\nProse.\n\n## Plan\n\n- [ ] t\n'),
       ),
     { message: 'cannot request review: "## Specification" declares no criterion' },
   );
   assert.doesNotThrow(() =>
     assertReviewable(
-      {},
       at('## Request\n\nR.\n\n## Specification\n\n### CR1 — x\n\n## Plan\n\n- [ ] t\n'),
     ),
   );

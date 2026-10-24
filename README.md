@@ -52,9 +52,10 @@ its frontier in the Request. You approve the objective and the frontier of the d
 the viewer before implementation; the agent then writes the Specification and Plan with
 the code in front. From there, ChangeLedger validates
 lifecycle transitions and task traceability; the merge is the acceptance.
-A change whose branch touches code goes through `in-review` and reaches `done` with
-`changeledger review <id> pass`; one that touches only the ledger goes from
-`in-progress` to `done` directly. When the work is done, its lasting truth graduates
+A `change` goes from `in-progress` to `done` directly only when git shows that neither
+its unmerged branch nor the uncommitted paths of its checkout touch anything outside
+the ledger; any other `change` goes through `in-review` and reaches `done` with
+`changeledger review <id> pass`. When the work is done, its lasting truth graduates
 into `.changeledger/specs/`.
 
 The contract is agent-agnostic: Codex, Claude Code, opencode, Copilot, Cursor and
@@ -181,8 +182,11 @@ configuration from schema 6 to 7: it removes `types`, `stages`,
 `release.impacts`, `readiness` and the retired statuses, and declares
 `release.default_impact`. `changeledger fix` then rewrites the live documents: a
 retired type becomes `change`, and `## Investigation` and `## Proposal` fold
-under the Request as `###` subsections. Archived and discarded documents are left
-as they are.
+under the Request as `###` subsections. What a retired type implied — its release
+impact, `integrates_into: release` for `hotfix`, `tdd: false` for `documentation` —
+is written into the frontmatter unless the document already declares it, and a
+`type:` line `fix` cannot read is listed for a manual fix. `fix` migrates no archived
+or discarded document; the format repairs still apply to them.
 
 ```sh
 changeledger config migrate --dry-run   # preview changes without writing

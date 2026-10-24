@@ -8,7 +8,7 @@ import {
   releaseBranch,
   renderChangeBranch,
 } from '../config.mjs';
-import { getSchemaVersion, SUPPORTED_SCHEMA_VERSION } from '../config-migration.mjs';
+import { getSchemaVersion, outdatedSchemaWarning } from '../config-migration.mjs';
 import { checkContract } from '../contract.mjs';
 import { VERSION } from '../framing.mjs';
 import { checkoutBranch, defaultBaseBranch, lintCommitRange } from '../git.mjs';
@@ -131,12 +131,9 @@ export function check(args = [], cwd = process.cwd(), output = console) {
   const { errors, warnings, validated, notValidated } = checkRepo(repo, { id });
 
   // Schema version detection — warn without mutating.
-  const schemaVersion = getSchemaVersion(repo.config);
-  if (!id && schemaVersion < SUPPORTED_SCHEMA_VERSION) {
-    warnings.push({
-      file: '.changeledger/config.yml',
-      message: `config schema ${schemaVersion} is outdated; run \`changeledger config migrate\``,
-    });
+  const schemaWarning = outdatedSchemaWarning(getSchemaVersion(repo.config));
+  if (!id && schemaWarning) {
+    warnings.push({ file: '.changeledger/config.yml', message: schemaWarning });
   }
 
   // Collections this CLI does not know are not validated (20261002-161641);

@@ -81,8 +81,8 @@ If no approved or in-progress change applies, do not silently edit repository fi
 or update a change, or ask the human whether a purely operational, reversible edit with no
 persistent truth or observable behavior change should be done directly. If unsure, document
 it in ChangeLedger. Small work with observable behavior is still a `change`, never a bypass of
-documentation: when it touches no code it goes from `in-progress` to `done` directly, otherwise
-it is reviewed like any other — see `changeledger context implement`.
+documentation: it goes from `in-progress` to `done` directly only when git shows it touches no
+code, otherwise it is reviewed like any other — see `changeledger context implement`.
 
 Humans consume changes in `changeledger view`; write for the rendered view.
 

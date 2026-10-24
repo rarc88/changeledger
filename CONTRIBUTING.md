@@ -13,9 +13,12 @@ as documents under `.changeledger/` before code is written. Please follow the sa
 3. **Implement via TDD.** With `tdd: true`, write the failing test from each
    acceptance criterion (`CRn`), make it pass, refactor. Tick tasks as you go
    (`changeledger task <id> done <n>`) and move status with `changeledger status`.
-4. **Independent review.** A change whose branch touches code passes through
-   `in-review` before `done` — a fresh, clean-context review verifies every `CRn` is
-   met and no residue is left; one that touches only the ledger goes to `done` directly.
+4. **Independent review.** A `change` passes through `in-review` before `done` — a
+   fresh, clean-context review verifies every `CRn` is met and no residue is left —
+   except for a ledger-only change. Direct `done` requires that its branch and its
+   uncommitted paths touch nothing outside the ledger and that none of its marked
+   `[#id]` commits has reached the integration branch yet; whenever git cannot tell,
+   the gate refuses and names the cause.
 5. **Graduate the truth.** On `done`, update or create the affected `specs/`
    doc (`changeledger graduate ...`), or `--skip` when there's no persistent truth.
 

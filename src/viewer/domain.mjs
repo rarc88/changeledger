@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { parseDocument } from 'yaml';
 import { mutateFileAtomic } from '../atomic-write.mjs';
-import { parseChange } from '../change.mjs';
+import { CHANGE_TYPES, parseChange } from '../change.mjs';
 import { mutateLedgerFile, repoIsActivated } from '../change-store.mjs';
 import { checkRepo } from '../check.mjs';
 import { status as applyStatusCmd, isPendingGraduation } from '../commands/agent.mjs';
@@ -92,7 +92,7 @@ export function serialize(repo) {
   return {
     language: repo.config.language ?? 'en',
     statuses: repo.config.statuses ?? [],
-    types: ['change', 'epic'],
+    types: [...CHANGE_TYPES],
     metrics: computeMetrics(repo.changes, { now: nowUtc() }),
     changes: repo.changes.map((c) => ({
       id: c.frontmatter.id,

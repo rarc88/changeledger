@@ -1702,6 +1702,9 @@ test('20261024-121022 CR20: the day after — a change that touches code is revi
   activate(root);
   const git = (...args) => execFileSync('git', args, { cwd: root, env: sanitizedEnv() });
   git('checkout', '-q', '-b', 'main');
+  // What `init` wrote outside the ledger is committed with the base: the direct
+  // route also reads the checkout's uncommitted paths (CR5).
+  git('add', '-A', '--', '.', ':!.changeledger');
   git('commit', '--allow-empty', '-q', '-m', 'chore: base');
   const bin = path.resolve('bin/changeledger.mjs');
   const run = (...args) =>
@@ -1769,6 +1772,8 @@ test('20261024-121022 CR20: the day after — a change that touches code is revi
   const ledgerOnly = await start('ledger-only', '2026-10-24T12:01:00Z');
   git('add', '.changeledger/config.yml');
   git('commit', '-q', '-m', 'chore(ledger): track the config mirror');
+  // The draft handed to `new --from` sits in the checkout, outside the ledger.
+  fs.rmSync(path.join(root, 'incoming.md'));
   await ok('status', ledgerOnly, 'done');
 
   assert.equal(parseChange(landed(coded, 'coded')).frontmatter.status, 'done');

@@ -6,6 +6,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
+import { checkRepo } from '../src/check.mjs';
 import { AGENT_ROLES, buildAgentContext } from '../src/commands/agent-context.mjs';
 import {
   buildContext,
@@ -1031,6 +1032,22 @@ test('181428 CR7: core, mode, change and delegate contexts publish release_branc
     const policy = policyLineOf(capture);
     assert.match(policy, / — release_branch=main( |$)/, policy);
     assert.doesNotMatch(policy, /release_types=/, policy);
+  }
+});
+
+// A malformed `git.release_branch` is `check`'s diagnostic; it must not break
+// the bootstrap `context`, which every session runs first.
+test('20261024-121022 CR10: a malformed release branch publishes no release_branch and check reports it', () => {
+  for (const malformed of [5, '  ']) {
+    const root = releaseTypesRepo({ releaseBranch: malformed });
+    for (const capture of releaseTypeCaptures(root)) {
+      assert.doesNotMatch(policyLineOf(capture), /release_branch=/);
+    }
+    const { errors } = checkRepo(loadRepo(root));
+    assert.ok(
+      errors.some((e) => e.message === 'config "git.release_branch" must be a non-empty string'),
+      JSON.stringify(errors),
+    );
   }
 });
 
@@ -3858,6 +3875,15 @@ test('20261024-121022 CR17: context spec never decides ceremony by size', () => 
 
 test('20261024-121022 CR17: context spec states when a change declares tdd: false', () => {
   assert.match(flattened(buildContext('spec', repo())), /`tdd: false`[^.]{0,120}(test|exercise)/i);
+});
+
+// The two authoring obligations the retired Investigation and Proposal stages
+// carried keep a home without the type: a defect's root cause, and a proposal's
+// discarded alternatives. Concept guards, never the sentence.
+test('20261024-121022 CR17: context spec keeps the root cause and the discarded alternatives', () => {
+  const spec = flattened(buildContext('spec', repo()));
+  assert.match(spec, /root cause/i);
+  assert.match(spec, /discarded alternatives/i);
 });
 
 test('20261024-121022 CR17: context implement reaches done directly only without code', () => {

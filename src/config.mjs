@@ -230,6 +230,11 @@ export function renderChangeBranch(config, { type, id }) {
 // and `graduate` so a graduated spec lands where the repo will later read it.
 export const DEFAULT_SPECS_DIR = '.changeledger/specs';
 
+// The impact of a done change that declares no `release_impact` when the
+// configuration declares no `release.default_impact` either; the 6 → 7
+// migration writes it as that key.
+export const DEFAULT_RELEASE_IMPACT = 'patch';
+
 export function resolveSpecsDir(repoRoot, config) {
   return resolveRepoPath(repoRoot, config.specs_dir ?? DEFAULT_SPECS_DIR, 'specs_dir');
 }

@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import { isMap, isPair, isScalar, isSeq, parseDocument } from 'yaml';
 import { writeFileAtomic } from './atomic-write.mjs';
 import { repoIsActivated } from './change-store.mjs';
+import { DEFAULT_RELEASE_IMPACT } from './config.mjs';
 import { VERSION } from './framing.mjs';
 import { mutateState, readStateConfigText, readStateRef } from './state-store.mjs';
 
@@ -11,7 +12,18 @@ export const SUPPORTED_SCHEMA_VERSION = 7;
 // (20261024-121022): ChangeLedger 0.19 is the last release that carries it.
 const MIGRATABLE_SCHEMA_VERSION = 6;
 const RETIRED_STATUSES = ['in-validation', 'blocked'];
-const DEFAULT_IMPACT = 'patch';
+
+// What `check` and `register` warn about a schema older than this release
+// writes, or null when it is current: the migrating command when there is one,
+// and otherwise the release that migrates it, in `buildMigration`'s refusal.
+export function outdatedSchemaWarning(schemaVersion) {
+  if (schemaVersion >= SUPPORTED_SCHEMA_VERSION) return null;
+  if (schemaVersion < MIGRATABLE_SCHEMA_VERSION) return tooOldForThisRelease(schemaVersion);
+  return `config schema ${schemaVersion} is outdated; run \`changeledger config migrate\``;
+}
+
+const tooOldForThisRelease = (schemaVersion) =>
+  `config schema ${schemaVersion} is older than ${MIGRATABLE_SCHEMA_VERSION}: migrate it with ChangeLedger 0.19 before upgrading`;
 
 export function getSchemaVersion(config) {
   const v = config.schema_version;
@@ -50,11 +62,7 @@ export function buildMigration(originalText, runningVersion = VERSION) {
   if (current === SUPPORTED_SCHEMA_VERSION) {
     return null;
   }
-  if (current < MIGRATABLE_SCHEMA_VERSION) {
-    throw new Error(
-      `config schema ${current} is older than ${MIGRATABLE_SCHEMA_VERSION}: migrate it with ChangeLedger 0.19 before upgrading`,
-    );
-  }
+  if (current < MIGRATABLE_SCHEMA_VERSION) throw new Error(tooOldForThisRelease(current));
 
   const changes = [];
   migrateSixToSeven(doc, changes, runningVersion);
@@ -87,7 +95,7 @@ function migrateSixToSeven(doc, changes, runningVersion) {
     if (release.has('default_impact')) {
       release.items.splice(index, 1);
     } else {
-      release.items.splice(index, 1, doc.createPair('default_impact', DEFAULT_IMPACT));
+      release.items.splice(index, 1, doc.createPair('default_impact', DEFAULT_RELEASE_IMPACT));
     }
     changes.push(
       `replaced release.impacts with release.default_impact: ${release.get('default_impact')}`,

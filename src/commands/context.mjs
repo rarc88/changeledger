@@ -107,11 +107,13 @@ function effectiveLanguage(config) {
 // `git.integration_branch` also publishes that branch as `back_merge_branch`,
 // where its integrated result must be brought too (20261002-181428).
 // Every composition also publishes `release_branch` while it is declared: the
-// only state in which a change integrating into it can be loaded.
+// only state in which a change integrating into it can be loaded. A malformed
+// value publishes nothing and is `check`'s to report, so it never breaks the
+// bootstrap capture every session loads first.
 export function transversalPolicy(config, frontmatter = {}) {
   const tdd =
     frontmatter.type === 'epic' ? '' : ` — tdd=${effectiveTdd(config, frontmatter) ? 'on' : 'off'}`;
-  const release = releaseBranch(config);
+  const release = publishableReleaseBranch(config);
   const releasePart = release === undefined ? '' : ` — release_branch=${release}`;
   const base = `Effective policy: language=${effectiveLanguage(config)}${tdd}${releasePart}`;
   const branch = changeIntegrationBranch(config, frontmatter);
@@ -119,6 +121,14 @@ export function transversalPolicy(config, frontmatter = {}) {
   const repoBranch = integrationBranch(config);
   const backMerge = repoBranch && repoBranch !== branch ? ` — back_merge_branch=${repoBranch}` : '';
   return `${base} — integration_branch=${branch}${backMerge}`;
+}
+
+function publishableReleaseBranch(config) {
+  try {
+    return releaseBranch(config);
+  } catch {
+    return undefined;
+  }
 }
 
 // A change's `type` selects which obligations its capture publishes. A type

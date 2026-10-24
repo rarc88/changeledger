@@ -17,8 +17,15 @@
 // Recognition of the task line itself is not this module's own: it comes from
 // `src/task.mjs`, the single seat, and is re-exported below so the identity of
 // that seat is assertable.
-import { parseChange } from './change.mjs';
+import {
+  CHANGE_TYPES,
+  fenceTracker,
+  parseChange,
+  RETIRED_STAGES,
+  RETIRED_TYPES,
+} from './change.mjs';
 import { matchLenientTaskLine } from './task.mjs';
+import { parseYaml } from './yaml.mjs';
 
 export { matchLenientTaskLine };
 
@@ -62,27 +69,16 @@ export function hasFixableDefects(text) {
 }
 
 // The types and stages retired by 20261024-121022. A live document carrying
-// one is rewritten: the type becomes `change`, and each retired stage's body
-// moves under `## Request` as a `###` subsection after the Request's own
-// content, in document order, its own headings one level deeper so the
-// hierarchy survives. An empty retired stage simply disappears. Which
-// documents are live is the caller's question (`frozenReason`): this function
-// never sees frozen history.
-const RETIRED_TYPES = [
-  'feature',
-  'bug',
-  'hotfix',
-  'audit',
-  'refactor',
-  'chore',
-  'quick',
-  'documentation',
-];
-const RETIRED_STAGES = new Map([
-  ['investigation', 'Investigation'],
-  ['proposal', 'Proposal'],
-]);
-const FRONTMATTER = /^---\n[\s\S]*?\n---\n?/;
+// one is rewritten: the type becomes `change`, keeping a trailing comment, and
+// what the retired type implied (`RETIRED_TYPES`) is written right after it
+// unless the frontmatter already declares that key; a `type:` line this
+// cannot read is left for a manual fix. Each retired stage's body moves under
+// `## Request` as a `###` subsection after the Request's own content, in
+// document order, its own headings one level deeper so the hierarchy survives.
+// An empty retired stage simply disappears. Which documents are live is the
+// caller's question (`frozenReason`): this function never sees frozen history.
+const FRONTMATTER = /^---\n([\s\S]*?)\n---\n?/;
+const TYPE_LINE = /^type:[ \t]*(["']?)([^"'\s#]+)\1([ \t]+#.*)?[ \t]*$/;
 
 export function repairLiveDocument(text) {
   const applied = [];
@@ -90,16 +86,43 @@ export function repairLiveDocument(text) {
   const frontmatter = text.match(FRONTMATTER);
   if (!frontmatter) return { text, applied, manual, changed: false };
 
-  let head = frontmatter[0];
-  const type = head.match(/^type:[ \t]*(["']?)([^"'\s]+)\1[ \t]*$/m);
-  if (type && RETIRED_TYPES.includes(type[2])) {
-    head = head.replace(type[0], 'type: change');
-    applied.push(`type ${type[2]} → change`);
-  }
-
+  const head = repairType(frontmatter[0], frontmatter[1], applied, manual);
   const body = foldRetiredStages(text.slice(frontmatter[0].length), applied, manual);
   const repaired = `${head}${body}`;
   return { text: repaired, applied, manual, changed: repaired !== text };
+}
+
+function repairType(head, yaml, applied, manual) {
+  const lines = head.split('\n');
+  const at = lines.findIndex((line) => /^type:/.test(line));
+  const line = at === -1 ? null : lines[at].match(TYPE_LINE);
+  if (!line) {
+    const declared = declaredType(yaml);
+    if ((at !== -1 || declared !== undefined) && !CHANGE_TYPES.includes(declared)) {
+      const shown = at === -1 ? '' : ` "${lines[at]}"`;
+      manual.push(`cannot read the type line${shown}: set type to "change" by hand`);
+    }
+    return head;
+  }
+  const type = line[2];
+  if (!Object.hasOwn(RETIRED_TYPES, type)) return head;
+  applied.push(`type ${type} → change`);
+  const implied = Object.entries(RETIRED_TYPES[type])
+    .filter(([key]) => !lines.some((other) => other.startsWith(`${key}:`)))
+    .map(([key, value]) => {
+      applied.push(`${key}: ${value} (from ${type})`);
+      return `${key}: ${value}`;
+    });
+  lines.splice(at, 1, `type: change${line[3] ?? ''}`, ...implied);
+  return lines.join('\n');
+}
+
+function declaredType(yaml) {
+  try {
+    return parseYaml(yaml)?.type;
+  } catch {
+    return undefined;
+  }
 }
 
 function foldRetiredStages(body, applied, manual) {
@@ -169,20 +192,6 @@ function trimBlankLines(lines) {
   let start = 0;
   while (start < kept.length && !kept[start].trim()) start += 1;
   return kept.slice(start);
-}
-
-// The fence rule `src/change.mjs` applies when it splits stages: a fence
-// closes only on a run of its own character at least as long as the opener.
-// A copy, because that module keeps its tracker private.
-function fenceTracker() {
-  let fence = null;
-  return (line) => {
-    const mark = line.match(/^(`{3,}|~{3,})/);
-    if (!mark) return fence !== null;
-    if (!fence) fence = { char: mark[1][0], length: mark[1].length };
-    else if (mark[1][0] === fence.char && mark[1].length >= fence.length) fence = null;
-    return true;
-  };
 }
 
 function fixTaskLine(rawLine, declaredCR, lineNo) {

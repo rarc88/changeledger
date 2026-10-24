@@ -329,6 +329,48 @@ export function changedPathsInRange(cwd, base, head, run = capturedRun) {
     .filter((entry) => entry !== '');
 }
 
+// The paths the checkout at `cwd` holds uncommitted — staged, modified or
+// untracked, ignored ones excepted — read with the same pins as
+// `changedPathsInRange`: relative to git's top-level (porcelain output always
+// is), raw, renames split into their two paths, never trimmed. Each NUL-ended
+// entry is `XY <path>`. A failure throws with its cause, for the same reason.
+const STATUS_ARGS = [
+  '-c',
+  'core.quotePath=false',
+  'status',
+  '--porcelain=v1',
+  '-z',
+  '--no-renames',
+  '--untracked-files=all',
+  '--ignore-submodules=none',
+];
+
+export function uncommittedPaths(cwd, run = capturedRun) {
+  let out;
+  try {
+    out = run(STATUS_ARGS, cwd);
+  } catch (e) {
+    throw new Error(gitFailure(e, 'git status failed'), { cause: e });
+  }
+  return String(out)
+    .split('\0')
+    .filter((entry) => entry !== '')
+    .map((entry) => entry.slice(3));
+}
+
+// The worktree that has local branch `branch` checked out, as git reports it
+// (`%(worktreepath)`, git >= 2.23), or '' when none does. Every failure throws
+// with its cause: a gate reads it.
+export function branchWorktree(cwd, branch, run = capturedRun) {
+  let out;
+  try {
+    out = run(['for-each-ref', '--format=%(worktreepath)', `refs/heads/${branch}`], cwd);
+  } catch (e) {
+    throw new Error(gitFailure(e, `cannot tell where "${branch}" is checked out`), { cause: e });
+  }
+  return String(out).replace(/\n$/, '');
+}
+
 // `show-ref --verify` exits 1 exactly when the ref is absent; any other failure
 // is git's own and is reported as such.
 function assertLocalBranch(cwd, name, run) {
@@ -570,35 +612,34 @@ function attributesTo({ subject, body }, id) {
   return MULTI_BODY_RE.test(declaration) && declaration.includes(marker);
 }
 
+// The `log --pretty` shape both readers of attributed commits parse, and the
+// parse itself: the grep only prefilters candidates — it matches the whole
+// message — so `attributesTo` decides which of them the id belongs to.
+const ATTRIBUTED_FORMAT = `--pretty=format:%H${SEP}%s${SEP}%cI${SEP}%b${RECORD_SEP}`;
+
+function attributedCommits(out, id) {
+  return String(out)
+    .split(RECORD_SEP)
+    .map((record) => record.trim())
+    .filter(Boolean)
+    .map((record) => {
+      const [sha, subject, date, body = ''] = record.split(SEP);
+      return { sha, subject, date, body };
+    })
+    .filter((commit) => attributesTo(commit, id))
+    .map(({ sha, subject, date }) => ({ sha, subject, date }));
+}
+
 export function gitRefs(repoRoot, id, run = defaultRun) {
   const refs = { commits: [], branches: [] };
   if (!id) return refs;
 
   try {
-    // The grep only prefilters candidates: it matches the whole message, so
-    // attributesTo decides which of them the id actually belongs to.
     const out = run(
-      [
-        'log',
-        '--all',
-        '-n',
-        '100',
-        '-F',
-        `--grep=[#${id}]`,
-        `--pretty=format:%H${SEP}%s${SEP}%cI${SEP}%b${RECORD_SEP}`,
-      ],
+      ['log', '--all', '-n', '100', '-F', `--grep=[#${id}]`, ATTRIBUTED_FORMAT],
       repoRoot,
     );
-    refs.commits = out
-      .split(RECORD_SEP)
-      .map((record) => record.trim())
-      .filter(Boolean)
-      .map((record) => {
-        const [sha, subject, date, body = ''] = record.split(SEP);
-        return { sha, subject, date, body };
-      })
-      .filter((commit) => attributesTo(commit, id))
-      .map(({ sha, subject, date }) => ({ sha, subject, date }));
+    refs.commits = attributedCommits(out, id);
   } catch {
     // not a git repo, or git unavailable — leave commits empty
   }
@@ -614,6 +655,23 @@ export function gitRefs(repoRoot, id, run = defaultRun) {
   }
 
   return refs;
+}
+
+// The commits attributed to change `id` (`attributesTo`: the subject marker or
+// the body declaration) that local branch `integration` already reaches. A
+// gate reads it, so unlike `gitRefs` it is not capped and every git failure
+// throws with its cause.
+export function attributedCommitsIn(cwd, integration, id, run = capturedRun) {
+  let out;
+  try {
+    out = run(
+      ['log', `refs/heads/${integration}`, '-F', `--grep=[#${id}]`, ATTRIBUTED_FORMAT, '--'],
+      cwd,
+    );
+  } catch (e) {
+    throw new Error(gitFailure(e, `git log ${integration} failed`), { cause: e });
+  }
+  return attributedCommits(out, id);
 }
 
 // Deletes a local branch, and only when its tip is already an ancestor of

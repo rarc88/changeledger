@@ -7,6 +7,7 @@ import { test } from 'node:test';
 import { parse as parseYaml } from 'yaml';
 import { check } from '../src/commands/check.mjs';
 import { init } from '../src/commands/init.mjs';
+import { registerRepo } from '../src/commands/register.mjs';
 import { loadConfig } from '../src/config.mjs';
 import { applyMigration, assertSupportedSchema, buildMigration } from '../src/config-migration.mjs';
 import { capturedRun } from '../src/git.mjs';
@@ -537,6 +538,35 @@ test('20261024-121022 CR12: a schema older than 6 is refused naming the version 
     );
     assert.equal(fs.readFileSync(configFile, 'utf8'), text);
   }
+});
+
+// A schema `config migrate` refuses must not be pointed at it: `check` and
+// `register` name the release that migrates it, in the refusal's own words.
+test('20261024-121022 CR13: check and register name ChangeLedger 0.19 for a schema older than 6', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-schema5-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  init(root);
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  fs.writeFileSync(
+    configFile,
+    fs.readFileSync(configFile, 'utf8').replace(/^schema_version: \d+$/m, 'schema_version: 5'),
+  );
+  const expected =
+    'config schema 5 is older than 6: migrate it with ChangeLedger 0.19 before upgrading';
+
+  const lines = [];
+  check(['--json'], root, { log: (l) => lines.push(l) });
+  const schemaWarnings = JSON.parse(lines.join('\n'))
+    .warnings.filter((w) => w.file === '.changeledger/config.yml')
+    .map((w) => w.message);
+  assert.deepEqual(schemaWarnings, [expected]);
+
+  const warned = [];
+  registerRepo(root, { log: () => {}, warn: (l) => warned.push(l) });
+  assert.deepEqual(
+    warned.filter((l) => l.includes('schema')),
+    [`warn  .changeledger/config.yml: ${expected}`],
+  );
 });
 
 test('20261024-121022 CR12: in an activated repo the migration is one config: migrate commit on the state ref', () => {

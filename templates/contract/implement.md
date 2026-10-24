@@ -71,9 +71,9 @@ Every top-level Log entry has a strict ISO UTC timestamp and canonical type:
 
 `changeledger log --help` prints every type, its payload forms and the command that writes each, generated from the parser's own definitions. Each transition event records exactly one transition. Continuation prose is allowed, but every top-level `- ` line must be a valid typed event.
 
-A `change` reaches `done` directly from `in-progress` only when its branch touches no
-path outside the ledger directories; one that touches code moves to `in-review` and is
-delivered by `review pass`. When implementation and every task are complete, run this
+A `change` reaches `done` directly from `in-progress` only when nothing outside the
+ledger directories is touched by its branch, still unmerged, or by its checkout's
+uncommitted paths; otherwise it moves to `in-review` and is delivered by `review pass`. When implementation and every task are complete, run this
 ordered gate — do not reconstruct it from memory:
 1. Confirm every Plan task is complete and its verification passes.
 2. Apply the local formatter and full gates, including `changeledger check`, to the exact review candidate.
@@ -93,8 +93,8 @@ ordered gate — do not reconstruct it from memory:
 9. After that mutation, apply the formatter again and repeat affected checks,
    including `changeledger check`, before commit or handing the result to the human.
 
-A change that touches no code passes the same local gate before
-`changeledger status <id> done`, then apply the same post-transition
+A change that touches no code passes the same local gate, with every selection
+committed, before `changeledger status <id> done`, then apply the same post-transition
 formatter and affected-check gate. The host owns these
 commands; ChangeLedger mutations never run configurable hooks or external formatters.
 

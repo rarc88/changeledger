@@ -2265,13 +2265,13 @@ function gateRepo({
 // Markdown file is written as a spec, since the ledger reads its specs dir.
 const GATE_SPEC =
   '---\ntitle: S\nupdated: 2026-10-24T14:00:00Z\ntags: []\ngraduated_from: []\n---\n\nBody.\n';
-function commitOnBranch(root, file, files = []) {
+function commitOnBranch(root, file, files = [], message = 'work') {
   for (const rel of files) {
     fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
     fs.writeFileSync(path.join(root, rel), rel.endsWith('.md') ? GATE_SPEC : `${rel}\n`);
   }
   git(root, ['add', '--', path.relative(root, file), ...files]);
-  git(root, ['commit', '-q', '-m', 'work']);
+  git(root, ['commit', '-q', '-m', message]);
 }
 
 const verdictRoute = 'move it to in-review and record a verdict';
@@ -2442,6 +2442,161 @@ test('20261024-121022 CR6: a change recorded on the integration branch itself ca
     (error) =>
       error.message ===
       `cannot decide whether change ${id} touches code: branch "dev" is the integration branch — ${verdictRoute}`,
+  );
+});
+
+// Leaves `files` (repo-relative) uncommitted in the checkout: `staged` ones are
+// added to the index, the rest stay untracked. Markdown is written as a spec,
+// as in `commitOnBranch`.
+function leaveUncommitted(root, { untracked = [], staged = [] }) {
+  for (const rel of [...untracked, ...staged]) {
+    fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
+    fs.writeFileSync(path.join(root, rel), rel.endsWith('.md') ? GATE_SPEC : `${rel}\n`);
+  }
+  if (staged.length > 0) git(root, ['add', '--', ...staged]);
+}
+
+test('20261024-121022 CR5: an untracked code path on the change branch is refused done and left untouched', () => {
+  const { root, file, id } = gateRepo();
+  commitOnBranch(root, file);
+  leaveUncommitted(root, { untracked: ['src/uncommitted.mjs'] });
+  const before = fs.readFileSync(file, 'utf8');
+  const message = `change ${id} touches code outside the ledger in uncommitted paths (1 path, e.g. src/uncommitted.mjs): commit them, ${verdictRoute}`;
+
+  assert.throws(
+    () => status(id, 'done', root),
+    (error) => error.message === message,
+  );
+  const cli = runCli(['status', id, 'done'], root);
+  assert.notEqual(cli.code, 0);
+  assert.equal(cli.err.trim(), `Error: ${message}`);
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
+test('20261024-121022 CR5: staged, modified and untracked code paths all count as uncommitted', () => {
+  const { root, file, id } = gateRepo();
+  commitOnBranch(root, file);
+  // AGENTS.md is tracked since the baseline, so editing it is an unstaged change.
+  fs.appendFileSync(path.join(root, 'AGENTS.md'), 'more\n');
+  leaveUncommitted(root, { staged: ['a/staged.mjs'], untracked: ['z/untracked.mjs'] });
+
+  assert.throws(
+    () => status(id, 'done', root),
+    (error) =>
+      error.message ===
+      `change ${id} touches code outside the ledger in uncommitted paths (3 paths, e.g. AGENTS.md): commit them, ${verdictRoute}`,
+  );
+});
+
+test('20261024-121022 CR5: uncommitted paths under the ledger directories do not count', () => {
+  const { root, file, id } = gateRepo();
+  commitOnBranch(root, file);
+  leaveUncommitted(root, {
+    untracked: ['.changeledger/specs/new.md'],
+    staged: ['.changeledger/notes.md'],
+  });
+
+  status(id, 'done', root);
+
+  assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'done');
+});
+
+// The uncommitted paths that count are those of the worktree holding the
+// change's branch, wherever it is; a checkout on another branch holds someone
+// else's work.
+test('20261024-121022 CR5: the branch checked out in another worktree has its uncommitted paths read there', () => {
+  const { root, file, id, branch } = gateRepo();
+  commitOnBranch(root, file);
+  git(root, ['checkout', '-q', '-b', 'elsewhere']);
+  const other = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-wt-')));
+  git(root, ['worktree', 'add', '-q', other, branch]);
+  leaveUncommitted(other, { untracked: ['src/in-worktree.mjs'] });
+  const before = fs.readFileSync(file, 'utf8');
+
+  assert.throws(
+    () => status(id, 'done', root),
+    (error) =>
+      error.message ===
+      `change ${id} touches code outside the ledger in uncommitted paths (1 path, e.g. src/in-worktree.mjs): commit them, ${verdictRoute}`,
+  );
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
+test('20261024-121022 CR5: a branch checked out nowhere is judged by its committed range alone', () => {
+  const { root, file, id } = gateRepo();
+  commitOnBranch(root, file);
+  git(root, ['checkout', '-q', '-b', 'elsewhere']);
+  // This checkout's own uncommitted work is not the change's.
+  leaveUncommitted(root, { untracked: ['src/not-mine.mjs'] });
+
+  status(id, 'done', root);
+
+  assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'done');
+});
+
+// Merges `branch` into `dev` with `mode` and returns to the branch.
+function mergeIntoDev(root, branch, mode) {
+  git(root, ['checkout', '-q', 'dev']);
+  git(root, ['merge', '-q', mode, '-m', 'merge', branch]);
+  git(root, ['checkout', '-q', branch]);
+}
+
+test('20261024-121022 CR6: a change whose marked commits the integration branch reaches is refused done', () => {
+  for (const mode of ['--ff-only', '--no-ff']) {
+    const { root, file, id, branch } = gateRepo();
+    commitOnBranch(root, file, ['src/x.mjs'], `feat(x): add x [#${id}]`);
+    mergeIntoDev(root, branch, mode);
+    const before = fs.readFileSync(file, 'utf8');
+
+    assert.throws(
+      () => status(id, 'done', root),
+      (error) =>
+        error.message ===
+        `cannot decide whether change ${id} touches code: its commits are already merged into "dev" — ${verdictRoute}`,
+      mode,
+    );
+    assert.equal(fs.readFileSync(file, 'utf8'), before);
+  }
+});
+
+// The declared residual of unmarked history: once merged, unmarked commits
+// leave an empty `...` range and nothing names them as the change's own, so the
+// committed-range rule alone judges the branch — and an empty range delivers.
+test('20261024-121022 CR6: a merged branch with unmarked commits is judged by its committed range alone', () => {
+  for (const mode of ['--ff-only', '--no-ff']) {
+    const { root, file, id, branch } = gateRepo();
+    commitOnBranch(root, file, ['src/x.mjs']);
+    mergeIntoDev(root, branch, mode);
+
+    status(id, 'done', root);
+
+    assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'done', mode);
+  }
+});
+
+test('20261024-121022 CR6: a branch with no commits of its own, cut at the integration tip, delivers', () => {
+  const { root, file, id } = gateRepo();
+
+  status(id, 'done', root);
+
+  assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'done');
+});
+
+test('20261024-121022 CR6: a git failure reading the merged commits is named and closes the direct route', () => {
+  const { root, file, id } = gateRepo();
+  commitOnBranch(root, file);
+  const gitRun = (args, cwd) => {
+    if (subcommandOf(args)[0] === 'log') {
+      throw new Error(`Command failed: git ${args.join(' ')}\nfatal: bad object`);
+    }
+    return capturedRun(args, cwd);
+  };
+
+  assert.throws(
+    () => status(id, 'done', root, { gitRun }),
+    (error) =>
+      error.message ===
+      `cannot decide whether change ${id} touches code: git log dev failed: fatal: bad object — ${verdictRoute}`,
   );
 });
 
