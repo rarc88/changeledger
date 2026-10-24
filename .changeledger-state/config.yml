@@ -1,5 +1,5 @@
 # ChangeLedger — repo configuration
-# Repo specifics: documentation language, change types and active stages per type.
+# Repo specifics: documentation language, test-first policy, release impact and Git integration.
 
 # Schema version — used to detect and migrate outdated configurations.
 # Run `changeledger config migrate --dry-run` to inspect available migrations.
@@ -14,12 +14,14 @@ min_cli_version: 0.19.0
 language: es
 
 # Test-first policy. When true (default), the implementer writes each
-# criterion's failing test before the code that makes it pass. Set false for
-# exploratory repos. See `changeledger context implement`.
+# criterion's failing test before the code that makes it pass. A change that
+# delivers no behaviour a test can exercise declares `tdd: false` in its
+# frontmatter and its Log says why. See `changeledger context implement`.
 tdd: true
 
-# Default SemVer impact for a completed change. A change may override its type
-# with `release_impact: none|patch|minor|major` in frontmatter.
+# Default SemVer impact for a completed change. A change overrides it with
+# `release_impact: none|patch|minor|major` in its frontmatter; an epic always
+# weighs `none`, because its children carry the impact.
 release:
   default_impact: patch
 
@@ -33,7 +35,8 @@ statuses: [draft, approved, in-progress, in-review, done, discarded]
 project_id: "304c473ce5"
 project_name: changeledger
 
-# Git integration: change branches start from and merge into this branch
+# Git integration: change branches start from and merge into `integration_branch`;
+# a change with `integrates_into: release` in its frontmatter uses `release_branch`.
 git:
   integration_branch: dev
   change_branch_format: "{type}/{id}"
