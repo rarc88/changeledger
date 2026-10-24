@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-10-23T18:17:53Z
 depends_on: []
+archived: true
 reviewed: true
 branch: feature/20261023-181753
 related_to:
@@ -443,3 +444,4 @@ las nombra como divergencia conocida.
 - **2026-10-24T11:28:20Z** `[status]` in-progress → in-review
 - **2026-10-24T11:35:37Z** `[review]` in-review → done (delegated subagent, clean context)
 - **2026-10-24T11:36:12Z** `[graduation]` skipped: hijo de la épica 20261023-181733: la verdad persistente (specs readiness, validation, lifecycle, contract-discovery, architecture, viewer, git-traceability, data-model) la reconcilia la épica al cerrar; las divergencias que este change deja están listadas en su Log
+- **2026-10-24T11:53:48Z** `[archive]` archived
