@@ -255,7 +255,7 @@ pina dos frases literales de `implement.md` sobre la gramática de eventos, y
 **Referencias fuera de `.changeledger/` (§6.3).** Líneas con id de change o
 `CRn`: `src` 144 (todas comentarios, cero literales de código; `agent.mjs`
 26, `check.mjs` 20); `bin` 10, ocho de ellas ejemplos de ayuda con un id
-(`changeledger context 20260630-225212` y similares); `templates` 5, todas
+(`changeledger context <id real>` y similares); `templates` 5, todas
 ejemplos de gramática en `spec.md`; `hooks` 0; `test` 3.654 líneas en 53 de
 67 ficheros —1.854 de 2.002 declaraciones `test(` llevan id o `CRn` en el
 nombre—; `docs` 118, casi todas en `workflow-hardening.md`; README,
