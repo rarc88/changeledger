@@ -2,7 +2,7 @@
 id: "20261023-181753"
 title: "El humano aprueba objetivo y frontera; Specification y Plan nacen en in-progress y el Definition of Ready se retira"
 type: feature
-status: in-progress
+status: in-review
 created: 2026-10-23T18:17:53Z
 depends_on: []
 branch: feature/20261023-181753
@@ -439,3 +439,4 @@ las nombra como divergencia conocida.
 - **2026-10-24T11:15:11Z** `[status]` in-review → in-progress: el gate local falló tras pasar a in-review: test de escrituras concurrentes de la CLI; ningún revisor emitió veredicto
 - **2026-10-24T11:21:58Z** `[note]` Ronda 3, segunda iteración tras un fallo del gate local (sin veredicto): la primera versión guardaba las líneas sin recortar como campo raw de cada etapa, y ese campo salía en todo volcado JSON de un change; 'show --json' duplicó el texto del Log y el test de escrituras concurrentes de cli-bin lo contó dos veces (diagnóstico cruzado: el test falla con ese src en una copia limpia de HEAD y pasa en el worktree con el src de la ronda 2). Forma final: walkStages recorre el cuerpo una vez con las líneas tal cual; splitStages devuelve etapas con key, heading y body recortado, como antes; stageSource(text, key) exporta las líneas sin recortar de una etapa y es lo que assertApprovable entrega a parseRequestSections. El test de change.test pina la forma de la etapa (key, heading, body) y el contrato de stageSource. Mutantes muertos: stageSource recortado (rojo en el test del Request indentado), campo source en la etapa (rojo en la forma y en el test concurrente), más los tres de la primera iteración.
 - **2026-10-24T11:22:46Z** `[note]` Corrección de la nota anterior: el mutante 'campo source en la etapa' no se había aplicado en el primer intento (el sed no casó con la línea ya formateada en varias líneas) y el verde que registré era el del código intacto. Aplicado sobre la línea real, falla el test de la forma de la etapa en change.test y el de escrituras concurrentes en cli-bin; restaurado por copia idéntica. Los gates completos lanzados mientras hubo mutantes en el árbol se descartan; el gate válido es el que corre sobre el árbol restaurado.
+- **2026-10-24T11:28:20Z** `[status]` in-progress → in-review
