@@ -2,7 +2,7 @@
 id: "20261023-181753"
 title: "El humano aprueba objetivo y frontera; Specification y Plan nacen en in-progress y el Definition of Ready se retira"
 type: feature
-status: in-progress
+status: in-review
 created: 2026-10-23T18:17:53Z
 depends_on: []
 branch: feature/20261023-181753
@@ -430,3 +430,4 @@ las nombra como divergencia conocida.
 - **2026-10-24T00:05:18Z** `[review]` in-review → in-progress: Confirmación ronda 1: D1 y D3–D9 confirmados; D2 sigue abierto en un borde: splitStages recorta el cuerpo de cada etapa y una primera línea de fence con sangría de 4 espacios pasa a ser apertura sólo para parseRequestSections, que lee el cuerpo recortado; con la fase invertida un Request cuyos dos headings están dentro de un fence a columna 0 se aprueba (ejecutado). Falsifica además las frases de acuerdo entre lectores en los comentarios de fenceTracker, parseRequestSections y el test de fences. Sin regresiones; gate verde.
 - **2026-10-24T00:05:23Z** `[note]` Clasificación del fail de confirmación: enumeración incompleta de la misma clase (D2, fase de fences entre lectores). Ronda 2 sobre el mismo diff; corrección inline del orquestador por ser acotada a src/change.mjs y su test.
 - **2026-10-24T00:08:34Z** `[note]` Corrección de la ronda 2 (D2, borde de fase): splitStages deja de aplicar trim() al cuerpo de cada etapa y recorta sólo las líneas en blanco de los extremos, de modo que la primera línea con contenido conserva su sangría y parseRequestSections recorre exactamente los mismos delimitadores de fence que splitStages. Test nuevo en agent.test: un Request que empieza con cuatro espacios y un fence, con ambos headings dentro de un fence a columna 0, se rechaza con 'cannot approve: "### Objective", "### Frontier" are missing' (rojo antes del arreglo: se aprobaba; mutante: restaurar trim() lo devuelve a rojo; restaurado por edición, idéntico al pre-mutante). Decisión no especificada: las líneas sólo de espacios al principio de un cuerpo también se eliminan, como hacía trim(); las frases de acuerdo entre lectores en fenceTracker y parseRequestSections pasan a ser ciertas por construcción y se mantienen.
+- **2026-10-24T00:14:34Z** `[status]` in-progress → in-review
