@@ -6,9 +6,9 @@ Do not delegate when the coordination costs more than the expected improvement i
 
 The delegation unit is core's selection of work.
 
-- Request and Investigation may split independent codebase questions across
+- Investigation work may split independent codebase questions across
   explorers.
-- Proposal and Specification may use stronger reasoning when ambiguity,
+- Specification work may use stronger reasoning when ambiguity,
   architecture, safety or product judgment is high.
 - Implementation may split only when write sets are disjoint and integration is
   obvious.

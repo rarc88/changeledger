@@ -116,7 +116,7 @@ function addChange(root, status, id = '20260627-120000') {
   const text = `---
 id: "${id}"
 title: Context fixture
-type: feature
+type: change
 status: ${status}
 created: 2026-06-27T12:00:00Z
 depends_on: []
@@ -126,11 +126,11 @@ depends_on: []
 
 Need exact context.
 
-## Investigation
+### Investigation
 
 Current evidence.
 
-## Proposal
+### Proposal
 
 Chosen behavior.
 
@@ -158,7 +158,15 @@ Chosen behavior.
 
 function writeRawChange(
   root,
-  { id, status, type = 'feature', dependsOn = [], relatedTo = [], title = 'Dep target' },
+  {
+    id,
+    status,
+    type = 'change',
+    dependsOn = [],
+    relatedTo = [],
+    title = 'Dep target',
+    integratesInto,
+  },
 ) {
   const deps = dependsOn.length ? `[ ${dependsOn.map((d) => `"${d}"`).join(', ')} ]` : '[]';
   const related = relatedTo.length ? `[ ${relatedTo.map((d) => `"${d}"`).join(', ')} ]` : '[]';
@@ -170,7 +178,7 @@ status: ${status}
 created: 2026-06-27T12:00:00Z
 depends_on: ${deps}
 related_to: ${related}
----
+${integratesInto ? `integrates_into: ${integratesInto}\n` : ''}---
 
 ## Request
 
@@ -206,7 +214,7 @@ function writeFillerChange(root, id, filler) {
     '---',
     `id: "${id}"`,
     'title: Line count fixture',
-    'type: feature',
+    'type: change',
     'status: draft',
     'created: 2026-07-26T13:07:27Z',
     'depends_on: []',
@@ -216,12 +224,12 @@ function writeFillerChange(root, id, filler) {
     '',
     'Need an exact line count.',
     '',
-    '## Investigation',
+    '### Investigation',
     '',
     'Current evidence.',
     ...Array.from({ length: filler }, (_, index) => `Filler line ${index + 1}.`),
     '',
-    '## Proposal',
+    '### Proposal',
     '',
     'Chosen behavior.',
     '',
@@ -474,7 +482,7 @@ function activatedContextFixture({ broken = false, malformedId } = {}) {
     '.changeledger-state/changes/context-fixture.md': `---
 id: "${refId}"
 title: Context fixture
-type: feature
+type: change
 status: draft
 created: 2026-06-27T12:00:00Z
 depends_on: []
@@ -866,7 +874,7 @@ test('161655 CR4: change context publishes its expected branch and integration b
   const id = writeRawChange(root, {
     id: '20260731-161655',
     status: 'in-progress',
-    type: 'feature',
+    type: 'change',
   });
 
   const output = buildContext(id, root);
@@ -886,7 +894,7 @@ test('161655 CR7: change context omits change_branch when the format is absent o
     const id = writeRawChange(root, {
       id: configured ? '20260731-161656' : '20260731-161657',
       status: 'in-progress',
-      type: 'feature',
+      type: 'change',
     });
 
     const policyLine = buildContext(id, root)
@@ -898,29 +906,29 @@ test('161655 CR7: change context omits change_branch when the format is absent o
 
 // --- 20261002-181346: the policy line publishes the change's own integration branch ---
 
-// `fix` integrates into `git.release_branch`; `feature` declares no role.
-// `releaseBranch: null` leaves the release branch undeclared.
+// `fix` integrates into `git.release_branch` through its own frontmatter
+// (20261024-121022); `feature` declares no role. `releaseBranch: null` leaves
+// the release branch undeclared.
 function releaseTypeRepo({ releaseBranch = 'main' } = {}) {
   const root = repo();
   const file = path.join(root, '.changeledger', 'config.yml');
   const config = parseYaml(fs.readFileSync(file, 'utf8'));
   config.git = { ...config.git, integration_branch: 'dev' };
   if (releaseBranch) config.git.release_branch = releaseBranch;
-  config.types.fix = { ...config.types.bug, integrates_into: 'release' };
   fs.writeFileSync(file, stringifyYaml(config));
-  const fix = writeRawChange(root, { id: '20261002-181401', status: 'in-progress', type: 'fix' });
-  const feature = writeRawChange(root, {
-    id: '20261002-181402',
+  const fix = writeRawChange(root, {
+    id: '20261002-181401',
     status: 'in-progress',
-    type: 'feature',
+    integratesInto: 'release',
   });
+  const feature = writeRawChange(root, { id: '20261002-181402', status: 'in-progress' });
   return { root, fix, feature };
 }
 
 const policyLineOf = (output) =>
   output.split('\n').find((line) => line.startsWith('Effective policy:'));
 
-test('181346 CR6: change and delegate contexts publish the integration branch of the type', () => {
+test('181346 CR6: change and delegate contexts publish the integration branch of the change', () => {
   const { root, fix, feature } = releaseTypeRepo();
   for (const [id, branch] of [
     [fix, 'main'],
@@ -944,36 +952,34 @@ test('181346 CR6: mode contexts keep publishing the repo integration branch', ()
   );
 });
 
-test('181346 CR6: a release type without git.release_branch never publishes the integration branch', () => {
+test('181346 CR6: a release change without git.release_branch never publishes the integration branch', () => {
   const { root, fix, feature } = releaseTypeRepo({ releaseBranch: null });
   const undeclared = (error) =>
-    error.message === 'type "fix" integrates into git.release_branch, which is not declared';
+    error.message ===
+    'change 20261002-181401 integrates into git.release_branch, which is not declared';
   assert.throws(() => buildContext(fix, root), undeclared);
   assert.throws(() => buildAgentContext('implementation', fix, root), undeclared);
-  // The other types and the mode contexts are unaffected by it.
+  // The other changes and the mode contexts are unaffected by it.
   assert.match(policyLineOf(buildContext(feature, root)), / — integration_branch=dev /);
   assert.match(policyLineOf(buildContext('implement', root)), / — integration_branch=dev$/);
 });
 
 // --- 20261002-181428: the policy line names the branch to bring the result back to ---
 
-// `hotfix` integrates into `git.release_branch`; `bug` declares no role. The
-// types are declared here, so the capture is judged on the resolver, not on the
-// template's content. `integrationBranch: null` leaves `git.integration_branch`
-// undeclared.
+// `hotfix` integrates into `git.release_branch`; `bug` declares no role.
+// `integrationBranch: null` leaves `git.integration_branch` undeclared.
 function hotfixRepo({ integrationBranch = 'dev' } = {}) {
   const root = repo();
   const file = path.join(root, '.changeledger', 'config.yml');
   const config = parseYaml(fs.readFileSync(file, 'utf8'));
   config.git = { ...config.git, integration_branch: integrationBranch, release_branch: 'main' };
-  config.types.hotfix = { ...config.types.bug, integrates_into: 'release' };
   fs.writeFileSync(file, stringifyYaml(config));
   const hotfix = writeRawChange(root, {
     id: '20261002-181501',
     status: 'approved',
-    type: 'hotfix',
+    integratesInto: 'release',
   });
-  const bug = writeRawChange(root, { id: '20261002-181502', status: 'approved', type: 'bug' });
+  const bug = writeRawChange(root, { id: '20261002-181502', status: 'approved' });
   return { root, hotfix, bug };
 }
 
@@ -994,21 +1000,15 @@ test('181428 CR2: a change integrating outside git.integration_branch publishes 
   }
 });
 
-// 20261002-181428 CR7: `release_types=` names the types that integrate into
-// `git.release_branch`, only while that branch is declared. `types` replaces
-// the template's types; `releaseBranch: 'absent'` removes the key.
-function releaseTypesRepo({ releaseBranch = 'main', types } = {}) {
+// 20261002-181428 CR7, since 20261024-121022: `release_branch=` names
+// `git.release_branch` while it is declared, the only state in which a change
+// integrating into it can load. `releaseBranch: 'absent'` removes the key.
+function releaseTypesRepo({ releaseBranch = 'main' } = {}) {
   const root = repo();
   const file = path.join(root, '.changeledger', 'config.yml');
   const config = parseYaml(fs.readFileSync(file, 'utf8'));
   config.git = { ...config.git, integration_branch: 'dev', release_branch: releaseBranch };
   if (releaseBranch === 'absent') delete config.git.release_branch;
-  const bug = config.types.bug;
-  config.types = types ?? {
-    feature: config.types.feature,
-    bug,
-    hotfix: { ...bug, integrates_into: 'release' },
-  };
   fs.writeFileSync(file, stringifyYaml(config));
   return root;
 }
@@ -1021,40 +1021,26 @@ const releaseTypeCaptures = (root, ids = []) => [
   ...ids.flatMap((id) => [buildContext(id, root), buildAgentContext('implementation', id, root)]),
 ];
 
-test('181428 CR7: core, mode, change and delegate contexts publish release_types with a declared release branch', () => {
+test('181428 CR7: core, mode, change and delegate contexts publish release_branch while it is declared', () => {
   const root = releaseTypesRepo();
   const ids = [
-    writeRawChange(root, { id: '20261002-181601', status: 'approved', type: 'hotfix' }),
-    writeRawChange(root, { id: '20261002-181602', status: 'approved', type: 'bug' }),
+    writeRawChange(root, { id: '20261002-181601', status: 'approved', integratesInto: 'release' }),
+    writeRawChange(root, { id: '20261002-181602', status: 'approved' }),
   ];
   for (const capture of releaseTypeCaptures(root, ids)) {
     const policy = policyLineOf(capture);
-    assert.match(policy, / — release_types=hotfix( |$)/, policy);
+    assert.match(policy, / — release_branch=main( |$)/, policy);
+    assert.doesNotMatch(policy, /release_types=/, policy);
   }
-  // Several release types follow the key order of `config.types` as JavaScript
-  // enumerates it: integer-like names first, then insertion order — not sorted.
-  const several = releaseTypesRepo({
-    types: {
-      zfix: { stages: ['request', 'log'], integrates_into: 'release' },
-      bug: { stages: ['request', 'log'] },
-      hotfix: { stages: ['request', 'log'], integrates_into: 'release' },
-      2024: { stages: ['request', 'log'], integrates_into: 'release' },
-    },
-  });
-  assert.match(
-    policyLineOf(buildContext('spec', several)),
-    / — release_types=2024,zfix,hotfix( |$)/,
-  );
 });
 
-test('181428 CR7: no release_types without a declared release branch or a release type', () => {
+test('181428 CR7: no release_branch without a declared release branch', () => {
   for (const root of [
     releaseTypesRepo({ releaseBranch: null }),
     releaseTypesRepo({ releaseBranch: 'absent' }),
-    releaseTypesRepo({ types: { bug: { stages: ['request', 'log'] } } }),
   ]) {
     for (const capture of releaseTypeCaptures(root)) {
-      assert.doesNotMatch(policyLineOf(capture), /release_types=/, policyLineOf(capture));
+      assert.doesNotMatch(policyLineOf(capture), /release_(branch|types)=/, policyLineOf(capture));
     }
   }
 });
@@ -1075,33 +1061,19 @@ test('181428 CR2: mode contexts and an undeclared git.integration_branch publish
   assert.doesNotMatch(policy, /back_merge_branch=/, policy);
 });
 
-test('225213 CR2: change-id context shows type-specific effective policy', () => {
+test("225213 CR2: change-id context shows the change's effective policy", () => {
   const root = repo();
   setConfig(root, [[/^language: en$/m, 'language: es']]);
   const id = writeRawChange(root, {
     id: '20260627-140000',
     status: 'in-progress',
-    type: 'feature',
+    type: 'change',
   });
   const output = buildContext(id, root);
   assert.match(output, /Effective policy: language=es/);
   assert.match(output, /tdd=on/);
-  // feature requires review in the fixture config.
-  assert.match(output, /review_required\(feature\)=yes/);
-  // Active stages for the type are resolved, not left for the agent to infer.
-  assert.match(output, /stages\(feature\)=[a-z, ]*specification/);
-});
-
-test('225213 CR2: change-id policy reflects a type without review', () => {
-  const root = repo();
-  const id = writeRawChange(root, {
-    id: '20260627-140001',
-    status: 'in-progress',
-    type: 'audit',
-  });
-  const output = buildContext(id, root);
-  // audit has no review_required in the fixture config → resolved to no.
-  assert.match(output, /review_required\(audit\)=no/);
+  // The type is resolved, not left for the agent to infer (20261024-121022).
+  assert.match(policyLineOf(output), / — type=change$/);
 });
 
 test('225213 CR3: change-id resolves local dependencies without inflating bodies', () => {
@@ -1265,9 +1237,11 @@ test('134702/122950 CR1/CR2: the review gate is one ordered recipe owned by impl
     /1\..*Plan task.*2\..*formatter.*full gates.*3\..*`changeledger status <id> in-review`.*4\..*Reapply the formatter.*5\..*implementation commit.*6\..*`changeledger context review` once.*7\..*read-only reviewer.*8\..*`changeledger review <id> pass\|fail`.*9\..*formatter again.*affected checks.*`changeledger check`/,
   );
   assert.match(implement, /never `log`\+`status`/);
+  // 20261024-121022 retargeted this from the retired `review_required` key: the
+  // change that reaches `done` without review passes the same gate before it.
   assert.match(
     implement,
-    /without `review_required`.*post-transition formatter.*affected-check gate/,
+    /\bsame local gate\b[^.]{0,80}`changeledger status <id> done`.*post-transition formatter.*affected-check gate/,
   );
   assert.match(review, /After recording any verdict.*formatter.*`changeledger check`/);
 
@@ -1403,34 +1377,28 @@ test('230608 CR1/CR2: core defers exhaustive detail to owning packs', () => {
   assert.doesNotMatch(core, /a new spec is a two-step/);
 });
 
-// 20260711-103756 CR5: the spec context documents the `quick` lane, its
-// eligibility and the discard-and-recreate rule for scope growth.
-test('103756 CR5: spec context documents the quick lane and its eligibility', () => {
-  const root = repo();
-  const spec = buildContext('spec', root).replace(/\s+/g, ' ');
-  // 20260730-002730 retired the two eligibility sentence pins; the lane's name is a
-  // configured enum value, not prose, and the budget is untouched.
-  assert.match(spec, /`quick`/);
-  assertWithinBudget('spec', buildContext('spec', root), contextBudgets.base.spec);
-});
+// 20261024-121022 retired `103756 CR5`: it pinned the `quick` lane, and the type
+// is gone. Small work is a `change` whose review is decided by whether it touches
+// code — guarded by the CR17 tests at the end of this file — and the spec budget
+// stays asserted by `225213 CR6`.
 
 // 20260730-002730 retired `105456 CR8 correction`: all five of its asserts pinned
 // sentences of `spec.md`. The frontmatter keys the rule is about — `depends_on`
 // and `related_to` — are still pinned present by the authoring pack's own
 // composition checks, which are structural.
 
-// 20260726-141120 CR6 — a type without `review_required` can never reach
+// 20260726-141120 CR6, since 20261024-121022 — an epic can never reach
 // `in-review`, so no reachable status composes the review mode. Reachability is
 // derived from the lifecycle graph itself, not hardcoded, so closing or
 // reopening the review entry is what this test observes.
 
-function addQuickChange(root, status, id = '20260726-141120') {
+function addEpicChange(root, status, id = '20260726-141120') {
   fs.writeFileSync(
     path.join(root, '.changeledger', 'changes', `${id}-quick-fixture.md`),
     `---
 id: "${id}"
 title: Quick fixture
-type: quick
+type: epic
 status: ${status}
 created: 2026-07-26T14:11:20Z
 depends_on: []
@@ -1456,7 +1424,7 @@ function reachableWithoutReview() {
     for (const to of CANONICAL_STATUSES) {
       if (seen.has(to) || !canTransition(from, to)) continue;
       try {
-        assertTransition(from, to, { type: 'quick', reviewRequired: false });
+        assertTransition(from, to, { kind: 'epic' });
       } catch {
         continue;
       }
@@ -1474,22 +1442,15 @@ function reachableWithoutReview() {
 test('141121 CR2/CR3: every draft type composes the two spec fragments in order', () => {
   const root = repo();
   const expected = ['# Authoring a Change', '# Economical Delegation'];
-  const cases = [
-    ['audit', '20260726-141130', false],
-    ['chore', '20260726-141131', false],
-    ['quick', '20260726-141132', false],
-    ['feature', '20260726-141133', true],
-    ['bug', '20260726-141134', true],
-    ['refactor', '20260726-141135', true],
-  ];
-  for (const [type, id, specification] of cases) {
+  for (const [type, id] of [
+    ['change', '20260726-141130'],
+    ['epic', '20260726-141131'],
+  ]) {
     writeRawChange(root, { id, status: 'draft', type });
     const output = buildContext(id, root);
     const headings = output.split('\n').filter((line) => expected.includes(line));
     assert.deepEqual(headings, expected, `${type} composed ${headings.join(', ')}`);
-    const stages = output.split('\n').find((line) => line.startsWith(`Active stages(${type})=`));
-    assert.ok(stages, `${type} is missing its active stages line`);
-    assert.equal(/specification/.test(stages), specification, `${type} stages: ${stages}`);
+    assert.match(policyLineOf(output), new RegExp(` — type=${type}$`));
   }
 });
 
@@ -1563,18 +1524,18 @@ test('203257 CR7: the spec pack teaches the four task children and no positional
   assertWithinBudget('spec', output, contextBudgets.base.spec);
 });
 
-test('141120 CR6: a quick change in-progress composes implement, never review', () => {
+test('141120 CR6: an epic in-progress composes implement, never review', () => {
   const root = repo();
-  const id = addQuickChange(root, 'in-progress');
+  const id = addEpicChange(root, 'in-progress');
   assert.match(buildContext(id, root).split('\n')[0], /mode: implement/);
 });
 
-test('141120 CR6: no status reachable by a type without review composes review', () => {
+test('141120 CR6: no status reachable by an epic composes review', () => {
   const reachable = reachableWithoutReview();
-  assert.ok(!reachable.includes('in-review'), 'in-review must be unreachable without review');
+  assert.ok(!reachable.includes('in-review'), 'in-review must be unreachable for an epic');
   for (const status of reachable) {
     const root = repo();
-    const id = addQuickChange(root, status);
+    const id = addEpicChange(root, status);
     assert.doesNotMatch(
       buildContext(id, root).split('\n')[0],
       /mode: review/,
@@ -2000,46 +1961,10 @@ for (const [label, owner, seat, patterns] of CLASSIFICATION_OBLIGATIONS) {
   });
 }
 
-// 20260730-214504 CR1 — the migration route from pre-existing Plan tasks and
-// legacy task metadata/Log events to the current grammar, named in `spec.md`
-// because that is the capture a consumer already has open when `check` reports
-// the errors those old shapes cause. Fragment-only, following the
-// regime `20260730-214503` established above for `DELEGATION_OBLIGATIONS` and
-// `CLASSIFICATION_OBLIGATIONS`: the fragment's transport into the composed
-// `spec` pack is already proven by the structural-composition test, so no
-// composed half is asserted here. A sibling table rather than a row inside
-// `DELEGATION_OBLIGATIONS` — that table's loop still titles every test
-// `165310: the ${mode} pack …`, and this obligation belongs to a different
-// change; a row there would misattribute a failure to `165310` instead of the
-// change that actually owns it.
-//
-// Tolerant halves, each anchored on a CLI flag token that grep confirms is
-// unique to this sentence in `spec.md` (`--plan-tags`, `--structured-sections`,
-// `--dry-run` appear nowhere else in the fragment), so a delete mutant has
-// nothing coincidental left to match. Each half is written in both directions
-// and was run, before being kept, against a reword mutant (different verbs and
-// clause order, same meaning) and stayed green, and against the fragment with
-// the sentence deleted and went red.
-const MIGRATION_OBLIGATIONS = [
-  [
-    'pre-existing Plan tasks without structured children migrate with `fix --plan-tags`, legacy task metadata or Log events migrate with `fix --structured-sections`, and both are previewable with `--dry-run`',
-    'spec.md',
-    [
-      /\bstructured\b[^.;]{0,30}\bchildren\b[^.;]{0,90}--plan-tags|--plan-tags[^.;]{0,90}\bstructured\b[^.;]{0,30}\bchildren\b/i,
-      /\b(metadata|log)\b[^.;]{0,90}--structured-sections|--structured-sections[^.;]{0,90}\b(metadata|log)\b/i,
-      /\bpreview\w*\b[^.;]{0,40}--dry-run|--dry-run[^.;]{0,40}\bpreview\w*\b/i,
-    ],
-  ],
-];
-
-for (const [label, owner, patterns] of MIGRATION_OBLIGATIONS) {
-  test(`214504 CR1: the spec pack obliges that ${label}`, () => {
-    const fragment = flattened(fs.readFileSync(new URL(owner, contractFragments), 'utf8'));
-    for (const pattern of patterns) {
-      assert.match(fragment, pattern, `${owner} no longer states the obligation: ${pattern}`);
-    }
-  });
-}
+// 20261024-121022 retired `214504 CR1` (`MIGRATION_OBLIGATIONS`): it guarded the
+// sentence naming `fix --plan-tags` and `fix --structured-sections`, and both modes
+// left the CLI with that change (CR15). The retired-flag sweep at the end of this
+// file keeps them out of every fragment.
 
 // Every entry of the budget file, labelled. A new top-level group must widen this
 // list, not slip past it: it is the single place the whole file is enumerated.
@@ -2080,16 +2005,22 @@ function declaredCeilings() {
 // ceiling raised to make a failure go away, which is exactly what a ceiling
 // exists to prevent. This object is the one sede: a new group widens it here,
 // not in a second copy.
+//
+// 20261024-121022 CR17 lowered every entry to what its capture measured after the
+// contract stopped describing the type matrix: the smallest multiple of 50 tokens
+// that leaves at least 25 tokens over the largest measurement (the template
+// fixture and this repo's own capture). `base.spec` measured 2390 and stays at
+// 2400, the one entry under that headroom, because a ceiling may only decrease.
 const PINNED_CEILINGS = {
-  'base.core': { tokens: 3000, lines: 300 },
+  'base.core': { tokens: 2750, lines: 275 },
   'base.spec': { tokens: 2400, lines: 240 },
-  'base.implement': { tokens: 2800, lines: 280 },
-  'base.review': { tokens: 1500, lines: 150 },
-  'base.release': { tokens: 1000, lines: 100 },
-  agent: { tokens: 800, lines: 80 },
-  'overlays.done': { tokens: 1250, lines: 125 },
-  'overlays.discarded': { tokens: 250, lines: 25 },
-  'blocks.core-commits': { tokens: 1000, lines: 100 },
+  'base.implement': { tokens: 2500, lines: 250 },
+  'base.review': { tokens: 1150, lines: 115 },
+  'base.release': { tokens: 500, lines: 50 },
+  agent: { tokens: 600, lines: 60 },
+  'overlays.done': { tokens: 1150, lines: 115 },
+  'overlays.discarded': { tokens: 150, lines: 15 },
+  'blocks.core-commits': { tokens: 600, lines: 60 },
 };
 
 test('195445 CR1: every declared ceiling is pinned by value', () => {
@@ -2369,7 +2300,7 @@ test('124835 CR2/CR3: the intent table routes every observed intent', () => {
     '| asks what is pending | `changeledger list --status <s>`, `--pending graduation`, `--pending archive` |',
     '| asks to review finished work | `changeledger context review` in a fresh clean context |',
     '| asks to release | `changeledger context release` |',
-    '| requests an edit no change covers | ask the human: `quick` type or operational edit |',
+    '| requests an edit no change covers | ask the human: a `change` with Request and Log, or an operational edit |',
     '| gives a verdict | transmit it with the lifecycle command; never infer one |',
   ]) {
     assert.ok(core.includes(row), `core is missing the intent row ${row}`);
@@ -3502,7 +3433,7 @@ const CONCEPT_GUARDS = [
   {
     entry: 16,
     obligation:
-      'the documentation type writes its execution rules as its own CRs, citing path and symbol, and the human decides every divergence from an existing spec before in-review',
+      'a change that documents a topic writes its execution rules as its own CRs, citing path and symbol, and the human decides every divergence from an existing spec before in-review',
     verify: () => {
       const spec = flattened(contractFragment('spec.md'));
       assert.match(
@@ -3578,16 +3509,17 @@ const CONCEPT_GUARDS = [
   {
     entry: 19,
     obligation:
-      'a review_required closure that touches specs is checked by graduation-review before the first --into, and findings go to a fresh reviewer after the correction',
+      'a reviewed change whose closure touches specs is checked by graduation-review before the first --into, and findings go to a fresh reviewer after the correction',
     verify: () => {
       const close = flattened(contractFragment('close.md'));
-      // review_required, the delegated role and the first `--into` in one sentence.
+      // A reviewed change, the delegated role and the first `--into` in one
+      // sentence; 20261024-121022 replaced the retired `review_required` key.
       const window = '[^.]{0,250}';
       assert.match(
         close,
         new RegExp(
           [
-            '\\breview_required\\b',
+            '\\breviewed\\b',
             '`graduation-review`',
             '\\bbefore\\b[^.;]{0,30}\\b(first|any)\\b[^.;]{0,10}`--into`',
           ]
@@ -3639,9 +3571,10 @@ const CONCEPT_GUARDS = [
   {
     entry: 21,
     obligation:
-      'a defect makes the agent ask the human between a normal fix and the published release_types, and draft nothing until answered',
-    // Bound to the published `release_types=` field, not to reading `config.yml`.
-    // A sentence ends at a period followed by whitespace.
+      'a defect makes the agent ask the human whether the fix integrates into the published release_branch, declare integrates_into, and draft nothing until answered',
+    // Bound to the published `release_branch=` field, not to reading `config.yml`;
+    // 20261024-121022 replaced the retired `release_types=`. A sentence ends at a
+    // period followed by whitespace.
     verify: () => {
       const spec = flattened(contractFragment('spec.md'));
       const sentence = (terms) =>
@@ -3650,11 +3583,11 @@ const CONCEPT_GUARDS = [
         spec,
         sentence([
           '\\bdefects?\\b',
-          '`release_types=`',
+          '`release_branch=`',
           '\\bask\\w*\\b[^.;]{0,30}\\bhuman\\b',
-          '(\\bnormal\\b[^.;]{0,15}\\bfix\\b|`bug`)',
+          '`integrates_into: release`',
         ]),
-        'spec no longer has a defect make the agent ask the human between a normal fix and the published release types',
+        'spec no longer has a defect make the agent ask the human whether the fix integrates into the release branch',
       );
       assert.match(
         spec,
@@ -3696,19 +3629,15 @@ for (const { entry, obligation, verify } of CONCEPT_GUARDS) {
   });
 }
 
-// --- 20261002-113320: per-type tdd in change-id captures ---
+// --- 20261002-113320: the change's own tdd in change-id captures ---
 
-// Declares the `documentation` type of 113320 CR1 whatever the template ships,
-// so the capture is judged on the resolver, not on the template's content.
-function declareDocumentationType(root, globalTdd = true) {
+// Sets the global `tdd` whatever the template ships, so the capture is judged
+// on the resolver, not on the template's content; since 20261024-121022 the
+// override is the change's own `tdd: false`.
+function declareGlobalTdd(root, globalTdd = true) {
   const file = path.join(root, '.changeledger', 'config.yml');
   const config = parseYaml(fs.readFileSync(file, 'utf8'));
   config.tdd = globalTdd;
-  config.types.documentation = {
-    stages: ['request', 'investigation', 'specification', 'log'],
-    review_required: true,
-    tdd: false,
-  };
   fs.writeFileSync(file, stringifyYaml(config));
 }
 
@@ -3718,7 +3647,8 @@ function writeDocumentationChange(root, id, status) {
     `---
 id: "${id}"
 title: Doc fixture
-type: documentation
+type: change
+tdd: false
 status: ${status}
 created: 2026-10-02T11:33:20Z
 depends_on: []
@@ -3728,7 +3658,7 @@ depends_on: []
 
 Document the topic.
 
-## Investigation
+### Investigation
 
 Evidence.
 
@@ -3748,7 +3678,7 @@ Evidence.
 // retired-phrase sweep `181753 CR7` keeps it out of every capture.
 test('113320 CR4: a tdd-off change publishes tdd=off', () => {
   const root = repo();
-  declareDocumentationType(root);
+  declareGlobalTdd(root);
   const id = '20261002-113321';
   writeDocumentationChange(root, id, 'draft');
   const output = buildContext(id, root);
@@ -3803,4 +3733,152 @@ test('181753 CR7: implement is governed by objective and frontier and gates in-r
   const implement = flattened(buildContext('implement', repo()));
   assert.match(implement, /objective and frontier/i);
   assert.match(implement, /in-review[^.]{0,80}(Specification|Plan)/);
+});
+
+// --- 20261024-121022: tdd and integrates_into belong to the change ---------
+
+function changeWithFrontmatter(root, id, extra, type = 'change') {
+  writeRawChange(root, { id, status: 'approved', type });
+  const file = path.join(root, '.changeledger', 'changes', `${id}-${type}.md`);
+  const text = fs
+    .readFileSync(file, 'utf8')
+    .replace('\nstatus: approved\n', `\n${extra}status: approved\n`);
+  fs.writeFileSync(
+    file,
+    type === 'epic' ? text.replace(/\n## Specification[\s\S]*?\n## Log/, '\n## Log') : text,
+  );
+}
+
+test('20261024-121022 CR8: a change with tdd: false publishes tdd=off, without the key tdd=on', () => {
+  const root = repo();
+  changeWithFrontmatter(root, '20261024-120000', 'tdd: false\n');
+  changeWithFrontmatter(root, '20261024-120001', '');
+  assert.match(policyLineOf(buildContext('20261024-120000', root)), / — tdd=off( |$)/);
+  assert.match(policyLineOf(buildContext('20261024-120001', root)), / — tdd=on( |$)/);
+  assert.match(
+    buildAgentContext('implementation', '20261024-120000', root),
+    /^Effective policy: language=en — tdd=off/m,
+  );
+});
+
+test('20261024-121022 CR8: an epic publishes no tdd=', () => {
+  const root = repo();
+  changeWithFrontmatter(root, '20261024-120000', '', 'epic');
+  const policy = policyLineOf(buildContext('20261024-120000', root));
+  assert.doesNotMatch(policy, /tdd=/);
+  assert.match(policy, / — type=epic$/);
+});
+
+test('20261024-121022 CR8: the change policy publishes its type and no matrix line', () => {
+  const root = repo();
+  changeWithFrontmatter(root, '20261024-120000', '');
+  const output = buildContext('20261024-120000', root);
+  assert.match(policyLineOf(output), / — type=change$/);
+  assert.doesNotMatch(output, /review_required\(|Active stages\(/);
+});
+
+test('20261024-121022 CR10: a change integrating into the release branch publishes it with the back merge', () => {
+  const root = repo();
+  setConfig(root, [
+    [/^ {2}integration_branch:.*$/m, '  integration_branch: dev'],
+    [/^ {2}release_branch:.*$/m, '  release_branch: main'],
+  ]);
+  changeWithFrontmatter(root, '20261024-120000', 'integrates_into: release\n');
+  assert.match(
+    policyLineOf(buildContext('20261024-120000', root)),
+    /integration_branch=main — back_merge_branch=dev/,
+  );
+});
+
+test('20261024-121022 CR10: context spec publishes release_branch only when declared, never release_types=', () => {
+  const root = repo();
+  assert.equal(policyLineOf(buildContext('spec', root)), 'Effective policy: language=en — tdd=on');
+  setConfig(root, [[/^ {2}release_branch:.*$/m, '  release_branch: main']]);
+  const declared = policyLineOf(buildContext('spec', root));
+  assert.equal(declared, 'Effective policy: language=en — tdd=on — release_branch=main');
+  assert.doesNotMatch(declared, /release_types=/);
+});
+
+// --- 20261024-121022 CR17: the contract describes the change without a matrix ---
+
+// Retired-phrase sweep over every fragment at any depth. `types.` is the dotted
+// config path (`types.<t>`), so a sentence ending in "types." is not caught;
+// `documentation` is retired as a type, so only its backticked enum form and
+// "documentation type" are swept, never the ordinary noun. The three `fix`
+// flags were removed from the CLI by the same change (CR15).
+const RETIRED_MATRIX_PHRASES = [
+  ['quick', /\bquick\b/i],
+  ['review_required', /review_required/],
+  ['seed_stage', /seed_stage/],
+  ['release_types=', /release_types=/],
+  ['Active stages', /Active stages/i],
+  ['configured matrix', /configured matrix/i],
+  ['documentation as a type', /`documentation`|\bdocumentation type\b/i],
+  ['types.<t>', /\btypes\.(?=[\w<`])/],
+  ['release.impacts', /release\.impacts/],
+  ['fix --plan-tags', /--plan-tags/],
+  ['fix --structured-sections', /--structured-sections/],
+  ['fix --graduation-links', /--graduation-links/],
+];
+
+for (const [label, pattern] of RETIRED_MATRIX_PHRASES) {
+  test(`20261024-121022 CR17: no contract fragment carries the retired "${label}"`, () => {
+    const holders = contractFragmentNames().filter((name) =>
+      pattern.test(flattened(contractFragment(name))),
+    );
+    assert.deepEqual(holders, [], `a contract fragment still carries the retired "${label}"`);
+  });
+}
+
+// The tolerant patterns exactly as CR17 states them, one test per obligation.
+test('20261024-121022 CR17: context spec names the two types', () => {
+  assert.match(
+    flattened(buildContext('spec', repo())),
+    /two types[^.]{0,40}`change`[^.]{0,40}`epic`/i,
+  );
+});
+
+test('20261024-121022 CR17: context spec names the four stages in order', () => {
+  assert.match(
+    flattened(buildContext('spec', repo())),
+    /`Request`, `Specification`, `Plan`[^.]{0,20}`Log`/,
+  );
+});
+
+test('20261024-121022 CR17: context spec decides ceremony by comprehension, risk and resumability', () => {
+  assert.match(
+    flattened(buildContext('spec', repo())),
+    /(comprehension|understanding)[^.]{0,30}risk[^.]{0,40}resum/i,
+  );
+});
+
+test('20261024-121022 CR17: context spec never decides ceremony by size', () => {
+  assert.match(flattened(buildContext('spec', repo())), /never[^.]{0,30}size/i);
+});
+
+test('20261024-121022 CR17: context spec states when a change declares tdd: false', () => {
+  assert.match(flattened(buildContext('spec', repo())), /`tdd: false`[^.]{0,120}(test|exercise)/i);
+});
+
+test('20261024-121022 CR17: context implement reaches done directly only without code', () => {
+  assert.match(
+    flattened(buildContext('implement', repo())),
+    /done[^.]{0,80}(touch|outside the ledger)/i,
+  );
+});
+
+test('20261024-121022 CR17: core makes small work a change with Request and Log', () => {
+  const core = composedCore();
+  assert.match(core, /\bsmall\b[^.]{0,60}`change`/i);
+  assert.match(core, /`change`[^.|]{0,20}\bRequest\b[^.|]{0,20}\bLog\b/);
+});
+
+test('20261024-121022 CR17: close seeds from Specification or Request', () => {
+  const close = flattened(contractFragment('close.md'));
+  assert.match(close, /\bseed\b[^.]{0,60}\bSpecification\b[^.]{0,40}\bRequest\b/);
+  assert.doesNotMatch(close, /\bProposal\b/);
+});
+
+test('20261024-121022 CR17: release names release.default_impact', () => {
+  assert.match(flattened(buildContext('release', repo())), /`release\.default_impact`/);
 });

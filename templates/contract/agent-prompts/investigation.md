@@ -38,4 +38,4 @@ Return to the orchestrator only findings/data — no narrative, no fixes. State
 clearly what you could not determine.
 
 Integration criterion: {{integration}} (how the orchestrator will use the answer,
-e.g. it feeds the Investigation stage of the change).
+e.g. it feeds the investigation in the change's Request).

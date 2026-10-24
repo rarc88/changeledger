@@ -488,17 +488,19 @@ test('144327 CR7: agent-context is wired through the CLI', async () => {
   assert.match(stdout, /CHANGELEDGER AGENT CONTEXT END/);
 });
 
-// 20260726-141120 CR5 — the review capsule is unreachable for a type without
-// `review_required`: the lifecycle refuses the only status that would dispatch
-// it, so the role guard is the last line rather than the only one.
+// 20260726-141120 CR5 — the review capsule is unreachable for a change that
+// never enters review: the lifecycle refuses the only status that would
+// dispatch it, so the role guard is the last line rather than the only one.
+// 20261024-121022 retargeted it from the retired `quick` type to the `epic`,
+// the one type the lifecycle keeps out of `in-review`.
 
-function addQuickChange(root, id = '20260726-141120') {
+function addEpicChange(root, id = '20260726-141120') {
   fs.writeFileSync(
-    path.join(root, '.changeledger', 'changes', `${id}-quick-fixture.md`),
+    path.join(root, '.changeledger', 'changes', `${id}-epic-fixture.md`),
     `---
 id: "${id}"
-title: Quick fixture
-type: quick
+title: Epic fixture
+type: epic
 status: in-progress
 created: 2026-07-26T14:11:20Z
 depends_on: []
@@ -516,12 +518,12 @@ Small reversible work.
   return id;
 }
 
-test('141120 CR5: a quick change can never reach the status the review role needs', () => {
+test('141120 CR5: an epic can never reach the status the review role needs', () => {
   const root = repo();
-  const id = addQuickChange(root);
+  const id = addEpicChange(root);
   assert.throws(
     () => status(id, 'in-review', root),
-    /^Error: quick changes do not require review — move to done instead$/,
+    /^Error: epic changes do not enter review — move to done instead$/,
   );
   assert.throws(
     () => buildAgentContext('review', id, root),
@@ -531,7 +533,7 @@ test('141120 CR5: a quick change can never reach the status the review role need
 
 test('141120 CR5: the CLI refuses the review capsule and emits no BEGIN line', async () => {
   const root = repo();
-  const id = addQuickChange(root);
+  const id = addEpicChange(root);
   const failure = await execFileAsync(process.execPath, [bin, 'agent-context', 'review', id], {
     cwd: root,
   }).then(
@@ -549,16 +551,13 @@ test('141120 CR5: the CLI refuses the review capsule and emits no BEGIN line', a
 
 // --- 20261002-113320: the delegate receives the selected change's tdd ---
 
-test('113320 CR5: the policy line follows the selected change type, else the global tdd', () => {
+// 20261024-121022 retargeted this from the retired `types.documentation.tdd`
+// to the change's own `tdd: false`, the only override left.
+test('113320 CR5: the policy line follows the selected change, else the global tdd', () => {
   const root = repo();
   const file = path.join(root, '.changeledger', 'config.yml');
   const config = parseYaml(fs.readFileSync(file, 'utf8'));
   config.tdd = true;
-  config.types.documentation = {
-    stages: ['request', 'investigation', 'specification', 'log'],
-    review_required: true,
-    tdd: false,
-  };
   fs.writeFileSync(file, stringifyYaml(config));
   const id = '20261002-113322';
   fs.writeFileSync(
@@ -566,7 +565,8 @@ test('113320 CR5: the policy line follows the selected change type, else the glo
     `---
 id: "${id}"
 title: Doc fixture
-type: documentation
+type: change
+tdd: false
 status: in-progress
 created: 2026-10-02T11:33:20Z
 depends_on: []
@@ -576,7 +576,7 @@ depends_on: []
 
 Document the topic.
 
-## Investigation
+### Investigation
 
 Evidence.
 

@@ -20,19 +20,21 @@ headings. Required and optional frontmatter:
 ---
 id: "20260613-134548"
 title: Short, clear title
-type: feature                  # a configured type; `new --help` lists them
+type: change                   # change | epic
 status: draft                  # lifecycle value
 created: 2026-06-13T13:45:48Z # full ISO 8601 UTC
 depends_on: []                 # change ids or external project:id refs
 related_to: []                 # optional non-blocking discovery links
 parent: "<id>"                 # optional: the epic this change belongs to
 owner: ana                     # optional
+tdd: false                     # optional
+integrates_into: release       # optional
 release_impact: minor          # optional: none | patch | minor | major
 ---
 ```
 
-A multi-change effort declares one epic — a change of a type that carries no
-implementation — and each child names it in `parent`. The edge is exclusive and
+There are two types: `change` implements and `epic` groups without implementing.
+A multi-change effort declares one epic and each child names it in `parent`. The edge is exclusive and
 deliberately outside the relation graph: sharing a parent connects nothing, and
 the hierarchy is two levels, never a tree. The epic is approved on objective and
 frontier and **never enumerates its children at approval**; they are created as
@@ -54,42 +56,52 @@ or plans become competing versions of the same truth.
 
 ## Stages
 
-Use fixed English `##` headings — `Request`, `Investigation`, `Proposal`,
-`Specification`, `Plan`, `Log` — in that order and only when activated for the
-type in `config.yml`, whose configured matrix is authoritative. For bugs,
-Investigation contains the root cause; for audits, it is the core analysis.
-Proposal includes the chosen solution, discarded alternatives and scenarios.
+Use fixed English `##` headings — `Request`, `Specification`, `Plan` and `Log` —
+in that order. No type activates a stage: a change carries the ones it needs.
+Investigation and Proposal are free prose under `###` headings: inside the
+Request for what helps the human approve, inside the Specification for what is
+found with the code in front. `changeledger fix` brings a live document with a
+retired type or stage to this form, previewable with `--dry-run`.
+
+Ceremony is decided by comprehension, risk and resumability, never by size,
+file count or task count:
+
+- Comprehension: if the code must be explored before the objective can be
+  stated, the Request carries that investigation.
+- Risk: if the change takes an irreversible action or alters a public surface or
+  persistent truth, its Specification states a criterion for that effect.
+- Resumability: if another session could not resume it from the diff alone, it
+  carries a Plan.
+
+A draft declares `tdd: false` only when the change delivers no behaviour a test
+can exercise — prose, specs, configuration or ledger documents only — and its
+Log says why.
 
 `changeledger approve` requires the Request's `### Objective` and `### Frontier`,
-each with a body, in every type, and the human approves exactly those two. The
+each with a body, for both types, and the human approves exactly those two. The
 objective says what problem is solved and what finished means; the frontier says
 what surface is in, what is out and what is pre-authorized inside. Other `###`
 headings in the Request are free prose. Specification and Plan are written in
 `in-progress`, with the code in front, and never return to approval: `changeledger
 context implement` owns how they evolve and the exit gate that requires them.
 
-`quick` is for small, reversible, single-concern work that adds no public surface
-or persistent truth (`specs/`): only Request and Log, ~10-15 lines. It retains
-the human `draft → approved` gate and `[#id]` marker, skipping only `in-review`.
-If scope outgrows this, discard and recreate it under the correct type.
-
-`documentation` delivers persistent truth about one topic, contrasted with what
-the code actually does, and changes no application code. The shipped type turns
-`tdd` off and has no Plan, so write its execution rules as its own CRs: the
+A change that documents one topic, contrasted with what the code actually does,
+writes its execution rules as its own CRs: the
 perimeter is fixed in the draft from who calls what, never from
 textual matches; every claim cites path and symbol; the human decides every
-divergence from an existing spec before `in-review`, and the change waits on a `[!]`
-task until they do; corrections to existing specs are drafted inside the change, where
-the reviewer sees them.
+divergence from an existing spec before `in-review` or `done`, and the change waits
+on a `[!]` task until they do; corrections to existing specs are drafted inside the
+change, where reviewer and human see them.
 
 When you classify a problem as a defect and the `Effective policy:` line
-publishes `release_types=`, explicitly ask the human whether it is a normal fix
-(`bug`, into the integration branch) or one of those types (into the release
-branch). Never infer the answer, and create no draft until the human answers.
-Without `release_types=`, neither ask nor propose a release type.
+publishes `release_branch=`, explicitly ask the human whether the fix integrates
+into the integration branch or the release branch, and declare
+`integrates_into: release` in the frontmatter when it is the latter. Never infer
+the answer, and create no draft until the human answers. Without
+`release_branch=`, neither ask nor declare `integrates_into`.
 
-Before writing Investigation, run `changeledger search <terms from the request>`;
-during Investigation, classify every relevant change discovered, regardless of
+Before investigating, run `changeledger search <terms from the request>`;
+while investigating, classify every relevant change discovered, regardless of
 whether it came from `search`, `list`, direct reading, context or conversation:
 an execution prerequisite becomes `depends_on`, and useful context without
 execution order becomes `related_to`. An explicit local change id must not
@@ -162,9 +174,6 @@ Markers encode state; structured children carry every trace, never a position:
 `Target`, `Verify`, `Criteria` and `Support` are legal in any state, at most once each, and contiguous with their task. `Criteria` is the sole traceability — a list of `CRn` ids — so parentheses in the description are always prose. An indented non-child line continues the description; a non-indented line that is neither task nor blank is reported, never dropped.
 
 An implementation task cites the criteria it proves, names its target and its concrete verification, and fits one red-green cycle. `Support` (value optional) marks operational work such as test suites, reading, blast-radius analysis or scaffolding; it cannot replace a criterion for observable behaviour.
-
-`changeledger fix --plan-tags` migrates Plan tasks without structured children; `--structured-sections` migrates legacy task metadata and Log events; preview either with `--dry-run`.
-
 
 ## IDs and language
 

@@ -32,7 +32,7 @@ First decide whether accepted work changed persistent truth:
   closure, instead of every child reconciling the same spec over and over. The
   child still records its own decision, with `--skip`.
 
-In a type with `review_required`, when closure creates, corrects or extends specs,
+When the change was reviewed and closure creates, corrects or extends specs,
 delegate `graduation-review` once the reconciliation is drafted and before the
 first `--into`. On findings, correct the draft and delegate again to a fresh reviewer;
 record the outcome with `changeledger log <id>`. `--skip` needs no such review.
@@ -47,10 +47,9 @@ an error, so words such as `skip` or `skip-*` can never silently become specs.
 
 For a new spec, follow this ordered recipe — `--new` alone does not finish it:
 
-1. `changeledger graduate <id> <spec-slug> --new` creates a seed from the stage
-   the change's type declares as `seed_stage`, else from its Specification or,
-   lacking one, its Proposal, but leaves graduation pending; it does not set
-   `reviewed: true`.
+1. `changeledger graduate <id> <spec-slug> --new` creates a seed from the
+   change's Specification or, lacking one, its Request, but leaves graduation
+   pending; it does not set `reviewed: true`.
 2. Rewrite the seed as concise durable current truth and remove the explicit
    scaffold marker.
 3. `changeledger graduate <id> <spec-slug> --into` finalizes it; `--into`
@@ -71,8 +70,7 @@ that a spec was created. It is not permission to stop a multi-spec reconciliatio
 before every affected spec is linked. `--into` records the same link in both
 directions: the change Log carries `graduado a spec`, and the target spec appends
 the change id to `graduated_from`. `changeledger check` requires both sides to
-agree. Repositories with legacy prose markers migrate them with
-`changeledger fix --graduation-links`, previewable with `--dry-run`.
+agree.
 
 After `--into` or `--skip`, create one final closure commit that coalesces any
 pending `in-review → done` ledger updates with the graduation
