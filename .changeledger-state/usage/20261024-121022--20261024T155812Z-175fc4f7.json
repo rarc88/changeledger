@@ -1,0 +1,93 @@
+{
+  "schema": 1,
+  "change": "20261024-121022",
+  "at": "2026-10-24T15:58:12Z",
+  "event": "status",
+  "from": "in-progress",
+  "to": "in-review",
+  "recorded_by": "raruiz-hiberuscom",
+  "collector": {
+    "name": "ccusage",
+    "version": "20.0.26",
+    "pricing": "online"
+  },
+  "sessions": [
+    {
+      "source": "claude",
+      "session_id": "d51b2a35-56f1-4365-b927-3e711b4ac85d",
+      "project_path": "-Users-raruiz-agentic-workspace-changeledger",
+      "first_activity": "2026-10-14T11:14:53.924Z",
+      "last_activity": "2026-10-22T17:24:49.856Z",
+      "models": [
+        {
+          "model": "claude-opus-5",
+          "input_tokens": 9536,
+          "output_tokens": 1645897,
+          "cache_read_tokens": 1087929757,
+          "cache_write_tokens": 13385241,
+          "cost_usd": 692.3577009999988
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 386,
+          "output_tokens": 5914,
+          "cache_read_tokens": 18300207,
+          "cache_write_tokens": 1191945,
+          "cost_usd": 4.869795199999999
+        }
+      ]
+    },
+    {
+      "source": "claude",
+      "session_id": "463e42a6-6540-4dd1-a298-9bc4a7c84245",
+      "project_path": "-Users-raruiz-agentic-workspace-changeledger",
+      "first_activity": "2026-10-22T17:51:14.947Z",
+      "last_activity": "2026-10-24T15:58:10.705Z",
+      "models": [
+        {
+          "model": "claude-fable-5-1",
+          "input_tokens": 10598,
+          "output_tokens": 556932,
+          "cache_read_tokens": 164606364,
+          "cache_write_tokens": 3224380,
+          "cost_usd": 133.59177100000014
+        },
+        {
+          "model": "claude-opus-5-5",
+          "input_tokens": 3918,
+          "output_tokens": 1489704,
+          "cache_read_tokens": 311069512,
+          "cache_write_tokens": 5972607,
+          "cost_usd": 121.88668940000001
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 110,
+          "output_tokens": 34791,
+          "cache_read_tokens": 3375727,
+          "cache_write_tokens": 416885,
+          "cost_usd": 1.7279151999999998
+        }
+      ]
+    },
+    {
+      "source": "claude",
+      "session_id": "ed8f74c5-8888-4096-9970-f0b383c4c83a",
+      "project_path": "-Users-raruiz-agentic-workspace-changeledger",
+      "first_activity": "2026-10-23T18:10:38.679Z",
+      "last_activity": "2026-10-23T22:44:56.927Z",
+      "models": [
+        {
+          "model": "claude-opus-5",
+          "input_tokens": 162,
+          "output_tokens": 51540,
+          "cache_read_tokens": 10464235,
+          "cache_write_tokens": 277060,
+          "cost_usd": 9.292027499999998
+        }
+      ]
+    }
+  ],
+  "excluded": [],
+  "error": null
+}
