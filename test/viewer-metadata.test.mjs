@@ -1936,6 +1936,18 @@ test('141643 CR1/CR6: Approve uses the lifecycle panel, never the toolbar or car
   }
 });
 
+test('20261023-181753 CR8: the approval panel names the objective and the frontier as what is approved', () => {
+  const change = { ...baseChange(), status: 'draft' };
+  const panel = parse(approvalPanel(change));
+  assert.equal(
+    panel.querySelector('.validation-copy p').textContent,
+    'Review the objective and the frontier, then approve them: Specification and Plan are written during implementation.',
+  );
+  const button = panel.querySelector('button[data-approve]');
+  assert.equal(button.textContent.trim(), 'Approve');
+  assert.equal(button.getAttribute('aria-label'), `Approve change ${change.id}`);
+});
+
 // The viewer's one verdict seat. The merge is the acceptance, so the panel
 // offers no Accept: only the return, and only where the release boundary
 // still allows it (20261018-131621 CR23).
@@ -3371,6 +3383,39 @@ test('113924 CR4: form emits only fields changed by the human', () => {
   const form = root.querySelector('[data-config-form]');
   form.elements.language.value = 'en';
   assert.deepEqual(collectFormPatch(form, config), { language: 'en' });
+});
+
+test('20261023-181753 CR8: the config form edits no Definition of Ready, even when the config keeps one', () => {
+  const config = {
+    project_id: 'aaa111',
+    project_name: 'alpha',
+    language: 'en',
+    tdd: true,
+    statuses: ['draft', 'approved', 'in-progress', 'in-review', 'done', 'discarded'],
+    stages: ['request', 'investigation', 'proposal', 'specification', 'plan', 'log'],
+    types: {},
+    readiness: { target_patterns: ['lib/**'], verification_patterns: ['verify:'] },
+  };
+  const root = parse(
+    projectsViewTemplate(
+      [{ id: 'aaa111', name: 'alpha', path: '/repos/alpha', alive: true }],
+      'aaa111',
+      { content: '', revision: 'rev', schemaVersion: 6, supported: 6, config },
+      false,
+    ),
+  );
+  const form = root.querySelector('[data-config-form]');
+  const legends = [...form.querySelectorAll('legend')].map((l) => l.textContent.trim());
+  assert.equal(legends.includes('Definition of Ready'), false, `legends: ${legends}`);
+  assert.doesNotMatch(form.textContent, /Target patterns \(one per line\)/);
+  assert.doesNotMatch(form.textContent, /Verification patterns \(one per line\)/);
+  assert.equal(form.elements.target_patterns, undefined);
+  assert.equal(form.elements.verification_patterns, undefined);
+  const tddLabel = form.elements.tdd.closest('label').textContent;
+  assert.doesNotMatch(tddLabel, /test-grade/);
+  assert.match(tddLabel, /TDD mode/);
+  form.elements.language.value = 'fr';
+  assert.deepEqual(collectFormPatch(form, config), { language: 'fr' });
 });
 
 test('225637 CR4/CR5: form edits and clears git.integration_branch', () => {

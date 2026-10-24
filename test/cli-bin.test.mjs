@@ -414,7 +414,7 @@ test('125139 CR1/CR6: approve is the human decision the CLI transmits', () => {
     chFile,
     fs
       .readFileSync(chFile, 'utf8')
-      .replace('## Request\n', '## Request\n\nR\n')
+      .replace('## Request\n', '## Request\n\nR\n\n### Objective\n\nO\n\n### Frontier\n\nF\n')
       .replace('## Plan\n', '## Plan\n\n- [ ] do it\n  - **Support:**\n'),
   );
   assert.equal(runIn(root, env, 'status', id, 'approved').code, 1);
@@ -926,10 +926,10 @@ test('162616 CR1: a valid type with valid stages produces the same capture as be
   assert.match(out, /Active stages\(chore\)=request, plan/);
 });
 
-// 20260729-162616 CR5: `readiness.md` is the only fragment that defines the
-// `tdd` obligation, and it is excluded for a type that never activates
-// `specification` (chore has no such stage in the default template). The
-// policy line must not publish `tdd=` when its definition was never served.
+// 20260729-162616 CR5: `tdd` obliges writing the failing test from each
+// criterion, and a type that never activates `specification` (chore has no
+// such stage in the default template) declares no criterion to write it from.
+// The policy line must not publish `tdd=` for such a type.
 test('162616 CR5: the policy line omits tdd= for a type without specification', () => {
   const { root, env, id } = contextRepo();
   const { code, out } = runIn(root, env, 'context', id);
@@ -1035,9 +1035,8 @@ test('review wiring: fail parses the reason and returns the change to in-progres
   assert.equal(runIn(root, env, 'new', 'feature', 'x', 'X', '--owner', 'Roberto Ruiz').code, 0);
   const id = JSON.parse(runIn(root, env, 'list', '--json').out)[0].id;
 
-  // 20260810-213633: approve refuses a feature whose active stages are blank;
-  // in-review also needs a test-grade CR and a Plan task naming target and
-  // verification (same shape as 124656 CR3's repaired fixture).
+  // approve requires an objective and a frontier; in-review a Specification
+  // with a criterion and a Plan with a body (20261023-181753).
   const reviewFile = path.join(
     root,
     '.changeledger',
@@ -1048,7 +1047,7 @@ test('review wiring: fail parses the reason and returns the change to in-progres
     reviewFile,
     fs
       .readFileSync(reviewFile, 'utf8')
-      .replace('## Request\n', '## Request\n\nR\n')
+      .replace('## Request\n', '## Request\n\nR\n\n### Objective\n\nO\n\n### Frontier\n\nF\n')
       .replace('## Investigation\n', '## Investigation\n\nI\n')
       .replace('## Proposal\n', '## Proposal\n\nP\n')
       .replace(
@@ -1593,7 +1592,7 @@ test('CR6: graduate --into wires through and links an existing spec', () => {
     graduateFile,
     fs
       .readFileSync(graduateFile, 'utf8')
-      .replace('## Request\n', '## Request\n\nR\n')
+      .replace('## Request\n', '## Request\n\nR\n\n### Objective\n\nO\n\n### Frontier\n\nF\n')
       .replace('## Plan\n', '## Plan\n\n- [ ] do it\n  - **Support:**\n'),
   );
   // chore: no review gate, so `status` delivers it to done directly.
@@ -1727,12 +1726,12 @@ test('20260808-141944 CR6: status warns on stderr when the checkout differs from
     .readdirSync(path.join(root, '.changeledger', 'changes'))
     .map((name) => path.join(root, '.changeledger', 'changes', name))
     .find((candidate) => fs.readFileSync(candidate, 'utf8').includes(`id: "${id}"`));
-  // A minimal ready candidate (same shape as 124656 CR3's repaired fixture):
-  // the in-review readiness gate requires a testable CR and a Plan task that
-  // names both target and verification.
+  // A minimal reviewable candidate: approve requires an objective and a
+  // frontier, and the exit to in-review a Specification with a criterion and a
+  // Plan with a body (20261023-181753).
   const ready = fs
     .readFileSync(changeFile, 'utf8')
-    .replace('## Request\n', '## Request\n\nR\n')
+    .replace('## Request\n', '## Request\n\nR\n\n### Objective\n\nO\n\n### Frontier\n\nF\n')
     .replace('## Investigation\n', '## Investigation\n\nI\n')
     .replace('## Proposal\n', '## Proposal\n\nP\n')
     .replace(
@@ -2289,7 +2288,7 @@ function readyDraftRepo() {
     file,
     fs
       .readFileSync(file, 'utf8')
-      .replace('## Request\n', '## Request\n\nR\n')
+      .replace('## Request\n', '## Request\n\nR\n\n### Objective\n\nO\n\n### Frontier\n\nF\n')
       .replace('## Investigation\n', '## Investigation\n\nI\n')
       .replace('## Proposal\n', '## Proposal\n\nP\n')
       .replace(

@@ -2,8 +2,11 @@
 
 ## Scope and truth
 
-Follow the Specification exactly: the approved change governs the code written
-within its scope, so never quietly drift that contract.
+The approved objective and frontier govern the code written within the change.
+Specification and Plan are the implementer's contract: write them in `in-progress`
+with the code in front, using the grammar of `changeledger context spec`, and
+rewrite them as understanding improves, with the Log saying why. Never quietly
+drift from them.
 
 ## Git protects traceability
 
@@ -38,9 +41,9 @@ within authorized scope or ask the human.
 
 ## Execute the Plan
 
-Write the failing test from each criterion, make it pass, then refactor. Tick
-tasks as they become true, not in a batch at the end. Leave no TODO/FIXME, dead
-code or unrelated residue without explicit agreement.
+With `tdd=on`, write the failing test from each criterion, make it pass, then
+refactor. Tick tasks as they become true, not in a batch at the end. Leave no
+TODO/FIXME, dead code or unrelated residue without explicit agreement.
 
 Useful mutation commands:
 
@@ -73,8 +76,9 @@ requires independent review by running this ordered gate — do not reconstruct 
 1. Confirm every Plan task is complete and its verification passes.
 2. Apply the local formatter and full gates, including `changeledger check`, to the exact review candidate.
 3. `changeledger status <id> in-review`. The gate decides whether a reviewable
-   candidate exists, so it never runs after this transition; the transition itself
-   refuses a candidate whose readiness is invalid and leaves the document untouched.
+   candidate exists, so it never runs after this transition; among the stages the type
+   activates, the transition to `in-review` refuses an empty Specification or Plan, or a
+   Specification declaring no `### CRn`, and leaves the document untouched.
 4. Reapply the formatter to the change document and run `changeledger check`; if the
    candidate changes again before the reviewer sees it, repeat every affected verification.
 5. Create every outstanding implementation commit with `changeledger commit`: each

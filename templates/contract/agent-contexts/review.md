@@ -13,7 +13,8 @@ the surface the change governs, or a full audit. Under a full audit, and by
 default whenever the prompt declares no mandate, inspect the selected change,
 every `CRn`, every Plan task, tests, the actual diff and absence of TODO/FIXME,
 dead code or unrelated residue, and confirm tasks are true rather than merely
-checked off and that implementation did not drift from the authorized document.
+checked off and that implementation did not drift from the approved objective and
+frontier; the Specification is the behaviour under review.
 Under a narrower mandate the declared scope is the inspection: check it with that
 same rigour and report whatever you notice outside it without expanding the
 inspection.

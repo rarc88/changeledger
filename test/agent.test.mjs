@@ -8,7 +8,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
-import { parseChange } from '../src/change.mjs';
+import { parseChange, parseRequestSections } from '../src/change.mjs';
 import { writeLedgerFiles } from '../src/change-store.mjs';
 import { checkRepo } from '../src/check.mjs';
 import {
@@ -32,6 +32,7 @@ import { scaffoldSpec, skipGraduation } from '../src/commands/graduate.mjs';
 import { init as initializeRepo } from '../src/commands/init.mjs';
 import { newChange, newChangeFrom, scaffoldChange } from '../src/commands/new.mjs';
 import { resolveRemote } from '../src/commands/sync.mjs';
+import { changeStatus, resolveProjects } from '../src/commands/view.mjs';
 import { VERSION } from '../src/framing.mjs';
 import { capturedRun, defaultRun } from '../src/git.mjs';
 import { loadRepo } from '../src/repo.mjs';
@@ -86,6 +87,9 @@ function init(root) {
   );
 }
 
+const OBJECTIVE_AND_FRONTIER = '### Objective\n\nO\n\n### Frontier\n\nF\n';
+const TEST_GRADE_CR1 = '### CR1 — x\n- **Given** a\n- **When** b\n- **Then** c\n';
+
 function repoWithChange({ configExtra = '' } = {}) {
   // Native realpath at the seat, as in `initStateRepo` (20260812-022248 CR2):
   // on macOS os.tmpdir() lives under /var, a symlink to /private/var, and on
@@ -108,20 +112,15 @@ function repoWithChange({ configExtra = '' } = {}) {
     root,
     { ownerHandle: () => '' },
   );
-  // Give it a task to operate on. `(support)` because that is what this task
-  // honestly is — scaffolding for the lifecycle tests below, which declare no
-  // criteria — and since 20260729-185200 an unmarked task with no CR blocks
-  // approval, which these tests cross on their way to later statuses. Since
-  // 20260810-213633 an approve also refuses any active stage left blank
-  // (Request/Investigation/Proposal/Specification), so each gets one minimal
-  // line here too — a single seat for the whole file's approve()/status(…,
-  // 'approved') fixtures rather than patching every call site.
+  // The minimum each lifecycle seat demands, written once for the fixtures built
+  // on this one (20261023-181753): an objective and a frontier for `approve`, and
+  // a Specification with a criterion plus a Plan with a body for the exit to
+  // `in-review`. The task is `Support:` because it is scaffolding for the
+  // lifecycle tests below, not work on the criterion.
   const text = fs
     .readFileSync(file, 'utf8')
-    .replace('## Request\n', '## Request\n\nR\n')
-    .replace('## Investigation\n', '## Investigation\n\nI\n')
-    .replace('## Proposal\n', '## Proposal\n\nP\n')
-    .replace('## Specification\n', '## Specification\n\nS\n')
+    .replace('## Request\n', `## Request\n\nR\n\n${OBJECTIVE_AND_FRONTIER}`)
+    .replace('## Specification\n', `## Specification\n\n${TEST_GRADE_CR1}`)
     .replace('## Plan\n', '## Plan\n\n- [ ] do it\n  - **Support:**\n');
   fs.writeFileSync(file, text);
   const id = parseChange(text).frontmatter.id;
@@ -303,7 +302,7 @@ function releaseTypeRepo({
     const file = newChange({ type, slug, title: slug, now }, root, { ownerHandle: () => '' });
     const text = fs
       .readFileSync(file, 'utf8')
-      .replace('## Request\n', '## Request\n\nR\n')
+      .replace('## Request\n', `## Request\n\nR\n\n${OBJECTIVE_AND_FRONTIER}`)
       .replace('## Investigation\n', '## Investigation\n\nI\n')
       .replace('## Proposal\n', '## Proposal\n\nP\n')
       .replace('## Specification\n', '## Specification\n\nS\n')
@@ -1115,9 +1114,8 @@ test('125139 CR1/CR7: conversational approval is attributed without changing vie
   assert.doesNotMatch(viewerLog, /via conversation/);
 });
 
-// 20260729-185200 — the draft's exit gate. `emptyRepo` keeps the defective and
-// the ready candidate side by side: both are hand-written drafts, because the
-// scaffold `new` produces is empty and therefore already ready.
+// 20260729-185200 — the draft's exit gate. `emptyRepo` keeps the broken and the
+// sound candidate side by side as hand-written drafts.
 function emptyRepo() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-gate-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
@@ -1131,13 +1129,10 @@ function writeDraft(root, id, body) {
   return file;
 }
 
-// The readiness defect classes the Investigation reproduced: a criterion with no
-// Given/When/Then, a task citing a criterion that does not exist, and CR-bearing
-// tasks that name neither target nor verification.
-function defectiveDraft(id) {
+function featureDraft(id, plan) {
   return `---
 id: "${id}"
-title: Defective
+title: Draft
 type: feature
 status: draft
 created: 2026-06-13T12:00:00Z
@@ -1148,6 +1143,7 @@ depends_on: []
 
 R
 
+${OBJECTIVE_AND_FRONTIER}
 ## Investigation
 
 I
@@ -1158,87 +1154,27 @@ P
 
 ## Specification
 
-### CR1 — Test-grade
-- **Given** a
-- **When** b
-- **Then** c
-
-### CR2 — Not test-grade
-- **Given** a
-
+${TEST_GRADE_CR1}
 ## Plan
 
-- [ ] vague work
-  - **Criteria:** CR1
-- [ ] more vague work
-  - **Criteria:** CR2
-- [ ] Update \`src/x.mjs\`
-  - **Target:** \`src/x.mjs\`
-  - **Verify:** \`node --test test/x.test.mjs\`
-  - **Criteria:** CR99
-
+${plan}
 ## Log
 
 - **2026-06-13T12:00:00Z** \`[note]\` Draft.
 `;
 }
 
-function readyDraft(id) {
-  return `---
-id: "${id}"
-title: Ready
-type: feature
-status: draft
-created: 2026-06-13T12:00:00Z
-depends_on: []
----
-
-## Request
-
-R
-
-## Investigation
-
-I
-
-## Proposal
-
-P
-
-## Specification
-
-### CR1 — Test-grade
-- **Given** a
-- **When** b
-- **Then** c
-
-## Plan
-
-- [ ] Update \`src/x.mjs\`
-  - **Target:** \`src/x.mjs\`
-  - **Verify:** \`node --test test/x.test.mjs\`
-  - **Criteria:** CR1
-
-## Log
-
-- **2026-06-13T12:00:00Z** \`[note]\` Draft.
-`;
-}
-
-test('185200 CR1: approve rejects a draft whose defects would be errors once approved', () => {
+test('185200 CR1: approve rejects a draft whose task cites an undeclared criterion', () => {
   const root = emptyRepo();
   const id = '20260613-120000';
-  const file = writeDraft(root, id, defectiveDraft(id));
+  const file = writeDraft(root, id, featureDraft(id, '- [ ] Update it\n  - **Criteria:** CR99\n'));
   const before = fs.readFileSync(file, 'utf8');
 
   assert.throws(
     () => approve(id, root),
     (error) => {
       assert.match(error.message, /failed scoped validation/);
-      assert.match(error.message, /CR2 is not test-grade: missing Given\/When\/Then/);
       assert.match(error.message, /Plan task references unknown criterion "CR99"/);
-      assert.match(error.message, /Plan task for CR1 must name target and verification/);
-      assert.match(error.message, /Plan task for CR2 must name target and verification/);
       return true;
     },
   );
@@ -1247,10 +1183,10 @@ test('185200 CR1: approve rejects a draft whose defects would be errors once app
   assert.equal(parseChange(before).frontmatter.status, 'draft');
 });
 
-test('185200 CR2: a ready draft approves exactly as before', () => {
+test('185200 CR2: a sound draft approves exactly as before', () => {
   const root = emptyRepo();
   const id = '20260613-120001';
-  const file = writeDraft(root, id, readyDraft(id));
+  const file = writeDraft(root, id, featureDraft(id, '- [ ] Update it\n  - **Criteria:** CR1\n'));
 
   approve(id, root);
 
@@ -1262,43 +1198,7 @@ test('185200 CR2: a ready draft approves exactly as before', () => {
   );
 });
 
-// 20260810-213633 — the empty-stage gate on the draft→approved transition
-// itself (real incident: 20260810-181801 approved with every narrative stage
-// blank). `checkCoverage`'s referential checks pass vacuously on an empty
-// Specification/Plan — no criteria declared, so nothing is uncovered — so this
-// is a distinct assertion from the 185200 CR1 gate above, not a duplicate.
-function emptySpecAndPlanDraft(id) {
-  return `---
-id: "${id}"
-title: Empty spec and plan
-type: feature
-status: draft
-created: 2026-06-13T12:00:00Z
-depends_on: []
----
-
-## Request
-
-R
-
-## Investigation
-
-I
-
-## Proposal
-
-P
-
-## Specification
-
-## Plan
-
-## Log
-
-- **2026-06-13T12:00:00Z** \`[note]\` Draft.
-`;
-}
-
+// 20260810-213633 — an empty Request is still refused by the approval seat.
 function emptyRequestQuickDraft(id) {
   return `---
 id: "${id}"
@@ -1317,20 +1217,6 @@ depends_on: []
 `;
 }
 
-test('213633 CR1: approve refuses a feature draft with empty Specification and Plan, naming both', () => {
-  const root = emptyRepo();
-  const id = '20260810-213700';
-  const file = writeDraft(root, id, emptySpecAndPlanDraft(id));
-  const before = fs.readFileSync(file, 'utf8');
-
-  assert.throws(() => approve(id, root), {
-    message: 'cannot approve: "## Specification", "## Plan" are empty',
-  });
-
-  assert.equal(fs.readFileSync(file, 'utf8'), before, 'a rejected approve must not write');
-  assert.equal(parseChange(before).frontmatter.status, 'draft');
-});
-
 test('213633 CR2: approve refuses a quick draft with an empty Request', () => {
   const root = emptyRepo();
   const id = '20260810-213701';
@@ -1343,6 +1229,274 @@ test('213633 CR2: approve refuses a quick draft with an empty Request', () => {
 
   assert.equal(fs.readFileSync(file, 'utf8'), before, 'a rejected approve must not write');
   assert.equal(parseChange(before).frontmatter.status, 'draft');
+});
+
+// 20261023-181753 — the human approves the objective and the frontier; the
+// implementer writes Specification and Plan in `in-progress` and the exit to
+// review demands them.
+
+function requestDraft(id, request) {
+  return `---
+id: "${id}"
+title: Request only
+type: feature
+status: draft
+created: 2026-06-13T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+${request}
+## Investigation
+
+## Proposal
+
+## Specification
+
+## Plan
+
+## Log
+
+- **2026-06-13T12:00:00Z** \`[note]\` Draft.
+`;
+}
+
+const binPath = fileURLToPath(new URL('../bin/changeledger.mjs', import.meta.url));
+
+function runCli(args, cwd) {
+  const result = spawnSync(process.execPath, [binPath, ...args], {
+    cwd,
+    encoding: 'utf8',
+    env: sanitizedEnv({ CHANGELEDGER_NO_GH: '1' }),
+  });
+  return { code: result.status, out: result.stdout, err: result.stderr };
+}
+
+function ownDiagnostics(root, id) {
+  const { errors, warnings } = checkRepo(loadRepo(root));
+  return [...errors, ...warnings].filter((e) => e.file.startsWith(id));
+}
+
+test('20261023-181753 CR1: a draft with objective and frontier approves with every later stage empty', () => {
+  const root = emptyRepo();
+  const id = '20261023-120000';
+  const file = writeDraft(root, id, requestDraft(id, `R\n\n${OBJECTIVE_AND_FRONTIER}`));
+
+  const result = runCli(['approve', id], root);
+
+  assert.equal(result.code, 0, result.err);
+  const after = parseChange(fs.readFileSync(file, 'utf8'));
+  assert.equal(after.frontmatter.status, 'approved');
+  assert.match(
+    after.stages.find((stage) => stage.key === 'log').body,
+    /`\[status\]` draft → approved \(human via conversation\)/,
+  );
+  assert.deepEqual(ownDiagnostics(root, id), []);
+});
+
+for (const [label, request, message] of [
+  ['a missing Frontier', 'R\n\n### Objective\n\nO\n', 'cannot approve: "### Frontier" is missing'],
+  [
+    'both subsections empty',
+    'R\n\n### Objective\n\n### Frontier\n',
+    'cannot approve: "### Objective", "### Frontier" are empty',
+  ],
+  ['an empty Request', '', 'cannot approve: "## Request" is empty'],
+]) {
+  test(`20261023-181753 CR2: approve refuses ${label} and leaves the draft byte-identical`, () => {
+    const root = emptyRepo();
+    const id = '20261023-120001';
+    const file = writeDraft(root, id, requestDraft(id, request));
+    const before = fs.readFileSync(file, 'utf8');
+
+    assert.throws(() => approve(id, root), { message });
+    const result = runCli(['approve', id], root);
+
+    assert.notEqual(result.code, 0);
+    assert.match(result.err, new RegExp(message.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    assert.equal(fs.readFileSync(file, 'utf8'), before);
+  });
+}
+
+test('20261023-181753 CR2: the viewer approval reaches the same refusal', () => {
+  const root = emptyRepo();
+  const id = '20261023-120002';
+  const file = writeDraft(root, id, requestDraft(id, 'R\n\n### Objective\n\nO\n'));
+  const before = fs.readFileSync(file, 'utf8');
+  const { projects, current } = resolveProjects(root, false);
+
+  const result = changeStatus(projects, { project: current, id, status: 'approved' });
+
+  assert.equal(result.code, 400);
+  assert.equal(result.body.error, 'cannot approve: "### Frontier" is missing');
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
+// Unspecified by the change: one subsection missing and the other empty. Both
+// defects are named in one refusal, the missing one first.
+test('20261023-181753 CR2: a missing and an empty subsection are named together', () => {
+  const root = emptyRepo();
+  const id = '20261023-120003';
+  writeDraft(root, id, requestDraft(id, 'R\n\n### Frontier\n'));
+
+  assert.throws(() => approve(id, root), {
+    message: 'cannot approve: "### Objective" is missing; "### Frontier" is empty',
+  });
+});
+
+test('20261023-181753 CR2: other level-3 headings in the Request stay free prose', () => {
+  const root = emptyRepo();
+  const id = '20261023-120004';
+  const file = writeDraft(
+    root,
+    id,
+    requestDraft(id, `### Context\n\nC\n\n${OBJECTIVE_AND_FRONTIER}### Notes\n`),
+  );
+
+  approve(id, root);
+
+  assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'approved');
+});
+
+// The Request is read with the same fence handling as `splitStages`, so the
+// two readers of one document agree on where a heading is.
+test('20261023-181753 CR2: a heading inside a code fence is neither a subsection nor its end', () => {
+  for (const [fence, closer] of [
+    ['```', '```'],
+    ['~~~', '~~~'],
+    ['````', '`````'],
+  ]) {
+    const fencedFrontier = `### Objective\n\nO\n\n${fence}\n### Frontier\n${closer}\n`;
+    const refused = emptyRepo();
+    const refusedId = '20261023-120006';
+    const refusedFile = writeDraft(refused, refusedId, requestDraft(refusedId, fencedFrontier));
+    const before = fs.readFileSync(refusedFile, 'utf8');
+
+    assert.throws(() => approve(refusedId, refused), {
+      message: 'cannot approve: "### Frontier" is missing',
+    });
+    assert.equal(fs.readFileSync(refusedFile, 'utf8'), before);
+
+    // A fenced `### Notes` inside Frontier neither closes it nor hides the
+    // real body after it; the Objective's only body line is fenced too.
+    const fencedNotes = `### Objective\n\n${fence}\n### Notes\n${closer}\n\n### Frontier\n\n${fence}\n## Plan\n### Notes\n${closer}\nF\n`;
+    const approved = emptyRepo();
+    const approvedId = '20261023-120007';
+    const approvedFile = writeDraft(approved, approvedId, requestDraft(approvedId, fencedNotes));
+
+    approve(approvedId, approved);
+
+    assert.equal(parseChange(fs.readFileSync(approvedFile, 'utf8')).frontmatter.status, 'approved');
+  }
+  // A fence closes only on a run of its own character at least as long as the
+  // opener: `~~~` inside a backtick fence and ``` inside a ```` fence leave it
+  // open, so the `### Frontier` after them stays fenced.
+  for (const [opener, inner] of [
+    ['```', '~~~'],
+    ['````', '```'],
+  ]) {
+    const mixed = emptyRepo();
+    const mixedId = '20261023-120008';
+    writeDraft(
+      mixed,
+      mixedId,
+      requestDraft(
+        mixedId,
+        `### Objective\n\nO\n\n${opener}\n${inner}\n### Frontier\n\nF\n${opener}\n`,
+      ),
+    );
+    assert.throws(() => approve(mixedId, mixed), {
+      message: 'cannot approve: "### Frontier" is missing',
+    });
+  }
+  // An unterminated fence runs to the end of the Request. Through `approve` it
+  // also swallows every later stage in `splitStages`, so the structural check
+  // answers first; the reader itself is asserted here.
+  assert.deepEqual(parseRequestSections('### Objective\n\nO\n\n```\n### Frontier\n\nF\n'), [
+    { name: 'Objective', present: true, filled: true },
+    { name: 'Frontier', present: false, filled: false },
+  ]);
+});
+
+// The stage body handed to the Request reader keeps each line's indentation:
+// a first line of four spaces and a fence is no fence for `splitStages`, and
+// trimming it would open one for `parseRequestSections` alone, inverting the
+// two readers' fence phase so headings fenced at column 0 count as present.
+test('20261023-181753 CR2: an indented first line of the Request does not open a fence for the reader', () => {
+  const root = emptyRepo();
+  const id = '20261023-120009';
+  const file = writeDraft(
+    root,
+    id,
+    requestDraft(id, '    ```\n\n```\n### Objective\n\nO\n\n### Frontier\n\nF\n```\n'),
+  );
+  const before = fs.readFileSync(file, 'utf8');
+
+  assert.throws(() => approve(id, root), {
+    message: 'cannot approve: "### Objective", "### Frontier" are missing',
+  });
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
+// An approved request-only feature, moved to in-progress, with the given
+// Specification and Plan bodies written in place — the implementer's draft of
+// its own contract.
+function inProgressWith(specification, plan) {
+  const root = emptyRepo();
+  const id = '20261023-120005';
+  const file = writeDraft(root, id, requestDraft(id, OBJECTIVE_AND_FRONTIER));
+  approve(id, root);
+  status(id, 'in-progress', root, { ownerHandle: () => '' });
+  fs.writeFileSync(
+    file,
+    fs
+      .readFileSync(file, 'utf8')
+      .replace('## Specification\n', `## Specification\n\n${specification}`)
+      .replace('## Plan\n', `## Plan\n\n${plan}`),
+  );
+  return { root, file, id };
+}
+
+const CITING_TASK = '- [ ] do it\n  - **Criteria:** CR1\n';
+
+for (const [label, specification, plan, message] of [
+  ['an empty Specification', '', CITING_TASK, 'cannot request review: "## Specification" is empty'],
+  [
+    'a Specification without criteria',
+    'Prose only.\n',
+    CITING_TASK,
+    'cannot request review: "## Specification" declares no criterion',
+  ],
+  [
+    'an empty Specification and Plan',
+    '',
+    '',
+    'cannot request review: "## Specification", "## Plan" are empty',
+  ],
+]) {
+  test(`20261023-181753 CR5: the exit to in-review refuses ${label} and leaves the document byte-identical`, () => {
+    const { root, file, id } = inProgressWith(specification, plan);
+    const before = fs.readFileSync(file, 'utf8');
+
+    assert.throws(() => status(id, 'in-review', root), { message });
+    const result = runCli(['status', id, 'in-review'], root);
+
+    assert.notEqual(result.code, 0);
+    assert.match(result.err, new RegExp(message.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    assert.equal(fs.readFileSync(file, 'utf8'), before);
+  });
+}
+
+test('20261023-181753 CR5: a Specification with a criterion and a Plan with a body reach in-review', () => {
+  const { root, file, id } = inProgressWith(TEST_GRADE_CR1, CITING_TASK);
+
+  const result = runCli(['status', id, 'in-review'], root);
+
+  assert.equal(result.code, 0, result.err);
+  const after = parseChange(fs.readFileSync(file, 'utf8'));
+  assert.equal(after.frontmatter.status, 'in-review');
+  assert.match(after.stages.find((s) => s.key === 'log').body, /in-progress → in-review/);
 });
 
 test('status rejects an invalid value without writing', () => {
@@ -1954,11 +2108,11 @@ function repoWithChore() {
     root,
     { ownerHandle: () => '' },
   );
-  // 20260810-213633: approve refuses a chore whose active stages (request,
-  // plan) are blank, so this shared fixture back-fills both minimally.
+  // approve requires an objective and a frontier (20261023-181753); the Plan
+  // task is what the tests sharing this fixture operate on.
   const text = fs
     .readFileSync(file, 'utf8')
-    .replace('## Request\n', '## Request\n\nR\n')
+    .replace('## Request\n', `## Request\n\nR\n\n${OBJECTIVE_AND_FRONTIER}`)
     .replace('## Plan\n', '## Plan\n\n- [ ] do it\n  - **Support:**\n');
   fs.writeFileSync(file, text);
   const id = parseChange(text).frontmatter.id;
@@ -2000,11 +2154,11 @@ function repoWithAudit() {
     root,
     { ownerHandle: () => '' },
   );
-  // 20260810-213633: approve refuses an audit whose active stages (request,
-  // investigation) are blank, so this shared fixture back-fills both minimally.
+  // approve requires an objective and a frontier (20261023-181753); the
+  // Investigation is the audit's own content.
   const text = fs
     .readFileSync(file, 'utf8')
-    .replace('## Request\n', '## Request\n\nR\n')
+    .replace('## Request\n', `## Request\n\nR\n\n${OBJECTIVE_AND_FRONTIER}`)
     .replace('## Investigation\n', '## Investigation\n\nI\n');
   fs.writeFileSync(file, text);
   const id = parseChange(text).frontmatter.id;
@@ -2045,58 +2199,37 @@ test('141120 CR1: the CLI reports the rejection and exits 1', async () => {
 });
 
 // 20260722-124656 — the local gate decides whether a reviewable candidate exists,
-// so the transition that claims review started is the last place the readiness of
-// that candidate can still be refused instead of delegated to the reviewer.
-function repoWithUnreadyChange() {
+// so the transition that claims review started is the last place a structurally
+// broken candidate can still be refused instead of delegated to the reviewer.
+function repoWithBrokenChange() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-agent-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
   init(root);
   const file = newChange(
-    { type: 'feature', slug: 'unready', title: 'Unready', now: '2026-06-13T12:00:00Z' },
+    { type: 'feature', slug: 'broken', title: 'Broken', now: '2026-06-13T12:00:00Z' },
     root,
     { ownerHandle: () => '' },
   );
-  // Walk to in-progress while the document is still ready: since 20260729-185200
-  // the draft → approved gate refuses a defective candidate, and the subject here
-  // is the in-review gate, not approval.
-  const ready = fs
+  const sound = fs
     .readFileSync(file, 'utf8')
-    .replace('## Request\n', '## Request\n\nR\n')
-    .replace('## Investigation\n', '## Investigation\n\nI\n')
-    .replace('## Proposal\n', '## Proposal\n\nP\n')
-    .replace(
-      '## Specification\n',
-      '## Specification\n\n### CR1 — Something\n- **Given** a thing\n- **When** it runs\n- **Then** it holds\n',
-    )
-    .replace(
-      '## Plan\n',
-      '## Plan\n\n- [ ] do it in `src/x.mjs`\n  - **Target:** `src/x.mjs`\n  - **Verify:** `test/x.test.mjs`\n  - **Criteria:** CR1\n',
-    );
-  fs.writeFileSync(file, ready);
-  const id = parseChange(ready).frontmatter.id;
+    .replace('## Request\n', `## Request\n\nR\n\n${OBJECTIVE_AND_FRONTIER}`)
+    .replace('## Specification\n', `## Specification\n\n${TEST_GRADE_CR1}`)
+    .replace('## Plan\n', '## Plan\n\n- [ ] do it\n  - **Criteria:** CR1\n');
+  fs.writeFileSync(file, sound);
+  const id = parseChange(sound).frontmatter.id;
   status(id, 'approved', root);
   status(id, 'in-progress', root, { ownerHandle: () => '' });
-  // Two readiness defects at once, introduced where this fixture needs them: CR1
-  // has no When/Then, and the Plan task that claims it names neither a target
-  // (`src/**`) nor a verification (`test/**`).
+  // The defect is introduced in `in-progress`, where the implementer writes the
+  // Plan: a task citing a criterion the Specification does not declare.
   fs.writeFileSync(
     file,
-    fs
-      .readFileSync(file, 'utf8')
-      .replace(
-        '### CR1 — Something\n- **Given** a thing\n- **When** it runs\n- **Then** it holds\n',
-        '### CR1 — Something\n- **Given** a thing\n',
-      )
-      .replace(
-        '- [ ] do it in `src/x.mjs`\n  - **Target:** `src/x.mjs`\n  - **Verify:** `test/x.test.mjs`\n  - **Criteria:** CR1',
-        '- [ ] do the thing\n  - **Criteria:** CR1',
-      ),
+    fs.readFileSync(file, 'utf8').replace('  - **Criteria:** CR1', '  - **Criteria:** CR2'),
   );
   return { root, file, id };
 }
 
-test('124656 CR3: the in-review transition refuses an unready candidate', () => {
-  const { root, file, id } = repoWithUnreadyChange();
+test('124656 CR3: the in-review transition refuses a structurally broken candidate', () => {
+  const { root, file, id } = repoWithBrokenChange();
   const before = fs.readFileSync(file, 'utf8');
   let thrown;
   try {
@@ -2104,10 +2237,8 @@ test('124656 CR3: the in-review transition refuses an unready candidate', () => 
   } catch (error) {
     thrown = error;
   }
-  assert.ok(thrown, 'the transition must refuse an unready candidate');
-  // Every readiness defect is named, not just the first one found.
-  assert.match(thrown.message, /CR1 is not test-grade: missing Given\/When\/Then/);
-  assert.match(thrown.message, /Plan task for CR1 must name target and verification/);
+  assert.ok(thrown, 'the transition must refuse a broken candidate');
+  assert.match(thrown.message, /Plan task references unknown criterion "CR2"/);
   // The refusal is byte-preserving: no status flip, and no Log entry at all.
   const after = fs.readFileSync(file, 'utf8');
   assert.equal(after, before);
@@ -2119,19 +2250,12 @@ test('124656 CR3: the in-review transition refuses an unready candidate', () => 
   assert.doesNotMatch(logBody, /\[review\]/);
 });
 
-test('124656 CR3: a ready candidate still reaches in-review', () => {
-  const { root, file, id } = repoWithUnreadyChange();
-  const repaired = fs
-    .readFileSync(file, 'utf8')
-    .replace(
-      '### CR1 — Something\n- **Given** a thing\n',
-      '### CR1 — Something\n- **Given** a thing\n- **When** it runs\n- **Then** it holds\n',
-    )
-    .replace(
-      '- [ ] do the thing\n  - **Criteria:** CR1',
-      '- [ ] do it in `src/x.mjs`\n  - **Target:** `src/x.mjs`\n  - **Verify:** `test/x.test.mjs`\n  - **Criteria:** CR1',
-    );
-  fs.writeFileSync(file, repaired);
+test('124656 CR3: a repaired candidate reaches in-review', () => {
+  const { root, file, id } = repoWithBrokenChange();
+  fs.writeFileSync(
+    file,
+    fs.readFileSync(file, 'utf8').replace('  - **Criteria:** CR2', '  - **Criteria:** CR1'),
+  );
   status(id, 'in-review', root);
   const c = parseChange(fs.readFileSync(file, 'utf8'));
   assert.equal(c.frontmatter.status, 'in-review');
@@ -2411,15 +2535,12 @@ function repoWithTwoSamePrefix() {
     root,
     { ownerHandle: () => '' },
   );
-  // 20260810-213633: fileB reaches approved in CR1 below, so its active stages
-  // need minimal content; fileA is filled the same way to keep both siblings
-  // uniform (it never itself moves past draft in these tests).
+  // fileB reaches approved in CR1 below, so its Request carries an objective
+  // and a frontier (20261023-181753); fileA is filled the same way to keep both
+  // siblings uniform (it never itself moves past draft in these tests).
   const fillStages = (text) =>
     text
-      .replace('## Request\n', '## Request\n\nR\n')
-      .replace('## Investigation\n', '## Investigation\n\nI\n')
-      .replace('## Proposal\n', '## Proposal\n\nP\n')
-      .replace('## Specification\n', '## Specification\n\nS\n')
+      .replace('## Request\n', `## Request\n\nR\n\n${OBJECTIVE_AND_FRONTIER}`)
       .replace('## Plan\n', '## Plan\n\n- [ ] do it\n  - **Support:**\n');
   fs.writeFileSync(fileA, fillStages(fs.readFileSync(fileA, 'utf8')));
   fs.writeFileSync(fileB, fillStages(fs.readFileSync(fileB, 'utf8')));
@@ -2458,7 +2579,7 @@ test('175734 CR3: a filename whose frontmatter id differs is not an exact match'
   // `owner`, not `approve`: the corruption this fixture needs is itself a check
   // error ("filename does not match id"), and since 20260729-185200 the
   // draft → approved gate refuses any document with errors. Resolution, not
-  // readiness, is what this criterion owns.
+  // approval, is what this criterion owns.
   owner('20260613-999999', 'ana', root);
   assert.equal(parseChange(fs.readFileSync(fileA, 'utf8')).frontmatter.owner, 'ana');
 });
@@ -3095,10 +3216,8 @@ const onlyChangeFile = (root) => {
 };
 const fillFeature = (text) =>
   text
-    .replace('## Request\n', '## Request\n\nR\n')
-    .replace('## Investigation\n', '## Investigation\n\nI\n')
-    .replace('## Proposal\n', '## Proposal\n\nP\n')
-    .replace('## Specification\n', '## Specification\n\nS\n')
+    .replace('## Request\n', `## Request\n\nR\n\n${OBJECTIVE_AND_FRONTIER}`)
+    .replace('## Specification\n', `## Specification\n\n${TEST_GRADE_CR1}`)
     .replace('## Plan\n', '## Plan\n\n- [ ] do it\n  - **Support:**\n');
 
 test('20261001-155216 CR10: a change created and approved by 0.18.0 and finished by 0.18.1 records both versions once', () => {
@@ -3744,7 +3863,9 @@ test('20261012-213243 CR4: a repo reached through a symlink records usage for th
   const file = path.join(logical, '.changeledger', 'changes', `${id}-second-step.md`);
   fs.writeFileSync(
     file,
-    fs.readFileSync(file, 'utf8').replace('## Request\n', '## Request\n\nSegundo paso.\n'),
+    fs
+      .readFileSync(file, 'utf8')
+      .replace('## Request\n', `## Request\n\nSegundo paso.\n\n${OBJECTIVE_AND_FRONTIER}`),
   );
 
   const approved = runUsageBin(['approve', id], logical, env);
@@ -4299,7 +4420,7 @@ test('20261020-172221 CR4: an epic walks draft → approved → in-progress → 
     file,
     fs
       .readFileSync(file, 'utf8')
-      .replace('## Request\n', '## Request\n\nObjetivo.\n')
+      .replace('## Request\n', `## Request\n\n${OBJECTIVE_AND_FRONTIER}`)
       .replace('## Proposal\n', '## Proposal\n\nFrontera.\n'),
   );
 
@@ -4310,7 +4431,7 @@ test('20261020-172221 CR4: an epic walks draft → approved → in-progress → 
   status(id, 'done', root);
   assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'done');
 
-  // No Specification stage, so nothing demands criteria coverage or readiness.
+  // No Specification stage, so nothing demands criteria.
   const { errors, warnings } = checkRepo(loadRepo(root));
   const own = [...errors, ...warnings].filter((e) => e.file.startsWith(id));
   assert.deepEqual(own, [], `an epic must raise nothing of its own: ${JSON.stringify(own)}`);

@@ -4,12 +4,14 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
+import { parse as parseYaml } from 'yaml';
 import { check } from '../src/commands/check.mjs';
 import { init } from '../src/commands/init.mjs';
 import { registerRepo } from '../src/commands/register.mjs';
 import { loadConfig } from '../src/config.mjs';
 import { applyMigration, assertSupportedSchema, buildMigration } from '../src/config-migration.mjs';
 import { capturedRun } from '../src/git.mjs';
+import { templatesDir } from '../src/paths.mjs';
 import {
   LedgerConflictError,
   mutateState,
@@ -79,7 +81,6 @@ test('225637 CR1: schema 2 gains a documented blank integration branch at schema
   assert.deepEqual(result.changes, [
     'updated schema_version: 2 → 6',
     'added git section',
-    'added readiness section',
     'added git.change_branch_format: {type}/{id}',
     'added min_cli_version: 0.17.0',
   ]);
@@ -145,9 +146,9 @@ test('183807 CR1: a non-empty integration_branch keeps the same comment untouche
   assert.equal(line, '# Valid lifecycle statuses (order = progress)');
 });
 
-// 20260730-183807 CR3 — the migration must retire the old template's
-// commented-out `# readiness:` block (pre-da84722c) when it still matches the
-// template's own text verbatim, and leave it alone when the user edited it.
+// 20261023-181753 CR6 — the old template's commented-out `# readiness:` block
+// (pre-da84722c), verbatim. Migration 3 → 4 once retired it; with readiness
+// gone it is user text the migration leaves alone.
 const SCHEMA_3_WITH_STALE_READINESS_COMMENT = `\
 schema_version: 3
 language: en
@@ -182,25 +183,25 @@ project_id: "abc123"
 project_name: myrepo
 `;
 
-test('183807 CR3: migration removes a verbatim stale commented readiness block from the old template', () => {
+test('20261023-181753 CR6: migrating schema 3 publishes no readiness and leaves the old comment alone', () => {
   const result = buildMigration(SCHEMA_3_WITH_STALE_READINESS_COMMENT, '0.17.0');
   assert.ok(result);
-  assert.doesNotMatch(result.yaml, /# readiness:/);
-  assert.doesNotMatch(result.yaml, /# Optional Definition of Ready/);
-  // The live block published by addReadinessSection is the only one left.
-  assert.match(result.yaml, /^readiness:$/m);
-  assert.ok(result.changes.includes('removed stale commented-out readiness block'));
+  assert.equal(Object.hasOwn(parseYaml(result.yaml), 'readiness'), false);
+  assert.equal(result.changes.includes('added readiness section'), false);
+  assert.equal(result.changes.includes('removed stale commented-out readiness block'), false);
+  assert.ok(
+    result.yaml.includes('# readiness:\n#   target_patterns: ["src/**"]\n'),
+    `a commented block is user text the migration no longer touches, got:\n${result.yaml}`,
+  );
+  assert.equal(buildMigration(result.yaml, '0.17.0'), null, 'migration must be terminal');
 });
 
-test('183807 CR3: a user-edited commented readiness block is preserved intact', () => {
-  const edited = SCHEMA_3_WITH_STALE_READINESS_COMMENT.replace(
-    '#   verification_patterns: ["test/**", "**/*.test.*", "**/*.spec.*", "pnpm test"]',
-    '#   verification_patterns: ["test/**", "pnpm run test"]',
-  );
-  const result = buildMigration(edited, '0.17.0');
-  assert.ok(result);
-  assert.match(result.yaml, /# {3}verification_patterns: \["test\/\*\*", "pnpm run test"\]/);
-  assert.ok(!result.changes.includes('removed stale commented-out readiness block'));
+test('20261023-181753 CR6: the template declares tdd but neither readiness nor the Definition of Ready', () => {
+  const text = fs.readFileSync(path.join(templatesDir, 'config.yml'), 'utf8');
+  const template = parseYaml(text);
+  assert.equal(Object.hasOwn(template, 'readiness'), false);
+  assert.doesNotMatch(text, /Definition of Ready/);
+  assert.equal(template.tdd, true);
 });
 
 function tmp() {
@@ -770,7 +771,7 @@ project_name: legacy
   const { yaml: migrated } = buildMigration(historical, '0.17.0');
   assert.match(
     migrated,
-    /# Definition of Ready policy[\s\S]*?tdd: true/,
+    /# Test-first policy[\s\S]*?tdd: true/,
     'new tdd key should carry its managed comment',
   );
   assert.match(
@@ -1141,26 +1142,15 @@ project_name: myrepo
       '    stages: [request, plan, log]',
       '    stages: [request, specification, plan, log]',
     )}\n# Git integration: change branches start from and merge into \`integration_branch\`; types with \`integrates_into: release\` use \`release_branch\` instead.\ngit:\n  integration_branch:\n  change_branch_format: "{type}/{id}"\n`;
-  assert.equal(
-    withoutReadiness(migrated),
-    expected,
-    'only schema version, git section, readiness and the review coupling',
-  );
+  assert.equal(migrated, expected, 'only schema version, git section and the review coupling');
   assert.deepEqual(changes, [
     'updated schema_version: 1 → 6',
     'added git section',
-    'added readiness section',
     'added stage specification to types.quick.stages',
     'added git.change_branch_format: {type}/{id}',
     'added min_cli_version: 0.17.0',
   ]);
 });
-
-// The migration appends the published readiness section last; stripping it
-// isolates what a migration must leave byte for byte alone.
-function withoutReadiness(yaml) {
-  return yaml.replace(/\n\n# Definition of Ready[\s\S]*$/, '\n');
-}
 
 // CR3 — idempotency and version boundary
 test('162556 CR3: current config needs no migration and file is untouched', () => {
@@ -1392,8 +1382,8 @@ types:
   );
 });
 
-// 20260726-141122 — migration 3 → 4 also publishes the Definition of Ready
-// hints, which until now only ever existed as a comment in the template.
+// 20261023-181753 CR6 — migration 3 → 4 publishes no readiness section, and
+// one the user already declared is left alone.
 
 const SCHEMA3_WITH_COMMENTS = `\
 schema_version: 3
@@ -1417,35 +1407,26 @@ project_id: "abc123"
 project_name: myrepo
 `;
 
-test('141122 CR4: migration adds the readiness defaults to a config that lacks them', () => {
+test('20261023-181753 CR6: a schema-3 migration adds no readiness and reports none', () => {
   const root = tmp();
   const configFile = path.join(root, 'config.yml');
   fs.writeFileSync(configFile, SCHEMA3_WITH_COMMENTS);
 
   const summary = applyMigration(configFile, { repoRoot: root, runningVersion: '0.17.0' });
-  assert.ok(
-    summary.split('\n').some((line) => line.includes('readiness')),
-    `the summary must report the readiness addition, got:\n${summary}`,
+  assert.deepEqual(
+    summary.split('\n').filter((line) => line.includes('readiness')),
+    [],
+    `the summary must not mention readiness, got:\n${summary}`,
   );
 
   const migrated = fs.readFileSync(configFile, 'utf8');
-  assert.match(migrated, /^schema_version: 6$/m);
-  assert.ok(
-    migrated.includes(
-      'readiness:\n  target_patterns: ["src/**"]\n  verification_patterns: ["test/**"]\n',
-    ),
-    `migrated config must publish the readiness defaults, got:\n${migrated}`,
-  );
-  // The user's own comments, values and key order survive untouched.
-  assert.match(migrated, /# our own policy note — must survive\ntdd: true/);
-  assert.match(migrated, /integration_branch: dev/);
   assert.equal(
-    withoutReadiness(migrated),
+    migrated,
     SCHEMA3_WITH_COMMENTS.replace('schema_version: 3', SCHEMA_VERSION_TO_6_WITH_MIN_CLI).replace(
       '  integration_branch: dev\n',
       '  integration_branch: dev\n  change_branch_format: "{type}/{id}"\n',
     ),
-    'only the schema version, branch default and appended readiness section may change',
+    'only the schema version, min_cli_version and branch default may change',
   );
   assert.equal(buildMigration(migrated, '0.17.0'), null, 'migration must be terminal');
 });
@@ -1505,7 +1486,6 @@ test('141119 CR6: a stage missing from the canonical list is never inserted into
   assert.ok(result);
   assert.deepEqual(result.changes, [
     'updated schema_version: 3 → 6',
-    'added readiness section',
     'added git.change_branch_format: {type}/{id}',
     'added min_cli_version: 0.17.0',
   ]);

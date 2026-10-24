@@ -8,8 +8,9 @@ import { mutateFileAtomic } from '../atomic-write.mjs';
 import { assertChildrenResolved, parseChange } from '../change.mjs';
 import { mutateLedgerFile, repoIsActivated, writeLedgerFiles } from '../change-store.mjs';
 import {
+  assertApprovable,
   assertChangeTextValid,
-  assertStagesNotEmpty,
+  assertReviewable,
   introducedErrors,
   recordedBranch,
 } from '../check.mjs';
@@ -291,24 +292,20 @@ export function statusMutation(
     if (fm.status === 'approved' && newStatus === 'in-progress') {
       assertImplementationBranch(config, fm, repoRoot, gitRun);
     }
-    // Entering review asserts a reviewable candidate exists (20260722-124656 CR3).
-    // Validate the document as it still stands, before the status flip: readiness
-    // defects are errors only while the change is pre-review, so checking the
-    // post-flip text would silently exempt the very candidate under judgment.
-    if (newStatus === 'in-review') assertChangeTextValid(config, name, text);
-    // Leaving draft asserts a ready candidate exists (20260729-185200 CR1). Same
-    // shape as the in-review gate — validate the pre-flip text — but the severity
-    // has to be projected: a draft's readiness and coverage diagnostics are
-    // warnings precisely because it is a draft, so judging the text as it stands
-    // would exempt every defect the approval is supposed to catch. `approved` is
-    // reachable only from `draft`, so this is the single seat for the gate.
+    // Entering review asserts a reviewable candidate exists: the implementer's
+    // Specification and Plan, written in `in-progress` (20261023-181753 CR5).
+    // Their own refusal comes first, so an empty Specification is named as
+    // such instead of as the Plan's references to it.
+    if (newStatus === 'in-review') {
+      assertReviewable(config, text);
+      assertChangeTextValid(config, name, text);
+    }
+    // Leaving draft asserts what the human approves exists: the objective and
+    // the frontier (20261023-181753). `approved` is reachable only from
+    // `draft`, so this is the single seat for the gate.
     if (newStatus === 'approved') {
-      assertChangeTextValid(config, name, text, { asStatus: 'approved' });
-      // Emptiness of an active stage's body is a defect coverage checks alone
-      // cannot see — an empty Specification declares no criteria, so nothing
-      // references an unknown one and nothing goes uncovered (real incident:
-      // 20260810-181801). Transition-scoped on purpose; see assertStagesNotEmpty.
-      assertStagesNotEmpty(config, text);
+      assertChangeTextValid(config, name, text);
+      assertApprovable(text);
     }
     text = setStatus(text, newStatus);
     // The return from `done` is the only record a rejection leaves, and only a

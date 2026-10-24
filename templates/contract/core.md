@@ -59,9 +59,10 @@ rework the orchestrator pays for twice.
 - No artifact without explicit human authorization, and none before there is
   enough clarity to document faithfully: a direct request such as “create the
   change” is authorization; never invent missing requirements.
-- One concern per change. Work necessary for the authorized objective stays in its
-  Specification, Plan and Log; if related work materially expands observable scope, get
-  explicit human authorization before adding it, and propose independent work separately.
+- One concern per change. Work is in when it must be true for the approved objective to be
+  met, and out when leaving it undone leaves the objective met: propose that work separately.
+  The frontier may pre-authorize work inside it; changing the objective or the frontier goes
+  back to the human.
 - Never implement a `draft`.
 - One change at a time, on a non-main branch.
 - Keep lifecycle, tasks, ownership and Log current.
@@ -136,7 +137,7 @@ never a reason — separating them is always possible, since each resolved selec
 
 ## Lifecycle
 
-- `draft`: documentation awaiting human approval; no implementation.
+- `draft`: objective and frontier awaiting human approval; no implementation.
 - `approved`: ready to start after the Git/worktree checks.
 - `in-progress`: implementation underway.
 - `in-review`: independent review required.

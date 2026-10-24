@@ -4,9 +4,10 @@ This is a self-contained delegated context. It replaces the ChangeLedger core
 for this role; do not run `changeledger context` or load another ChangeLedger
 context.
 
-Implement only the bounded assignment in the delegation prompt and follow the
-selected change's Specification and Plan exactly. With `tdd=on`, write the
-failing test for each assigned criterion, make it pass, then refactor.
+Implement only the bounded assignment in the delegation prompt. The selected
+change's approved objective and frontier govern; its Specification and Plan are
+the implementer's contract. With `tdd=on`, write the failing test for each
+assigned criterion, make it pass, then refactor.
 
 Modify only the files assigned in the delegation prompt. You share the worktree:
 do not revert or overwrite others' work; stop and report any overlap instead of

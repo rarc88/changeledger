@@ -121,15 +121,16 @@ function lowerHeaders(headers) {
   return Object.fromEntries(Object.entries(headers).map(([k, v]) => [k.toLowerCase(), v]));
 }
 
-// 20260810-213633: approve refuses a feature whose active stages are blank
-// (real incident: 20260810-181801). One shared fill for every fixture in this
-// file that walks a scaffolded feature change to `approved` or beyond.
+// 20261023-181753: approve requires the Request's `### Objective` and
+// `### Frontier` with a body, and `in-review` requires a Specification that
+// declares a criterion. One shared fill for every fixture in this file that
+// walks a scaffolded feature change to `approved` or beyond.
 function fillNarrativeStages(text) {
   return text
-    .replace('## Request\n', '## Request\n\nR\n')
+    .replace('## Request\n', '## Request\n\n### Objective\n\nO\n\n### Frontier\n\nF\n')
     .replace('## Investigation\n', '## Investigation\n\nI\n')
     .replace('## Proposal\n', '## Proposal\n\nP\n')
-    .replace('## Specification\n', '## Specification\n\nS\n');
+    .replace('## Specification\n', '## Specification\n\n### CR1 — S\n\nS\n');
 }
 
 function fillFeatureStages(text) {
@@ -1985,31 +1986,6 @@ test('111218 CR4: malformed type definitions return 400 instead of escaping', ()
   assert.equal(fs.readFileSync(configFile, 'utf8'), read.body.content);
 });
 
-test('111218 CR4: malformed readiness patterns return their validation cause', () => {
-  isolatedHome();
-  const root = newRepo();
-  const { projects, current } = resolveProjects(root, false);
-  const configFile = path.join(root, '.changeledger', 'config.yml');
-  const read = readProjectConfig(projects, current);
-  // The template ships `readiness` uncommented, so malform the block it already
-  // has instead of appending a second one (that would be a duplicate-key error).
-  const candidate = read.body.content.replace(
-    '  target_patterns: ["src/**"]',
-    '  target_patterns:\n    source: true',
-  );
-  assert.notEqual(candidate, read.body.content, 'the malformed candidate must differ');
-
-  const result = saveProjectConfig(projects, {
-    project: current,
-    content: candidate,
-    revision: read.body.revision,
-  });
-
-  assert.equal(result.code, 400);
-  assert.equal(result.body.error, 'config "readiness.target_patterns" must be a list');
-  assert.equal(fs.readFileSync(configFile, 'utf8'), read.body.content);
-});
-
 test('111218 CR3/CR4: config write failure leaves config and registry unchanged', () => {
   isolatedHome();
   const root = newRepo();
@@ -2502,6 +2478,43 @@ test('113924 CR5: patch explicitly rejects project_id in patch payload', () => {
   });
   assert.equal(result.code, 400);
   assert.match(result.body.error, /project_id cannot be changed/);
+});
+
+test('20261023-181753 CR8: a config PATCH carrying readiness leaves the config as a PATCH with no accepted keys leaves it', () => {
+  isolatedHome();
+  const root = newRepo();
+  const { projects, current } = resolveProjects(root, false);
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  const original = fs.readFileSync(configFile, 'utf8');
+  const patched = (patch) => {
+    fs.writeFileSync(configFile, original);
+    const { body } = readProjectConfigStructured(projects, current);
+    const result = patchProjectConfig(projects, {
+      project: current,
+      revision: body.revision,
+      patch,
+    });
+    assert.equal(result.code, 200, result.body?.error);
+    return fs.readFileSync(configFile, 'utf8');
+  };
+
+  const baseline = patched({});
+  const withReadiness = patched({
+    readiness: { target_patterns: ['src/**'], verification_patterns: ['test/**'] },
+  });
+
+  assert.equal(withReadiness, baseline);
+  assert.doesNotMatch(withReadiness, /readiness/);
+});
+
+test('20261023-181753 CR8: the served app carries no Definition of Ready form', async () => {
+  isolatedHome();
+  const res = await memoryRequest(newRepo(), { path: '/app.js' });
+  assert.equal(res.status, 200);
+  assert.doesNotMatch(res.body, /Definition of Ready/);
+  assert.doesNotMatch(res.body, /Target patterns \(one per line\)/);
+  assert.doesNotMatch(res.body, /Verification patterns \(one per line\)/);
+  assert.doesNotMatch(res.body, /test-grade/);
 });
 
 test('113924 CR5: patch rejects invalid changes_dir (path traversal)', () => {

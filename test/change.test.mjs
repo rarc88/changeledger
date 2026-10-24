@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { parseChange } from '../src/change.mjs';
+import { parseChange, stageSource } from '../src/change.mjs';
 
 const SAMPLE = `---
 id: "0001"
@@ -368,4 +368,68 @@ depends_on: []
     ['request'],
   );
   assert.match(c.stages[0].body, /## Investigation/);
+});
+
+// A stage body is still trimmed as a whole, so a first content line written
+// with indentation is read at column 0 like every other reader expects: the
+// first Plan task and the first criterion of a Specification are recognised
+// whether or not their line starts with spaces. The Request reader gets the
+// untrimmed slice separately, so this trim cannot shift its fence phase.
+test('20261023-181753 CR2: an indented first line of a stage parses as before the fence-aware Request reader', () => {
+  const doc = `---
+id: "0002"
+title: X
+type: feature
+status: in-progress
+created: 2026-06-13T13:30:00Z
+depends_on: []
+---
+
+## Request
+
+### Objective
+
+O
+
+### Frontier
+
+F
+
+## Investigation
+
+## Proposal
+
+## Specification
+
+  ### CR1 — x
+- **Given** a
+- **When** b
+- **Then** c
+
+## Plan
+
+  - [ ] t
+  - **Target:** \`src/x.mjs\`
+  - **Verify:** \`node --test test/x.test.mjs\`
+  - **Criteria:** CR1
+
+## Log
+`;
+  const c = parseChange(doc);
+  assert.deepEqual(c.criteria, ['CR1']);
+  assert.equal(c.tasks.length, 1);
+  assert.deepEqual(c.tasks[0].criteria, ['CR1']);
+  const plan = c.stages.find((s) => s.key === 'plan');
+  assert.ok(
+    plan.body.startsWith('- [ ] t'),
+    `plan body must start de-indented, got ${JSON.stringify(plan.body.slice(0, 12))}`,
+  );
+  const request = c.stages.find((s) => s.key === 'request');
+  assert.equal(request.body, '### Objective\n\nO\n\n### Frontier\n\nF');
+  // The untrimmed lines live in `stageSource`, not on the stage: a field there
+  // would leak into every JSON dump of a change (`show --json` counts text).
+  assert.deepEqual(Object.keys(request), ['key', 'heading', 'body']);
+  assert.equal(stageSource(doc, 'request'), '\n### Objective\n\nO\n\n### Frontier\n\nF\n\n');
+  assert.equal(stageSource(doc, 'investigation'), '\n');
+  assert.equal(stageSource(doc, 'nope'), null);
 });
