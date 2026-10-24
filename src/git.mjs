@@ -297,6 +297,64 @@ export function stagedFiles(cwd, run = defaultRun) {
   return out.split('\0').filter((entry) => entry !== '');
 }
 
+// The paths `head` changed since it forked from `base` (`<base>...<head>`, so
+// work landed on `base` after the fork is not counted), read with the same
+// pinned axes as `stagedFiles` and returned the same way: relative to git's
+// top-level, raw, never trimmed. Both ends must be local branches of exactly
+// that name — a same-named tag or remote copy never stands in (see
+// `refExists`). Every failure throws with its cause named, because the caller
+// decides from this whether a change may skip review and a doubt must not read
+// as "nothing changed".
+const RANGE_ARGS = [
+  '-c',
+  'core.quotePath=false',
+  'diff',
+  '-z',
+  '--no-renames',
+  '--no-relative',
+  '--ignore-submodules=none',
+  '--name-only',
+];
+
+export function changedPathsInRange(cwd, base, head, run = capturedRun) {
+  for (const name of [base, head]) assertLocalBranch(cwd, name, run);
+  let out;
+  try {
+    out = run([...RANGE_ARGS, `refs/heads/${base}...refs/heads/${head}`, '--'], cwd);
+  } catch (e) {
+    throw new Error(gitFailure(e, `git diff ${base}...${head} failed`), { cause: e });
+  }
+  return String(out)
+    .split('\0')
+    .filter((entry) => entry !== '');
+}
+
+// `show-ref --verify` exits 1 exactly when the ref is absent; any other failure
+// is git's own and is reported as such.
+function assertLocalBranch(cwd, name, run) {
+  try {
+    run(['show-ref', '--verify', '--quiet', `refs/heads/${name}`], cwd);
+  } catch (e) {
+    if ((e.cause ?? e).status === 1) throw new Error(`branch "${name}" does not exist locally`);
+    throw new Error(gitFailure(e, `cannot read branch "${name}"`), { cause: e });
+  }
+}
+
+function gitFailure(error, context) {
+  if ((error.cause ?? error).code === 'ENOENT') return 'git is not installed or not on PATH';
+  // `capturedRun` appends git's stderr below the process message; that
+  // diagnostic is the cause, the command line above it is noise.
+  const lines = String(error.message)
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const detail = lines.length > 1 ? lines.slice(1).join(' ') : (lines[0] ?? 'unknown error');
+  if (UNKNOWN_NO_RELATIVE_RE.test(error.message)) {
+    return `git >= ${GIT_FLOOR} is required for --no-relative: ${detail}`;
+  }
+  return `${context}: ${detail}`;
+}
+
 // Git's own repository root, via `git rev-parse --show-toplevel`. This is the
 // coordinate system `stagedFiles`' paths are relative to, regardless of `cwd`
 // — which differs from a ChangeLedger repo's `repoRoot` (dirname of

@@ -7,6 +7,7 @@ import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import {
   assertCommitObject,
+  changedPathsInRange,
   checkoutBranch,
   currentBranch,
   defaultGhRun,
@@ -689,4 +690,118 @@ test('20261018-131621 CR10: the merge that landed the branch wins over later mer
   git(root, ['merge', '--no-ff', '-q', '-m', 'merge feature/y', 'feature/y']);
 
   assert.equal(mergeRecord(root, 'feature/x', 'dev').sha, landing.slice(0, 7));
+});
+
+// --- changedPathsInRange (20261024-121022 CR5/CR6: the paths a change's branch
+// touched, read the way `stagedFiles` reads the index, so a direct `done` can be
+// decided from git and every doubt fails closed) ---
+
+function commitFile(root, file, content = 'x\n') {
+  fs.mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
+  fs.writeFileSync(path.join(root, file), content);
+  git(root, ['add', '--', file]);
+  git(root, ['commit', '-qm', `touch ${file}`]);
+}
+
+function branchTouching(root, name, files) {
+  git(root, ['checkout', '-q', '-b', name]);
+  for (const file of files) commitFile(root, file);
+  git(root, ['checkout', '-q', 'dev']);
+}
+
+test('20261024-121022 CR5: changedPathsInRange lists what the branch changed since it forked', () => {
+  const root = initFixture(fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-range-')));
+  branchTouching(root, 'change/x', ['src/x.mjs', '.changeledger/changes/x.md']);
+  // Work that lands on the integration branch after the fork is not the change's.
+  commitFile(root, 'later-on-dev.txt');
+
+  assert.deepEqual(changedPathsInRange(root, 'dev', 'change/x').sort(), [
+    '.changeledger/changes/x.md',
+    'src/x.mjs',
+  ]);
+});
+
+test('20261024-121022 CR5: changedPathsInRange pins the stagedFiles axes on <base>...<head>', () => {
+  const calls = [];
+  const run = (args) => {
+    calls.push(args);
+    return args[0] === 'show-ref' ? '' : 'a\0b c\0';
+  };
+  assert.deepEqual(changedPathsInRange('/repo', 'dev', 'change/x', run), ['a', 'b c']);
+  assert.deepEqual(calls.at(-1), [
+    '-c',
+    'core.quotePath=false',
+    'diff',
+    '-z',
+    '--no-renames',
+    '--no-relative',
+    '--ignore-submodules=none',
+    '--name-only',
+    'refs/heads/dev...refs/heads/change/x',
+    '--',
+  ]);
+});
+
+test('20261024-121022 CR5: changedPathsInRange keeps raw paths, splits renames and ignores diff.relative', () => {
+  const root = initFixture(fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-range-')));
+  commitFile(root, 'docs/old.md', 'same body\n'.repeat(20));
+  git(root, ['checkout', '-q', '-b', 'change/x']);
+  git(root, ['mv', 'docs/old.md', 'docs/new.md']);
+  git(root, ['commit', '-qm', 'rename']);
+  commitFile(root, 'docs/ñandú .md');
+  git(root, ['checkout', '-q', 'dev']);
+  git(root, ['config', 'diff.relative', 'true']);
+  git(root, ['config', 'core.quotePath', 'true']);
+
+  assert.deepEqual(changedPathsInRange(path.join(root, 'docs'), 'dev', 'change/x').sort(), [
+    'docs/new.md',
+    'docs/old.md',
+    'docs/ñandú .md',
+  ]);
+});
+
+test('20261024-121022 CR6: changedPathsInRange names a branch that does not exist locally', () => {
+  const root = initFixture(fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-range-')));
+  // A same-named tag must not stand in for the absent branch.
+  git(root, ['tag', 'refs/heads/change/gone']);
+  assert.throws(
+    () => changedPathsInRange(root, 'dev', 'change/gone'),
+    /^Error: branch "change\/gone" does not exist locally$/,
+  );
+  assert.throws(
+    () => changedPathsInRange(root, 'main', 'dev'),
+    /^Error: branch "main" does not exist locally$/,
+  );
+});
+
+test('20261024-121022 CR6: changedPathsInRange fails closed naming git missing, old git or the git error', () => {
+  const missing = () => {
+    const error = new Error('spawnSync git ENOENT');
+    error.code = 'ENOENT';
+    throw error;
+  };
+  assert.throws(
+    () => changedPathsInRange('/repo', 'dev', 'change/x', missing),
+    /^Error: git is not installed or not on PATH$/,
+  );
+
+  const failingDiff = (stderr) => (args) => {
+    if (args[0] === 'show-ref') return '';
+    throw new Error(`Command failed: git ${args.join(' ')}\n${stderr}`);
+  };
+  assert.throws(
+    () =>
+      changedPathsInRange(
+        '/repo',
+        'dev',
+        'change/x',
+        failingDiff("error: unknown option `no-relative'"),
+      ),
+    /^Error: git >= 2\.28 is required for --no-relative: error: unknown option `no-relative'$/,
+  );
+  assert.throws(
+    () =>
+      changedPathsInRange('/repo', 'dev', 'change/x', failingDiff('fatal: bad object deadbeef')),
+    /^Error: git diff dev\.\.\.change\/x failed: fatal: bad object deadbeef$/,
+  );
 });

@@ -16,8 +16,9 @@ export const CANONICAL_STATUSES = [
 
 // from → set of allowed next states. Forward progress plus the review gate;
 // regressions, skips and self-loops are absent and therefore rejected.
-// `in-review` is optional by type: a `review_required` type delivers through
-// it, any other delivers straight from in-progress. `done` means "delivered,
+// `in-review` is the route of a change whose branch touches code; one that
+// touches only the ledger, and an epic, deliver straight from in-progress
+// (`assertTransition` decides between them). `done` means "delivered,
 // pending human acceptance" — review may instead route back to in-progress,
 // and so may `done` while the change is not yet published in a release.
 // `discarded` is a terminal tombstone reachable only before delivery.
@@ -40,26 +41,33 @@ export function canTransition(from, to) {
 // repo with custom statuses keeps the prior enum-only behavior, since this graph
 // cannot reason about states it does not model.
 //
-// The review gate, symmetric on both sides: a `review_required` type cannot
-// deliver straight from in-progress, and a type without it cannot enter review
-// at all — it activates neither `specification` nor `plan`, so a reviewer would
-// have no criterion and no task to inspect. `opts.reviewRequired` comes from the
-// change's type in config.yml.
-export function assertTransition(from, to, { type, reviewRequired = false } = {}) {
+// The review gate (20261024-121022). `kind` is `change` or `epic`. An epic
+// groups work and is never implemented, so it never enters review and delivers
+// straight from in-progress. A change always may enter review; it delivers
+// straight from in-progress only when the caller has established, from git,
+// that its branch touches nothing outside the ledger (`touchesCode: false`).
+// Code, or an undecided answer, keeps it on the reviewed route.
+const CHANGE_KINDS = ['change', 'epic'];
+
+export function assertTransition(from, to, { kind = 'change', touchesCode } = {}) {
+  if (!CHANGE_KINDS.includes(kind)) {
+    throw new Error(`unknown change kind "${kind}"; valid kinds: ${CHANGE_KINDS.join(', ')}`);
+  }
   if (!canonical.has(from) || !canonical.has(to)) return;
   if (from === to) throw new Error(`change is already "${to}"`);
   if (!canTransition(from, to)) {
     throw new Error(`invalid lifecycle transition: ${from} → ${to}`);
   }
-  if (reviewRequired && from === 'in-progress' && to === 'done') {
-    const subject = type ? `${type} changes` : 'changes';
-    throw new Error(`${subject} must be reviewed before delivery — move to in-review first`);
+  if (from !== 'in-progress') return;
+  if (kind === 'epic' && to === 'in-review') {
+    throw new Error('epic changes do not enter review — move to done instead');
   }
-  if (!reviewRequired && from === 'in-progress' && to === 'in-review') {
-    if (!type) {
-      throw new Error('cannot decide review entry: the change declares no type');
-    }
-    throw new Error(`${type} changes do not require review — move to done instead`);
+  if (kind === 'change' && to === 'done' && touchesCode !== false) {
+    throw new Error(
+      touchesCode === true
+        ? 'change touches code outside the ledger: move it to in-review and record a verdict'
+        : 'cannot decide whether the change touches code — move it to in-review and record a verdict',
+    );
   }
 }
 

@@ -96,7 +96,7 @@ export function integrationBranch(config) {
 
 // Optional declared release (production) branch, under the same contract as
 // `integrationBranch`. Its absence is not a config defect: it matters only to a
-// type that integrates into it, and `changeIntegrationBranch` reports it there.
+// change that integrates into it, and `changeIntegrationBranch` reports it there.
 export function releaseBranch(config) {
   return declaredGitBranch(config, 'release_branch');
 }
@@ -113,48 +113,47 @@ function declaredGitBranch(config, key) {
   return value.trim();
 }
 
-// `types.<type>.integrates_into` names the role of the branch a change of that
-// type starts from and integrates into. `check` reports a value outside the
-// roles through this same message, so the resolver and the checker never drift.
+// A change's `integrates_into` frontmatter names the role of the branch it
+// starts from and integrates into. `check` reports a value outside the roles
+// through this same message, so the resolver and the checker never drift.
 const INTEGRATION_ROLES = ['integration', 'release'];
 
-export function integrationRoleError(type, typeConfig) {
-  if (!isMapping(typeConfig) || !('integrates_into' in typeConfig)) return undefined;
-  if (INTEGRATION_ROLES.includes(typeConfig.integrates_into)) return undefined;
-  return `config type "${type}": integrates_into must be "integration" or "release"`;
+export function integratesIntoError(frontmatter) {
+  if (!isMapping(frontmatter) || !('integrates_into' in frontmatter)) return undefined;
+  if (INTEGRATION_ROLES.includes(frontmatter.integrates_into)) return undefined;
+  return 'integrates_into must be "integration" or "release"';
 }
 
-// The branch a change of `type` starts from and integrates into. No role (or no
-// type, as in a mode context) means `integration`: the repo's
-// `git.integration_branch`. A release type never falls back to the integration
-// branch when `git.release_branch` is undeclared — that would silently start a
-// release fix from unreleased work (20261002-181346).
-export function changeIntegrationBranch(config, type) {
-  const typeConfig = type === undefined ? undefined : config?.types?.[type];
-  const roleError = integrationRoleError(type, typeConfig);
+// The branch a change starts from and integrates into. No role (or no change,
+// as in a mode context) means `integration`: the repo's
+// `git.integration_branch`. A release change never falls back to the
+// integration branch when `git.release_branch` is undeclared — that would
+// silently start a release fix from unreleased work (20261002-181346).
+export function changeIntegrationBranch(config, frontmatter) {
+  const roleError = integratesIntoError(frontmatter);
   if (roleError) throw new Error(roleError);
-  if (typeConfig?.integrates_into !== 'release') return integrationBranch(config);
+  if (frontmatter?.integrates_into !== 'release') return integrationBranch(config);
   const branch = releaseBranch(config);
-  if (branch === undefined) throw new Error(undeclaredReleaseBranchMessage(type));
+  if (branch === undefined) throw new Error(undeclaredReleaseBranchMessage(frontmatter));
   return branch;
 }
 
 // The common stretch of both refusals: `changeIntegrationBranch` throws it as
 // is, and `releaseBranchRequirementError` extends it with the action to take,
 // so the two messages cannot drift apart.
-function undeclaredReleaseBranchMessage(type) {
-  return `type "${type}" integrates into git.release_branch, which is not declared`;
+function undeclaredReleaseBranchMessage(frontmatter) {
+  return `change ${frontmatter.id} integrates into git.release_branch, which is not declared`;
 }
 
-// The defect a change of `type` carries when the repo declares no release
-// branch for a type that integrates into it, or `undefined` when it carries
-// none. `new` refuses to create such a change with it and `check` reports it on
-// one that already exists (20261012-174310). A malformed `git.release_branch`
-// throws from `releaseBranch`, as it does for `changeIntegrationBranch`.
-export function releaseBranchRequirementError(config, type) {
-  if (config?.types?.[type]?.integrates_into !== 'release') return undefined;
+// The defect a change carries when it integrates into a release branch the
+// repo does not declare, or `undefined` when it carries none. `new` refuses to
+// create such a change with it and `check` reports it on one that already
+// exists (20261012-174310). A malformed `git.release_branch` throws from
+// `releaseBranch`, as it does for `changeIntegrationBranch`.
+export function releaseBranchRequirementError(config, frontmatter) {
+  if (frontmatter?.integrates_into !== 'release') return undefined;
   if (releaseBranch(config) !== undefined) return undefined;
-  return `${undeclaredReleaseBranchMessage(type)} — set git.release_branch in .changeledger/config.yml, for example "main"`;
+  return `${undeclaredReleaseBranchMessage(frontmatter)} — set git.release_branch in .changeledger/config.yml, for example "main"`;
 }
 
 function isMapping(value) {

@@ -16,17 +16,24 @@ import {
 } from '../check.mjs';
 import {
   changeIntegrationBranch,
+  DEFAULT_SPECS_DIR,
   findChangeledgerDir,
   integrationBranch,
   renderChangeBranch,
+  resolveRepoPath,
 } from '../config.mjs';
 import { assertSupportedSchema } from '../config-migration.mjs';
 import {
+  capturedRun,
+  changedPathsInRange,
   currentBranch,
+  defaultBaseBranch,
   checkoutBranch as defaultCheckoutBranch,
   defaultRun as defaultGitRun,
   ownerHandle as defaultOwnerHandle,
   deleteMergedBranch,
+  gitPrefix,
+  gitTopLevel,
   isAncestor,
   mergeBases,
   refExists,
@@ -108,11 +115,11 @@ function assertImplementationBranch(config, change, repoRoot, gitRun) {
     );
   }
 
-  // The base follows the role of the change's type (`integrates_into`), so a
-  // release type descends from `git.release_branch` (20261002-181346). An
-  // absent base fails here too, before git can read its full ref through a ref
-  // such as `refs/tags/refs/heads/<name>`.
-  const baseline = changeIntegrationBranch(config, change.type);
+  // The base follows the change's role (`integrates_into`), so a release
+  // change descends from `git.release_branch` (20261002-181346). An absent
+  // base fails here too, before git can read its full ref through a ref such
+  // as `refs/tags/refs/heads/<name>`.
+  const baseline = changeIntegrationBranch(config, change);
   if (
     baseline &&
     !(
@@ -187,9 +194,10 @@ function integrationCopies(integration, expected, repoRoot, gitRun) {
 // names the command that owns it, so a caller that is not a human — `apply`'s
 // batch included — is told where the move actually belongs. `done` is not one
 // of them: it means "delivered, pending human acceptance", which the agent
-// owns — through `review pass` for a review_required type, and through this
-// command for any other. Which of the two applies depends on the origin, which
-// no pre-text guard can read: `statusMutation` refuses the `in-review` one.
+// owns — through `review pass` for a change whose branch touches code, and
+// through this command for any other. Which of the two applies depends on the
+// origin and on git, which no pre-text guard can read: `statusMutation`
+// refuses the `in-review` one and the code-touching one.
 export function assertStatusDestinationAllowed(config, newStatus, actor) {
   if (newStatus === 'discarded') {
     throw new Error(
@@ -230,7 +238,7 @@ export function statusMutation(
   {
     ownerHandle = defaultOwnerHandle,
     checkoutBranch = defaultCheckoutBranch,
-    gitRun = defaultGitRun,
+    gitRun = capturedRun,
   } = {},
 ) {
   return (text) => {
@@ -247,7 +255,7 @@ export function statusMutation(
     // pass` walks it — so the narrowing lives here, where the origin is known,
     // and covers every caller of this transform: the CLI, the viewer and
     // `apply`'s batch alike. Without it an agent delivers its own
-    // review_required work unreviewed and `check` sees nothing wrong
+    // code-touching work unreviewed and `check` sees nothing wrong
     // (20261018-131621 CR27).
     // An epic delivers when its children do. Checked before the transition so a
     // refusal leaves the document byte-for-byte unchanged, and read through
@@ -265,12 +273,17 @@ export function statusMutation(
       );
     }
     // Validate the move before any in-memory mutation, so an illegal transition
-    // leaves the file byte-for-byte unchanged. The review gate reads review_required
-    // from the change's type.
-    assertTransition(fm.status, newStatus, {
-      type: fm.type,
-      reviewRequired: Boolean(config.types?.[fm.type]?.review_required),
-    });
+    // leaves the file byte-for-byte unchanged. A change reaches `done` from
+    // `in-progress` only once git shows its branch touches nothing outside the
+    // ledger (20261024-121022); an epic is never implemented and asks git
+    // nothing.
+    const kind = changeKind(fm);
+    let touchesCode;
+    if (kind === 'change' && fm.status === 'in-progress' && newStatus === 'done') {
+      assertTouchesOnlyLedger(config, fm, repoRoot, gitRun);
+      touchesCode = false;
+    }
+    assertTransition(fm.status, newStatus, { kind, touchesCode });
 
     // Enforceability guard (20260808-141944): the `branch` field is set once
     // and never rewritten (20260805-052741), so a later move to another branch
@@ -373,6 +386,75 @@ export function statusMutation(
   };
 }
 
+const changeKind = (fm) => (fm.type === 'epic' ? 'epic' : 'change');
+
+// Throws unless git shows that the change's branch touches only the ledger:
+// `changes_dir`, `specs_dir` and `.changeledger/`. The range is the one the
+// branch introduced over its integration branch (`changedPathsInRange`). Every
+// doubt — no branch, a branch git does not have, a failing git — refuses with
+// its cause, because the direct route skips the independent review and a
+// question git cannot answer must not read as "no code".
+function assertTouchesOnlyLedger(config, fm, repoRoot, gitRun) {
+  const verdictRoute = 'move it to in-review and record a verdict';
+  const undecided = (cause) =>
+    new Error(`cannot decide whether change ${fm.id} touches code: ${cause} — ${verdictRoute}`);
+  const head = fm.branch ?? renderChangeBranch(config, fm);
+  if (!head) throw undecided('no branch recorded for it');
+  let code;
+  try {
+    const base = changeIntegrationBranch(config, fm) ?? detectedBaseBranch(repoRoot, gitRun);
+    if (head === base) throw new Error(`branch "${head}" is the integration branch`);
+    const ledger = ledgerPrefixes(config, repoRoot, gitRun);
+    code = changedPathsInRange(repoRoot, base, head, gitRun).filter(
+      (entry) => !ledger.some((prefix) => entry.startsWith(prefix)),
+    );
+  } catch (error) {
+    throw undecided(error.message);
+  }
+  if (code.length > 0) {
+    const count = `${code.length} ${code.length === 1 ? 'path' : 'paths'}`;
+    throw new Error(
+      `change ${fm.id} touches code outside the ledger (${count}, e.g. ${code[0]}): ${verdictRoute}`,
+    );
+  }
+}
+
+// Without a declared `git.integration_branch` the base is the one
+// `check --commits` detects; its own refusal names a flag of that command, so
+// it is restated here.
+function detectedBaseBranch(repoRoot, gitRun) {
+  try {
+    return defaultBaseBranch(repoRoot, gitRun);
+  } catch {
+    throw new Error(
+      'git.integration_branch is not declared and no default branch (origin/HEAD, main or master) exists',
+    );
+  }
+}
+
+// The ledger directories as git reports paths: relative to its top-level and
+// slash-separated, each ending in `/` so a sibling sharing the name as a string
+// prefix (`specs-old/` beside `specs/`) is not taken for it. The configured
+// dirs pass the containment guard and are normalised in the filesystem's own
+// coordinates; only the repo root's prefix comes from git (`gitPrefix`), so
+// Windows separators never meet git's.
+function ledgerPrefixes(config, repoRoot, gitRun) {
+  const prefix = gitPrefix(fs.realpathSync(repoRoot), gitTopLevel(repoRoot, gitRun), gitRun);
+  const dirs = [
+    ['changes_dir', config.changes_dir],
+    ['specs_dir', config.specs_dir ?? DEFAULT_SPECS_DIR],
+    ['ledger', '.changeledger'],
+  ];
+  return dirs.map(([field, configured]) => {
+    const relative = path
+      .relative(repoRoot, resolveRepoPath(repoRoot, configured, field))
+      .split(path.sep)
+      .join('/');
+    if (relative === '') throw new Error(`${field} "${configured}" resolves to the repo root`);
+    return `${prefix}${relative}/`;
+  });
+}
+
 // The usage snapshot's view of one written Log transition (20261001-155612).
 function transitionEvent(fm, event, from, to, at) {
   return { change: String(fm.id), event, from, to, at };
@@ -385,7 +467,7 @@ export function status(
   {
     ownerHandle = defaultOwnerHandle,
     checkoutBranch = defaultCheckoutBranch,
-    gitRun = defaultGitRun,
+    gitRun = capturedRun,
     actor = 'human',
     channel = 'viewer',
     reason,
@@ -444,16 +526,13 @@ export function review(id, verdict, { reason } = {}, cwd = process.cwd(), { usag
       // assertTransition is the single lifecycle authority, even though both
       // in-review edges are legal today (the graph's two in-review
       // destinations mirror review()'s two verdicts by design).
-      const opts = {
-        type: fm.type,
-        reviewRequired: Boolean(config.types?.[fm.type]?.review_required),
-      };
+      const opts = { kind: changeKind(fm) };
 
       const at = nowUtc();
       let to;
       if (verdict === 'pass') {
         // `review pass` is the second write seat for `done`, and the only one a
-        // review_required type can reach: `statusMutation`'s guard never runs
+        // code-touching change can reach: `statusMutation`'s guard never runs
         // for it. The scoped validation below cannot stand in — it judges a
         // one-change repo, where a parent has no visible children
         // (20261020-172221 D1).
@@ -543,7 +622,7 @@ export function discard(id, reason, cwd = process.cwd(), { usage } = {}) {
   if (!reason) {
     throw new Error('discard requires a reason — changeledger discard <id> "<reason>"');
   }
-  const { config, repo, target, repoRoot } = locate(cwd, id);
+  const { repo, target, repoRoot } = locate(cwd, id);
   const events = [];
   mutateLedgerFile(
     repo,
@@ -551,10 +630,7 @@ export function discard(id, reason, cwd = process.cwd(), { usage } = {}) {
     (text) => {
       const fm = parseChange(text).frontmatter;
       // Validate before any mutation so an illegal discard leaves the file untouched.
-      assertTransition(fm.status, 'discarded', {
-        type: fm.type,
-        reviewRequired: Boolean(config.types?.[fm.type]?.review_required),
-      });
+      assertTransition(fm.status, 'discarded', { kind: changeKind(fm) });
       text = setStatus(text, 'discarded');
       const at = nowUtc();
       text = appendLogEvent(text, {
@@ -573,7 +649,7 @@ export function discard(id, reason, cwd = process.cwd(), { usage } = {}) {
   return target.file;
 }
 
-// Everything the branch deletion needs, resolved inside one try: a type whose
+// Everything the branch deletion needs, resolved inside one try: a change whose
 // `integrates_into` names a retired `git.release_branch` makes
 // `changeIntegrationBranch` throw, and that must never cost an archive that has
 // already landed. Terminal changes are history (20261012-174310).
@@ -591,7 +667,7 @@ function pruneChangeBranch(repoRoot, config, change, gitRun) {
     return deleteMergedBranch(
       repoRoot,
       recordedBranch(change),
-      changeIntegrationBranch(config, change.frontmatter?.type),
+      changeIntegrationBranch(config, change.frontmatter),
       renderChangeBranch(config, change.frontmatter ?? {}),
       gitRun ?? defaultGitRun,
     );
