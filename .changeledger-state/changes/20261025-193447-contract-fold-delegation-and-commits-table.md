@@ -151,7 +151,77 @@ combinado. Se mide, se bajan techos y el Log registra la tabla de palabras.
 
 ## Specification
 
+Escrita en `in-progress` con el código delante. Sedes: `templates/contract/core.md`
+y `delegation.md`; `MODE_CONTEXT` en `src/commands/context.mjs`; `budgets.yml` y
+`PINNED_CEILINGS` con `commitsBlockLines` en `test/context.test.mjs`; la medida
+en `test/budget-support.mjs`. Las comprobaciones sobre prosa son barridos y
+guards tolerantes, nunca pins de frase. Ninguna línea añadida fuera de
+`.changeledger/` lleva un id de change ni un criterio con dígitos.
+
+### CR1 — Nueve fragmentos
+- **Given** `templates/contract/`
+- **When** se listan sus Markdown recursivamente
+- **Then** son `close.md`, `core.md`, `global-state.md`, `implement.md`, `release.md`, `review.md`, `spec.md`, `agent-contexts/review.md` y `agent-prompts/review.md`; `delegation.md` no existe
+- **And** el inventario pinado en `143656 CR4` dice eso mismo
+
+### CR2 — spec e implement componen solos
+- **Given** `MODE_CONTEXT` en `src/commands/context.mjs`
+- **When** se componen `context spec` y `context implement`
+- **Then** `spec` compone sólo `spec` e `implement` sólo `implement`; ninguna captura contiene `# Economical Delegation`
+- **And** `ownedHeadings` de `234939` lo refleja y `225213 CR4/CR5/CR7` se reapunta a que el triaje y el contrato de prompt viven en el core
+
+### CR3 — El core lleva una sección Delegation sin repetirse
+- **Given** `templates/contract/core.md`
+- **When** se lee
+- **Then** tiene doce bloques `##` en el orden pinado, con `## Delegation` justo después de «Protect the orchestrator's context», y esa sección contiene, con tolerancia a la redacción: el criterio de delegar sólo cuando la ganancia supera la coordinación; la frontera real (investigación por preguntas independientes, implementación sólo sobre escrituras disjuntas, verificación sólo cuando atrapa riesgo sin repetir); la prohibición de sobrefragmentar; los siete ítems que todo prompt declara (por qué, objetivo y frontera, ficheros que posee, baseline para quien escribe, comando de verificación, formato de vuelta, no delegar más); y el triaje de cuatro salidas con `changeledger finding <id>` y la regla de no mezclar ni retener una entrega lista
+- **And** «one level deep», «one owner per write surface», la definición de «selection of work» y el tamaño del delegado aparecen una sola vez en el core; el párrafo que remitía a «the delegation prompt contract of `changeledger context implement`» remite a la sección de abajo
+- **And** los guards 26 y 27 de `CONCEPT_GUARDS`, `162015 CR3/CR4`, `144327 CR5` y el test del triaje de `[finding]` en `test/contract.test.mjs` se reapuntan al core o se retiran con nombre en el Log
+
+### CR4 — El bloque de commits es una tabla de cuatro clases más las reglas
+- **Given** la sección `## Commits` del core
+- **When** se lee
+- **Then** contiene una tabla Markdown cuyas filas son `Draft`, `Baseline`, `Implementation` y `Handoff`, con columnas que dicen cuántos, cuándo y qué lleva cada uno, y la fila de implementación dice que una corrección tras `fail` o rechazo es una selección resuelta más, committeada antes de volver a `in-review`
+- **And** fuera de la tabla sobreviven, en prosa breve y encontrables por patrón: toda selección committeada antes de delegar la revisión; la prueba de granularidad (revertir, referenciar o implementar por separado; una transición nunca es un commit); el asunto `type(scope): description [#<id>]` y el cuerpo `ChangeLedger: [#A] [#B]` para varios changes; la exención de merge, `chore(release)` y `ChangeLedger: none`; `changeledger commit` con `--id` y `check --commits`; el commit combinado sólo cuando varios changes comparten ficheros y nunca por tareas del Plan
+- **And** `commitsBlockLines` mide el bloque nuevo y el techo `blocks.core-commits` baja a lo medido; los guards 24 y `164620 CR3` siguen pasando
+
+### CR5 — Los techos bajan a lo medido
+- **Given** `budgets.yml` y `PINNED_CEILINGS`
+- **When** se miden las capturas en el fixture y en este repo con `test/budget-support.mjs`
+- **Then** `base.core`, `base.spec`, `base.implement` y `blocks.core-commits` quedan en la mayor medida redondeada a la decena superior, `lines = tokens / 10`, cada uno por debajo de su valor en `origin/dev`; `base.core` no sube aunque el core gane la sección, porque la tabla de commits compensa; el resto de entradas no cambia
+- **And** el Log registra palabras por fragmento antes y después y las medidas por captura
+
+### CR6 — README nombra la sede nueva
+- **Given** `README.md`
+- **When** se lee la línea que decía «the prompt contract in the `delegation` fragment»
+- **Then** remite a la sección Delegation del core; `grep -rn "delegation fragment\|delegation.md" README.md CONTRIBUTING.md src/ bin/` no devuelve nada
+
+### CR7 — El día después
+- **Given** un repo de pruebas recién iniciado
+- **When** `changeledger context`, `context spec` y `context implement` se leen y el hook corre sobre la rama
+- **Then** el core contiene `## Delegation` y la tabla de commits; `spec` e `implement` caben en sus techos nuevos y no contienen `Economical Delegation`; `sh hooks/no-ledger-refs.sh origin/dev...HEAD` sale 0; `pnpm verify` pasa
+
 ## Plan
+
+- [ ] `## Delegation` en el core, borrado de `delegation.md`, `MODE_CONTEXT`, inventario, encabezados, guards reapuntados
+  - **Target:** `templates/contract/core.md`, `templates/contract/delegation.md`, `src/commands/context.mjs`, `test/context.test.mjs`, `test/contract.test.mjs`
+  - **Verify:** `node --test test/context.test.mjs test/contract.test.mjs`
+  - **Criteria:** CR1, CR2, CR3
+- [ ] Tabla de clases de commit con las reglas en prosa breve
+  - **Target:** `templates/contract/core.md`, `test/context.test.mjs`
+  - **Verify:** `node --test test/context.test.mjs test/cli.test.mjs`
+  - **Criteria:** CR4
+- [ ] Medir en los dos marcos y bajar techos
+  - **Target:** `templates/contract/budgets.yml`, `test/context.test.mjs`
+  - **Verify:** `node --test test/context.test.mjs test/contract.test.mjs`
+  - **Criteria:** CR5
+- [ ] README
+  - **Target:** `README.md`, `test/contract.test.mjs`
+  - **Verify:** `node --test test/contract.test.mjs`
+  - **Criteria:** CR6
+- [ ] El día después, hook y suite completa
+  - **Target:** `test/cli-bin.test.mjs`
+  - **Verify:** `sh hooks/no-ledger-refs.sh origin/dev...HEAD && pnpm verify`
+  - **Criteria:** CR7
 
 ## Log
 - **2026-10-25T19:34:47Z** `[version]` 0.19.0
