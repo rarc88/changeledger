@@ -18,6 +18,7 @@ related_to:
   - "20260728-170429"
 parent: "20261023-181733"
 owner: raruiz-hiberuscom
+release_impact: major
 ---
 
 ## Request
