@@ -481,10 +481,11 @@ Los mensajes de error son literales.
   - **Verify:** `node --test test/context.test.mjs test/contract.test.mjs test/cli.test.mjs test/search.test.mjs`
   - **Criteria:** CR1, CR5, CR6, CR7, CR8, CR10, CR14
   - **Resolved:** `2026-10-25T16:58:39Z`
-- [ ] Hook `no-ledger-refs.sh`, `pre-commit` y CI, con su test
+- [x] Hook `no-ledger-refs.sh`, `pre-commit` y CI, con su test
   - **Target:** `hooks/no-ledger-refs.sh`, `hooks/pre-commit`, `.github/workflows/ci.yml`, `test/no-ledger-refs.test.mjs`
   - **Verify:** `node --test test/no-ledger-refs.test.mjs`
   - **Criteria:** CR11
+  - **Resolved:** `2026-10-25T16:58:39Z`
 - [ ] README y CONTRIBUTING
   - **Target:** `README.md`, `CONTRIBUTING.md`, `test/contract.test.mjs`
   - **Verify:** `node --test test/contract.test.mjs`
