@@ -197,3 +197,4 @@ hijos el modelo que construye.
 - **2026-10-25T23:13:39Z** `[graduation]` spec: `readiness.md`
 - **2026-10-25T23:13:40Z** `[graduation]` spec: `contract-discovery.md`
 - **2026-10-25T23:13:40Z** `[graduation]` spec: `architecture.md`
+- **2026-10-25T23:13:41Z** `[graduation]` spec: `data-model.md`
