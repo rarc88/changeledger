@@ -11,14 +11,30 @@ graduated_from: ["20260613-205854", "20260616-151230", "20260616-162020", "20260
   `type`, `status`, `created`, `depends_on`, `related_to` opcional, `parent`
   opcional, `owner`
   opcional, `branch` opcional, `archived` opcional, `reviewed` opcional,
-  `release_impact` opcional, `accepted_at` opcional) + etapas (`## Request`…`## Log`) según el tipo.
+  `release_impact` opcional, `tdd` opcional, `integrates_into` opcional,
+  `accepted_at` opcional) + etapas. `type` es `change` o `epic` y las etapas
+  son cuatro, canónicas y en este orden: `## Request`, `## Specification`,
+  `## Plan` y `## Log`; ambas listas están fijadas en código (`CHANGE_TYPES` y
+  `CANONICAL_STAGES`, `src/change.mjs`) y ninguna clave de configuración las
+  declara. Un change lleva las etapas que necesita; un `epic` agrupa hijos, no
+  se implementa y nunca lleva `## Specification` ni `## Plan`. `## Request`
+  lleva `### Objective` y `### Frontier`, lo que el humano aprueba;
+  Investigation y Proposal son prosa libre bajo encabezados `###` dentro de la
+  Request o de la Specification, no etapas. `tdd: false` exime a un change de
+  la política test-first global y su Log dice por qué; `release_impact`
+  (`none`, `patch`, `minor` o `major`) prevalece sobre `release.default_impact`
+  de la configuración, y un `epic` pesa siempre `none`, porque el impacto lo
+  llevan sus hijos; `integrates_into` (`integration` o `release`) nombra el
+  rol de la rama de la que parte el change y en la que se integra.
   `branch` es un dato **por change** — la rama de implementación de ese change
   — y no debe confundirse con `config.git.integration_branch`, que es la rama
   de integración del repositorio entero. Tiene ciclo de vida (ver
   **Ciclo de vida y gate de revisión**). Cada tarea de `## Plan` ocupa una línea
   checklist (`[ ]`/`[x]`/`[!]`); una tarea resuelta exige una única línea hija
   ``  - **Resolved:** `<timestamp ISO UTC>` ``, y una bloqueada una única línea
-  hija `  - **Blocked:** <reason>`. Una tarea pendiente no admite metadatos. La
+  hija `  - **Blocked:** <reason>`. Una tarea pendiente no admite ninguna de
+  las dos; los hijos descriptivos `Target`, `Verify`, `Criteria` y `Support`
+  valen en cualquier estado, como mucho una vez cada uno. La
   descripción y la razón son texto libre y nunca se interpretan mediante
   separadores de puntuación.
 - **spec**: un archivo markdown sin ciclo de vida. Frontmatter mínimo (`title`,
@@ -31,12 +47,21 @@ graduated_from: ["20260613-205854", "20260616-151230", "20260616-162020", "20260
   del ledger, uno por foto del colector, nombrado
   `<id>--<YYYYMMDDTHHMMSSZ>-<8 hex>.json`; su contenido y su ciclo están en
   `usage.md`.
+- **configuración**: `.changeledger/config.yml` en el schema `7` declara
+  `schema_version`, `min_cli_version`, `language`, `tdd`,
+  `release.default_impact`, `changes_dir`, `specs_dir`, `git`
+  (`integration_branch`, `release_branch`, `change_branch_format`) y
+  `statuses`. No declara tipos, etapas ni impactos por tipo: `check` reporta
+  `types`, `stages`, `release.impacts` y `readiness` como claves retiradas que
+  `changeledger config migrate` elimina.
 
 ## Identidad
 
 `id` = instante UTC de creación `YYYYMMDD-HHMMSS`, derivado de `created`. Único
 sin coordinación central; `changeledger new` incrementa 1s ante colisión en el mismo
-segundo. La reserva se hace de forma atómica por id (`wx` sobre un lock temporal
+segundo. La forma `YYYYMMDD-HHMMSS` tiene una única sede, `CHANGE_ID_FORM`
+(`src/lifecycle.mjs`): la leen `check` para `id`, `parent` y el enlace de
+hijos, y la gramática de `[finding]` para el brazo `promoted`. La reserva se hace de forma atómica por id (`wx` sobre un lock temporal
 y escritura exclusiva del archivo final), de modo que dos procesos concurrentes
 no pueden escribir el mismo id. El lock incluye metadata del proceso propietario:
 si queda huérfano por una terminación abrupta, `changeledger new` lo puede recuperar; si el
@@ -79,7 +104,8 @@ Antes de mutar una tarea, el parser valida el bloque completo y falla sin
 escribir ante metadatos ausentes, duplicados, desconocidos o huérfanos. Completar
 una tarea ya resuelta es idempotente y conserva el timestamp original. El Log
 usa eventos tipados con timestamp y uno de los tipos `status`, `review`,
-`validation`, `owner`, `branch`, `graduation`, `archive`, `note` o `version`. Un único
+`validation`, `owner`, `branch`, `graduation`, `archive`, `note`, `version` o
+`finding`, declarados en `LOG_EVENT_DEFINITIONS` (`src/lifecycle.mjs`). Un único
 parser y serializador alimenta lifecycle, métricas, graduación y archivado; el
 payload es opaco salvo por el esquema del tipo declarado. `changeledger log`
 siempre crea un evento `note`, por lo que su texto no puede simular una
@@ -99,14 +125,30 @@ sello de aceptación de `sync` pasa por `appendLogEvent` y alcanza a los
 archivados, un change archivado bajo una CLI anterior puede recibir su línea
 `version` junto con la de aceptación.
 
+El tipo no transicional `finding` registra un hallazgo fuera de la frontera del
+change activo con tres formas de payload: `<texto>` lo abre,
+`<n> promoted #<id>` lo enlaza con el change en que se convirtió y
+`<n> dropped: <razón>` lo cierra con una razón. El ordinal `n` no se escribe en
+la línea de apertura: es la posición de su apertura entre las aperturas del mismo
+Log, resueltas incluidas, y `findingsInLog` (`src/lifecycle.mjs`) es la única lectura que lo deriva,
+compartida por `finding`, `list --pending findings` y `check`. Una apertura
+cuyo texto se leería como resolución se rechaza al escribir, y `check` rechaza
+con su línea, en documentos vivos, la resolución que no nombra un hallazgo
+abierto antes que ella o que resuelve uno ya resuelto. Ningún gate lee los
+hallazgos.
+
 `accepted_at` lleva el instante del commit de merge en ISO 8601 UTC. Es
 telemetría derivada de git —la aceptación humana es el merge, no un estado ni
 un comando— y no condiciona ninguna transición; lo escriben la graduación y
 `sync`.
-La migración desde la gramática anterior es explícita mediante
-`changeledger fix --structured-sections`, admite `--dry-run`, escribe de forma
-atómica por archivo y deja intacto cualquier documento que requiera una decisión
-manual.
+Un documento vivo con un tipo o una etapa retirados se pone al día de forma
+explícita con `changeledger fix`, que admite `--dry-run` y escribe de forma
+atómica por archivo: el tipo retirado pasa a `change` y el frontmatter recibe
+lo que ese tipo implicaba (`release_impact`, `integrates_into: release` de
+`hotfix`, `tdd: false` de `documentation`) salvo que ya lo declare, y
+`## Investigation`/`## Proposal` pasan bajo `## Request` como `###`. Lo que
+requiere una decisión manual queda intacto y listado; la historia congelada
+(archivada o descartada) sólo recibe las reparaciones mecánicas del Plan.
 
 ## Dependencias y relaciones entre changes
 
@@ -128,8 +170,9 @@ decisión de modelado. Como los otros dos enlaces declarados, es exento del
 aviso de mención no clasificada **en ambas direcciones**: ni el hijo que nombra
 a su épica ni la épica que nombra a un hijo avisan.
 
-`depends_on` expresa un requisito de ejecución y participa en readiness y en el
-lifecycle. `related_to` expresa contexto compartido sin imponer orden: acepta
+`depends_on` expresa un requisito de ejecución: entra en el grafo de ciclos de
+`check` y el contexto del change lo presenta con el título y el status de cada
+dependencia local. `related_to` expresa contexto compartido sin imponer orden: acepta
 ids locales o referencias `<proyecto>:<changeId>`, no participa en ciclos ni
 bloquea ningún estado. Una relación local se declara una sola vez; el contexto y
 el visor derivan el backlink entrante y la presentan como bidireccional para
