@@ -379,3 +379,4 @@ abajo son literales.
 - **2026-10-25T13:48:25Z** `[finding]` La CLI despacha una resolución cuando la segunda palabra es promote|drop: un texto sin comillas como «3 drop tables» descarta F3 en vez de registrar un hallazgo. La forma documentada entrecomilla el texto.
 - **2026-10-25T13:48:26Z** `[finding]` 1 promoted #20261024-202718
 - **2026-10-25T16:09:33Z** `[archive]` archived
+- **2026-10-25T17:47:45Z** `[finding]` promote 2 20261025-174739
