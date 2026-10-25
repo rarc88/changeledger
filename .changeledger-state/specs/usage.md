@@ -27,10 +27,14 @@ transición el valor inválido sólo omite la foto con un aviso.
 
 ## Cuándo y qué se registra
 
-Después de que la escritura tenga éxito, cada evento de transición (`[status]`
-y `[review]`) y cada creación de un change (`new`, `apply` con
-`target: "new"`) toman una foto. Las transiciones del viewer pasan por los
-mismos comandos. Los demás comandos no fotografían.
+Después de que la escritura tenga éxito, toman una foto la creación de un change
+(`new`, `apply` con `target: "new"`) y cada línea `[status]` o `[review]` que
+escriben `status` (también `status <id> in-progress --human`, la devolución de
+un change entregado), `approve`, `review`, `discard` y una entrada `status` de
+`apply`. Las transiciones del viewer pasan por los mismos comandos. Los demás
+comandos no fotografían; en particular, la línea
+`[validation] accepted (merged <sha>)` que `graduate` y `sync` escriben al
+sellar una aceptación no toma ninguna.
 
 Una foto pregunta a `ccusage` qué fuentes tienen sesiones y, por cada una, pide
 sus sesiones con precios online, con la tabla offline de `ccusage` como
@@ -44,8 +48,8 @@ modelo sin precio guarda `null`, nunca `0`. Los subagentes se suman a su sesión
 así que el rol sólo se distingue por el modelo.
 
 El registro es JSON `schema: 1` con el change, el instante del evento, el evento
-(`created`, `status` o `review`; los registros anteriores al ciclo de seis
-estados también llevan `validation`), los estados de origen y destino,
+(`created`, `status` o `review`; un registro de una versión anterior puede
+llevar también `validation`), los estados de origen y destino,
 el colector con su versión y su modo de precios, las sesiones, las fuentes
 excluidas y un `error`. La versión de ChangeLedger de cada registro se obtiene
 cruzando su instante con las líneas `[version]` del Log, sin copiarla. El
@@ -113,11 +117,14 @@ que el panel del viewer lo reutilice.
   `pre-draft` para `created`, si no el estado `from`, y `rework` para un tramo
   `in-progress` cerrado en o después del primer veredicto fallido del mismo
   change. El veredicto fallido se reconoce por la arista completa —tipo, origen
-  y destino—, nunca por el destino solo: `[status] done → in-progress` es el
-  rechazo de lo entregado, mientras que `approved → in-progress` es el trabajo
-  empezando. Cuentan también las formas que ya lleva el histórico
-  (`[review] in-review → in-progress|blocked` y `[validation] in-validation →
-  in-progress`), de modo que la atribución no pierde los ciclos anteriores.
+  y destino—, nunca por el destino solo: es `[review] in-review → in-progress` o
+  `[status] done → in-progress`, la devolución de lo entregado, la registre el
+  humano o el agente, mientras que `approved → in-progress` es el trabajo
+  empezando. Las aristas `[review] in-review → blocked` y
+  `[validation] in-validation → in-progress` pertenecen a estados retirados y
+  sólo clasifican registros de ledgers anteriores.
+- Una línea `[finding]` no es una transición: no toma foto, no cierra ningún
+  tramo y no cuenta en `gap`.
 - El primer registro con datos de cada registrador es su base y no se atribuye.
   Un registro con `error` no es base ni cierra tramo: su hueco cae en el
   siguiente registro con datos del registrador.
@@ -126,6 +133,7 @@ que el panel del viewer lo reutilice.
   `unpriced_tokens`, nunca como coste 0.
 - La versión de un tramo es la del último `[version]` del Log de su change en o
   antes del registro que lo cierra, o `unknown`.
+- `--by type` agrupa por el `type` del change, que es `change` o `epic`.
 
 Un change sin ningún tramo atribuido no está medido: no tiene fila, suma en
 `unmeasured` (`unmeasured: <n> change(s) have no attributed usage`, que cuenta
@@ -133,7 +141,8 @@ también los changes sin ningún registro) y, con `<id>`, sus cifras son `null`.
 umbrales: `rework`, `unpriced`, `anomaly`, `baseline`, `unmeasured`, `failed`
 (registros con `error`), `gap` (transiciones del Log de cualquier change entre
 la base y el registro que cierra un tramo sin ningún registro en su `change` y
-`at`; lo que consumió el registrador del tramo mientras ocurrían cae en ese
+`at`, sin contar el sello `[validation] accepted (merged <sha>)`, que no toma
+foto; lo que consumió el registrador del tramo mientras ocurrían cae en ese
 tramo) y `skipped` (cuántos registros de todo el ledger no se pueden ubicar,
 pida el change que pida). El contexto core nombra `analyze` como la consulta del consumo. La
 opción `ids` del módulo restringe el resultado a un conjunto de changes después
