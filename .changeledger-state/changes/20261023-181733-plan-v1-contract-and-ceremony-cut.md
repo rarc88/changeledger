@@ -199,3 +199,4 @@ hijos el modelo que construye.
 - **2026-10-25T23:13:40Z** `[graduation]` spec: `architecture.md`
 - **2026-10-25T23:13:41Z** `[graduation]` spec: `data-model.md`
 - **2026-10-25T23:13:42Z** `[graduation]` spec: `git-traceability.md`
+- **2026-10-25T23:13:42Z** `[graduation]` spec: `viewer.md`
