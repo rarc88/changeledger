@@ -2,9 +2,10 @@
 id: "20261023-181733"
 title: "Plan v1.0: recortar el contrato y el ceremonial a comprensión, riesgo y reanudabilidad"
 type: epic
-status: approved
+status: in-progress
 created: 2026-10-23T18:17:33Z
 depends_on: []
+branch: epic/20261023-181733
 related_to:
   - "20261018-131621"
   - "20261019-184719"
@@ -180,3 +181,5 @@ hijos el modelo que construye.
 - **2026-10-23T22:25:59Z** `[note]` Decisiones de §11 tomadas por el humano (2026-10-23), aceptando las dos recomendaciones del Request: (1) la poda independiente de la suite —los 181 casos duplicados y sintéticos de §9.1— queda fuera de esta épica y se propondrá como change propio cuando la capa de metodología haya caído; (2) no se adopta la revisión por selección resuelta (§11.4) en esta épica; si se quiere medir, será un change propio con métrica en analyze, no una regla del contrato. Ningún hijo depende ya de una decisión pendiente.
 - **2026-10-25T19:30:27Z** `[version]` 0.18.0 → 0.19.0
 - **2026-10-25T19:30:27Z** `[note]` Decisiones del humano (2026-10-25, «avanzar todo en paralelo, las decisiones con tus recomendaciones»): (1) el hueco frente al §5 se cierra abriendo las opciones 1 y 2 del §12 como hijo nuevo antes de cerrar la épica; la frontera se amplía en el Request. (2) Los fixtures del ledger en tests se construyen en test/helpers/, exento del hook no-ledger-refs.sh; entra en 20261025-174739. (3) 20261025-174739 aprobado y ampliado con los hallazgos de código abiertos: la pista gap que cuenta el sello de aceptación y el test intermitente del registro.
+- **2026-10-25T23:02:25Z** `[status]` approved → in-progress
+- **2026-10-25T23:02:25Z** `[branch]` set: epic/20261023-181733 (auto)
