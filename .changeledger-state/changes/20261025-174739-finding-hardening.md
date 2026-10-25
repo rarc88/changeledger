@@ -2,7 +2,7 @@
 id: "20261025-174739"
 title: "Un hallazgo mal formado se rechaza: sede única del id, check contra resoluciones huérfanas o duplicadas y resolución con el verbo delante"
 type: change
-status: in-review
+status: in-progress
 created: 2026-10-25T17:47:39Z
 depends_on: []
 branch: change/20261025-174739
@@ -258,3 +258,4 @@ construyen con el helper de CR4.
 - **2026-10-25T19:49:36Z** `[note]` Implementación delegada entregada (rojo→verde por criterio, mutantes en CR2/CR3/CR5/CR6, pnpm verify 2227/2227). Precisión: la decisión 1 del Request decía que un texto «verbo + ordinal» se rechaza con mensaje; la Specification lo fija como resolución (drop 2 cache descarta F2) y es lo implementado. Decisiones del implementador: el target de promote es el resto de palabras y falla al resolverlo si sobran; findingsInLog devuelve {findings, rejected}; logSection comparte la numeración de líneas entre las dos pasadas del Log; listProjects ordena con String(name) para no romper con una entrada sin nombre, y el viewer hereda ese orden. Retargets no previstos: el test «20260809-113242 CR12: missing and inactive project paths retain their cached names» también asumía orden de inserción. Commits: finding, hook y helpers viajan juntos porque comparten test/contract.test.mjs y test/helpers/ledger-fixtures.mjs.
 - **2026-10-25T19:50:25Z** `[status]` in-progress → in-review
 - **2026-10-25T19:50:29Z** `[note]` Mandato de revisión: auditoría completa del rango 54e6d3df..974b5eea (tres commits) contra CR1–CR7, con las decisiones no especificadas del implementador como puntos de escrutinio.
+- **2026-10-25T19:56:24Z** `[review]` in-review → in-progress: Ronda 1: D1 la ayuda de finding dice que un texto «quoted or not» se registra igual, pero entrecomillado «drop 5 cache» se registra como texto mientras sin comillas descarta F5; la decisión 1 del Request —texto cuyas dos primeras palabras son verbo y ordinal se rechaza nombrando la ambigüedad— no se implementó. D2 logSection en check.mjs no respeta bloques de código ni la clave en minúsculas ni la primera etapa, al contrario que logBodyOf de los lectores: falso positivo con un ejemplo de Log en un bloque del Request y falso negativo tras un «## » dentro de un bloque. Clase: enumeración incompleta dentro de la estrategia verificada.
