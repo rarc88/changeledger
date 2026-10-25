@@ -373,3 +373,4 @@ abajo son literales.
 - **2026-10-25T13:48:23Z** `[graduation]` skipped: hijo de la épica 20261023-181733: la épica reconcilia architecture.md, contract-discovery.md (nueve tipos de evento → diez) y usage.md al cerrar
 - **2026-10-25T13:48:24Z** `[finding]` core.md todavía dice «propose that work separately» para el trabajo fuera del objetivo, al lado del mecanismo finding; y la viñeta de descubrimiento «list --pending findings|graduation|archive» no es un literal ejecutable. Lo reescribe el recorte del contrato.
 - **2026-10-25T13:48:24Z** `[finding]` CHANGE_ID en src/lifecycle.mjs duplica ID_FORM de src/check.mjs; una sede para la forma del id.
+- **2026-10-25T13:48:25Z** `[finding]` check acepta resoluciones de hallazgo huérfanas o duplicadas (un «9 dropped:» sin F9, o dos resoluciones del mismo ordinal); ningún criterio pidió rechazarlas.
