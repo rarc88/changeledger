@@ -5,6 +5,7 @@ type: change
 status: done
 created: 2026-10-24T20:26:59Z
 depends_on: []
+archived: true
 reviewed: true
 branch: change/20261024-202659
 related_to:
@@ -377,3 +378,4 @@ abajo son literales.
 - **2026-10-25T13:48:25Z** `[finding]` check acepta resoluciones de hallazgo huérfanas o duplicadas (un «9 dropped:» sin F9, o dos resoluciones del mismo ordinal); ningún criterio pidió rechazarlas.
 - **2026-10-25T13:48:25Z** `[finding]` La CLI despacha una resolución cuando la segunda palabra es promote|drop: un texto sin comillas como «3 drop tables» descarta F3 en vez de registrar un hallazgo. La forma documentada entrecomilla el texto.
 - **2026-10-25T13:48:26Z** `[finding]` 1 promoted #20261024-202718
+- **2026-10-25T16:09:33Z** `[archive]` archived
