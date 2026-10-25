@@ -210,11 +210,11 @@ guards tolerantes, nunca pins de frase. Ninguna línea añadida fuera de
   - **Target:** `templates/contract/core.md`, `test/context.test.mjs`
   - **Verify:** `node --test test/context.test.mjs test/cli.test.mjs`
   - **Criteria:** CR4
-- [!] Medir en los dos marcos y bajar techos
+- [x] Medir en los dos marcos y bajar techos
   - **Target:** `templates/contract/budgets.yml`, `test/context.test.mjs`
   - **Verify:** `node --test test/context.test.mjs test/contract.test.mjs`
   - **Criteria:** CR5
-  - **Blocked:** el core plegado mide 2461 tokens en este repo (2455 en el fixture) frente al techo 2380: la sección Delegation cuesta ~250 tokens y la tabla de commits ahorra ~160; subir el techo es decisión humana (AGENTS.md) y recortar obligaciones es la opción 3 del §12, excluida
+  - **Resolved:** `2026-10-25T22:22:25Z`
 - [ ] README
   - **Target:** `README.md`, `test/contract.test.mjs`
   - **Verify:** `node --test test/contract.test.mjs`
