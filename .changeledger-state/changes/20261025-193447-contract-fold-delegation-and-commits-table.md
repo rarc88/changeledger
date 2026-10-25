@@ -207,10 +207,11 @@ guards tolerantes, nunca pins de frase. Ninguna línea añadida fuera de
   - **Verify:** `node --test test/context.test.mjs test/contract.test.mjs`
   - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-10-25T22:25:41Z`
-- [ ] Tabla de clases de commit con las reglas en prosa breve
+- [x] Tabla de clases de commit con las reglas en prosa breve
   - **Target:** `templates/contract/core.md`, `test/context.test.mjs`
   - **Verify:** `node --test test/context.test.mjs test/cli.test.mjs`
   - **Criteria:** CR4
+  - **Resolved:** `2026-10-25T22:25:42Z`
 - [x] Medir en los dos marcos y bajar techos
   - **Target:** `templates/contract/budgets.yml`, `test/context.test.mjs`
   - **Verify:** `node --test test/context.test.mjs test/contract.test.mjs`
