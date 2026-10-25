@@ -331,10 +331,11 @@ abajo son literales.
   - **Verify:** `node --test test/agent.test.mjs test/cli-bin.test.mjs`
   - **Criteria:** CR8, CR9
   - **Resolved:** `2026-10-25T13:33:36Z`
-- [ ] Nada bloquea y `analyze` no cuenta: tests de archivo, entrega directa y análisis con hallazgos
+- [x] Nada bloquea y `analyze` no cuenta: tests de archivo, entrega directa y análisis con hallazgos
   - **Target:** `test/agent.test.mjs`, `test/usage-analysis.test.mjs`
   - **Verify:** `node --test test/agent.test.mjs test/usage-analysis.test.mjs`
   - **Criteria:** CR10, CR11
+  - **Resolved:** `2026-10-25T13:33:37Z`
 - [ ] Las tres frases del contrato, medidas, y los techos bajados a lo medido
   - **Target:** `templates/contract/core.md`, `templates/contract/handoff.md`, `templates/contract/budgets.yml`, `test/context.test.mjs`
   - **Verify:** `node --test test/context.test.mjs test/contract.test.mjs`
