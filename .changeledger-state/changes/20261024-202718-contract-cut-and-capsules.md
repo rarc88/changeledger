@@ -6,6 +6,7 @@ status: done
 created: 2026-10-24T20:27:18Z
 depends_on:
   - "20261024-202659"
+reviewed: true
 branch: change/20261024-202718
 related_to:
   - "20261020-130304"
@@ -520,3 +521,4 @@ Los mensajes de error son literales.
 - **2026-10-25T17:12:42Z** `[note]` Corrección de la ronda 1: CI diffea contra origin/dev (README y CONTRIBUTING lo dicen); el hook acepta renombrados (--diff-filter=AMR) y fija prefijos a/ b/ con --no-ext-diff, con dos tests nuevos (renombrado; diff.noprefix) que fallan sin cada arreglo; techo agent 390/39 medido también en este repo (385) con el comentario corregido; CR4 enmendado para que cada invocación del rol retirado lleve id, porque la aridad se valida antes que el dominio; README exige <id> en agent-context review; delegation.md deja de afirmar que el esqueleto materializa todos los ítems; comentarios rancios de cli.test y context.test corregidos. Precisiones al Log anterior: 144327 CR5 fue reapuntado, no retirado; 20260809-113242 CR3 pasó a llamarse «agent-context uses the activated config policy»; el arreglo de ruta en test/view.test.mjs es consecuencia necesaria de la cápsula borrada y lo hizo el orquestador. Mandato de la segunda revisión: los cuatro defectos y el residuo nombrados, y cualquier regresión de la corrección.
 - **2026-10-25T17:12:44Z** `[status]` in-progress → in-review
 - **2026-10-25T17:17:48Z** `[review]` in-review → done (delegated subagent, clean context)
+- **2026-10-25T17:18:07Z** `[graduation]` skipped: hijo de la épica 20261023-181733: la épica reconcilia contract-discovery.md (composición, roles, techos), lifecycle.md (roles, aislamiento de correcciones, graduation-review, triaje), git-traceability.md (clases de commit) y architecture.md (sync) al cerrar
