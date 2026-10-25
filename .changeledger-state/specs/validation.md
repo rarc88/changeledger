@@ -71,19 +71,34 @@ puede ser sujeto de esa regla: el histórico congelado conserva sus estados y su
 entradas de Log sin recibir diagnóstico, así que el archivo sigue siendo válido
 sin reescribir historia terminada.
 
+Lo mismo vale para los tipos y las etapas retirados. Los tipos son dos, `change`
+y `epic`, y las etapas cuatro, `request`, `specification`, `plan` y `log`, fijos
+en código (`CHANGE_TYPES`, `CANONICAL_STAGES`, `src/change.mjs`); `check` no
+exige ninguna etapa y ningún tipo activa una. Un documento vivo con un tipo retirado
+(`RETIRED_TYPES`) recibe `type "<t>" is retired: set type to "change"`, y
+cualquier otro tipo desconocido `unknown type "<t>"; valid types: change, epic`.
+Una etapa desconocida recibe `unknown stage "## <k>"; valid stages: request,
+specification, plan, log`, con la cola `— run \`changeledger fix\`` cuando es
+una etapa retirada, `investigation` o `proposal` (`RETIRED_STAGES`), que `fix`
+sabe plegar bajo el Request. Un `epic` que lleve `## Specification` o `## Plan`
+recibe error: sus hijos llevan el trabajo. El histórico congelado conserva sus
+tipos y etapas sin diagnóstico. En el frontmatter, `tdd` debe ser booleano y
+`release_impact` uno de `none`, `patch`, `minor` o `major`; en un `epic`
+cualquiera de los dos es un aviso, porque no tiene lector.
+
+En la configuración, `checkConfig` reporta como error cada clave retirada
+—`types`, `stages`, `release.impacts`, `readiness`— nombrando `changeledger
+config migrate`, como el aviso de un esquema 6; un esquema anterior al 6 recibe
+el aviso de migrarlo con ChangeLedger 0.19. `release.default_impact` se valida
+contra los mismos cuatro impactos.
+
 La validación también fija invariantes del formato Markdown que el parser expone:
-headings de etapa con casing canónico, tareas `[x]` con timestamp ISO UTC,
-tareas `[!]` con razón y criterios `CRn` no duplicados. El parser de tareas
-interpreta el sufijo de resolución/bloqueo desde el último separador ` — ` para
-preservar descripciones que contienen la misma raya.
-Las tareas exponen una forma machine-readable: `task.text` es la descripción
-antes del bloque final de criterios y antes del sufijo reservado ` — ...`;
-`task.criteriaRefs` contiene solo los `CRn` del bloque final `(CR1, CR2)`, y
-`task.suffix` conserva el sufijo de resolución o bloqueo cuando existe. La
-evidencia de readiness, como `verify: ...`, pertenece al texto de la tarea y debe
-aparecer antes del bloque final de criterios. Si una tarea pendiente coloca
-evidencia de verificación dentro del sufijo reservado, `check.mjs` emite un
-diagnóstico específico para distinguir contrato mal escrito de criterio ausente.
+headings de etapa con casing y orden canónicos, tareas `[x]` con un hijo
+`Resolved` con timestamp ISO UTC, tareas `[!]` con un hijo `Blocked` con razón y
+criterios `CRn` no duplicados. El parser de tareas (`src/task.mjs`) lee cada
+traza de un hijo estructurado —`Target`, `Verify`, `Criteria`, `Support`, a lo
+sumo uno de cada—, nunca de una posición, y una línea del Plan que no sabe
+decidir se reporta en vez de descartarse.
 El parser de etapas reconoce `##` solo fuera de fenced code blocks, por lo que
 los ejemplos Markdown dentro de fences no crean etapas espurias ni duplicadas.
 
@@ -92,8 +107,9 @@ error el número de tareas incompletas. `checkSelectedChange` reutiliza exactame
 la validación scoped para evaluar tanto el archivo actual como un candidato aún
 no escrito; sólo sus errores bloquean, no sus warnings ni hallazgos de otros
 changes. La **puerta de entrega** aplica esa validación scoped en las dos sedes
-que llevan a `done`: `changeledger review <id> pass` para un tipo con revisión y
-`changeledger status <id> done` para uno sin ella, en ambos casos sobre el texto
+que llevan a `done`: `changeledger review <id> pass` para un change en revisión y
+`changeledger status <id> done` para un change cuya rama no toca código o un
+`epic`, en ambos casos sobre el texto
 ya volcado a `done`, porque las reglas que importan allí —tareas sin cerrar, un
 Log que no reconstruye el frontmatter— sólo aplican a un change entregado.
 
@@ -111,9 +127,16 @@ o spec. Estas rutas resuelven y parsean únicamente el
 archivo seleccionado; incluso un sibling ilegible queda fuera del gate scoped.
 
 La entrada a `in-review` y la salida de `draft` usan la misma validación scoped
-pero sobre el texto **previo** al cambio de status: un defecto de readiness sólo
-es error mientras el change es anterior a la revisión, así que juzgar el texto
-posterior exoneraría al propio candidato bajo juicio.
+pero sobre el texto **previo** al cambio de status, y cada una añade su gate de
+contenido. La aprobación exige un `## Request` con cuerpo que contenga
+`### Objective` y `### Frontier`, cada una con cuerpo (`assertApprovable`):
+`cannot approve: "## Request" is missing`, `… is empty`, `cannot approve:
+"### Frontier" is missing` o `cannot approve: "### Objective", "### Frontier" are
+empty`; ninguna otra etapa necesita cuerpo. La entrada a `in-review` exige
+`## Specification` y `## Plan` presentes y con cuerpo, y al menos un `### CRn` en
+la Specification (`assertReviewable`): `cannot request review: "## Specification"
+is empty` o `cannot request review: "## Specification" declares no criterion`.
+Un rechazo deja el documento byte a byte intacto.
 
 Sobre un change `done` sin `accepted_at` cuya rama ya está fusionada en la rama
 de integración, `check` emite un **aviso** —nunca un error— que nombra el change
@@ -124,42 +147,42 @@ repositorio roto. El sellado tiene dos sedes —la graduación al cerrar y
 Por eso resuelve el merge de cada `done` sin sellar, archivado o no, y no
 exceptúa a los congelados.
 
-Con el `tdd` efectivo del tipo encendido (`effectiveTdd`: `types.<tipo>.tdd`
-sobre el `tdd` global; ver Definition of Ready), `approved` e `in-progress`
-endurecen la Definition of Ready:
-cada `CRn` debe declarar pasos `Given`/`When`/`Then`, y cada tarea que referencia
-un criterio debe nombrar tanto objetivo como verificación según los patrones
-configurados en `readiness.target_patterns` y `readiness.verification_patterns`.
-Los patrones pueden cubrir layouts distintos por repo: tests en `test/`, specs
-colocados junto al archivo (`**/*.spec.*`, `**/*.test.*`) o comandos concretos de
-verificación. Para repos con validaciones manuales o de dispositivo, una
-convención portable es configurar `verification_patterns: ["verify:"]` y exigir
-que cada tarea describa su evidencia con una cláusula `verify: ...`, sin inflar
-la configuración con frases específicas de consola, UI o dispositivo. Cuando una
-tarea no cumple la política, el diagnóstico muestra si se usó `readiness`
-configurado o por defecto, junto con los `target_patterns` y
-`verification_patterns` efectivos. Además, cada `CRn` referenciado por una tarea
-debe existir en `## Specification`; un `(CR999)` huérfano es un error en cambios
-listos para implementar. En `draft`, esos mismos huecos son warnings para no
-bloquear la autoría temprana; con el `tdd` efectivo apagado no se evalúan.
+Una tarea del Plan cuyo `Criteria` cita un `CRn` que `## Specification` no
+declara es error en cualquier estado de un documento vivo, el draft incluido
+(`Plan task references unknown criterion "<CRn>"`): una referencia rota, como una
+etapa desconocida. `check` no juzga la forma Given/When/Then de los criterios ni
+la cobertura del Plan, y el `tdd` efectivo no activa ni desactiva ningún
+diagnóstico: sólo lo publica la línea `Effective policy:` de los contextos.
 
 Las entradas superiores de Log que incumplen la gramática reciben un
-diagnóstico con archivo, línea, forma canónica y los nueve tipos válidos. El
-diagnóstico no promete que `fix --structured-sections` pueda reparar una forma
-que ese migrador no reconoce.
+diagnóstico con archivo, línea, forma canónica y los diez tipos válidos
+(`LOG_EVENT_TYPES`). `fix` no repara el Log.
+
+**Resoluciones de hallazgos.** Sobre el Log de un documento vivo, `check` lee los
+hallazgos con la misma lectura que `finding` y `list` (`findingsInLog`,
+`src/lifecycle.mjs`) y reporta como error cada resolución que no resuelve nada,
+con su número de línea en el documento: la que nombra un ordinal que ninguna
+línea anterior abrió (`Log line <n>: finding F<k> resolved but never recorded`)
+y la que nombra uno ya resuelto (`Log line <n>: finding F<k> already resolved at
+line <m>`). `finding` y `list` ignoran esas líneas; aquí son un Log que miente
+sobre lo pendiente. Un hallazgo abierto nunca es diagnóstico.
 
 **Normalización mecánica (`changeledger fix`).** `src/fix.mjs` es puro
-(texto → fixes, sin IO) y repara solo defectos de formato inequívocos de las
-tareas del Plan: sufijo `verify:` dentro del sufijo reservado, guión simple en
-lugar de raya en el sufijo de resolución (decidido comparando la posición del
-último ` - ` contra el último ` — `, para no tocar descripciones con rayas
-legítimas), timestamps casi-ISO y marcadores de checkbox no canónicos. Soporta
-`--dry-run`, es idempotente y deja lo ambiguo (p.ej. referencia a un CR
-inexistente) intacto, listándolo como `requires manual fix`. `check` sugiere
-`changeledger fix` cuando detecta defectos reparables (`hasFixableDefects`).
-
-Los modos `--graduation-links`, `--structured-sections` y `--plan-tags` se
-aplican de uno en uno; cualquier par se rechaza antes de escribir. La ayuda
-explica el alcance de cada modo y el de las reparaciones por defecto. Una
-corrida sin transformaciones aplicables identifica el modo evaluado y cero
-reparaciones, mientras los casos ambiguos siguen requiriendo corrección manual.
+(texto → fixes, sin IO). En las tareas del Plan repara solo defectos de formato
+inequívocos: guión simple en lugar de raya en el sufijo de resolución (decidido
+comparando la posición del último ` - ` contra el último ` — `, para no tocar
+descripciones con rayas legítimas), timestamps casi-ISO y marcadores de checkbox
+no canónicos. En un documento vivo (`frozenReason`), además, lleva el documento a
+la forma de dos tipos y cuatro etapas (`repairLiveDocument`): un tipo retirado
+pasa a `change`, conservando un comentario final, y el frontmatter recibe lo que
+ese tipo implicaba —`release_impact`, `integrates_into: release`, `tdd: false`—
+salvo lo que ya declare; el cuerpo de cada `## Investigation` o `## Proposal`
+pasa bajo `## Request` como `### Investigation` o `### Proposal`, al final de su
+contenido y en orden, con sus propios encabezados un nivel más abajo, y una
+etapa retirada vacía desaparece. El histórico congelado sólo recibe las
+reparaciones del Plan. Soporta `[id]` y `--dry-run`, sin otros modos, es
+idempotente y deja lo ambiguo intacto, listándolo como `requires manual fix`: una
+referencia a un CR inexistente, una línea `type:` que no sabe leer o una etapa
+retirada sin `## Request` bajo la que moverse. `check` sugiere `changeledger fix`
+cuando detecta defectos reparables del Plan (`hasFixableDefects`) y en el error
+de una etapa retirada.
