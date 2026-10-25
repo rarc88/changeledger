@@ -5,6 +5,7 @@ type: change
 status: done
 created: 2026-10-25T17:49:59Z
 depends_on: []
+reviewed: true
 branch: change/20261025-174959
 related_to:
   - "20261023-181753"
@@ -280,3 +281,4 @@ queda registrado como hallazgo (CR5).
 - **2026-10-25T18:20:29Z** `[status]` in-progress → in-review
 - **2026-10-25T18:24:49Z** `[review]` in-review → done (delegated subagent, clean context)
 - **2026-10-25T18:25:18Z** `[note]` Tras el pass, reajuste de ancho a 80 columnas de los dos párrafos de docs/usage-capture.md que la corrección dejó con líneas largas (observación cosmética del revisor); sólo saltos de línea, sin cambio de contenido, committeado como cierre.
+- **2026-10-25T18:25:19Z** `[graduation]` skipped: hijo de la épica 20261023-181733: la épica reconcilia product-principles.md (duplica los filtros de INTENT.md) y usage.md al cerrar
