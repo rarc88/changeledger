@@ -311,10 +311,11 @@ abajo son literales.
 
 ## Plan
 
-- [ ] Gramática de `finding` en `LOG_EVENT_DEFINITIONS`: parse de las tres formas, `transition: false`, serialización
+- [x] Gramática de `finding` en `LOG_EVENT_DEFINITIONS`: parse de las tres formas, `transition: false`, serialización
   - **Target:** `src/lifecycle.mjs`, `test/lifecycle.test.mjs`
   - **Verify:** `node --test test/lifecycle.test.mjs`
   - **Criteria:** CR1
+  - **Resolved:** `2026-10-25T13:33:34Z`
 - [ ] Escritor en `LOG_EVENT_PRODUCERS` y mensaje de `check` con el décimo tipo
   - **Target:** `bin/changeledger.mjs`, `test/cli-bin.test.mjs`, `test/check.test.mjs`
   - **Verify:** `node --test test/cli-bin.test.mjs test/check.test.mjs test/contract.test.mjs`
