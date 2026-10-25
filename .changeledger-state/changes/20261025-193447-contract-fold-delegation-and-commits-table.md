@@ -2,7 +2,7 @@
 id: "20261025-193447"
 title: "Opciones 1 y 2 del §12: delegation.md dentro del core y el bloque de commits como tabla; la épica mide su objetivo contra el contrato real"
 type: change
-status: draft
+status: approved
 created: 2026-10-25T19:34:47Z
 depends_on: []
 related_to:
@@ -154,3 +154,4 @@ combinado. Se mide, se bajan techos y el Log registra la tabla de palabras.
 
 ## Log
 - **2026-10-25T19:34:47Z** `[version]` 0.19.0
+- **2026-10-25T20:58:10Z** `[status]` draft → approved (human via conversation)
