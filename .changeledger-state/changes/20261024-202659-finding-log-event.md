@@ -5,6 +5,7 @@ type: change
 status: done
 created: 2026-10-24T20:26:59Z
 depends_on: []
+reviewed: true
 branch: change/20261024-202659
 related_to:
   - "20261020-130304"
@@ -369,3 +370,4 @@ abajo son literales.
 - **2026-10-25T13:45:13Z** `[note]` Corrección de la ronda 1, sin commitear: base.core 2690/269 en budgets.yml y PINNED_CEILINGS con el comentario que nombra las capturas de este repo (2684/2477/1099); la ayuda de finding dice «promote only appends to this Log and creates no change»; de paso, el comentario de serializeLogEvent precisa que un texto con forma de resolución se relee como resolución o como nada. Mandato de confirmación: sólo los dos defectos nombrados y cualquier regresión que la corrección introduzca.
 - **2026-10-25T13:45:13Z** `[status]` in-progress → in-review
 - **2026-10-25T13:47:51Z** `[review]` in-review → done (delegated subagent, clean context)
+- **2026-10-25T13:48:23Z** `[graduation]` skipped: hijo de la épica 20261023-181733: la épica reconcilia architecture.md, contract-discovery.md (nueve tipos de evento → diez) y usage.md al cerrar
