@@ -155,3 +155,4 @@ reescriben; la ayuda y el README dicen la forma nueva.
 
 ## Log
 - **2026-10-25T17:47:39Z** `[version]` 0.19.0
+- **2026-10-25T19:30:55Z** `[note]` Frontera ampliada antes de aprobar, por decisión del humano (2026-10-25): entran la exención de test/helpers/ en el hook con la convención de fixtures, la corrección de unrecordedTransitions para el sello de aceptación y el orden estable de listProjects; los tres hallazgos se promueven a este change.
