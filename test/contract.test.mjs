@@ -869,9 +869,9 @@ test('20261024-202659 CR12: the contract records an out-of-frontier finding inst
     assert.doesNotMatch(text, /Create the draft only after explicit authorization/i, name);
   }
   const read = (file) => fs.readFileSync(new URL(file, contractDir), 'utf8');
-  // The handoff triage lives in the delegation fragment since the cut.
+  // The handoff triage lives in core's Delegation section.
   assert.match(
-    read('delegation.md').replace(/\s+/g, ' '),
+    read('core.md').replace(/\s+/g, ' '),
     /\boutside\b[^.]{0,60}\b(objective|frontier)\b[^.]{0,80}`changeledger finding <id>`/i,
   );
   const core = read('core.md');

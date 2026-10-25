@@ -361,19 +361,19 @@ test('234939 structural remnant: pack composition and owned headings', () => {
     assert.doesNotMatch(output, /\.changeledger\/AGENTS\.md/);
     assert.doesNotMatch(output, /changeledger register/);
   }
-  for (const mode of ['spec', 'implement']) {
-    assert.match(outputs[mode], /# Economical Delegation/);
+  // The delegation doctrine is a section of core, so no pack composes a
+  // separate delegation fragment.
+  for (const [context, output] of Object.entries(outputs)) {
+    assert.doesNotMatch(output, /# Economical Delegation/, `${context} composes a delegation pack`);
   }
-  // 225213 CR4: review no longer carries the general delegation guide.
-  assert.doesNotMatch(outputs.review, /# Economical Delegation/);
 
   // A discarded change composes no overlay, and only an activated repo's core
   // capture carries the global-state overlay.
   const ownedHeadings = {
     core: ['# ChangeLedger — Core Contract'],
     activatedCore: ['# ChangeLedger — Core Contract', '# Global State'],
-    spec: ['# Authoring a Change', '# Economical Delegation'],
-    implement: ['# Implementing an Approved Change', '# Economical Delegation'],
+    spec: ['# Authoring a Change'],
+    implement: ['# Implementing an Approved Change'],
     review: ['# Independent Review'],
     discarded: [],
     release: ['# Portable Release Planning'],
@@ -1231,22 +1231,29 @@ test('225213 CR4/CR5/CR7: review drops general delegation while keeping its rule
   const review = buildContext('review', root);
   const delegate = buildAgentContext('review', reviewId, root);
   // Orchestrator review keeps independence and verdict mechanics; the handoff
-  // triage moved into the delegation fragment, which review does not compose.
+  // triage lives in core's Delegation section, which an incremental pack never repeats.
   assert.match(review, /# Independent Review/);
   assert.match(review, /agent-context review <id>/);
   assert.match(review, /changeledger review <id> pass/);
   assert.doesNotMatch(review, /changeledger finding/);
   assert.match(delegate, /read-only/);
   assert.doesNotMatch(delegate, /changeledger review <id> pass/);
-  // Review no longer carries the general delegation guide the reviewer does not need.
-  assert.doesNotMatch(review, /# Economical Delegation/);
-  assert.doesNotMatch(review, /Do not over-shard/);
-  assert.doesNotMatch(review, /Delegation prompt contract/);
+  // Review carries no delegation guide: the reviewer does not need it.
+  assert.doesNotMatch(review, /^## Delegation$/m);
 
-  // Implement keeps its actionable contract and the triage its delegation carries.
+  // Implement keeps its actionable contract; the triage and the prompt contract
+  // are core's, read before any stage pack, and no stage pack restates them.
   const implement = buildContext('implement', root);
   assert.match(implement, /# Implementing an Approved Change/);
-  assert.match(implement, /`changeledger finding <id>`/);
+  const core = buildContext(undefined, root);
+  assert.match(coreSection(core, '## Delegation'), /`changeledger finding <id>`/);
+  for (const [mode, pack] of [
+    ['implement', implement],
+    ['spec', buildContext('spec', root)],
+    ['review', review],
+  ]) {
+    assert.doesNotMatch(pack, /`changeledger finding <id>`/, `${mode} restates the triage`);
+  }
 });
 
 test('134702/122950 CR1/CR2: the review gate is one ordered recipe owned by implement', () => {
@@ -1382,19 +1389,17 @@ test('144327 CR5: core discovers agent-prompt before a draft exists, within budg
   const core = buildContext(undefined, root);
   const norm = core.replace(/\s+/g, ' ');
   // Core names the one skeleton the command still serves and no retired role:
-  // every other delegation states the prompt contract the delegation fragment lists.
+  // every other delegation states the prompt contract core's Delegation section lists.
   assert.deepEqual(AGENT_ROLES, ['review']);
   assert.ok(
     norm.includes('`changeledger agent-prompt review`'),
     'core does not point at the review skeleton',
   );
   assert.doesNotMatch(norm, /agent-prompt <role>|\b(investigation|graduation-review) \|/);
-  // The skeleton bodies are NOT inlined into the core, and the pointer is not
-  // duplicated into the delegation fragment.
+  // The skeleton bodies are NOT inlined into the core, and the pointer has one
+  // seat: the Delegation section does not repeat it.
   assert.doesNotMatch(core, /Delegation skeleton — role:/);
-  const contractDir = new URL('../templates/contract/', import.meta.url);
-  const delegation = fs.readFileSync(new URL('delegation.md', contractDir), 'utf8');
-  assert.doesNotMatch(delegation, /changeledger agent-prompt/);
+  assert.equal(norm.match(/changeledger agent-prompt/g).length, 1);
   // Budget holds at the current values without another emergency adjustment.
   assertWithinBudget('core', core, contextBudgets.base.core);
 });
@@ -1470,18 +1475,22 @@ function reachableWithoutReview() {
 
 // 20260726-141121 CR2/CR3 — the spec pack used to drop `readiness.md` for a type
 // without `specification`. 20261023-181753 retired that fragment, so the filter
-// went with it: every draft type now composes the same two spec fragments, in
-// order, and its stages line still says whether it activates `specification`.
-test('141121 CR2/CR3: every draft type composes the two spec fragments in order', () => {
+// went with it: every draft type now composes the spec fragment alone, and its
+// stages line still says whether it activates `specification`.
+test('every draft type composes the spec fragment alone', () => {
   const root = repo();
-  const expected = ['# Authoring a Change', '# Economical Delegation'];
+  const expected = ['# Authoring a Change'];
   for (const [type, id] of [
     ['change', '20260726-141130'],
     ['epic', '20260726-141131'],
   ]) {
     writeRawChange(root, { id, status: 'draft', type });
     const output = buildContext(id, root);
-    const headings = output.split('\n').filter((line) => expected.includes(line));
+    // Every pack heading ahead of the selected change, so a second fragment fails too.
+    const headings = output
+      .split('\n# Selected change')[0]
+      .split('\n')
+      .filter((line) => line.startsWith('# '));
     assert.deepEqual(headings, expected, `${type} composed ${headings.join(', ')}`);
     assert.match(policyLineOf(output), new RegExp(` — type=${type}$`));
   }
@@ -1929,16 +1938,26 @@ function declaredCeilings() {
 // blocks, which belong to the change like its text. `agent` covers the review
 // capsule base and the review skeleton, measured on both frames too (this repo's
 // capsule carries the policy line: 385); `overlays.discarded` left with its overlay.
+//
+// Folding the delegation fragment into core and turning the commit classes into a
+// table lowered three entries by the same rule and the same two frames: `base.spec`
+// (this repo's capture: 2027) and `base.implement` (1601) lost the fragment they no
+// longer compose, and `blocks.core-commits` (346) is the table plus its rules.
+// `base.core` is raised by a human decision recorded in the change: the folded core
+// measures 2461 (fixture 2455) against 2380, and the human set it to 3000/300 so the
+// next rule that enters does not block again. Headroom under it is still never permission
+// to spend (AGENTS.md); 300 lines plus the global-state overlay stay under the
+// bootstrap's 400-line cut.
 const PINNED_CEILINGS = {
-  'base.core': { tokens: 2380, lines: 238 },
-  'base.spec': { tokens: 2380, lines: 238 },
-  'base.implement': { tokens: 1960, lines: 196 },
+  'base.core': { tokens: 3000, lines: 300 },
+  'base.spec': { tokens: 2030, lines: 203 },
+  'base.implement': { tokens: 1610, lines: 161 },
   'base.review': { tokens: 820, lines: 82 },
   'base.release': { tokens: 440, lines: 44 },
   agent: { tokens: 390, lines: 39 },
   'overlays.done': { tokens: 1030, lines: 103 },
   'overlays.global-state': { tokens: 160, lines: 16 },
-  'blocks.core-commits': { tokens: 510, lines: 51 },
+  'blocks.core-commits': { tokens: 350, lines: 35 },
 };
 
 test('195445 CR1: every declared ceiling is pinned by value', () => {
@@ -2166,12 +2185,13 @@ function composedCore() {
   return buildContext(undefined, repo()).replace(/\s+/g, ' ');
 }
 
-test('core exposes its eleven blocks in the decided order', () => {
+test('core exposes its twelve blocks in the decided order', () => {
   const core = buildContext(undefined, repo());
   const blocks = [
     '# ChangeLedger — Core Contract',
     '## Classify intent before acting',
     "## Protect the orchestrator's context",
+    '## Delegation',
     '## Invariants',
     '## When no change is needed',
     '## Stage exit gates',
@@ -2297,7 +2317,7 @@ test('124835 CR10: core stops carrying what it no longer governs', () => {
     // Regression guard only: 20260726-124833 already removed both.
     '--have',
     'rev:<hash>',
-    // Tool operation and the delegation prompt contract — delegation.md owns them.
+    // Tool operation and the delegation prompt contract — core's Delegation section owns them.
     // Trimmed by 20260730-002730 to the words that discriminate: `spec.md` legitimately
     // says "Files remain the source of truth and may be edited directly", so the longer
     // literal overlapped live fragment prose. "Files are" is core's retired wording alone.
@@ -2374,6 +2394,14 @@ function commitsBlockLines() {
   if (end === -1) end = lines.length;
   while (end > start && lines[end - 1].trim() === '') end -= 1;
   return lines.slice(start, end);
+}
+
+// One `##` section of a core text, heading included, up to the next `##` heading.
+function coreSection(text, heading) {
+  const start = text.indexOf(`\n${heading}\n`);
+  assert.notEqual(start, -1, `core has no ${heading} section`);
+  const end = text.indexOf('\n## ', start + heading.length + 1);
+  return text.slice(start + 1, end === -1 ? undefined : end);
 }
 
 test('124837 CR1: the attribution judgment is gone from the whole contract', () => {
@@ -2770,6 +2798,38 @@ test('164620 CR3: review.md does not duplicate the Correction class declaration'
   assert.ok(!composedCore().includes('**Correction**'), 'core declares a Correction class');
 });
 
+// The commit classes are a table, one row per class: a class that loses its row, or a
+// fifth class that gains one, fails here. Cells, not sentences — the one obligation the
+// Implementation row must still carry is the correction committed before `in-review`.
+test('core declares the four commit classes as a table', () => {
+  const block = commitsBlockLines();
+  const header = block.findIndex((line) => /^\|\s*Class\s*\|/.test(line));
+  assert.notEqual(header, -1, 'the Commits block has no class table');
+  assert.deepEqual(
+    block[header]
+      .split('|')
+      .map((cell) => cell.trim())
+      .filter(Boolean),
+    ['Class', 'How many', 'When', 'Carries'],
+  );
+  const rows = [];
+  for (let at = header + 2; at < block.length && block[at].startsWith('|'); at += 1) {
+    rows.push(block[at]);
+  }
+  assert.deepEqual(
+    rows.map((row) => row.split('|')[1].trim()),
+    ['Draft', 'Baseline', 'Implementation', 'Handoff'],
+  );
+  for (const row of rows) {
+    assert.equal(row.split('|').length, 6, `class row is not four cells: ${row}`);
+  }
+  assert.match(
+    rows[2],
+    /\bcorrection\b[^|]{0,80}\b(fail\w*|reject\w*)\b[^|]{0,120}\bbefore\b[^|]{0,60}`in-review`/i,
+    'the Implementation row no longer commits a correction before the return to in-review',
+  );
+});
+
 // 20260730-002730: the mandatory-handoff sentence and its record-why duty are retired
 // as pins. What stays is the retired multiplicity: the optional zero-or-one must not
 // come back, which is the sweep class the decision keeps.
@@ -2987,7 +3047,6 @@ test('143656 CR4: retired phrases stay retired recursively and the fragment inve
   assert.deepEqual(topLevel, [
     'close.md',
     'core.md',
-    'delegation.md',
     'global-state.md',
     'implement.md',
     'release.md',
@@ -3013,10 +3072,62 @@ test('143656 CR4: retired phrases stay retired recursively and the fragment inve
 // 20260730-002730 retired the inverse-direction pin and the three unit-definition
 // clauses: all four were literal sentences of `core.md`, and the single-seat rule in
 // both directions is curated entry 10, which guards the same obligation tolerantly.
-// What stays is the one-definition-not-two claim, which is anti-duplication.
-test('162015 CR3/CR4: delegation.md points at the unit instead of redefining it', () => {
-  const delegation = contractFragment('delegation.md').replace(/\s+/g, ' ');
-  assert.doesNotMatch(delegation, /A good delegation unit is/);
+// The test that read the separate delegation fragment for a second definition of the
+// unit is retired too: that fragment was folded into core, and its one-definition-not-two
+// claim is held by the single-seat test below, which counts the definition inside core.
+
+// The delegation doctrine lives in core: the depth bound, the write-surface owner, the
+// definition of the unit and the sizing rule are each stated once, so the Delegation
+// section adds to the paragraphs above it instead of repeating them.
+test('core states each delegation rule once', () => {
+  const core = flattened(contractFragment('core.md'));
+  for (const [label, pattern] of [
+    ['the depth bound', /\bone\b[^.;:]{0,10}\blevel\b/gi],
+    ['the write-surface owner', /\bone owner\b[^.;]{0,20}\bsurface\b/gi],
+    ['the definition of the unit', /\*\*selection of work\*\*/gi],
+    ['the sizing rule', /\bsize\b[^.;]{0,20}\bdelegates?\b/gi],
+  ]) {
+    const count = (core.match(pattern) ?? []).length;
+    assert.equal(count, 1, `core states ${label} ${count} times`);
+  }
+});
+
+test('no contract fragment carries the retired Economical Delegation heading', () => {
+  const holders = contractFragmentNames().filter((name) =>
+    contractFragment(name).includes('Economical Delegation'),
+  );
+  assert.deepEqual(holders, [], 'a contract fragment still carries Economical Delegation');
+});
+
+// The handoff and every delegation prompt are read from core, so the section must
+// carry the whole doctrine: when to delegate, where the boundary is, what over-sharding
+// is, and the seven things a prompt states. Concepts, never sentences.
+test("core's Delegation section carries the criterion, the boundary and the prompt contract", () => {
+  const section = flattened(coreSection(contractFragment('core.md'), '## Delegation'));
+  for (const [label, pattern] of [
+    [
+      'delegate only when the gain exceeds the coordination cost',
+      /\bgain\b[^.;]{0,60}\bexceeds?\b[^.;]{0,30}\bcoordination\b/i,
+    ],
+    [
+      'investigation splits into independent questions',
+      /\binvestigation\b[^.;]{0,40}\bindependent questions\b/i,
+    ],
+    [
+      'verification only when it catches risk',
+      /\bverification\b[^.;]{0,30}\bcatch\w*\b[^.;]{0,20}\brisk\b/i,
+    ],
+    ['no subagent per file or tiny edit', /\bno subagent\b[^.;]{0,20}\bper\b[^.;]{0,10}\bfile\b/i],
+    ['an unstated independence stays in the main thread', /\bmain thread\b/i],
+    ['the prompt says why', /\bwhy\b[^.;]{0,30}\bdelegated\b/i],
+    ['the prompt names objective and frontier', /\bobjective\b[^.;]{0,10}\bfrontier\b/i],
+    ['the prompt names the files it owns', /\bfiles\b[^.;]{0,10}\bowns?\b/i],
+    ['a writing role verifies its baseline', /\bwrit\w*\b[^.;]{0,40}\bbaseline\b/i],
+    ['the prompt names its verify command', /\bcommand\b[^.;]{0,20}\bverif/i],
+    ['the prompt names its return format', /\breturn format\b/i],
+  ]) {
+    assert.match(section, pattern, `the Delegation section no longer says ${label}`);
+  }
 });
 
 // 20260730-002730 retired `162015 CR5`: it pinned the eight evidence-contract clauses
@@ -3560,7 +3671,7 @@ const CONCEPT_GUARDS = [
         /\bone owner\b[^.;]{0,20}\bsurface\b/i,
         'core no longer gives each write surface one owner',
       );
-      const delegation = flattened(contractFragment('delegation.md'));
+      const delegation = flattened(coreSection(contractFragment('core.md'), '## Delegation'));
       assert.match(
         delegation,
         /\b(must not|never|do not)\b[^.;]{0,20}\bdelegat\w*\b[^.;]{0,20}\b(further|again)\b/i,
@@ -3578,7 +3689,7 @@ const CONCEPT_GUARDS = [
     obligation:
       'handoff triage routes each observation to the change, the flow, a finding or a mention, never mixing concerns',
     verify: () => {
-      const delegation = flattened(contractFragment('delegation.md'));
+      const delegation = flattened(coreSection(contractFragment('core.md'), '## Delegation'));
       for (const [label, pattern] of [
         [
           'necessary work updates Specification, Plan and Log',

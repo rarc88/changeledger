@@ -17,9 +17,9 @@ import { loadRepo, resolveChangeInRepo } from '../repo.mjs';
 const END_DELIMITER = endSentinel('CONTEXT');
 const MODES = ['implement', 'review', 'spec', 'release'];
 const MODE_CONTEXT = {
-  implement: ['implement', 'delegation'],
+  implement: ['implement'],
   review: ['review'],
-  spec: ['spec', 'delegation'],
+  spec: ['spec'],
   release: ['release'],
 };
 const STATUS_CONTEXT = {

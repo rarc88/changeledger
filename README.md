@@ -171,7 +171,7 @@ for human direction.
 The only delegate role with a generated skeleton is `review`: `agent-prompt review`
 prints the portable prompt and `agent-context review <id>` the self-contained,
 read-only context it points to, which replaces the bootstrap's default context load.
-Any other delegation follows the prompt contract in the `delegation` fragment.
+Any other delegation follows the prompt contract in the core's Delegation section.
 
 The contract forbids change ids and `CRn` criteria outside `.changeledger/`: a change
 reaches the code through the Plan's `Target` and `Verify` and the `[#id]` commit marker,
