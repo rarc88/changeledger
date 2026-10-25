@@ -40,13 +40,17 @@ After the ledger write succeeds, for:
 - change creation: `changeledger new` (scaffold or `--from`) and an `apply`
   entry with `target: "new"` — `event: "created"`, `from: null`, `to: "draft"`,
   `at` = the document's `created`;
-- each `[status]`, `[review]` and `[validation]` Log event written by `status`,
-  `approve`, `review`, `validation`, `reopen`, `discard`, a viewer transition or
-  an `apply` `status` entry — `at` = the instant of that Log line.
+- each `[status]` and `[review]` Log event written by `status` (including
+  `status <id> in-progress --human`, the return of a delivered change from
+  `done`), `approve`, `review`, `discard`, a viewer transition or an `apply`
+  `status` entry — `at` = the instant of that Log line.
 
-`log`, `task`, `owner`, `branch`, `archive`, `graduate`, `edit`, `fix` and a
-dry-run `apply` have no snapshot wired and take none. One `apply` that writes several events
-collects once and writes one record per event.
+Those are the only events that take a snapshot. `log`, `task`, `owner`,
+`branch`, `archive`, `graduate`, `edit`, `fix`, `finding`, `sync`, `commit`,
+`release` and a dry-run `apply` have no snapshot wired and take none. That
+includes the `[validation] accepted (merged <sha>)` line `graduate` and `sync`
+write when they seal an acceptance: it takes no snapshot. One `apply` that
+writes several events collects once and writes one record per event.
 
 ## How a snapshot is composed
 
@@ -153,7 +157,7 @@ Record shape (`schema: 1`):
   "schema": 1,
   "change": "<id>",
   "at": "<ISO instant of the event>",
-  "event": "created | status | review | validation",
+  "event": "created | status | review",
   "from": "<status or null>",
   "to": "<status>",
   "recorded_by": "<the identity resolved for owner, or null>",
@@ -181,6 +185,8 @@ Record shape (`schema: 1`):
   "error": null
 }
 ```
+
+A `validation` event appears only in records written by earlier versions.
 
 ## Analyzing records
 
@@ -211,9 +217,11 @@ otherwise.
 - The difference goes to the record's change and to the segment its transition
   closes: `pre-draft` for `created`, otherwise the `from` state. An
   `in-progress` segment closed at or after the first failed verdict in its
-  change's Log is named `rework` instead; a failed verdict is
-  `[review] in-review → in-progress`, `[review] in-review → blocked` or
-  `[validation] in-validation → in-progress`.
+  change's Log is named `rework` instead; a failed verdict is `[review]
+  in-review → in-progress` or `[status] done → in-progress`, any return of
+  delivered work, whether the human or the agent recorded it. The edges
+  `[review] in-review → blocked` and `[validation] in-validation → in-progress`
+  belong to retired statuses and only classify records of earlier ledgers.
 - A recorder's first record with data is its baseline and is not attributed. A
   record with `error` is neither a baseline nor closes a segment: its stretch
   falls into that recorder's next record with data.
@@ -232,9 +240,11 @@ for, the records the analysis cannot place: unreadable or not an object, not
 hint counts the Log transitions of any change (`[status]`, `[review]`,
 `[validation]` and the creation in `created`) strictly between a segment's base
 (the recorder's previous record with data) and its closing record that have no
-record with the same change and `at`. What the segment's recorder consumed
-while those transitions happened is inside that segment; what another recorder
-consumed for them is not.
+record with the same change and `at`. The analysis filters transitions by event
+type, not by outcome, so the `[validation] accepted (merged <sha>)` stamp that
+`graduate` and `sync` write, which takes no snapshot, is counted there too. What
+the segment's recorder consumed while those transitions happened is inside that
+segment; what another recorder consumed for them is not.
 
 ## Failures
 
