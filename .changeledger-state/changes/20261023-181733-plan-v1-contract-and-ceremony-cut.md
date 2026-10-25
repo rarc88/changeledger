@@ -5,6 +5,7 @@ type: epic
 status: done
 created: 2026-10-23T18:17:33Z
 depends_on: []
+archived: true
 reviewed: true
 accepted_at: 2026-10-25T22:55:51Z
 branch: epic/20261023-181733
@@ -203,3 +204,4 @@ hijos el modelo que construye.
 - **2026-10-25T23:13:43Z** `[graduation]` spec: `usage.md`
 - **2026-10-25T23:13:44Z** `[graduation]` spec: `metrics.md`
 - **2026-10-25T23:13:44Z** `[graduation]` spec: `product-principles.md`
+- **2026-10-25T23:13:52Z** `[archive]` archived
