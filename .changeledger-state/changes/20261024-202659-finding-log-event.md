@@ -228,10 +228,10 @@ abajo son literales.
 
 ### CR1 — finding es el décimo tipo de evento con tres formas de payload
 - **Given** `LOG_EVENT_DEFINITIONS` en `src/lifecycle.mjs`
-- **When** `parseLogEvent` lee ``- **2026-10-25T10:00:00Z** `[finding]` el ejemplo de ayuda cita un id``, ``- **2026-10-25T10:00:00Z** `[finding]` 2 promoted #20260613-134548`` y ``- **2026-10-25T10:00:00Z** `[finding]` 1 dropped: ya no aplica``
-- **Then** devuelve `{ at, type: 'finding', outcome: 'open', text: 'el ejemplo de ayuda cita un id' }`, `{ at, type: 'finding', outcome: 'promoted', n: 2, target: '20260613-134548' }` y `{ at, type: 'finding', outcome: 'dropped', n: 1, reason: 'ya no aplica' }`
+- **When** `parseLogEvent` lee ``- **2026-10-25T10:00:00Z** `[finding]` el ejemplo de ayuda cita un id``, ``- **2026-10-25T10:00:00Z** `[finding]` 2 promoted #20260101-000000`` y ``- **2026-10-25T10:00:00Z** `[finding]` 1 dropped: ya no aplica``
+- **Then** devuelve `{ at, type: 'finding', outcome: 'open', text: 'el ejemplo de ayuda cita un id' }`, `{ at, type: 'finding', outcome: 'promoted', n: 2, target: '20260101-000000' }` y `{ at, type: 'finding', outcome: 'dropped', n: 1, reason: 'ya no aplica' }`
 - **And** `LOG_EVENT_TYPES` tiene diez entradas y la última es `finding`; `LOG_EVENT_DEFINITIONS.finding.transition` es `false`; su `form` es `<text> | <n> promoted #<id> | <n> dropped: <reason>`
-- **And** un payload vacío, `0 promoted #20260613-134548`, `2 promoted #x` y `1 dropped:` (sin razón) devuelven `null`
+- **And** un payload vacío, `0 promoted #20260101-000000`, `2 promoted #x` y `1 dropped:` (sin razón) devuelven `null`
 - **And** `serializeLogEvent` reproduce las tres líneas desde esos objetos y lanza `invalid finding Log event` ante `{ type: 'finding', outcome: 'open', text: '' }`
 
 ### CR2 — log --help imprime finding con su único escritor
@@ -254,7 +254,7 @@ abajo son literales.
 
 ### CR5 — un texto vacío o que se lee como resolución se rechaza
 - **Given** el change `X`
-- **When** `changeledger finding X ""`, `changeledger finding X "2 promoted #20260613-134548"` y `changeledger finding X "1 dropped: x"`
+- **When** `changeledger finding X ""`, `changeledger finding X "2 promoted #20260101-000000"` y `changeledger finding X "1 dropped: x"`
 - **Then** fallan con `finding text must not be empty` y, los dos últimos, con `finding text "<texto>" reads as a resolution; resolve a finding with changeledger finding <id> <n> promote|drop`, y el Log no cambia
 
 ### CR6 — promote enlaza un hallazgo abierto a un change existente
