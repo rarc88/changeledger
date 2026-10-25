@@ -16,7 +16,9 @@ enviada en `x-changeledger-token`) para escribir. Las escrituras exigen un `proj
 exacto, sin fallback al primero. Es de solo lectura salvo `POST /api/status`, que
 permite que **el humano** apruebe un change `draft` mediante la acción accesible
 `Approve`, visible en un panel contextual dentro de su detalle/modal y nunca en
-el toolbar, o arrastrando su card a Approved. El viewer admite exactamente dos
+el toolbar, o arrastrando su card a Approved. El panel pide revisar el objetivo y
+la frontera, lo único que el humano aprueba: Specification y Plan se escriben
+durante la implementación. El viewer admite exactamente dos
 transiciones humanas: esa y la devolución de trabajo entregado. La aceptación no
 tiene asiento porque no es una acción del viewer: la da el merge de la rama del
 change. Lo que sí ofrece es el **rechazo**, un panel en el detalle de un change
@@ -35,7 +37,7 @@ existente. La autoridad sobre actores y transiciones permanece en
 La UI rinde board (kanban), table, graph
 (`depends_on` y `related_to`), Ledger y metrics, con búsqueda full-text, filtros (tipo, estado,
 owner) y render de markdown + mermaid. Type y owner son filtros inclusivos de
-multiselección; owner incluye `Unassigned` como booleano independiente de los
+multiselección; type ofrece los dos tipos, `change` y `epic`, y owner incluye `Unassigned` como booleano independiente de los
 nombres para no colisionar con un owner real. El cliente está dividido en módulos
 estáticos pequeños: `security.js` (escape/sanitización/Mermaid), `state.js`
 (filtros y tombstones), `api.js` (fetch), `templates.js` (lit-html y el wrapper
@@ -111,7 +113,7 @@ card; hasta 680 px el board recupera altura natural y overflow visible, y las
 columnas se apilan a ancho completo sin scroll horizontal interno.
 Table conserva ID, título, type, status y progreso en una línea, centra
 verticalmente sus celdas y reserva el wrapping para dependencias; status usa un
-badge delineado distinto del type sólido. Los details presentan la validación
+badge delineado distinto del type sólido. Los details presentan cada acción
 humana como una única acción pendiente (controles deshabilitados durante el
 request y cierre al éxito), usan controles de cierre consistentes y convierten
 cada Mermaid en un lightbox navegable por teclado con retorno de foco.
@@ -271,12 +273,15 @@ reload before writing` si el mismo id ya apunta a otra ruta, sin reemplazar ni
 eliminar la entrada vigente.
 
 La configuración ofrece dos modos. **Form** es el predeterminado y representa
-General, Paths, statuses y stages del lifecycle, tipos y stages activos, política
-de review, impacto SemVer, Definition of Ready e identidad interna. **Raw YAML**
+General (nombre, idioma y TDD), Paths, Git (rama de integración y formato de
+rama de change), statuses del lifecycle, el impacto SemVer por defecto de un
+change sin `release_impact` propio (`release.default_impact`, `patch` si falta)
+e identidad interna; no edita tipos ni etapas, fijos en el código. **Raw YAML**
 conserva la edición avanzada. Form envía únicamente un patch semántico allowlisted
-y diferencial, por lo que cambiar un campo no reconstruye el documento ni inventa
-defaults para tipos custom. El servidor conserva la autoridad: rechaza identidad,
-valores canónicos ausentes, repos no cargables y revisiones obsoletas antes de una
+y diferencial, por lo que cambiar un campo no reconstruye el documento. El valor
+de `release.default_impact` lo valida `checkRepo` sobre el candidato, y cualquier
+otra clave de `release` en el patch se ignora. El servidor conserva la
+autoridad: rechaza identidad, valores canónicos ausentes, repos no cargables y revisiones obsoletas antes de una
 escritura atómica.
 
 Cada escritura sobre un proyecto —transición de lifecycle, config Raw o Form y
