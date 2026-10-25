@@ -2,7 +2,7 @@
 id: "20261024-202659"
 title: "Un hallazgo fuera de la frontera se registra como evento del Log: finding, list --pending findings y su promoción a change"
 type: change
-status: in-progress
+status: in-review
 created: 2026-10-24T20:26:59Z
 depends_on: []
 branch: change/20261024-202659
@@ -367,3 +367,4 @@ abajo son literales.
 - **2026-10-25T13:34:39Z** `[note]` Mandato de revisión: auditoría completa del rango 3e1f23de..e059ebb3 (dos commits) contra CR1–CR14, con las decisiones no especificadas y las frases cuantificadas del informe del implementador como puntos de escrutinio.
 - **2026-10-25T13:43:11Z** `[review]` in-review → in-progress: Ronda 1: (1) CR12 — base.core 2680 queda por debajo de la captura core de este repo (2684); la medición del implementador usó el marco de repo recién iniciado y la Specification fija el de dev en este repo (2687/2484/1106); corrección: 2690/269 y comentario de PINNED_CEILINGS; (2) la ayuda de finding dice «promote writes one Log line», falsa cuando appendLogEvent sella [version] antes; corrección: reescribir. Clase: enumeración incompleta dentro de la estrategia verificada.
 - **2026-10-25T13:45:13Z** `[note]` Corrección de la ronda 1, sin commitear: base.core 2690/269 en budgets.yml y PINNED_CEILINGS con el comentario que nombra las capturas de este repo (2684/2477/1099); la ayuda de finding dice «promote only appends to this Log and creates no change»; de paso, el comentario de serializeLogEvent precisa que un texto con forma de resolución se relee como resolución o como nada. Mandato de confirmación: sólo los dos defectos nombrados y cualquier regresión que la corrección introduzca.
+- **2026-10-25T13:45:13Z** `[status]` in-progress → in-review
