@@ -11,12 +11,14 @@ as documents under `.changeledger/` before code is written. Please follow the sa
 2. **Get it approved.** A change starts in `draft`. Don't implement until it's
    `approved` (the human's one move, in the viewer or by editing the file).
 3. **Implement via TDD.** With `tdd: true`, write the failing test from each
-   acceptance criterion (`CRn`), make it pass, refactor. Tick tasks as you go
+   acceptance criterion (`CRn`), make it pass, refactor. Name each test for the behaviour
+   it proves, not `<id> CRn`: the reference runs from the change to the code through the
+   Plan's `Target` and `Verify` and the `[#id]` commit marker. Tick tasks as you go
    (`changeledger task <id> done <n>`) and move status with `changeledger status`.
 4. **Independent review.** A `change` passes through `in-review` before `done` — a
-   fresh, clean-context review verifies every `CRn` is met and no residue is left —
-   except for a ledger-only change. Direct `done` requires that its branch and its
-   uncommitted paths touch nothing outside the ledger and that none of its marked
+   fresh, clean-context review verifies the behaviour the Specification declares and that
+   no residue is left — except for a ledger-only change. Direct `done` requires that its
+   branch and its uncommitted paths touch nothing outside the ledger and that none of its marked
    `[#id]` commits has reached the integration branch yet; whenever git cannot tell,
    the gate refuses and names the cause.
 5. **Graduate the truth.** On `done`, update or create the affected `specs/`
@@ -57,7 +59,11 @@ pnpm verify                       # lint (Biome) + tests (node --test) + changel
 - Commit messages in English, Conventional Commits, subject ≤ 50 chars.
 - No `TODO`/`FIXME` or dead code in delivered work.
 
-The versioned pre-commit hook runs `lint-staged`, `pnpm test` and `changeledger check`.
+The versioned pre-commit hook runs `lint-staged`, `hooks/no-ledger-refs.sh --cached`,
+`pnpm test` and `changeledger check`. `no-ledger-refs.sh` rejects an added line outside
+`.changeledger/` (`.changeledger-state/` and `templates/contract/spec.md` are exempt) that
+holds a change id or a `CRn`, naming file and line; CI runs it on
+pull requests (Linux and macOS legs) over `origin/<base>...HEAD`. Existing references stay as they are.
 `lint-staged` formats only staged JavaScript, JSON and CSS files while preserving
 partial commits; `pnpm verify` remains the complete manual and CI gate.
 
