@@ -2,7 +2,7 @@
 id: "20261025-174959"
 title: "INTENT.md y docs describen el flujo que el contrato sirve: sin validación humana, sin bloqueo, sin correcciones aisladas; el acta de julio se retira"
 type: change
-status: in-review
+status: done
 created: 2026-10-25T17:49:59Z
 depends_on: []
 branch: change/20261025-174959
@@ -278,3 +278,4 @@ queda registrado como hallazgo (CR5).
 - **2026-10-25T18:19:26Z** `[review]` in-review → in-progress: Ronda 1: CR3 — los guards 1, 2 y 3 de test/intent.test.mjs se satisfacen sin su obligación (los encabezados sin punto cruzan al [^.]* y la frase del fail de revisión satisface al guard de la entrega devuelta); corrección: [^.\n] y anclar el guard 3 en «entreg». Menores en la misma ronda: usage-capture describe done → in-progress sólo como rechazo humano cuando la clave no distingue al actor; INTENT.md dice que la re-revisión inspecciona todo lo entregado (es bajo el mandato declarado), que graduación y archivo se deshacen por su documentación (el archivo borra la rama local y eso no se deshace) y que el marcador va siempre en el asunto (con dos changes va en el cuerpo); la retrospectiva es tras el cierre; el hijo sí registra --skip. Clase: enumeración incompleta dentro de la estrategia verificada.
 - **2026-10-25T18:20:28Z** `[note]` Corrección de la ronda 1: guards con [^.\n] (un encabezado sin punto ya no presta palabras a la frase siguiente) y el guard de la entrega devuelta anclado en «entreg»; cada uno de los tres falla contra su mutante y cuatro fallan contra el INTENT.md de origin/dev. INTENT.md: la re-revisión es bajo el mandato declarado y sólo si la rama toca código; la graduación se vuelve a resolver y el archivo se deshace en el documento pero no devuelve la rama borrada; el marcador va en el cuerpo cuando varios changes comparten commit; el hijo de una épica registra un skip; la retrospectiva es tras el cierre. usage-capture: done → in-progress es cualquier devolución de una entrega, la registre el humano o el agente. Precisión al hallazgo F1: el sello de aceptación se escribe en las dos disposiciones, no sólo en un ledger activado. Mandato de la segunda revisión: los defectos nombrados y cualquier regresión de la corrección.
 - **2026-10-25T18:20:29Z** `[status]` in-progress → in-review
+- **2026-10-25T18:24:49Z** `[review]` in-review → done (delegated subagent, clean context)
