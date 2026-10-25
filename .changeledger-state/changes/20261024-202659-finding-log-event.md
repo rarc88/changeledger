@@ -2,7 +2,7 @@
 id: "20261024-202659"
 title: "Un hallazgo fuera de la frontera se registra como evento del Log: finding, list --pending findings y su promoción a change"
 type: change
-status: in-review
+status: in-progress
 created: 2026-10-24T20:26:59Z
 depends_on: []
 branch: change/20261024-202659
@@ -365,3 +365,4 @@ abajo son literales.
 - **2026-10-25T13:33:40Z** `[note]` Implementación delegada entregada (rojo→verde por criterio, mutantes en CR1/CR6/CR8, pnpm verify 2193/2193). Pins reapuntados, no retirados: context.test 213942 CR1-CR4 y 124835 CR2/CR3 (fila y viñetas de --pending), lifecycle.test 134716 CR1/CR2 (diez tipos), cli-bin.test 131649 CR3/CR4/CR6/CR8-CR10 (dominio de --pending). Medido con budget-support sobre repo recién iniciado: core 2681→2678, implement 2478→2471, review 1100→1093 tokens; techos a 2680/2480/1100. La frase del handoff «Create the draft only after explicit authorization» cae: su obligación vive en el invariante del core «No artifact without explicit human authorization». Residuales: apply no escribe hallazgos; sin vista en el viewer; CR11 sin mutante de fuente (usage-analysis.mjs fuera de la frontera).
 - **2026-10-25T13:33:56Z** `[status]` in-progress → in-review
 - **2026-10-25T13:34:39Z** `[note]` Mandato de revisión: auditoría completa del rango 3e1f23de..e059ebb3 (dos commits) contra CR1–CR14, con las decisiones no especificadas y las frases cuantificadas del informe del implementador como puntos de escrutinio.
+- **2026-10-25T13:43:11Z** `[review]` in-review → in-progress: Ronda 1: (1) CR12 — base.core 2680 queda por debajo de la captura core de este repo (2684); la medición del implementador usó el marco de repo recién iniciado y la Specification fija el de dev en este repo (2687/2484/1106); corrección: 2690/269 y comentario de PINNED_CEILINGS; (2) la ayuda de finding dice «promote writes one Log line», falsa cuando appendLogEvent sella [version] antes; corrección: reescribir. Clase: enumeración incompleta dentro de la estrategia verificada.
