@@ -377,7 +377,7 @@ Los mensajes de error son literales.
 
 ### CR4 — Sólo queda el rol review
 - **Given** `AGENT_ROLES` en `src/commands/agent-context.mjs`
-- **When** `changeledger agent-context investigation`, `changeledger agent-context implementation <id>`, `changeledger agent-context graduation-review <id>`, `changeledger agent-prompt investigation`, `changeledger agent-prompt implementation` y `changeledger agent-prompt graduation-review`
+- **When** `changeledger agent-context investigation <id>`, `changeledger agent-context implementation <id>`, `changeledger agent-context graduation-review <id>`, `changeledger agent-prompt investigation`, `changeledger agent-prompt implementation` y `changeledger agent-prompt graduation-review`
 - **Then** cada uno sale 1: la CLI lo rechaza en el dominio cerrado del argumento con `Allowed choices are review.` y las funciones `buildAgentContext` y `buildAgentPrompt` con `Unknown role "<rol>" — valid roles: review`
 - **And** `changeledger agent-context review <id>` y `changeledger agent-prompt review` siguen produciendo su cápsula y su esqueleto dentro del techo `agent`
 - **And** la ayuda de `agent-context` y `agent-prompt` lista sólo `review` y no nombra `investigation`, `implementation` ni `graduation-review`; `core.md` remite a `changeledger agent-prompt review` y a ningún otro rol
