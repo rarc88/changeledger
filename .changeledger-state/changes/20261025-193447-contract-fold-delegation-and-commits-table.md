@@ -222,10 +222,11 @@ guards tolerantes, nunca pins de frase. Ninguna línea añadida fuera de
   - **Verify:** `node --test test/contract.test.mjs`
   - **Criteria:** CR6
   - **Resolved:** `2026-10-25T22:25:42Z`
-- [ ] El día después, hook y suite completa
+- [x] El día después, hook y suite completa
   - **Target:** `test/cli-bin.test.mjs`
   - **Verify:** `sh hooks/no-ledger-refs.sh origin/dev...HEAD && pnpm verify`
   - **Criteria:** CR7
+  - **Resolved:** `2026-10-25T22:25:43Z`
 
 ## Log
 - **2026-10-25T19:34:47Z** `[version]` 0.19.0
