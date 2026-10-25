@@ -228,10 +228,11 @@ construyen con el helper de CR4.
   - **Verify:** `node --test test/no-ledger-refs.test.mjs test/contract.test.mjs`
   - **Criteria:** CR4
   - **Resolved:** `2026-10-25T19:49:33Z`
-- [ ] `unrecordedTransitions` sin el sello de aceptación, y el doc
+- [x] `unrecordedTransitions` sin el sello de aceptación, y el doc
   - **Target:** `src/usage-analysis.mjs`, `test/usage-analysis.test.mjs`, `docs/usage-capture.md`
   - **Verify:** `node --test test/usage-analysis.test.mjs`
   - **Criteria:** CR5
+  - **Resolved:** `2026-10-25T19:49:34Z`
 - [ ] Orden estable en `listProjects`
   - **Target:** `src/registry.mjs`, `test/registry.test.mjs`
   - **Verify:** `node --test test/registry.test.mjs test/view.test.mjs`
