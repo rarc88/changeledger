@@ -341,10 +341,11 @@ abajo son literales.
   - **Verify:** `node --test test/context.test.mjs test/contract.test.mjs`
   - **Criteria:** CR12
   - **Resolved:** `2026-10-25T13:33:38Z`
-- [ ] README: `finding` y `--pending findings`
+- [x] README: `finding` y `--pending findings`
   - **Target:** `README.md`, `test/contract.test.mjs`
   - **Verify:** `node --test test/contract.test.mjs`
   - **Criteria:** CR13
+  - **Resolved:** `2026-10-25T13:33:38Z`
 - [ ] El día después, de punta a punta por la CLI
   - **Target:** `test/cli-bin.test.mjs`
   - **Verify:** `node --test test/cli-bin.test.mjs`
