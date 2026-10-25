@@ -2,7 +2,7 @@
 id: "20261025-174739"
 title: "Un hallazgo mal formado se rechaza: sede única del id, check contra resoluciones huérfanas o duplicadas y resolución con el verbo delante"
 type: change
-status: in-review
+status: done
 created: 2026-10-25T17:47:39Z
 depends_on: []
 branch: change/20261025-174739
@@ -262,3 +262,4 @@ construyen con el helper de CR4.
 - **2026-10-25T19:56:24Z** `[review]` in-review → in-progress: Ronda 1: D1 la ayuda de finding dice que un texto «quoted or not» se registra igual, pero entrecomillado «drop 5 cache» se registra como texto mientras sin comillas descarta F5; la decisión 1 del Request —texto cuyas dos primeras palabras son verbo y ordinal se rechaza nombrando la ambigüedad— no se implementó. D2 logSection en check.mjs no respeta bloques de código ni la clave en minúsculas ni la primera etapa, al contrario que logBodyOf de los lectores: falso positivo con un ejemplo de Log en un bloque del Request y falso negativo tras un «## » dentro de un bloque. Clase: enumeración incompleta dentro de la estrategia verificada.
 - **2026-10-25T20:03:22Z** `[note]` Corrección de la ronda 1: recordFindingMutation rechaza un texto que empieza por promote|drop seguido de ordinal con el mensaje literal de la decisión 1 (CR3 enmendado para recogerlo); la ayuda dice que la resolución va en argumentos separados y que entrecomillada se rechaza; logSection en check.mjs se reconstruye sobre fenceTracker con la misma delimitación que el parser de etapas (clave en minúsculas, primera etapa, bloques como contenido), y el replay del ciclo lo hereda sin retargets. Cuatro tests nuevos, rojos antes. Residual de deuda: la expresión de encabezado y frontmatter está copiada en change.mjs, fix.mjs y check.mjs; una pasada de etapas con números de línea exportada desde change.mjs las uniría. Mandato de confirmación: los dos defectos y cualquier regresión.
 - **2026-10-25T20:03:23Z** `[status]` in-progress → in-review
+- **2026-10-25T20:11:38Z** `[review]` in-review → done (delegated subagent, clean context)
