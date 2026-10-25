@@ -20,7 +20,10 @@ import {
   isPendingGraduation,
   list,
   log,
+  openFindings,
   owner,
+  recordFinding,
+  resolveFinding,
   review,
   show,
   status,
@@ -5019,4 +5022,225 @@ test('20261020-172221 CR8: no remote reference is touched, and the archive still
   );
   const text = fs.readFileSync(path.join(root, '.changeledger', 'changes', `${id}-x.md`), 'utf8');
   assert.match(text, /archived: true/, 'the archive is the point of the command');
+});
+
+// --- findings (20261024-202659) ---
+
+const FINDING_LINE = /^- \*\*\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z\*\* `\[finding\]` /;
+
+function archivedFindingDoc(id) {
+  return [
+    '---',
+    `id: "${id}"`,
+    'title: Archived',
+    'type: change',
+    'status: done',
+    'created: 2026-06-13T12:00:00Z',
+    'reviewed: true',
+    'archived: true',
+    'depends_on: []',
+    '---',
+    '',
+    '## Request',
+    '',
+    'R',
+    '',
+    '## Log',
+    '- **2026-06-13T12:00:00Z** `[status]` in-review → done',
+    '',
+  ].join('\n');
+}
+
+const nonEmptyLogLines = (text) => logLines(text).filter(Boolean);
+
+for (const activated of [false, true]) {
+  const layout = activated ? 'activated' : 'inactive';
+
+  test(`20261024-202659 CR4 (${layout}): finding records an open finding on a live and an archived change`, (t) => {
+    const { root, id, read } = usageRepo({ activated, t });
+    const archivedId = '20260613-120009';
+    const archivedRel = `changes/${archivedId}-archived.md`;
+    if (activated) {
+      writeLedgerFiles(
+        loadRepo(root),
+        [{ relPath: archivedRel, text: archivedFindingDoc(archivedId) }],
+        {
+          message: 'seed: archived',
+        },
+      );
+    } else {
+      fs.writeFileSync(
+        path.join(root, '.changeledger', archivedRel),
+        archivedFindingDoc(archivedId),
+      );
+    }
+    const readArchived = () =>
+      activated
+        ? stateDocText(root, stateRefTip(root), archivedRel)
+        : fs.readFileSync(path.join(root, '.changeledger', archivedRel), 'utf8');
+
+    withFakeCcusage({ FAKE_CCUSAGE_ROOT: encodeProjectPath(root) }, () => {
+      const quiet = { usage: usageOptions() };
+      task(id, 'done', 1, '', root);
+      approve(id, root, quiet);
+      status(id, 'in-progress', root, { ownerHandle: () => '', ...quiet });
+
+      const before = read();
+      const records = usageRecords(root, id).length;
+      assert.equal(recordFinding(id, 'el ejemplo de ayuda cita un id', root).n, 1);
+      const after = read();
+      const last = nonEmptyLogLines(after).at(-1);
+      assert.match(last, FINDING_LINE);
+      assert.ok(last.endsWith('`[finding]` el ejemplo de ayuda cita un id'), last);
+      assert.deepEqual(parseChange(after).frontmatter, parseChange(before).frontmatter);
+      assert.equal(usageRecords(root, id).length, records);
+      if (activated) assert.equal(lastCommitMessage(root), `finding: ${id}`);
+
+      const archivedBefore = readArchived();
+      assert.equal(recordFinding(archivedId, 'la vista de pendientes no existe', root).n, 1);
+      const archivedAfter = readArchived();
+      const [stamp, finding] = nonEmptyLogLines(archivedAfter).slice(-2);
+      assert.ok(stamp.endsWith(`\`[version]\` ${VERSION}`), stamp);
+      assert.ok(finding.endsWith('`[finding]` la vista de pendientes no existe'), finding);
+      assert.deepEqual(
+        parseChange(archivedAfter).frontmatter,
+        parseChange(archivedBefore).frontmatter,
+      );
+      assert.equal(usageRecords(root, archivedId).length, 0);
+      if (activated) assert.equal(lastCommitMessage(root), `finding: ${archivedId}`);
+
+      log(id, '[finding] x', root);
+      assert.ok(nonEmptyLogLines(read()).at(-1).endsWith('`[note]` [finding] x'));
+    });
+  });
+}
+
+test('20261024-202659 CR5: an empty or resolution-shaped finding text is refused and nothing is written', () => {
+  const { root, file, id } = repoWithChange();
+  const before = fs.readFileSync(file, 'utf8');
+  assert.throws(() => recordFinding(id, '', root), { message: 'finding text must not be empty' });
+  for (const text of ['2 promoted #20260101-000000', '1 dropped: x']) {
+    assert.throws(() => recordFinding(id, text, root), {
+      message: `finding text "${text}" reads as a resolution; resolve a finding with changeledger finding <id> <n> promote|drop`,
+    });
+  }
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
+function findingRepo() {
+  const { root, write } = repoWithArchiveCandidates();
+  const x = '20260613-120001';
+  const y = '20260613-120002';
+  const file = write({
+    id: x,
+    status: 'in-progress',
+    reviewed: false,
+    log: '\n- **2026-06-13T12:00:00Z** `[finding]` first\n- **2026-06-13T12:01:00Z** `[finding]` second',
+  });
+  write({ id: y, status: 'draft', reviewed: false });
+  return { root, file, x, y };
+}
+
+test('20261024-202659 CR6: promote links an open finding to an existing change', () => {
+  const { root, file, x, y } = findingRepo();
+  resolveFinding(x, 2, 'promote', y, root);
+  assert.ok(
+    nonEmptyLogLines(fs.readFileSync(file, 'utf8'))
+      .at(-1)
+      .endsWith(`\`[finding]\` 2 promoted #${y}`),
+  );
+
+  const before = fs.readFileSync(file, 'utf8');
+  for (const [args, message] of [
+    [[x, 3, 'promote', y], `change #${x} has no finding F3`],
+    [[x, 2, 'promote', y], `finding F2 of #${x} is already promoted to #${y}`],
+    [
+      [x, 1, 'promote', '20990101-000000'],
+      'No change with id "20990101-000000" (use the exact id; run `changeledger check` if a filename\'s id looks wrong)',
+    ],
+    [[x, 1, 'promote', x], `finding F1 cannot be promoted to its own change #${x}`],
+    [[x, 'abc', 'promote', y], 'finding ordinal must be a positive integer (got "abc")'],
+  ]) {
+    assert.throws(() => resolveFinding(...args, root), { message }, args.join(' '));
+  }
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
+test('20261024-202659 CR7: drop closes an open finding with a reason', () => {
+  const { root, file, x, y } = findingRepo();
+  resolveFinding(x, 1, 'drop', 'ya no aplica', root);
+  assert.ok(
+    nonEmptyLogLines(fs.readFileSync(file, 'utf8'))
+      .at(-1)
+      .endsWith('`[finding]` 1 dropped: ya no aplica'),
+  );
+
+  const before = fs.readFileSync(file, 'utf8');
+  for (const [args, message] of [
+    [[x, 1, 'drop', ''], 'drop requires a reason'],
+    [[x, 1, 'drop', 'otra vez'], `finding F1 of #${x} is already dropped`],
+    [[x, 1, 'promote', y], `finding F1 of #${x} is already dropped`],
+  ]) {
+    assert.throws(() => resolveFinding(...args, root), { message }, args.join(' '));
+  }
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
+// The CR8 ledger: A archived (F1 open, F2 promoted), B done (F1 dropped),
+// C in-progress and owned (F1 open), D without findings.
+function pendingFindingsRepo() {
+  const { root, write } = repoWithArchiveCandidates();
+  const [a, b, c, d] = ['20260613-120001', '20260613-120002', '20260613-120003', '20260613-120004'];
+  write({
+    id: a,
+    archived: true,
+    log: `\n- **2026-06-13T12:00:00Z** \`[finding]\` falta la vista\n- **2026-06-13T12:01:00Z** \`[finding]\` sobra un test\n- **2026-06-13T12:02:00Z** \`[finding]\` 2 promoted #${d}`,
+  });
+  write({
+    id: b,
+    log: '\n- **2026-06-13T12:00:00Z** `[finding]` ya resuelto\n- **2026-06-13T12:01:00Z** `[finding]` 1 dropped: no aplica',
+  });
+  write({
+    id: c,
+    status: 'in-progress',
+    reviewed: false,
+    owner: 'Roberto Ruiz',
+    log: '\n- **2026-06-13T12:03:00Z** `[finding]` el ejemplo cita un id',
+  });
+  write({ id: d, status: 'draft', reviewed: false });
+  const rowA = { id: a, n: 1, text: 'falta la vista', at: '2026-06-13T12:00:00Z' };
+  const rowC = { id: c, n: 1, text: 'el ejemplo cita un id', at: '2026-06-13T12:03:00Z' };
+  return { root, rowA, rowC };
+}
+
+test('20261024-202659 CR8: list pending findings returns the open finding rows of the whole ledger', () => {
+  const { root, rowA, rowC } = pendingFindingsRepo();
+  assert.deepEqual(list({ pending: 'findings' }, root), [rowA, rowC]);
+  assert.deepEqual(list({ pending: 'findings', all: true }, root), [rowA, rowC]);
+  assert.deepEqual(list({ pending: 'findings', archived: true }, root), [rowA]);
+  assert.deepEqual(list({ pending: 'findings', owner: 'Roberto Ruiz' }, root), [rowC]);
+  assert.deepEqual(list({ pending: 'findings', status: 'in-progress' }, root), [rowC]);
+  assert.deepEqual(openFindings(loadRepo(root).changes), [rowA, rowC]);
+});
+
+test('20261024-202659 CR10: an open finding does not hold back the archive', () => {
+  const { root, file, id } = gateRepo();
+  commitOnBranch(root, file, ['.changeledger/specs/s.md']);
+  status(id, 'done', root);
+  recordFinding(id, 'falta la vista', root);
+  skipGraduation(id, 'nada durable', root);
+  const result = archive(id, root);
+  assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.archived, true);
+  assert.doesNotMatch(JSON.stringify(result), /finding|F1|falta la vista/i);
+  assert.equal(openFindings(loadRepo(root).changes).length, 1);
+});
+
+test('20261024-202659 CR10: an open finding does not hold back a direct done', () => {
+  const { root, file, id } = gateRepo();
+  recordFinding(id, 'falta la vista', root);
+  commitOnBranch(root, file, ['.changeledger/specs/s.md']);
+  const result = status(id, 'done', root);
+  assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'done');
+  assert.doesNotMatch(JSON.stringify(result ?? {}), /finding|F1|falta la vista/i);
+  assert.equal(openFindings(loadRepo(root).changes).length, 1);
 });

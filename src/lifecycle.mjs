@@ -130,6 +130,34 @@ function parseVersionPayload(payload) {
   return parts.length === 2 ? { previous: parts[0], version: parts[1] } : { version: parts[0] };
 }
 
+// The ordinal names the n-th open finding of the same Log, so it is derived
+// from position and never written on the open line itself. A text shaped like
+// a resolution is not an open finding: it parses as one arm or as nothing.
+const FINDING_PROMOTED = /^(\d+) promoted #(.*)$/;
+const FINDING_DROPPED = /^(\d+) dropped:(?: (.*))?$/;
+const CHANGE_ID = /^\d{8}-\d{6}$/;
+
+function parseFindingOrdinal(digits) {
+  const n = Number(digits);
+  return Number.isSafeInteger(n) && n > 0 ? n : null;
+}
+
+function parseFindingPayload(payload) {
+  const promoted = payload.match(FINDING_PROMOTED);
+  if (promoted) {
+    const n = parseFindingOrdinal(promoted[1]);
+    return n && CHANGE_ID.test(promoted[2])
+      ? { outcome: 'promoted', n, target: promoted[2] }
+      : null;
+  }
+  const dropped = payload.match(FINDING_DROPPED);
+  if (dropped) {
+    const n = parseFindingOrdinal(dropped[1]);
+    return n && dropped[2] ? { outcome: 'dropped', n, reason: dropped[2] } : null;
+  }
+  return payload ? { outcome: 'open', text: payload } : null;
+}
+
 export const LOG_EVENT_DEFINITIONS = Object.freeze({
   status: Object.freeze({
     form: '<from> → <to> [(detail)] [: reason]',
@@ -192,6 +220,12 @@ export const LOG_EVENT_DEFINITIONS = Object.freeze({
     transition: false,
     parse: parseVersionPayload,
   }),
+  finding: Object.freeze({
+    form: '<text> | <n> promoted #<id> | <n> dropped: <reason>',
+    canonicalPayload: 'the help example cites a stale id',
+    transition: false,
+    parse: parseFindingPayload,
+  }),
 });
 
 export const LOG_EVENT_TYPES = Object.keys(LOG_EVENT_DEFINITIONS);
@@ -239,6 +273,16 @@ export function serializeLogEvent(event) {
     payload = 'archived';
   } else if (type === 'version') {
     payload = event.previous ? `${event.previous} → ${event.version}` : event.version;
+  } else if (type === 'finding') {
+    if (event.outcome === 'promoted') payload = `${event.n} promoted #${event.target}`;
+    else if (event.outcome === 'dropped') payload = `${event.n} dropped: ${event.reason}`;
+    // An open text shaped like a resolution would read back as one.
+    else if (
+      event.outcome === 'open' &&
+      parseFindingPayload(String(event.text ?? ''))?.outcome === 'open'
+    ) {
+      payload = event.text;
+    }
   } else if (type === 'note') {
     // The rendered line already prepends the literal `` `[note]` `` tag
     // (below); a caller-supplied message that repeats it verbatim at the very

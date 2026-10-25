@@ -41,7 +41,7 @@ import {
   refExists,
   uncommittedPaths,
 } from '../git.mjs';
-import { assertTransition, parseLogEvent } from '../lifecycle.mjs';
+import { assertTransition, LOG_EVENT_DEFINITIONS, parseLogEvent } from '../lifecycle.mjs';
 import { nowUtc } from '../paths.mjs';
 import { assertNotShipped } from '../release.mjs';
 import { loadRepo, resolveChange, resolveChangeInRepo } from '../repo.mjs';
@@ -818,6 +818,107 @@ export function log(id, message, cwd = process.cwd()) {
   return target.file;
 }
 
+// The findings of one Log in order: an open line takes the next ordinal, and a
+// later resolution naming an open ordinal resolves it. The ordinal is never
+// written on the open line (20261024-202659), so it is derived here.
+function findingsInLog(logBody) {
+  const findings = [];
+  for (const line of logBody.split('\n')) {
+    const event = parseLogEvent(line);
+    if (event?.type !== 'finding') continue;
+    if (event.outcome === 'open') {
+      findings.push({ n: findings.length + 1, text: event.text, at: event.at, resolution: null });
+      continue;
+    }
+    const finding = findings[event.n - 1];
+    if (finding && !finding.resolution) finding.resolution = event;
+  }
+  return findings;
+}
+
+const logBodyOf = (c) => c.stages.find((s) => s.key === 'log')?.body ?? '';
+
+// Text transform of `finding <id> "<text>"` — see `statusMutation` for why it
+// is a seat.
+export function recordFindingMutation(text) {
+  if (String(text ?? '').trim() === '') throw new Error('finding text must not be empty');
+  if (LOG_EVENT_DEFINITIONS.finding.parse(text)?.outcome !== 'open') {
+    throw new Error(
+      `finding text "${text}" reads as a resolution; resolve a finding with changeledger finding <id> <n> promote|drop`,
+    );
+  }
+  return (current) =>
+    appendLogEvent(current, { at: nowUtc(), type: 'finding', outcome: 'open', text });
+}
+
+// Text transform of `finding <id> <n> promote|drop` over the change `id`.
+// `assertTarget` resolves a promotion's target in the ledger the write lands in.
+export function resolveFindingMutation(id, n, outcome, value, assertTarget = () => {}) {
+  if (!/^[1-9]\d*$/.test(String(n))) {
+    throw new Error(`finding ordinal must be a positive integer (got "${n}")`);
+  }
+  const ordinal = Number(n);
+  if (outcome !== 'promote' && outcome !== 'drop') {
+    throw new Error(`Unknown finding resolution "${outcome}" (use promote|drop)`);
+  }
+  if (String(value ?? '').trim() === '') {
+    throw new Error(
+      outcome === 'drop'
+        ? 'drop requires a reason'
+        : 'promote requires the id of the change it becomes',
+    );
+  }
+  return (current) => {
+    const finding = findingsInLog(logBodyOf(parseChange(current)))[ordinal - 1];
+    if (!finding) throw new Error(`change #${id} has no finding F${ordinal}`);
+    const { resolution } = finding;
+    if (resolution?.outcome === 'promoted') {
+      throw new Error(`finding F${ordinal} of #${id} is already promoted to #${resolution.target}`);
+    }
+    if (resolution?.outcome === 'dropped') {
+      throw new Error(`finding F${ordinal} of #${id} is already dropped`);
+    }
+    const at = nowUtc();
+    if (outcome === 'drop') {
+      return appendLogEvent(current, {
+        at,
+        type: 'finding',
+        outcome: 'dropped',
+        n: ordinal,
+        reason: value,
+      });
+    }
+    if (String(value) === String(id)) {
+      throw new Error(`finding F${ordinal} cannot be promoted to its own change #${id}`);
+    }
+    assertTarget(value);
+    return appendLogEvent(current, {
+      at,
+      type: 'finding',
+      outcome: 'promoted',
+      n: ordinal,
+      target: value,
+    });
+  };
+}
+
+export function recordFinding(id, text, cwd = process.cwd()) {
+  const mutate = recordFindingMutation(text);
+  const { repo, target } = locate(cwd, id);
+  const after = mutateLedgerFile(repo, target, mutate, { message: `finding: ${id}` });
+  return { file: target.file, n: findingsInLog(logBodyOf(parseChange(after))).length };
+}
+
+export function resolveFinding(id, n, outcome, value, cwd = process.cwd()) {
+  const { repo, target, repoRoot } = locate(cwd, id);
+  const assertTarget = (targetId) =>
+    repo.state ? resolveChangeInRepo(repo, targetId) : resolveChange(repoRoot, targetId);
+  mutateLedgerFile(repo, target, resolveFindingMutation(id, n, outcome, value, assertTarget), {
+    message: `finding: ${id}`,
+  });
+  return target.file;
+}
+
 // Text transform of `task` — see `statusMutation` for why it is a seat.
 export function taskMutation(action, n, reason) {
   return (text) => {
@@ -865,6 +966,19 @@ function assertTaskCandidateClean(repo, id, text, subject) {
   );
 }
 
+const PENDING_KINDS = ['graduation', 'archive', 'findings'];
+
+// The open findings of `changes` as rows, ordered by origin id then ordinal.
+export function openFindings(changes) {
+  return [...changes]
+    .sort((a, b) => String(a.frontmatter.id).localeCompare(String(b.frontmatter.id)))
+    .flatMap((c) =>
+      findingsInLog(logBodyOf(c))
+        .filter((f) => !f.resolution)
+        .map((f) => ({ id: c.frontmatter.id, n: f.n, text: f.text, at: f.at })),
+    );
+}
+
 export function list(
   {
     status: byStatus,
@@ -880,8 +994,8 @@ export function list(
 ) {
   assertOwnerFilter({ owner: byOwner, unowned });
   if (archived && all) throw new Error('--archived and --all are mutually exclusive');
-  if (pending && !['graduation', 'archive'].includes(pending)) {
-    throw new Error(`Invalid --pending "${pending}". Valid: graduation, archive`);
+  if (pending && !PENDING_KINDS.includes(pending)) {
+    throw new Error(`Invalid --pending "${pending}". Valid: ${PENDING_KINDS.join(', ')}`);
   }
 
   let candidates = loadRepo(cwd).changes;
@@ -889,29 +1003,36 @@ export function list(
     candidates = selectArchivableGraduated(candidates, { owner: byOwner, unowned });
   }
 
-  return candidates
-    .filter((c) => {
-      const fm = c.frontmatter;
-      if (!all && archived !== (fm.archived === true)) return false;
-      if (byStatus && fm.status !== byStatus) return false;
-      if (byType && fm.type !== byType) return false;
-      if (byOwner !== undefined && fm.owner !== byOwner) return false;
-      if (unowned && fm.owner != null) return false;
-      if (byParent !== undefined && String(fm.parent ?? '') !== String(byParent)) return false;
-      if (pending === 'graduation' && !isPendingGraduation(c)) return false;
-      return true;
-    })
-    .map((c) => ({
-      id: c.frontmatter.id,
-      title: c.frontmatter.title,
-      type: c.frontmatter.type,
-      status: c.frontmatter.status,
-      owner: c.frontmatter.owner ?? null,
-      branch: c.frontmatter.branch ?? null,
-      archived: c.frontmatter.archived === true,
-      parent: c.frontmatter.parent ?? null,
-      progress: c.progress,
-    }));
+  // Findings live in closed changes too, so `--pending findings` sees archived
+  // origins without --all (20261024-202659).
+  const visible = (fm) => {
+    if (archived) return fm.archived === true;
+    return all || pending === 'findings' || fm.archived !== true;
+  };
+  const selected = candidates.filter((c) => {
+    const fm = c.frontmatter;
+    if (!visible(fm)) return false;
+    if (byStatus && fm.status !== byStatus) return false;
+    if (byType && fm.type !== byType) return false;
+    if (byOwner !== undefined && fm.owner !== byOwner) return false;
+    if (unowned && fm.owner != null) return false;
+    if (byParent !== undefined && String(fm.parent ?? '') !== String(byParent)) return false;
+    if (pending === 'graduation' && !isPendingGraduation(c)) return false;
+    return true;
+  });
+  if (pending === 'findings') return openFindings(selected);
+
+  return selected.map((c) => ({
+    id: c.frontmatter.id,
+    title: c.frontmatter.title,
+    type: c.frontmatter.type,
+    status: c.frontmatter.status,
+    owner: c.frontmatter.owner ?? null,
+    branch: c.frontmatter.branch ?? null,
+    archived: c.frontmatter.archived === true,
+    parent: c.frontmatter.parent ?? null,
+    progress: c.progress,
+  }));
 }
 
 export function show(id, cwd = process.cwd()) {

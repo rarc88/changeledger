@@ -1350,3 +1350,54 @@ test('20261012-141915 CR3: records that all place add no skipped hint', () => {
   }
   assert.deepEqual(skippedHints(analyzeUsage({ changes: [], usage: [] })), []);
 });
+
+test('20261024-202659 CR11: findings change no segment, rework or unrecorded transition', () => {
+  const findings = [
+    logLine(at(2, 30), 'finding', 'falta la vista'),
+    logLine(at(5, 30), 'finding', `1 promoted #${D}`),
+  ];
+  const reworkLog = [
+    logLine(at(5), 'review', 'in-review → in-progress: falla'),
+    logLine(at(6), 'status', 'in-progress → in-review'),
+  ];
+  const reworkUsage = [
+    usageRecord({ change: C, at: at(1), event: 'created', to: 'draft', sessions: [s1(0)] }),
+    usageRecord({ change: C, at: at(2), from: 'draft', to: 'approved', sessions: [s1(100)] }),
+    usageRecord({ change: C, at: at(3), from: 'approved', to: 'in-progress', sessions: [s1(200)] }),
+    usageRecord({
+      change: C,
+      at: at(4),
+      from: 'in-progress',
+      to: 'in-review',
+      sessions: [s1(600)],
+    }),
+    usageRecord({
+      change: C,
+      at: at(5),
+      event: 'review',
+      from: 'in-review',
+      to: 'in-progress',
+      sessions: [s1(700)],
+    }),
+    usageRecord({
+      change: C,
+      at: at(7),
+      from: 'in-progress',
+      to: 'in-review',
+      sessions: [s1(1000)],
+    }),
+  ].map(usageEntryOf);
+  const rework = (log) => analyzeUsage({ changes: [changeDoc(C, { log })], usage: reworkUsage });
+  const withFindings = rework([...reworkLog, ...findings].sort());
+  assert.ok(segmentTotals(only(withFindings)).some(([segment]) => segment === 'rework'));
+  assert.ok(
+    withFindings.hints.some((h) => h.startsWith('gap: 1 transition(s)')),
+    withFindings.hints.join('\n'),
+  );
+  assert.deepEqual(withFindings, rework(reworkLog));
+
+  const gap = (bLog) => analyzeUsage(gapScenario({ bLog }));
+  const gapWithFindings = gap([...bTransitions, ...findings].sort());
+  assert.ok(gapWithFindings.hints.some((h) => h.startsWith('gap: 2 transition(s)')));
+  assert.deepEqual(gapWithFindings, gap(bTransitions));
+});

@@ -33,6 +33,7 @@ test('20260824-134716 CR1/CR2: closed lifecycle domains have one executable auth
     'archive',
     'note',
     'version',
+    'finding',
   ]);
   assert.deepEqual(Object.keys(LOG_EVENT_PAYLOAD_FORMS), LOG_EVENT_TYPES);
   assert.deepEqual(REVIEW_VERDICTS, ['pass', 'fail']);
@@ -653,4 +654,75 @@ test('181346 CR10: a release change starts from git.release_branch end to end', 
     .split('\n')
     .find((line) => line.startsWith('Effective policy:'));
   assert.match(policy, / — integration_branch=main — back_merge_branch=dev /, policy);
+});
+
+const FINDING_LINES = {
+  open: '- **2026-10-25T10:00:00Z** `[finding]` el ejemplo de ayuda cita un id',
+  promoted: '- **2026-10-25T10:00:00Z** `[finding]` 2 promoted #20260101-000000',
+  dropped: '- **2026-10-25T10:00:00Z** `[finding]` 1 dropped: ya no aplica',
+};
+const FINDING_EVENTS = {
+  open: {
+    at: '2026-10-25T10:00:00Z',
+    type: 'finding',
+    outcome: 'open',
+    text: 'el ejemplo de ayuda cita un id',
+  },
+  promoted: {
+    at: '2026-10-25T10:00:00Z',
+    type: 'finding',
+    outcome: 'promoted',
+    n: 2,
+    target: '20260101-000000',
+  },
+  dropped: {
+    at: '2026-10-25T10:00:00Z',
+    type: 'finding',
+    outcome: 'dropped',
+    n: 1,
+    reason: 'ya no aplica',
+  },
+};
+
+test('20261024-202659 CR1: finding parses its three payload arms', () => {
+  for (const outcome of ['open', 'promoted', 'dropped']) {
+    assert.deepEqual(parseLogEvent(FINDING_LINES[outcome]), FINDING_EVENTS[outcome], outcome);
+  }
+});
+
+test('20261024-202659 CR1: finding is the tenth, non-transition event type', () => {
+  assert.equal(LOG_EVENT_TYPES.length, 10);
+  assert.equal(LOG_EVENT_TYPES.at(-1), 'finding');
+  assert.equal(LOG_EVENT_DEFINITIONS.finding.transition, false);
+  assert.equal(
+    LOG_EVENT_DEFINITIONS.finding.form,
+    '<text> | <n> promoted #<id> | <n> dropped: <reason>',
+  );
+});
+
+test('20261024-202659 CR1: malformed finding payloads do not parse', () => {
+  for (const payload of ['', '0 promoted #20260101-000000', '2 promoted #x', '1 dropped:']) {
+    assert.equal(parseLogEvent(logLine('finding', payload)), null, JSON.stringify(payload));
+  }
+});
+
+test('20261024-202659 CR1: finding serializes its three arms and refuses an empty open text', () => {
+  for (const outcome of ['open', 'promoted', 'dropped']) {
+    assert.equal(serializeLogEvent(FINDING_EVENTS[outcome]), FINDING_LINES[outcome], outcome);
+  }
+  assert.throws(
+    () =>
+      serializeLogEvent({ at: '2026-10-25T10:00:00Z', type: 'finding', outcome: 'open', text: '' }),
+    /^Error: invalid finding Log event$/,
+  );
+  assert.throws(
+    () =>
+      serializeLogEvent({
+        at: '2026-10-25T10:00:00Z',
+        type: 'finding',
+        outcome: 'open',
+        text: '2 promoted #20260101-000000',
+      }),
+    /^Error: invalid finding Log event$/,
+  );
 });

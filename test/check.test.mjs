@@ -4315,3 +4315,38 @@ test('20261024-121022 CR3: in-review asks for a Specification with a criterion a
     ),
   );
 });
+
+test('20261024-202659 CR3: check rejects a malformed finding with the existing typed-event error', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-check-finding-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  initializeRepo(root);
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'changes', '20261025-100000-x.md'),
+    [
+      '---',
+      'id: "20261025-100000"',
+      'title: X',
+      'type: change',
+      'status: draft',
+      'created: 2026-10-25T10:00:00Z',
+      'depends_on: []',
+      '---',
+      '',
+      '## Request',
+      '',
+      'x',
+      '',
+      '## Log',
+      '',
+      '- **2026-10-25T10:00:00Z** `[finding]` 2 promoted #abc',
+      '',
+    ].join('\n'),
+  );
+  const lines = [];
+  const output = { log: (m) => lines.push(m), error: (m) => lines.push(m) };
+  assert.equal(check([], root, output), 1);
+  assert.match(
+    lines.join('\n'),
+    /Log line \d+: invalid typed event; valid types: status, review, validation, owner, branch, graduation, archive, note, version, finding; expected: - \*\*YYYY-MM-DDTHH:MM:SSZ\*\* `\[type\]` payload/,
+  );
+});
