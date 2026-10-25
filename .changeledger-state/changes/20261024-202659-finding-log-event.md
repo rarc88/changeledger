@@ -321,10 +321,11 @@ abajo son literales.
   - **Verify:** `node --test test/cli-bin.test.mjs test/check.test.mjs test/contract.test.mjs`
   - **Criteria:** CR2, CR3
   - **Resolved:** `2026-10-25T13:33:35Z`
-- [ ] Mutaciones `recordFinding` y `resolveFinding` junto a `logMutation`, con sus rechazos, y el comando `finding` en la CLI
+- [x] Mutaciones `recordFinding` y `resolveFinding` junto a `logMutation`, con sus rechazos, y el comando `finding` en la CLI
   - **Target:** `src/commands/agent.mjs`, `bin/changeledger.mjs`, `test/agent.test.mjs`, `test/cli-bin.test.mjs`
   - **Verify:** `node --test test/agent.test.mjs test/cli-bin.test.mjs`
   - **Criteria:** CR4, CR5, CR6, CR7
+  - **Resolved:** `2026-10-25T13:33:35Z`
 - [ ] `openFindings` sobre todos los changes y `list --pending findings` con sus filas, filtros, ayuda y error
   - **Target:** `src/commands/agent.mjs`, `bin/changeledger.mjs`, `test/agent.test.mjs`, `test/cli-bin.test.mjs`
   - **Verify:** `node --test test/agent.test.mjs test/cli-bin.test.mjs`
