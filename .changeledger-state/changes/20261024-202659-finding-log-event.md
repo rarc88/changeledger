@@ -219,7 +219,133 @@ fila «asks what is pending» y la lista de descubrimiento del core nombran
 
 ## Specification
 
+Escrita en `in-progress` con el código delante (`dev` en `3e1f23de`). La
+gramática de los eventos vive en `LOG_EVENT_DEFINITIONS` (`src/lifecycle.mjs`),
+el mapa de escritores en `LOG_EVENT_PRODUCERS` (`bin/changeledger.mjs`), las
+mutaciones del Log en `src/commands/agent.mjs` (`logMutation`, `log`) y las
+consultas pendientes en `list` del mismo fichero. Los mensajes de error de
+abajo son literales.
+
+### CR1 — finding es el décimo tipo de evento con tres formas de payload
+- **Given** `LOG_EVENT_DEFINITIONS` en `src/lifecycle.mjs`
+- **When** `parseLogEvent` lee ``- **2026-10-25T10:00:00Z** `[finding]` el ejemplo de ayuda cita un id``, ``- **2026-10-25T10:00:00Z** `[finding]` 2 promoted #20261024-202718`` y ``- **2026-10-25T10:00:00Z** `[finding]` 1 dropped: ya no aplica``
+- **Then** devuelve `{ at, type: 'finding', outcome: 'open', text: 'el ejemplo de ayuda cita un id' }`, `{ at, type: 'finding', outcome: 'promoted', n: 2, target: '20261024-202718' }` y `{ at, type: 'finding', outcome: 'dropped', n: 1, reason: 'ya no aplica' }`
+- **And** `LOG_EVENT_TYPES` tiene diez entradas y la última es `finding`; `LOG_EVENT_DEFINITIONS.finding.transition` es `false`; su `form` es `<text> | <n> promoted #<id> | <n> dropped: <reason>`
+- **And** un payload vacío, `0 promoted #20261024-202718`, `2 promoted #x` y `1 dropped:` (sin razón) devuelven `null`
+- **And** `serializeLogEvent` reproduce las tres líneas desde esos objetos y lanza `invalid finding Log event` ante `{ type: 'finding', outcome: 'open', text: '' }`
+
+### CR2 — log --help imprime finding con su único escritor
+- **Given** `LOG_EVENT_PRODUCERS.finding` es `['changeledger finding']`
+- **When** `changeledger log --help`
+- **Then** la salida contiene el bloque `  finding`, `    Payload: <text>`, `    Or: <n> promoted #<id>`, `    Or: <n> dropped: <reason>`, `    Written by:` y `      changeledger finding`
+- **And** el test `20261020-130304 CR6` de `test/contract.test.mjs` pasa sin editarlo, porque itera las definiciones
+
+### CR3 — check rechaza una forma inválida con el mensaje que ya existe
+- **Given** un change vivo cuyo Log lleva ``- **2026-10-25T10:00:00Z** `[finding]` 2 promoted #abc``
+- **When** `changeledger check`
+- **Then** falla con ``Log line <n>: invalid typed event; valid types: status, review, validation, owner, branch, graduation, archive, note, version, finding; expected: - **YYYY-MM-DDTHH:MM:SSZ** `[type]` payload``
+
+### CR4 — finding <id> "<texto>" escribe un hallazgo abierto en cualquier change
+- **Given** un repo con el change `X` en `in-progress` y otro `A` archivado, en disposición inactiva y en disposición activada
+- **When** `changeledger finding X "el ejemplo de ayuda cita un id"` y `changeledger finding A "la vista de pendientes no existe"`
+- **Then** el Log de cada uno termina en ``- **<instante>** `[finding]` <texto>``, precedido del sello `[version]` si el Log no lo tenía; stdout dice `finding F1 recorded on #X`; el frontmatter no cambia y no se escribe ninguna instantánea de uso
+- **And** en el repo activado el commit de la ref de estado se llama `finding: X`
+- **And** `changeledger log X "[finding] x"` sigue escribiendo `` `[note]` [finding] x ``
+
+### CR5 — un texto vacío o que se lee como resolución se rechaza
+- **Given** el change `X`
+- **When** `changeledger finding X ""`, `changeledger finding X "2 promoted #20261024-202718"` y `changeledger finding X "1 dropped: x"`
+- **Then** fallan con `finding text must not be empty` y, los dos últimos, con `finding text "<texto>" reads as a resolution; resolve a finding with changeledger finding <id> <n> promote|drop`, y el Log no cambia
+
+### CR6 — promote enlaza un hallazgo abierto a un change existente
+- **Given** `X` con `F1` y `F2` abiertos y un change `Y` del ledger
+- **When** `changeledger finding X 2 promote Y`
+- **Then** el Log de `X` gana ``- **<instante>** `[finding]` 2 promoted #Y`` y stdout dice `finding F2 on #X → promoted to #Y`
+- **And** `changeledger finding X 3 promote Y` falla con `change #X has no finding F3`; repetir `changeledger finding X 2 promote Y` falla con `finding F2 of #X is already promoted to #Y`; `changeledger finding X 1 promote Z` con `Z` inexistente falla con el mensaje de `resolveChangeInRepo` (`No change with id "Z" …`); `changeledger finding X 1 promote X` falla con `finding F1 cannot be promoted to its own change #X`; `changeledger finding X abc promote Y` falla con `finding ordinal must be a positive integer (got "abc")`; en todos los fallos el Log no cambia
+
+### CR7 — drop cierra un hallazgo con razón
+- **Given** `X` con `F1` abierto
+- **When** `changeledger finding X 1 drop "ya no aplica"`
+- **Then** el Log gana ``- **<instante>** `[finding]` 1 dropped: ya no aplica`` y stdout dice `finding F1 on #X → dropped`
+- **And** `changeledger finding X 1 drop ""` falla con `drop requires a reason`; repetir el `drop` falla con `finding F1 of #X is already dropped`; `changeledger finding X 1 promote Y` tras el `drop` falla con ese mismo mensaje
+
+### CR8 — list --pending findings saca los abiertos de todo el ledger
+- **Given** los changes `A` (archivado; `F1` abierto, `F2` promovido), `B` (`done`; `F1` descartado), `C` (`in-progress`, owner `Roberto Ruiz`; `F1` abierto) y `D` sin hallazgos
+- **When** `changeledger list --pending findings`
+- **Then** imprime exactamente dos líneas, `#A F1  <texto>` y `#C F1  <texto>`, ordenadas por id y ordinal, sin pedir `--all`
+- **And** `--json` imprime `[{ "id": "A", "n": 1, "text": "<texto>", "at": "<instante>" }, { "id": "C", … }]`
+- **And** `--owner "Roberto Ruiz"` deja sólo `C`; `--archived` deja sólo `A`; `--all` imprime las dos; `--status in-progress` deja sólo `C`
+- **And** la función `list({ pending: 'findings' })` de `src/commands/agent.mjs` devuelve esas mismas filas y no filas de change
+
+### CR9 — el valor inválido de --pending nombra los tres
+- **Given** cualquier repo
+- **When** `changeledger list --pending release`
+- **Then** falla con `Invalid --pending "release". Valid: graduation, archive, findings`
+- **And** `changeledger list --help` describe la opción como `filter pending work (graduation|archive|findings)` y sus ejemplos incluyen `changeledger list --pending findings`
+
+### CR10 — un hallazgo abierto no bloquea el archivo ni la entrega
+- **Given** `X` en `done`, graduado con `--skip` y con `F1` abierto, y `W` en `in-progress` con `F1` abierto cuya rama no toca nada fuera del ledger
+- **When** `changeledger archive X` y `changeledger status W done`
+- **Then** `X` queda `archived: true` y `W` pasa a `done`; ningún mensaje menciona el hallazgo
+
+### CR11 — analyze no cuenta el hallazgo
+- **Given** un change con registros de uso y un Log con un hallazgo abierto y otro promovido
+- **When** `analyze` calcula los tramos, el rework y las transiciones sin registro de ese change
+- **Then** el resultado es idéntico, en profundidad, al del mismo change con las dos líneas `[finding]` quitadas
+
+### CR12 — el contrato nombra el mecanismo sin pesar más
+- **Given** `templates/contract/core.md` y `templates/contract/handoff.md`
+- **When** se componen `changeledger context`, `context implement` y `context review`
+- **Then** la fila «asks what is pending» del core y la lista «Operational discovery» nombran `--pending findings`; la viñeta «Outside the approved objective» del handoff manda registrar el hallazgo con `changeledger finding <id>` y deja de pedir proponer tipo, título y razón ni crear el draft; ninguna frase del contrato pide proponer «type, title and reason»
+- **And** los tokens medidos por `test/budget-support.mjs` de las tres capturas no superan los de `dev` en `3e1f23de` (core 2.687, implement 2.484, review 1.106) y los techos `base.core`, `base.implement` y `base.review` de `budgets.yml` bajan al valor medido redondeado a la decena superior, con `PINNED_CEILINGS` en `test/context.test.mjs` actualizado
+
+### CR13 — el README documenta el comando y la consulta
+- **Given** `README.md`
+- **When** se lee la referencia de comandos
+- **Then** la línea de `list` dice `[--pending graduation|archive|findings]` y hay una entrada `changeledger finding <id> "<text>" | <n> promote <id> | <n> drop "<reason>"` con una frase que dice qué es un hallazgo
+
+### CR14 — el día después
+- **Given** un repo inactivo recién creado con `changeledger init`
+- **When** se crean `X` e `Y` con `new`, se registra `changeledger finding X "falta la vista"`, se lista `--pending findings`, se promueve con `changeledger finding X 1 promote Y` y se lista de nuevo
+- **Then** la primera lista muestra `#X F1  falta la vista`, la segunda está vacía, `changeledger show X --json` devuelve en su Log las dos líneas `[finding]` y `changeledger check` termina sin errores
+
 ## Plan
+
+- [ ] Gramática de `finding` en `LOG_EVENT_DEFINITIONS`: parse de las tres formas, `transition: false`, serialización
+  - **Target:** `src/lifecycle.mjs`, `test/lifecycle.test.mjs`
+  - **Verify:** `node --test test/lifecycle.test.mjs`
+  - **Criteria:** CR1
+- [ ] Escritor en `LOG_EVENT_PRODUCERS` y mensaje de `check` con el décimo tipo
+  - **Target:** `bin/changeledger.mjs`, `test/cli-bin.test.mjs`, `test/check.test.mjs`
+  - **Verify:** `node --test test/cli-bin.test.mjs test/check.test.mjs test/contract.test.mjs`
+  - **Criteria:** CR2, CR3
+- [ ] Mutaciones `recordFinding` y `resolveFinding` junto a `logMutation`, con sus rechazos, y el comando `finding` en la CLI
+  - **Target:** `src/commands/agent.mjs`, `bin/changeledger.mjs`, `test/agent.test.mjs`, `test/cli-bin.test.mjs`
+  - **Verify:** `node --test test/agent.test.mjs test/cli-bin.test.mjs`
+  - **Criteria:** CR4, CR5, CR6, CR7
+- [ ] `openFindings` sobre todos los changes y `list --pending findings` con sus filas, filtros, ayuda y error
+  - **Target:** `src/commands/agent.mjs`, `bin/changeledger.mjs`, `test/agent.test.mjs`, `test/cli-bin.test.mjs`
+  - **Verify:** `node --test test/agent.test.mjs test/cli-bin.test.mjs`
+  - **Criteria:** CR8, CR9
+- [ ] Nada bloquea y `analyze` no cuenta: tests de archivo, entrega directa y análisis con hallazgos
+  - **Target:** `test/agent.test.mjs`, `test/usage-analysis.test.mjs`
+  - **Verify:** `node --test test/agent.test.mjs test/usage-analysis.test.mjs`
+  - **Criteria:** CR10, CR11
+- [ ] Las tres frases del contrato, medidas, y los techos bajados a lo medido
+  - **Target:** `templates/contract/core.md`, `templates/contract/handoff.md`, `templates/contract/budgets.yml`, `test/context.test.mjs`
+  - **Verify:** `node --test test/context.test.mjs test/contract.test.mjs`
+  - **Criteria:** CR12
+- [ ] README: `finding` y `--pending findings`
+  - **Target:** `README.md`, `test/contract.test.mjs`
+  - **Verify:** `node --test test/contract.test.mjs`
+  - **Criteria:** CR13
+- [ ] El día después, de punta a punta por la CLI
+  - **Target:** `test/cli-bin.test.mjs`
+  - **Verify:** `node --test test/cli-bin.test.mjs`
+  - **Criteria:** CR14
+- [ ] Suite completa, lint y `check` antes de pedir la revisión
+  - **Support:**
+  - **Verify:** `pnpm verify`
 
 ## Log
 - **2026-10-24T20:26:59Z** `[version]` 0.19.0
