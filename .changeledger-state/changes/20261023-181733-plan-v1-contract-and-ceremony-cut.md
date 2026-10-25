@@ -201,3 +201,4 @@ hijos el modelo que construye.
 - **2026-10-25T23:13:42Z** `[graduation]` spec: `git-traceability.md`
 - **2026-10-25T23:13:42Z** `[graduation]` spec: `viewer.md`
 - **2026-10-25T23:13:43Z** `[graduation]` spec: `usage.md`
+- **2026-10-25T23:13:44Z** `[graduation]` spec: `metrics.md`
