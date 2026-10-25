@@ -346,10 +346,11 @@ abajo son literales.
   - **Verify:** `node --test test/contract.test.mjs`
   - **Criteria:** CR13
   - **Resolved:** `2026-10-25T13:33:38Z`
-- [ ] El día después, de punta a punta por la CLI
+- [x] El día después, de punta a punta por la CLI
   - **Target:** `test/cli-bin.test.mjs`
   - **Verify:** `node --test test/cli-bin.test.mjs`
   - **Criteria:** CR14
+  - **Resolved:** `2026-10-25T13:33:39Z`
 - [ ] Suite completa, lint y `check` antes de pedir la revisión
   - **Support:**
   - **Verify:** `pnpm verify`
