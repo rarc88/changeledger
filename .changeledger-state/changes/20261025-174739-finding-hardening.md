@@ -243,9 +243,10 @@ construyen con el helper de CR4.
   - **Verify:** `node --test test/cli-bin.test.mjs`
   - **Criteria:** CR7
   - **Resolved:** `2026-10-25T19:49:35Z`
-- [ ] Hook sobre la rama, suite completa y `check`
+- [x] Hook sobre la rama, suite completa y `check`
   - **Support:**
   - **Verify:** `sh hooks/no-ledger-refs.sh origin/dev...HEAD && pnpm verify`
+  - **Resolved:** `2026-10-25T19:50:24Z`
 
 ## Log
 - **2026-10-25T17:47:39Z** `[version]` 0.19.0
