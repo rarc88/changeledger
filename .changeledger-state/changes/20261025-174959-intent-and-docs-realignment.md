@@ -259,10 +259,11 @@ queda registrado como hallazgo (CR5).
   - **Verify:** `grep -rn "workflow-hardening" README.md AGENTS.md CONTRIBUTING.md INTENT.md src/ bin/ docs/`
   - **Criteria:** CR6
   - **Resolved:** `2026-10-25T18:10:06Z`
-- [ ] Hook sobre la rama, suite completa y `check` antes de pedir la revisión
+- [x] Hook sobre la rama, suite completa y `check` antes de pedir la revisión
   - **Support:**
   - **Verify:** `sh hooks/no-ledger-refs.sh origin/dev...HEAD && pnpm verify`
   - **Criteria:** CR7, CR8
+  - **Resolved:** `2026-10-25T18:10:07Z`
 
 ## Log
 - **2026-10-25T17:49:59Z** `[version]` 0.19.0
