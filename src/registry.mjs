@@ -80,8 +80,10 @@ export function cleanMissingProjects(
   });
 }
 
+// Sorted by display name, then id: the registry object enumerates an all-digit
+// key before the others, so its own order depends on the shape of the key.
 export function listProjects() {
-  return Object.entries(readRegistry()).map(([id, value]) => {
+  const projects = Object.entries(readRegistry()).map(([id, value]) => {
     let name = value.name;
     // Only an entry we managed to probe as activated owes a fail-closed error;
     // every probe (`statSync` included) runs inside the guard, because a path we
@@ -113,6 +115,9 @@ export function listProjects() {
     }
     return { id, name, path: value.path };
   });
+  return projects.sort(
+    (a, b) => String(a.name).localeCompare(String(b.name)) || a.id.localeCompare(b.id),
+  );
 }
 
 export function remove(id, { expectedPath } = {}) {
