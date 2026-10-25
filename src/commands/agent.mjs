@@ -834,6 +834,12 @@ export function recordFindingMutation(text) {
       `finding text "${text}" reads as a resolution; resolve a finding with changeledger finding <id> promote|drop <n>`,
     );
   }
+  const verbFirst = /^(?:promote|drop)\s+(\d+)(?:\s|$)/.exec(text);
+  if (verbFirst) {
+    throw new Error(
+      `finding text "${text}" reads as a resolution: run it without quotes to resolve F${verbFirst[1]}, or start the text with another word`,
+    );
+  }
   return (current) =>
     appendLogEvent(current, { at: nowUtc(), type: 'finding', outcome: 'open', text });
 }

@@ -23,6 +23,7 @@ import {
   openFindings,
   owner,
   recordFinding,
+  recordFindingMutation,
   resolveFinding,
   review,
   show,
@@ -5126,6 +5127,29 @@ test('20261024-202659 CR5: an empty or resolution-shaped finding text is refused
     });
   }
   assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
+test('a finding text opening with a resolution verb and an ordinal is refused as ambiguous', () => {
+  const { root, file, id } = repoWithChange();
+  const before = fs.readFileSync(file, 'utf8');
+  for (const [text, n] of [
+    ['drop 5 cache', '5'],
+    ['promote 4 elsewhere', '4'],
+    ['drop 2', '2'],
+  ]) {
+    const message = `finding text "${text}" reads as a resolution: run it without quotes to resolve F${n}, or start the text with another word`;
+    assert.throws(() => recordFindingMutation(text), { message }, text);
+    assert.throws(() => recordFinding(id, text, root), { message }, text);
+  }
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+  for (const [text, n] of [
+    ['drop the cache', 1],
+    ['3 drop tables', 2],
+    ['promote abc elsewhere', 3],
+    ['dropped 5 rows', 4],
+  ]) {
+    assert.equal(recordFinding(id, text, root).n, n, text);
+  }
 });
 
 function findingRepo() {

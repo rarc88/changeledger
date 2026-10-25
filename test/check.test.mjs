@@ -4395,6 +4395,48 @@ test('check reports an orphan or a repeated finding resolution in a live documen
   ]);
 });
 
+test('check reads past a fenced example of a Log outside the Log stage', () => {
+  const text = seqChange('draft', [
+    '- **2026-06-13T12:10:00Z** `[finding]` falta la vista',
+  ]).replace(
+    '## Request\n\nr\n',
+    [
+      '## Request',
+      '',
+      'An example of a resolved finding:',
+      '',
+      '```markdown',
+      '## Log',
+      '- **2026-06-13T12:00:00Z** `[finding]` 3 dropped: no aplica',
+      '```',
+      '',
+    ].join('\n'),
+  );
+  const errors = msgs(covResult(text).errors).filter((m) => /Log line/.test(m));
+  assert.deepEqual(errors, []);
+});
+
+test('check reads the whole first Log stage past a fenced pseudo-heading inside it', () => {
+  const orphan = '- **2026-06-13T12:11:00Z** `[finding]` 9 dropped: x';
+  const text = `${seqChange('draft', [
+    '- **2026-06-13T12:10:00Z** `[finding]` falta la vista',
+    '```text',
+    '## not a heading',
+    '```',
+    orphan,
+  ])}\n## Log\n\n- **2026-06-13T12:12:00Z** \`[finding]\` 8 dropped: second stage\n`;
+  const errors = msgs(covResult(text).errors).filter((m) => /finding F/.test(m));
+  assert.deepEqual(errors, [
+    `Log line ${text.split('\n').indexOf(orphan) + 1}: finding F9 resolved but never recorded`,
+  ]);
+
+  const shouted = seqChange('draft', [orphan]).replace('## Log\n', '## LOG\n');
+  assert.deepEqual(
+    msgs(covResult(shouted).errors).filter((m) => /finding F/.test(m)),
+    [`Log line ${shouted.split('\n').indexOf(orphan) + 1}: finding F9 resolved but never recorded`],
+  );
+});
+
 test('check leaves orphan and repeated finding resolutions alone in frozen history', () => {
   for (const status of ['discarded', 'done\narchived: true']) {
     const { text } = findingResolutionLog(status);

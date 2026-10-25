@@ -2346,6 +2346,10 @@ test('20261024-202659 CR4: finding --help names both forms and what a finding is
     out.replace(/\s+/g, ' '),
     /\bpromote\b[^.]{0,20}\bdrop\b[^.]{0,40}\bordinal\b[^.]{0,60}\bresolution\b[^.]*\bopen finding\b/i,
   );
+  assert.match(
+    out.replace(/\s+/g, ' '),
+    /\bseparate arguments\b[^.]{0,40}\brefused\b[^.]{0,20}\bquoted\b/i,
+  );
 });
 
 test('the finding command reads a resolution only when the verb comes first and an ordinal follows', () => {
@@ -2365,6 +2369,28 @@ test('the finding command reads a resolution only when the verb comes first and 
   assert.equal(dropped.code, 0, dropped.err);
   assert.equal(dropped.out, `finding F2 on #${x} → dropped\n`);
   assert.ok(lastLogLine(changeFile).endsWith('`[finding]` 2 dropped: cache'));
+});
+
+test('the finding command refuses a quoted text that reads as a resolution and records any other', () => {
+  const { root, env, x, y, changeFile } = findingCliRepo();
+  const before = fs.readFileSync(changeFile, 'utf8');
+  for (const [text, n] of [
+    ['drop 5 cache', '5'],
+    [`promote 4 ${y}`, '4'],
+  ]) {
+    const result = runIn(root, env, 'finding', x, text);
+    assert.equal(result.code, 1, text);
+    assert.equal(
+      result.err,
+      `Error: finding text "${text}" reads as a resolution: run it without quotes to resolve F${n}, or start the text with another word\n`,
+    );
+  }
+  assert.equal(fs.readFileSync(changeFile, 'utf8'), before);
+
+  const recorded = runIn(root, env, 'finding', x, 'drop the cache');
+  assert.equal(recorded.code, 0, recorded.err);
+  assert.equal(recorded.out, `finding F1 recorded on #${x}\n`);
+  assert.ok(lastLogLine(changeFile).endsWith('`[finding]` drop the cache'));
 });
 
 test('20261024-202659 CR8: list --pending findings prints the open findings of the whole ledger', () => {
