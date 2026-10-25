@@ -244,10 +244,11 @@ queda registrado como hallazgo (CR5).
   - **Verify:** `node --test test/intent.test.mjs`
   - **Criteria:** CR1, CR2
   - **Resolved:** `2026-10-25T18:10:04Z`
-- [ ] Reescribir `test/intent.test.mjs` como cinco guards tolerantes, rojos contra el `INTENT.md` de `origin/dev`
+- [x] Reescribir `test/intent.test.mjs` como cinco guards tolerantes, rojos contra el `INTENT.md` de `origin/dev`
   - **Target:** `test/intent.test.mjs`
   - **Verify:** `node --test test/intent.test.mjs`
   - **Criteria:** CR3
+  - **Resolved:** `2026-10-25T18:10:05Z`
 - [ ] Corregir `docs/usage-capture.md`: escritores de instantánea, campo `event`, bordes de `rework`, comandos sin instantánea y la pista `gap`; registrar el hallazgo sobre `unrecordedTransitions`
   - **Target:** `docs/usage-capture.md`
   - **Verify:** `grep -n "reopen\|validation\b" docs/usage-capture.md`
