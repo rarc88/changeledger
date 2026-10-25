@@ -12,6 +12,7 @@ import { LOG_EVENT_DEFINITIONS } from '../src/lifecycle.mjs';
 import { STATE_REF, writeActivation } from '../src/state-store.mjs';
 import { assertWithinBudget, contextBudgets } from './budget-support.mjs';
 import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
+import { changeId } from './helpers/ledger-fixtures.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
 const bin = path.resolve(
@@ -2303,26 +2304,29 @@ test('20261024-202659 CR4-CR7: the finding command records, promotes and drops t
   assert.match(lastLogLine(changeFile), /`\[finding\]` el ejemplo de ayuda cita un id$/);
   assert.equal(runIn(root, env, 'finding', x, 'segundo').out, `finding F2 recorded on #${x}\n`);
 
-  const promoted = runIn(root, env, 'finding', x, '2', 'promote', y);
+  const promoted = runIn(root, env, 'finding', x, 'promote', '2', y);
   assert.equal(promoted.code, 0, promoted.err);
   assert.equal(promoted.out, `finding F2 on #${x} → promoted to #${y}\n`);
   assert.match(lastLogLine(changeFile), new RegExp(`\`\\[finding\\]\` 2 promoted #${y}$`));
 
-  const dropped = runIn(root, env, 'finding', x, '1', 'drop', 'ya', 'no', 'aplica');
+  const dropped = runIn(root, env, 'finding', x, 'drop', '1', 'ya no aplica');
   assert.equal(dropped.code, 0, dropped.err);
   assert.equal(dropped.out, `finding F1 on #${x} → dropped\n`);
   assert.match(lastLogLine(changeFile), /`\[finding\]` 1 dropped: ya no aplica$/);
 
   const before = fs.readFileSync(changeFile, 'utf8');
+  const resolutionText = `2 promoted #${changeId('20260101', '000000')}`;
   for (const [args, message] of [
     [[x, ''], 'finding text must not be empty'],
     [
-      [x, '2 promoted #20260101-000000'],
-      'finding text "2 promoted #20260101-000000" reads as a resolution; resolve a finding with changeledger finding <id> <n> promote|drop',
+      [x, resolutionText],
+      `finding text "${resolutionText}" reads as a resolution; resolve a finding with changeledger finding <id> promote|drop <n>`,
     ],
-    [[x, 'abc', 'promote', y], 'finding ordinal must be a positive integer (got "abc")'],
-    [[x, '3', 'promote', y], `change #${x} has no finding F3`],
-    [[x, '1', 'drop', ''], 'drop requires a reason'],
+    [[x, 'promote', '0', y], 'finding ordinal must be a positive integer (got "0")'],
+    [[x, 'promote', '3', y], `change #${x} has no finding F3`],
+    [[x, 'promote', '2'], 'promote requires the id of the change it becomes'],
+    [[x, 'drop', '1'], 'drop requires a reason'],
+    [[x, 'drop', '1', ''], 'drop requires a reason'],
   ]) {
     const result = runIn(root, env, 'finding', ...args);
     assert.equal(result.code, 1, args.join(' '));
@@ -2336,15 +2340,64 @@ test('20261024-202659 CR4: finding --help names both forms and what a finding is
   assert.equal(code, 0);
   assert.match(out, /outside the active change's frontier/);
   assert.match(out, /changeledger finding <id> "<text>"/);
-  assert.match(out, /changeledger finding <id> <n> promote <change-id>/);
-  assert.match(out, /changeledger finding <id> <n> drop "<reason>"/);
+  assert.match(out, /changeledger finding <id> promote <n> <change-id>/);
+  assert.match(out, /changeledger finding <id> drop <n> "<reason>"/);
+  assert.match(
+    out.replace(/\s+/g, ' '),
+    /\bpromote\b[^.]{0,20}\bdrop\b[^.]{0,40}\bordinal\b[^.]{0,60}\bresolution\b[^.]*\bopen finding\b/i,
+  );
+  assert.match(
+    out.replace(/\s+/g, ' '),
+    /\bseparate arguments\b[^.]{0,40}\brefused\b[^.]{0,20}\bquoted\b/i,
+  );
+});
+
+test('the finding command reads a resolution only when the verb comes first and an ordinal follows', () => {
+  const { root, env, x, y, changeFile } = findingCliRepo();
+  const recorded = (args, n, text) => {
+    const result = runIn(root, env, 'finding', x, ...args);
+    assert.equal(result.code, 0, result.err);
+    assert.equal(result.out, `finding F${n} recorded on #${x}\n`, args.join(' '));
+    assert.ok(lastLogLine(changeFile).endsWith(`\`[finding]\` ${text}`), lastLogLine(changeFile));
+  };
+  recorded(['3 drop tables'], 1, '3 drop tables');
+  recorded(['3', 'drop', 'tables'], 2, '3 drop tables');
+  recorded(['promote', 'abc', y], 3, `promote abc ${y}`);
+  recorded(['drop', 'the', 'cache'], 4, 'drop the cache');
+
+  const dropped = runIn(root, env, 'finding', x, 'drop', '2', 'cache');
+  assert.equal(dropped.code, 0, dropped.err);
+  assert.equal(dropped.out, `finding F2 on #${x} → dropped\n`);
+  assert.ok(lastLogLine(changeFile).endsWith('`[finding]` 2 dropped: cache'));
+});
+
+test('the finding command refuses a quoted text that reads as a resolution and records any other', () => {
+  const { root, env, x, y, changeFile } = findingCliRepo();
+  const before = fs.readFileSync(changeFile, 'utf8');
+  for (const [text, n] of [
+    ['drop 5 cache', '5'],
+    [`promote 4 ${y}`, '4'],
+  ]) {
+    const result = runIn(root, env, 'finding', x, text);
+    assert.equal(result.code, 1, text);
+    assert.equal(
+      result.err,
+      `Error: finding text "${text}" reads as a resolution: run it without quotes to resolve F${n}, or start the text with another word\n`,
+    );
+  }
+  assert.equal(fs.readFileSync(changeFile, 'utf8'), before);
+
+  const recorded = runIn(root, env, 'finding', x, 'drop the cache');
+  assert.equal(recorded.code, 0, recorded.err);
+  assert.equal(recorded.out, `finding F1 recorded on #${x}\n`);
+  assert.ok(lastLogLine(changeFile).endsWith('`[finding]` drop the cache'));
 });
 
 test('20261024-202659 CR8: list --pending findings prints the open findings of the whole ledger', () => {
   const { root, env, x, y, changeFile } = findingCliRepo();
   assert.equal(runIn(root, env, 'finding', x, 'falta la vista').code, 0);
   assert.equal(runIn(root, env, 'finding', x, 'sobra un test').code, 0);
-  assert.equal(runIn(root, env, 'finding', x, '2', 'drop', 'no', 'aplica').code, 0);
+  assert.equal(runIn(root, env, 'finding', x, 'drop', '2', 'no aplica').code, 0);
   fs.writeFileSync(
     changeFile,
     fs.readFileSync(changeFile, 'utf8').replace('status: done', 'status: done\narchived: true'),
@@ -2400,7 +2453,7 @@ test('20261024-202659 CR14: the day after, a finding is recorded, listed and pro
 
   assert.equal(runIn(root, env, 'finding', x, 'falta la vista').code, 0);
   assert.equal(runIn(root, env, 'list', '--pending', 'findings').out, `#${x} F1  falta la vista\n`);
-  const promoted = runIn(root, env, 'finding', x, '1', 'promote', y);
+  const promoted = runIn(root, env, 'finding', x, 'promote', '1', y);
   assert.equal(promoted.code, 0, promoted.err);
   assert.equal(runIn(root, env, 'list', '--pending', 'findings').out, '');
   assert.equal(JSON.parse(runIn(root, env, 'list', '--all', '--json').out).length, 2);
@@ -2416,6 +2469,49 @@ test('20261024-202659 CR14: the day after, a finding is recorded, listed and pro
   );
   const check = runIn(root, env, 'check');
   assert.equal(check.code, 0, check.out + check.err);
+});
+
+// The day after the finding hardening, walked through the real binary: the
+// verb-first resolutions leave nothing pending and `check` green, and a
+// resolution appended by hand that names no finding turns `check` red at its line.
+test('the day after: verb-first resolutions pass check and a hand-written orphan resolution fails it', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
+  assert.equal(runIn(root, env, 'init').code, 0);
+  assert.equal(runIn(root, env, 'new', 'change', 'x', 'X', '--owner', 'Ana').code, 0);
+  const x = JSON.parse(runIn(root, env, 'list', '--json').out)[0].id;
+  assert.equal(runIn(root, env, 'new', 'change', 'y', 'Y', '--owner', 'Ana').code, 0);
+  const y = JSON.parse(runIn(root, env, 'list', '--json').out).find((c) => c.id !== x).id;
+
+  for (const args of [
+    ['falta la vista'],
+    ['promote', '1', y],
+    ['otra cosa'],
+    ['drop', '2', 'no aplica'],
+  ]) {
+    const result = runIn(root, env, 'finding', x, ...args);
+    assert.equal(result.code, 0, `${args.join(' ')}: ${result.err}`);
+  }
+  assert.equal(runIn(root, env, 'list', '--pending', 'findings').out, '');
+  const green = runIn(root, env, 'check');
+  assert.equal(green.code, 0, green.out + green.err);
+
+  const changes = path.join(root, '.changeledger', 'changes');
+  const file = path.join(
+    changes,
+    fs.readdirSync(changes).find((name) => name.startsWith(x)),
+  );
+  const orphan = '- **2026-10-25T12:00:00Z** `[finding]` 7 dropped: nada';
+  fs.writeFileSync(file, `${fs.readFileSync(file, 'utf8').trimEnd()}\n${orphan}\n`);
+  const line = fs.readFileSync(file, 'utf8').split('\n').indexOf(orphan) + 1;
+  const red = runIn(root, env, 'check');
+  assert.equal(red.code, 1, red.out + red.err);
+  assert.ok(
+    (red.out + red.err).includes(`Log line ${line}: finding F7 resolved but never recorded`),
+    red.out + red.err,
+  );
 });
 
 // The day after the contract cut, walked end to end through the real binary: a

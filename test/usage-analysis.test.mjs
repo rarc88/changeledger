@@ -713,6 +713,23 @@ test('CR14: creation and validation count as transitions; other Log lines and th
   );
 });
 
+test('the acceptance stamp without a record is not a gap; a status transition without one is', () => {
+  const result = analyzeUsage(
+    gapScenario({
+      bLog: [
+        logLine(at(2), 'validation', 'accepted (merged abc1234)'),
+        logLine(at(3), 'status', 'draft → approved'),
+      ],
+    }),
+  );
+  assert.deepEqual(
+    result.hints.filter((h) => h.startsWith('gap:')),
+    [
+      `gap: 1 transition(s) between ${at(1)} and ${at(4)} have no usage record; their consumption is in ${A} draft`,
+    ],
+  );
+});
+
 test('CR14: without unrecorded transitions in between there is no gap hint', () => {
   const result = analyzeUsage(gapScenario({ bLog: bTransitions, bRecords: [at(2), at(3)] }));
   assert.deepEqual(

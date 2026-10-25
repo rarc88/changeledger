@@ -1,7 +1,8 @@
 #!/bin/sh
 # Rejects added lines that cite the ledger (a change id or a `CRn` criterion)
 # outside .changeledger/. The contract keeps that reference one-way: the change
-# points at code through Target, Verify and the [#id] commit marker.
+# points at code through Target, Verify and the [#id] commit marker. test/helpers/
+# is exempt: it is where a test builds the ledger-shaped fixtures it needs.
 #   no-ledger-refs.sh --cached          staged diff (pre-commit)
 #   no-ledger-refs.sh origin/dev...HEAD any `git diff` range (CI)
 # Exit 1, after reporting every offence, when one is found.
@@ -29,7 +30,7 @@ BEGIN {
   text = substr($0, 2)
   n = line++
   if (index(path, ".changeledger/") == 1 || index(path, ".changeledger-state/") == 1 \
-      || path == "templates/contract/spec.md") next
+      || index(path, "test/helpers/") == 1 || path == "templates/contract/spec.md") next
   hit = ""; at = 0
   if (match(text, idRe)) {
     off = RSTART; m = substr(text, RSTART, RLENGTH); match(m, /[0-9]+-[0-9]+/)

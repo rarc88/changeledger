@@ -25,7 +25,12 @@ import {
 } from '../src/config.mjs';
 import { ensureReference } from '../src/contract.mjs';
 import { VERSION } from '../src/framing.mjs';
-import { CANONICAL_STATUSES, canTransition, LOG_EVENT_TYPES } from '../src/lifecycle.mjs';
+import {
+  CANONICAL_STATUSES,
+  CHANGE_ID_FORM,
+  canTransition,
+  LOG_EVENT_TYPES,
+} from '../src/lifecycle.mjs';
 import { templatesDir } from '../src/paths.mjs';
 import { RELEASE_IMPACTS } from '../src/release.mjs';
 import { loadRepo } from '../src/repo.mjs';
@@ -4349,4 +4354,93 @@ test('20261024-202659 CR3: check rejects a malformed finding with the existing t
     lines.join('\n'),
     /Log line \d+: invalid typed event; valid types: status, review, validation, owner, branch, graduation, archive, note, version, finding; expected: - \*\*YYYY-MM-DDTHH:MM:SSZ\*\* `\[type\]` payload/,
   );
+});
+
+test('the change id form has one seat that check reads for the id, parent and finding target', () => {
+  assert.equal(CHANGE_ID_FORM.source, '^\\d{8}-\\d{6}$');
+  const srcDir = new URL('../src/', import.meta.url);
+  const sources = fs
+    .readdirSync(srcDir, { recursive: true })
+    .filter((name) => name.endsWith('.mjs'))
+    .map((name) => [name, fs.readFileSync(new URL(name, srcDir), 'utf8')]);
+  for (const [name, text] of sources) {
+    assert.doesNotMatch(text, /\b(?:ID_FORM|CHANGE_ID)\b/, name);
+  }
+  const { errors } = run([
+    change({ frontmatter: { id: 'abc', parent: 'nope' }, name: 'abc-x.md' }),
+  ]);
+  assert.ok(msgs(errors).includes('id not in YYYYMMDD-HHMMSS form: abc'), msgs(errors).join(' | '));
+  assert.ok(msgs(errors).includes('parent "nope" is not a change id'), msgs(errors).join(' | '));
+});
+
+// A live Log with one orphan resolution (F9) and a second resolution of F1.
+function findingResolutionLog(status) {
+  const lines = [
+    '- **2026-06-13T12:10:00Z** `[finding]` falta la vista',
+    '- **2026-06-13T12:11:00Z** `[finding]` 9 dropped: x',
+    '- **2026-06-13T12:12:00Z** `[finding]` 1 dropped: no aplica',
+    '- **2026-06-13T12:13:00Z** `[finding]` 1 dropped: otra vez',
+  ];
+  const text = seqChange(status, lines);
+  const lineOf = (line) => text.split('\n').indexOf(line) + 1;
+  return { text, lineOf, lines };
+}
+
+test('check reports an orphan or a repeated finding resolution in a live document with its line', () => {
+  const { text, lineOf, lines } = findingResolutionLog('draft');
+  const errors = msgs(covResult(text).errors).filter((m) => /finding F/.test(m));
+  assert.deepEqual(errors, [
+    `Log line ${lineOf(lines[1])}: finding F9 resolved but never recorded`,
+    `Log line ${lineOf(lines[3])}: finding F1 already resolved at line ${lineOf(lines[2])}`,
+  ]);
+});
+
+test('check reads past a fenced example of a Log outside the Log stage', () => {
+  const text = seqChange('draft', [
+    '- **2026-06-13T12:10:00Z** `[finding]` falta la vista',
+  ]).replace(
+    '## Request\n\nr\n',
+    [
+      '## Request',
+      '',
+      'An example of a resolved finding:',
+      '',
+      '```markdown',
+      '## Log',
+      '- **2026-06-13T12:00:00Z** `[finding]` 3 dropped: no aplica',
+      '```',
+      '',
+    ].join('\n'),
+  );
+  const errors = msgs(covResult(text).errors).filter((m) => /Log line/.test(m));
+  assert.deepEqual(errors, []);
+});
+
+test('check reads the whole first Log stage past a fenced pseudo-heading inside it', () => {
+  const orphan = '- **2026-06-13T12:11:00Z** `[finding]` 9 dropped: x';
+  const text = `${seqChange('draft', [
+    '- **2026-06-13T12:10:00Z** `[finding]` falta la vista',
+    '```text',
+    '## not a heading',
+    '```',
+    orphan,
+  ])}\n## Log\n\n- **2026-06-13T12:12:00Z** \`[finding]\` 8 dropped: second stage\n`;
+  const errors = msgs(covResult(text).errors).filter((m) => /finding F/.test(m));
+  assert.deepEqual(errors, [
+    `Log line ${text.split('\n').indexOf(orphan) + 1}: finding F9 resolved but never recorded`,
+  ]);
+
+  const shouted = seqChange('draft', [orphan]).replace('## Log\n', '## LOG\n');
+  assert.deepEqual(
+    msgs(covResult(shouted).errors).filter((m) => /finding F/.test(m)),
+    [`Log line ${shouted.split('\n').indexOf(orphan) + 1}: finding F9 resolved but never recorded`],
+  );
+});
+
+test('check leaves orphan and repeated finding resolutions alone in frozen history', () => {
+  for (const status of ['discarded', 'done\narchived: true']) {
+    const { text } = findingResolutionLog(status);
+    const errors = msgs(covResult(text).errors).filter((m) => /finding F/.test(m));
+    assert.deepEqual(errors, [], status);
+  }
 });

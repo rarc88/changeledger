@@ -130,12 +130,16 @@ function parseVersionPayload(payload) {
   return parts.length === 2 ? { previous: parts[0], version: parts[1] } : { version: parts[0] };
 }
 
+// The form of a change id (`YYYYMMDD-HHMMSS`), declared once: `check` reads it
+// for the id, `parent` and the children link, the `finding` grammar for the
+// promoted arm.
+export const CHANGE_ID_FORM = /^\d{8}-\d{6}$/;
+
 // The ordinal names the n-th open finding of the same Log, so it is derived
 // from position and never written on the open line itself. A text shaped like
 // a resolution is not an open finding: it parses as one arm or as nothing.
 const FINDING_PROMOTED = /^(\d+) promoted #(.*)$/;
 const FINDING_DROPPED = /^(\d+) dropped:(?: (.*))?$/;
-const CHANGE_ID = /^\d{8}-\d{6}$/;
 
 function parseFindingOrdinal(digits) {
   const n = Number(digits);
@@ -146,7 +150,7 @@ function parseFindingPayload(payload) {
   const promoted = payload.match(FINDING_PROMOTED);
   if (promoted) {
     const n = parseFindingOrdinal(promoted[1]);
-    return n && CHANGE_ID.test(promoted[2])
+    return n && CHANGE_ID_FORM.test(promoted[2])
       ? { outcome: 'promoted', n, target: promoted[2] }
       : null;
   }
@@ -227,6 +231,37 @@ export const LOG_EVENT_DEFINITIONS = Object.freeze({
     parse: parseFindingPayload,
   }),
 });
+
+// The findings of one Log in order: an open line takes the next ordinal, and a
+// later resolution naming an open ordinal resolves it. The ordinal is never
+// written on the open line, so it is derived here. A resolution that names no
+// finding opened before it, or one already resolved, resolves nothing: it is
+// returned in `rejected` with its 0-based line in `logBody` and its cause, so
+// `check` reports what `finding` and `list` ignore.
+export function findingsInLog(logBody) {
+  const findings = [];
+  const resolvedAt = [];
+  const rejected = [];
+  const lines = logBody.split('\n');
+  for (let line = 0; line < lines.length; line++) {
+    const event = parseLogEvent(lines[line]);
+    if (event?.type !== 'finding') continue;
+    if (event.outcome === 'open') {
+      findings.push({ n: findings.length + 1, text: event.text, at: event.at, resolution: null });
+      continue;
+    }
+    const finding = findings[event.n - 1];
+    if (!finding) {
+      rejected.push({ line, n: event.n, cause: 'never recorded' });
+    } else if (finding.resolution) {
+      rejected.push({ line, n: event.n, cause: { alreadyAt: resolvedAt[event.n - 1] } });
+    } else {
+      finding.resolution = event;
+      resolvedAt[event.n - 1] = line;
+    }
+  }
+  return { findings, rejected };
+}
 
 export const LOG_EVENT_TYPES = Object.keys(LOG_EVENT_DEFINITIONS);
 export const LOG_EVENT_PAYLOAD_FORMS = Object.freeze(

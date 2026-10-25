@@ -23,6 +23,7 @@ import {
   openFindings,
   owner,
   recordFinding,
+  recordFindingMutation,
   resolveFinding,
   review,
   show,
@@ -69,6 +70,7 @@ import {
   usageRecordText,
 } from './helpers/ccusage.mjs';
 import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
+import { changeId } from './helpers/ledger-fixtures.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 import {
   eventsAdded,
@@ -5121,10 +5123,33 @@ test('20261024-202659 CR5: an empty or resolution-shaped finding text is refused
   assert.throws(() => recordFinding(id, '', root), { message: 'finding text must not be empty' });
   for (const text of ['2 promoted #20260101-000000', '1 dropped: x']) {
     assert.throws(() => recordFinding(id, text, root), {
-      message: `finding text "${text}" reads as a resolution; resolve a finding with changeledger finding <id> <n> promote|drop`,
+      message: `finding text "${text}" reads as a resolution; resolve a finding with changeledger finding <id> promote|drop <n>`,
     });
   }
   assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
+test('a finding text opening with a resolution verb and an ordinal is refused as ambiguous', () => {
+  const { root, file, id } = repoWithChange();
+  const before = fs.readFileSync(file, 'utf8');
+  for (const [text, n] of [
+    ['drop 5 cache', '5'],
+    ['promote 4 elsewhere', '4'],
+    ['drop 2', '2'],
+  ]) {
+    const message = `finding text "${text}" reads as a resolution: run it without quotes to resolve F${n}, or start the text with another word`;
+    assert.throws(() => recordFindingMutation(text), { message }, text);
+    assert.throws(() => recordFinding(id, text, root), { message }, text);
+  }
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+  for (const [text, n] of [
+    ['drop the cache', 1],
+    ['3 drop tables', 2],
+    ['promote abc elsewhere', 3],
+    ['dropped 5 rows', 4],
+  ]) {
+    assert.equal(recordFinding(id, text, root).n, n, text);
+  }
 });
 
 function findingRepo() {
@@ -5184,6 +5209,38 @@ test('20261024-202659 CR7: drop closes an open finding with a reason', () => {
     assert.throws(() => resolveFinding(...args, root), { message }, args.join(' '));
   }
   assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
+test('list and finding read past an orphan or repeated resolution, the lines check rejects', () => {
+  const { root, write } = repoWithArchiveCandidates();
+  const x = changeId('20260613', '120001');
+  const file = write({
+    id: x,
+    status: 'in-progress',
+    reviewed: false,
+    log: [
+      '',
+      '- **2026-06-13T12:00:00Z** `[finding]` 2 dropped: before it exists',
+      '- **2026-06-13T12:01:00Z** `[finding]` first',
+      '- **2026-06-13T12:02:00Z** `[finding]` 9 dropped: x',
+      '- **2026-06-13T12:03:00Z** `[finding]` 1 dropped: no aplica',
+      '- **2026-06-13T12:04:00Z** `[finding]` 1 dropped: otra vez',
+      '- **2026-06-13T12:05:00Z** `[finding]` second',
+    ].join('\n'),
+  });
+  assert.deepEqual(openFindings(loadRepo(root).changes), [
+    { id: x, n: 2, text: 'second', at: '2026-06-13T12:05:00Z' },
+  ]);
+  const before = fs.readFileSync(file, 'utf8');
+  assert.throws(() => resolveFinding(x, 1, 'drop', 'again', root), {
+    message: `finding F1 of #${x} is already dropped`,
+  });
+  assert.throws(() => resolveFinding(x, 9, 'drop', 'x', root), {
+    message: `change #${x} has no finding F9`,
+  });
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+  resolveFinding(x, 2, 'drop', 'done', root);
+  assert.deepEqual(openFindings(loadRepo(root).changes), []);
 });
 
 // The CR8 ledger: A archived (F1 open, F2 promoted), B done (F1 dropped),

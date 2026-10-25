@@ -266,8 +266,8 @@ test('20260809-113242 CR12: missing and inactive project paths retain their cach
   register({ id: 'inactive', name: 'inactive-cache', path: inactive });
 
   assert.deepEqual(listProjects(), [
-    { id: 'missing', name: 'missing-cache', path: '/path/that/does/not/exist' },
     { id: 'inactive', name: 'inactive-cache', path: inactive },
+    { id: 'missing', name: 'missing-cache', path: '/path/that/does/not/exist' },
   ]);
 });
 
@@ -313,11 +313,28 @@ test('194234 CR3: an unprobeable path keeps its cached name and the listing comp
 
   try {
     assert.deepEqual(listProjects(), [
-      { id: 'locked', name: 'locked-cache', path: entry },
       { id: readableId, name: path.basename(readable), path: path.resolve(readable) },
+      { id: 'locked', name: 'locked-cache', path: entry },
     ]);
   } finally {
     fs.chmodSync(locked, 0o700);
+  }
+});
+
+test('listProjects orders by display name then id, whatever the shape or order of the keys', () => {
+  const missing = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-registry-missing-'));
+  const locked = { id: 'locked', name: 'locked-cache', path: path.join(missing, 'a') };
+  const numeric = { id: '1717083302', name: 'changeledger-proj-x', path: path.join(missing, 'b') };
+  const tieB = { id: 'tie-b', name: 'same-name', path: path.join(missing, 'c') };
+  const tieA = { id: 'tie-a', name: 'same-name', path: path.join(missing, 'd') };
+  const expected = [numeric, locked, tieA, tieB];
+  for (const order of [
+    [locked, numeric, tieB, tieA],
+    [numeric, locked, tieA, tieB],
+  ]) {
+    isolatedHome();
+    for (const entry of order) register(entry);
+    assert.deepEqual(listProjects(), expected, order.map((e) => e.id).join(' '));
   }
 });
 

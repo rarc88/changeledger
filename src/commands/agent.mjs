@@ -41,7 +41,12 @@ import {
   refExists,
   uncommittedPaths,
 } from '../git.mjs';
-import { assertTransition, LOG_EVENT_DEFINITIONS, parseLogEvent } from '../lifecycle.mjs';
+import {
+  assertTransition,
+  findingsInLog,
+  LOG_EVENT_DEFINITIONS,
+  parseLogEvent,
+} from '../lifecycle.mjs';
 import { nowUtc } from '../paths.mjs';
 import { assertNotShipped } from '../release.mjs';
 import { loadRepo, resolveChange, resolveChangeInRepo } from '../repo.mjs';
@@ -818,24 +823,6 @@ export function log(id, message, cwd = process.cwd()) {
   return target.file;
 }
 
-// The findings of one Log in order: an open line takes the next ordinal, and a
-// later resolution naming an open ordinal resolves it. The ordinal is never
-// written on the open line (20261024-202659), so it is derived here.
-function findingsInLog(logBody) {
-  const findings = [];
-  for (const line of logBody.split('\n')) {
-    const event = parseLogEvent(line);
-    if (event?.type !== 'finding') continue;
-    if (event.outcome === 'open') {
-      findings.push({ n: findings.length + 1, text: event.text, at: event.at, resolution: null });
-      continue;
-    }
-    const finding = findings[event.n - 1];
-    if (finding && !finding.resolution) finding.resolution = event;
-  }
-  return findings;
-}
-
 const logBodyOf = (c) => c.stages.find((s) => s.key === 'log')?.body ?? '';
 
 // Text transform of `finding <id> "<text>"` — see `statusMutation` for why it
@@ -844,14 +831,20 @@ export function recordFindingMutation(text) {
   if (String(text ?? '').trim() === '') throw new Error('finding text must not be empty');
   if (LOG_EVENT_DEFINITIONS.finding.parse(text)?.outcome !== 'open') {
     throw new Error(
-      `finding text "${text}" reads as a resolution; resolve a finding with changeledger finding <id> <n> promote|drop`,
+      `finding text "${text}" reads as a resolution; resolve a finding with changeledger finding <id> promote|drop <n>`,
+    );
+  }
+  const verbFirst = /^(?:promote|drop)\s+(\d+)(?:\s|$)/.exec(text);
+  if (verbFirst) {
+    throw new Error(
+      `finding text "${text}" reads as a resolution: run it without quotes to resolve F${verbFirst[1]}, or start the text with another word`,
     );
   }
   return (current) =>
     appendLogEvent(current, { at: nowUtc(), type: 'finding', outcome: 'open', text });
 }
 
-// Text transform of `finding <id> <n> promote|drop` over the change `id`.
+// Text transform of `finding <id> promote|drop <n>` over the change `id`.
 // `assertTarget` resolves a promotion's target in the ledger the write lands in.
 export function resolveFindingMutation(id, n, outcome, value, assertTarget = () => {}) {
   if (!/^[1-9]\d*$/.test(String(n))) {
@@ -869,7 +862,7 @@ export function resolveFindingMutation(id, n, outcome, value, assertTarget = () 
     );
   }
   return (current) => {
-    const finding = findingsInLog(logBodyOf(parseChange(current)))[ordinal - 1];
+    const finding = findingsInLog(logBodyOf(parseChange(current))).findings[ordinal - 1];
     if (!finding) throw new Error(`change #${id} has no finding F${ordinal}`);
     const { resolution } = finding;
     if (resolution?.outcome === 'promoted') {
@@ -906,7 +899,7 @@ export function recordFinding(id, text, cwd = process.cwd()) {
   const mutate = recordFindingMutation(text);
   const { repo, target } = locate(cwd, id);
   const after = mutateLedgerFile(repo, target, mutate, { message: `finding: ${id}` });
-  return { file: target.file, n: findingsInLog(logBodyOf(parseChange(after))).length };
+  return { file: target.file, n: findingsInLog(logBodyOf(parseChange(after))).findings.length };
 }
 
 export function resolveFinding(id, n, outcome, value, cwd = process.cwd()) {
@@ -974,7 +967,7 @@ export function openFindings(changes) {
     .sort((a, b) => String(a.frontmatter.id).localeCompare(String(b.frontmatter.id)))
     .flatMap((c) =>
       findingsInLog(logBodyOf(c))
-        .filter((f) => !f.resolution)
+        .findings.filter((f) => !f.resolution)
         .map((f) => ({ id: c.frontmatter.id, n: f.n, text: f.text, at: f.at })),
     );
 }

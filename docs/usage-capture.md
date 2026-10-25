@@ -240,9 +240,9 @@ for, the records the analysis cannot place: unreadable or not an object, not
 hint counts the Log transitions of any change (`[status]`, `[review]`,
 `[validation]` and the creation in `created`) strictly between a segment's base
 (the recorder's previous record with data) and its closing record that have no
-record with the same change and `at`. The analysis filters transitions by event
-type, not by outcome, so the `[validation] accepted (merged <sha>)` stamp that
-`graduate` and `sync` write, which takes no snapshot, is counted there too. What
+record with the same change and `at`. The `[validation] accepted (merged <sha>)`
+stamp that `graduate` and `sync` write takes no snapshot, so it is not counted
+there. What
 the segment's recorder consumed while those transitions happened is inside that
 segment; what another recorder consumed for them is not.
 
