@@ -233,10 +233,11 @@ construyen con el helper de CR4.
   - **Verify:** `node --test test/usage-analysis.test.mjs`
   - **Criteria:** CR5
   - **Resolved:** `2026-10-25T19:49:34Z`
-- [ ] Orden estable en `listProjects`
+- [x] Orden estable en `listProjects`
   - **Target:** `src/registry.mjs`, `test/registry.test.mjs`
   - **Verify:** `node --test test/registry.test.mjs test/view.test.mjs`
   - **Criteria:** CR6
+  - **Resolved:** `2026-10-25T19:49:34Z`
 - [ ] El día después por la CLI
   - **Target:** `test/cli-bin.test.mjs`
   - **Verify:** `node --test test/cli-bin.test.mjs`
