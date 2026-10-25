@@ -223,10 +223,11 @@ construyen con el helper de CR4.
   - **Verify:** `node --test test/cli-bin.test.mjs test/agent.test.mjs test/contract.test.mjs`
   - **Criteria:** CR3
   - **Resolved:** `2026-10-25T19:49:32Z`
-- [ ] Exención de `test/helpers/` en el hook, helper de fixtures y CONTRIBUTING
+- [x] Exención de `test/helpers/` en el hook, helper de fixtures y CONTRIBUTING
   - **Target:** `hooks/no-ledger-refs.sh`, `test/helpers/ledger-fixtures.mjs`, `test/no-ledger-refs.test.mjs`, `CONTRIBUTING.md`, `test/contract.test.mjs`
   - **Verify:** `node --test test/no-ledger-refs.test.mjs test/contract.test.mjs`
   - **Criteria:** CR4
+  - **Resolved:** `2026-10-25T19:49:33Z`
 - [ ] `unrecordedTransitions` sin el sello de aceptación, y el doc
   - **Target:** `src/usage-analysis.mjs`, `test/usage-analysis.test.mjs`, `docs/usage-capture.md`
   - **Verify:** `node --test test/usage-analysis.test.mjs`
