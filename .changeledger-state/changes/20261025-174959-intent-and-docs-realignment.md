@@ -2,7 +2,7 @@
 id: "20261025-174959"
 title: "INTENT.md y docs describen el flujo que el contrato sirve: sin validación humana, sin bloqueo, sin correcciones aisladas; el acta de julio se retira"
 type: change
-status: in-progress
+status: in-review
 created: 2026-10-25T17:49:59Z
 depends_on: []
 branch: change/20261025-174959
@@ -273,3 +273,4 @@ queda registrado como hallazgo (CR5).
 - **2026-10-25T18:00:37Z** `[branch]` set: change/20261025-174959 (auto)
 - **2026-10-25T18:02:03Z** `[finding]` unrecordedTransitions en src/usage-analysis.mjs cuenta la línea [validation] accepted (merged <sha>) como transición sin registro de uso, así que la pista gap de analyze sobrecuenta en un ledger activado; la condición que lo corrige es filtrar outcome !== 'accepted' junto al tipo. Fuera de esta frontera por decisión del Request.
 - **2026-10-25T18:10:08Z** `[note]` Selección entregada: INTENT.md secciones 3–10 y reglas generales reescritas por el orquestador en el vocabulario del contrato; test/intent.test.mjs con cinco guards tolerantes (cuatro rojos contra el INTENT.md de origin/dev; «discarded es terminal» ya era verdad); docs/usage-capture.md corregido con respaldo de código línea a línea; docs/workflow-hardening.md borrado (2.195 líneas, sin referencias). CR5 enmendado: el sello de aceptación se escribe en las dos disposiciones, no sólo en un ledger activado. Residuales: la cadena de la pista rework en usage-analysis.mjs sigue diciendo «after a failed review or validation»; apply no toma instantánea en un lote vacío y el doc sólo nombra el dry-run.
+- **2026-10-25T18:10:09Z** `[status]` in-progress → in-review
