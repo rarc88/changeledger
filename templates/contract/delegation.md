@@ -1,33 +1,37 @@
 # Economical Delegation
 
-Do not delegate when the coordination costs more than the expected improvement in quality, speed or context control.
+Delegate only when the expected gain in quality, speed or context control exceeds the
+coordination cost.
 
 ## Delegate a real boundary
 
-The delegation unit is core's selection of work.
-
-- Investigation work may split independent codebase questions across
-  explorers.
-- Specification work may use stronger reasoning when ambiguity,
-  architecture, safety or product judgment is high.
-- Implementation may split only when write sets are disjoint and integration is
-  obvious.
-- Verification may be delegated when it catches risk without merely repeating
-  the implementer's work.
+The delegation unit is core's selection of work. Split investigation into independent
+questions, implementation only across disjoint write sets whose integration is obvious, and
+verification only when it catches risk without repeating the implementer's work.
 
 ## Do not over-shard
 
-Do not create one subagent per file, line or tiny mechanical edit. For the same
-small change across many files, prefer one scoped delegate, a batch edit or a
-script verified by the main agent.
-
-If you cannot state why the task is independent, what output you expect and how
-you will integrate it, keep the work in the main thread or regroup it.
+No subagent per file, line or tiny mechanical edit: the same small change across many files
+is one scoped delegate, a batch edit or a script you verify. If you cannot state why the task
+is independent, what it returns and how you will integrate it, keep it in the main thread.
 
 ## Delegation prompt contract
 
-The role skeleton core points you to carries a placeholder for every item a
-prompt must state. Fill all of them, and add the one it does not carry: for
-roles that write, the expected baseline (branch or commit) the delegate must
-verify it is working from.
+The review skeleton materializes these items; every other prompt states them inline: why the
+work is delegated; the objective and frontier it serves; the files it owns; for a role that
+writes, the baseline (branch or commit) it verifies before starting; the command that
+verifies its result; the return format; and that it must not delegate further.
 
+## Triage at handoff
+
+Before handing completed or stopped work to the human, classify friction and unfinished
+observations:
+
+- Necessary to the change's purpose: update its Specification, Plan and Log.
+- An operational step (verify, commit, graduate, archive, close): execute or record it in
+  the current flow.
+- Outside the approved objective or beyond the frontier: record it with
+  `changeledger finding <id>`; the human promotes it.
+- Too vague to record: mention it in the handoff, create no file.
+
+Never mix independent concerns into active work or hold up an otherwise-ready delivery.

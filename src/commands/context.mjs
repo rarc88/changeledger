@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { repoIsActivated } from '../change-store.mjs';
 import { effectiveTdd, typeError } from '../check.mjs';
 import {
   changeIntegrationBranch,
@@ -16,8 +17,8 @@ import { loadRepo, resolveChangeInRepo } from '../repo.mjs';
 const END_DELIMITER = endSentinel('CONTEXT');
 const MODES = ['implement', 'review', 'spec', 'release'];
 const MODE_CONTEXT = {
-  implement: ['implement', 'delegation', 'handoff'],
-  review: ['review', 'handoff'],
+  implement: ['implement', 'delegation'],
+  review: ['review'],
   spec: ['spec', 'delegation'],
   release: ['release'],
 };
@@ -27,7 +28,8 @@ const STATUS_CONTEXT = {
   'in-progress': { mode: 'implement', fragments: MODE_CONTEXT.implement },
   'in-review': { mode: 'review', fragments: MODE_CONTEXT.review },
   done: { mode: 'close', fragments: ['close'] },
-  discarded: { mode: 'discarded', fragments: ['discarded'] },
+  // A tombstone loads no overlay: core already says it is terminal.
+  discarded: { mode: 'discarded', fragments: [] },
 };
 const INCREMENTAL_NOTICE = `This incremental context extends the complete core context already read.
 Read it complete in one pass, to its END line; a partial view is invalid.`;
@@ -40,11 +42,14 @@ function fragment(name) {
 // number the quality gate enforces and cannot drift from it.
 let budgetCache;
 
-function packBudget(mode) {
+function packBudget(mode, { globalState = false } = {}) {
   budgetCache ??= JSON.parse(
     fs.readFileSync(path.join(contractTemplatesDir, 'budgets.yml'), 'utf8'),
   );
-  return budgetCache.base[mode];
+  const base = budgetCache.base[mode];
+  if (!globalState) return base;
+  const overlay = budgetCache.overlays['global-state'];
+  return { tokens: base.tokens + overlay.tokens, lines: base.lines + overlay.lines };
 }
 
 // A capture publishes how many lines it occupies of its ceiling, and nothing
@@ -210,6 +215,7 @@ function composeResult(mode, fragments, options = {}) {
     policy = undefined,
     dependencies = undefined,
     relations = undefined,
+    budget = packBudget(mode),
   } = options;
   const body = [];
   if (incremental) body.push(INCREMENTAL_NOTICE);
@@ -222,7 +228,7 @@ function composeResult(mode, fragments, options = {}) {
   // deterministic `head -<N>` and see the occupancy of its ceiling.
   // A change-id capture embeds a document of any size, so no ceiling applies to
   // it even though it reuses a mode's fragments: it publishes its count alone.
-  return frameSections(mode, changeId, body, changeId ? undefined : packBudget(mode));
+  return frameSections(mode, changeId, body, changeId ? undefined : budget);
 }
 
 function requireRepo(cwd) {
@@ -276,9 +282,13 @@ function composeInput(input, cwd, changeledgerDir) {
   if (!input || MODES.includes(input)) {
     const config = loadEffectiveConfig(path.dirname(changeledgerDir), changeledgerDir);
     if (!input) {
-      return composeResult('core', ['core'], {
+      // The global-state semantics apply to the repo, not to a mode: only an
+      // activated repo loads them, after core and under the two summed ceilings.
+      const globalState = repoIsActivated(path.dirname(changeledgerDir));
+      return composeResult('core', globalState ? ['core', 'global-state'] : ['core'], {
         incremental: false,
         policy: transversalPolicy(config),
+        budget: packBudget('core', { globalState }),
       });
     }
     return composeResult(input, MODE_CONTEXT[input], { policy: transversalPolicy(config) });

@@ -1038,9 +1038,7 @@ test('141859 CR3: ledger tree exposes only sorted logical documents from each al
     { path: 'README.md', format: 'markdown' },
   ]);
   assert.ok(byCategory.contract.some(({ path: logical }) => logical === 'core.md'));
-  assert.ok(
-    byCategory.contract.some(({ path: logical }) => logical === 'agent-prompts/implementation.md'),
-  );
+  assert.ok(byCategory.contract.some(({ path: logical }) => logical === 'agent-prompts/review.md'));
   assert.ok(byCategory.templates.some(({ path: logical }) => logical === 'config.yml'));
   assert.ok(byCategory.templates.every(({ path: logical }) => !logical.startsWith('contract/')));
   for (const documents of Object.values(byCategory)) {

@@ -312,7 +312,7 @@ program
       '  changeledger new change self-describing-cli-help "Self-describing CLI help"',
       '  changeledger new change seam "Costura" --print > draft.md',
       '  changeledger new change seam "Costura" --from draft.md',
-      '  changeledger new change leak "Fuga" --parent 20260613-110000',
+      '  changeledger new change leak "Fuga" --parent <epic-id>',
     ].join('\n'),
   )
   .action(
@@ -456,7 +456,7 @@ program
       'repos replace the worktree file atomically and commit nothing.',
       '',
       'Examples:',
-      '  changeledger edit 20260810-180434 --from draft.md',
+      '  changeledger edit <id> --from draft.md',
       '  changeledger edit spec:global-state-scope --from spec.md',
     ].join('\n'),
   )
@@ -546,8 +546,8 @@ program
       '',
       'Examples:',
       '  changeledger commit -m "feat(cli): add helper"',
-      '  changeledger commit -m "feat(cli): add helper" --id 20260711-000001',
-      '  changeledger commit -m "feat(cli): add helper" --id 20260711-000001 --id 20260711-000002',
+      '  changeledger commit -m "feat(cli): add helper" --id <id>',
+      '  changeledger commit -m "feat(cli): add helper" --id <id> --id <id>',
       '  changeledger commit -m "docs(workflow): record the sieve" --no-change "no change covers it"',
     ].join('\n'),
   )
@@ -677,9 +677,9 @@ program
     'after',
     [
       '',
-      'With no argument: prints the mandatory bootstrap core. Always run this first —',
-      'every mode and change id below is incremental and extends the core already read,',
-      'it never replaces it.',
+      'With no argument: prints the mandatory bootstrap core, plus the global-state',
+      'overlay in an activated repo. Always run this first — every mode and change id',
+      'below is incremental and extends the core already read, it never replaces it.',
       '',
       'Explicit modes (pass one literally):',
       '  spec        author or refine a change',
@@ -687,10 +687,10 @@ program
       '  review      independently verify completed work',
       '  release     plan portable delivery metadata',
       '',
-      'Change id (e.g. changeledger context 20260630-225212): loads the pack inferred',
+      'Change id (e.g. changeledger context <id>): loads the pack inferred',
       "from that change's current lifecycle status — you never choose this pack",
-      'yourself. Lifecycle overlays such as close and discarded are inferred the same way',
-      'from the change id; they are not modes you pass explicitly.',
+      'yourself. The close overlay of a done change is inferred the same way from the',
+      'change id; it is not a mode you pass explicitly.',
       '',
       'Examples:',
       '  changeledger context',
@@ -698,7 +698,7 @@ program
       '  changeledger context implement',
       '  changeledger context review',
       '  changeledger context release',
-      '  changeledger context 20260630-225212',
+      '  changeledger context <id>',
     ].join('\n'),
   )
   .action(action((input) => context(input)));
@@ -714,15 +714,8 @@ program
       'Prints a fill-in-the-blanks delegation prompt for the given role. Works',
       'outside a ChangeLedger repo — the skeletons ship inside the package.',
       '',
-      '`graduation-review` is a read-only check of the spec reconciliation drafted',
-      'for a change already `done`, before the first `--into`; it never moves the',
-      'change.',
-      '',
       'Examples:',
-      '  changeledger agent-prompt investigation',
-      '  changeledger agent-prompt implementation',
       '  changeledger agent-prompt review',
-      '  changeledger agent-prompt graduation-review',
     ].join('\n'),
   )
   .action(action((role) => agentPrompt(role)));
@@ -731,10 +724,7 @@ program
   .command('agent-context')
   .description('print a self-contained minimal context for a delegated role')
   .addArgument(closedArgument('<role>', AGENT_ROLES.join(' | '), AGENT_ROLES))
-  .argument(
-    '[change-id]',
-    'optional for investigation; required for implementation, review and graduation-review',
-  )
+  .argument('<change-id>', 'the change in `in-review` the delegate reviews')
   .addHelpText(
     'after',
     [
@@ -743,15 +733,8 @@ program
       'identifies you as that role. This replaces the normal core bootstrap for',
       'the delegated leaf; normal agents still run `changeledger context` first.',
       '',
-      '`graduation-review` requires a change in `done`; it is a read-only check of',
-      'the spec reconciliation before the first `--into`, and never moves the change.',
-      '',
       'Examples:',
-      '  changeledger agent-context investigation',
-      '  changeledger agent-context investigation <id>',
-      '  changeledger agent-context implementation <id>',
       '  changeledger agent-context review <id>',
-      '  changeledger agent-context graduation-review <id>',
     ].join('\n'),
   )
   .action(action((role, changeId) => agentContext(role, changeId)));
@@ -1065,7 +1048,7 @@ program
       '  changeledger list --owner "Roberto Ruiz" --status in-review',
       '  changeledger list --unowned',
       '  changeledger list --pending graduation',
-      '  changeledger list --parent 20260613-110000',
+      '  changeledger list --parent <epic-id>',
       '  changeledger list --pending archive',
       '  changeledger list --pending findings   # open findings, archived changes included',
       '  changeledger list --archived',
@@ -1156,7 +1139,7 @@ program
       '',
       'Examples:',
       '  changeledger analyze',
-      '  changeledger analyze 20261002-140038',
+      '  changeledger analyze <id>',
       '  changeledger analyze --by model',
       '  changeledger analyze --json',
     ].join('\n'),

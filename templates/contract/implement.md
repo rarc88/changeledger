@@ -13,31 +13,32 @@ drift from them.
 Never implement approved changes on the integration branch or the release branch
 (`git.integration_branch`, `git.release_branch`); while either is undeclared, the
 same holds for the default branch and any other long-lived shared branch. Create
-or switch to a work branch or ask the human before continuing. When the change
-context publishes `integration_branch`, create the change branch from it and
-integrate the finished result into it. The release branch is reserved for
-releases and for the changes that declare `integrates_into: release`. When the change context also
-publishes `back_merge_branch`, bring the integrated result into that branch as
-well and record it in the Log with `changeledger log <id>`. Inspect the worktree
-first. If unrelated changes exist, do not include them silently; ask the human
-whether to stash, commit, ignore or include them before changing the worktree.
+or switch to a work branch, or ask the human. When the change context publishes
+`integration_branch`, create the change branch from it and integrate the finished
+result into it; the release branch is reserved for releases and for the changes
+that declare `integrates_into: release`. When the change context also publishes
+`back_merge_branch`, bring the integrated result into that branch as well and
+record it with `changeledger log <id>`. When `git.change_branch_format` is
+declared, use the published `change_branch` exactly; absent or null imposes no
+name, and mutable metadata never replaces its `{type}` and `{id}` placeholders.
 
-When `git.change_branch_format` is declared, use the `change_branch` published
-by the change context exactly. The convention is opt-in: absent or null does
-not impose a change-branch name. Do not substitute mutable metadata for the
-configured `{type}` and `{id}` placeholders.
+Inspect the worktree first and ask the human whether to stash, commit, ignore or
+include unrelated changes before changing it. Between `changeledger status <id>
+in-progress` and the implementation commits, the expected uncommitted delta is
+the change document — status field and the `[status]` lines the window
+accumulates — plus the change's own code and tests; "unrelated" means any path
+outside that set, which shrinks as each selection is committed. A clean worktree
+is never a valid precondition in that window, and a delegation baseline states
+this expected set instead of demanding one.
 
-Between `changeledger status <id> in-progress` and the implementation commits the
-expected uncommitted delta is the change document — status field and the
-`[status]` lines the window accumulates — plus the change's own code and tests.
-"Unrelated changes" above means any path outside that set, and the set shrinks
-selection by selection as each is committed. A clean worktree is never a valid
-precondition in that window, and a delegation baseline states this expected set
-instead of demanding one.
+Nothing you write outside `.changeledger/` carries a change id or a criterion id
+(`CRn`): the reference runs from the change to the code through `Target`,
+`Verify` and the commit's `[#id]` marker, and a test is named by the behaviour
+it proves.
 
-Implement one change at a time, even while another already-delivered change waits in
-`done`. Record an impediment as a `[!]` Plan task with its reason, and resolve it
-within authorized scope or ask the human.
+Implement one change at a time, even while a delivered change waits in `done`.
+Record an impediment as a `[!]` Plan task with its reason, and resolve it within
+authorized scope or ask the human.
 
 ## Execute the Plan
 
@@ -54,7 +55,6 @@ Useful mutation commands:
 - `changeledger edit <change-id|spec:slug> --from <file|->` — the sole
   body-write path in an activated repo
 - `changeledger apply --from <file|-> [--dry-run]`
-- `changeledger sync [--status]`
 - `changeledger review <id> pass|fail`
 - `changeledger check [id]`
 - `changeledger commit -m "<type>(<scope>): <desc>" [--id <id>]...`
@@ -87,7 +87,7 @@ ordered gate — do not reconstruct it from memory:
    resolved selection carries its own work, and the last also carries the ledger state,
    transitions included. Every selection precedes the review delegation, so the reviewer
    inspects a closed `baseline..HEAD` instead of a working tree.
-6. Load `changeledger context review` once; do not reload it to record the verdict unless context was lost (compaction, a new session).
+6. Load `changeledger context review`.
 7. Delegate to a fresh, read-only reviewer with clean context; it reports but never records the verdict itself.
 8. Record the delegate's verdict yourself with `changeledger review <id> pass|fail` — never `log`+`status`.
 9. After that mutation, apply the formatter again and repeat affected checks,
@@ -98,38 +98,13 @@ committed, before `changeledger status <id> done`, then apply the same post-tran
 formatter and affected-check gate. The host owns these
 commands; ChangeLedger mutations never run configurable hooks or external formatters.
 
-## Correction isolation
-
-After review `fail`, run `changeledger context <id>` before modifying
-implementation and keep the candidate correction uncommitted while a fresh
-clean-context reviewer checks it. Confirming it requires returning the
-change with `changeledger status <id> in-review` before that delegation: the
-transition re-validates the candidate and the review role loads nowhere else.
-If it fails again, iterate on that same diff. Do not start another task or
-change while a correction waits: the worktree is its isolation boundary. After `pass`, commit the confirmed correction,
-tests and ledger; this is meaningful correction evidence, not a status-only commit.
-
-After a human rejection (`done → in-progress`), run
-`changeledger context <id>` before modifying implementation; keep the correction
-uncommitted until the human confirms it fixes the reported failure. Do not start
-another task or change while a correction waits; iterate on
-the same diff if it does not. After acceptance, graduate or record a skip
-and include correction plus ledger in the final closure commit.
-
-These exceptions prevent false fix attempts from becoming permanent history;
-they cover corrections only, and never license leaving the implementation commits
-unmade before review.
-
 ## Evidence obligations
 
-Every prompt to an implementer or corrector also states these obligations:
+Every prompt to an implementer also states these obligations:
 
-- Scope discipline is pass/fail: leaving a known residual out of your report is a failure, same as touching one, so name every residual you leave untouched instead of repairing it in passing.
+- Scope discipline is pass/fail: name every residual you leave untouched instead of repairing it in passing; leaving a known residual out of the report fails like touching one.
 - Reproduce the original defect and quote its literal output before changing anything.
 - Show the new test failing before the fix, with its literal failure message, and passing after it.
-- Mutate one thing at a time, confirm it fails for the right reason, restore it by editing — never with git — and prove the file is clean before the next mutant.
-- Treat figures, line numbers and pointers you were handed as data to verify, not as facts.
 - Report any orchestrator instruction that contradicts this contract instead of silently obeying it.
 - Stop and report when the work turns out to need a wider scope.
-- Report the list of decisions the document did not specify.
-- Deliverable prose — documentation, code and test comments, and Log notes — that quantifies universally (every, all, no, never, only, cannot, always) has the edge that would falsify it executed before it is written, or is narrowed to the incident actually observed. Correcting a review finding on prose narrows the sentence to what was executed or deletes it, and never replaces it with another universal claim. Your report lists each universally quantified sentence you added or rewrote, with the command that executed its edge.
+- Report the decisions the document did not specify.
