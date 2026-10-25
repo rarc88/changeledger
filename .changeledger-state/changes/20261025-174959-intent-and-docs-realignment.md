@@ -186,3 +186,4 @@ test pueda ejercitar; la rama toca `test/`, así que pasa por revisión.
 
 ## Log
 - **2026-10-25T17:49:59Z** `[version]` 0.19.0
+- **2026-10-25T17:50:04Z** `[note]` tdd: false porque el change entrega prosa (INTENT.md, docs) y guards de test sobre esa prosa, sin comportamiento que un test pueda ejercitar; la rama toca test/, así que pasa por revisión independiente.
