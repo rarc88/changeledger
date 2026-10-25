@@ -14,6 +14,7 @@ related_to:
   - "20261023-181753"
 parent: "20261023-181733"
 owner: raruiz-hiberuscom
+release_impact: minor
 ---
 
 ## Request
