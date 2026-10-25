@@ -5,6 +5,7 @@ type: change
 status: done
 created: 2026-10-25T19:34:47Z
 depends_on: []
+reviewed: true
 branch: change/20261025-193447
 related_to:
   - "20261024-202718"
@@ -243,3 +244,4 @@ guards tolerantes, nunca pins de frase. Ninguna línea añadida fuera de
 - **2026-10-25T22:33:12Z** `[note]` Corrección de la ronda 1: el comentario de PINNED_CEILINGS dice «raised by a human decision recorded in the change» y deja de afirmar que es la primera subida; esta nota corrige la anterior: ya hubo dos subidas (spec e implement 2500→3000 en a893e604; core 2680→2690 en 70876bda). Mandato de confirmación: sólo esa frase y cualquier regresión.
 - **2026-10-25T22:33:13Z** `[status]` in-progress → in-review
 - **2026-10-25T22:36:13Z** `[review]` in-review → done (delegated subagent, clean context)
+- **2026-10-25T22:36:18Z** `[graduation]` skipped: hijo de la épica 20261023-181733: la épica reconcilia contract-discovery.md (composición y techos) al cerrar
