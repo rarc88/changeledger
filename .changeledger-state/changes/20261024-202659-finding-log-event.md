@@ -352,3 +352,4 @@ abajo son literales.
 - **2026-10-25T13:06:50Z** `[status]` draft → approved (human via conversation)
 - **2026-10-25T13:06:55Z** `[status]` approved → in-progress
 - **2026-10-25T13:06:55Z** `[branch]` set: change/20261024-202659 (auto)
+- **2026-10-25T13:10:54Z** `[note]` Specification y Plan escritos en in-progress con el código delante (dev 3e1f23de). Decisiones no fijadas por el Request: la forma de la CLI es un solo comando finding <id> con la cola <texto...> o <n> promote|drop …, distinguida por si las dos primeras palabras son un entero y promote|drop; la lista de --pending findings devuelve filas de hallazgo (id, n, text, at), no de change; --archived restringe a orígenes archivados y --all equivale a no pasar nada; los techos de core, implement y review bajan a lo medido redondeado a la decena (pre-autorizado). El documento del change vive en la ref de estado, así que no hay commit de baseline en la rama: cada edit es un commit de esa ref.
