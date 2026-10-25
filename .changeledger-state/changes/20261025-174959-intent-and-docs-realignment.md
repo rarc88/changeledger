@@ -239,10 +239,11 @@ queda registrado como hallazgo (CR5).
 
 ## Plan
 
-- [ ] Reescribir en `INTENT.md` las secciones 3 a 10 del flujo y las reglas generales en el vocabulario del contrato, sin tocar propósito, conversación, creación, modelo de confianza, estado global ni filtros
+- [x] Reescribir en `INTENT.md` las secciones 3 a 10 del flujo y las reglas generales en el vocabulario del contrato, sin tocar propósito, conversación, creación, modelo de confianza, estado global ni filtros
   - **Target:** `INTENT.md`
   - **Verify:** `node --test test/intent.test.mjs`
   - **Criteria:** CR1, CR2
+  - **Resolved:** `2026-10-25T18:10:04Z`
 - [ ] Reescribir `test/intent.test.mjs` como cinco guards tolerantes, rojos contra el `INTENT.md` de `origin/dev`
   - **Target:** `test/intent.test.mjs`
   - **Verify:** `node --test test/intent.test.mjs`
