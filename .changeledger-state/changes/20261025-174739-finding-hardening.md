@@ -11,6 +11,7 @@ related_to:
   - "20261024-202659"
   - "20261024-202718"
 owner: raruiz-hiberuscom
+release_impact: minor
 ---
 
 ## Request
