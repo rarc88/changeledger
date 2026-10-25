@@ -187,7 +187,7 @@ guards tolerantes, nunca pins de frase. Ninguna línea añadida fuera de
 ### CR5 — Los techos bajan a lo medido
 - **Given** `budgets.yml` y `PINNED_CEILINGS`
 - **When** se miden las capturas en el fixture y en este repo con `test/budget-support.mjs`
-- **Then** `base.core`, `base.spec`, `base.implement` y `blocks.core-commits` quedan en la mayor medida redondeada a la decena superior, `lines = tokens / 10`, cada uno por debajo de su valor en `origin/dev`; `base.core` no sube aunque el core gane la sección, porque la tabla de commits compensa; el resto de entradas no cambia
+- **Then** `base.spec`, `base.implement` y `blocks.core-commits` quedan en la mayor medida redondeada a la decena superior, `lines = tokens / 10`, cada uno por debajo de su valor en `origin/dev`; `base.core` queda en 3000/300 por decisión humana registrada en el Log, porque el core plegado mide 2461 y la tabla no compensa la sección; el comentario de `PINNED_CEILINGS` lo dice; el resto de entradas no cambia
 - **And** el Log registra palabras por fragmento antes y después y las medidas por captura
 
 ### CR6 — README nombra la sede nueva
