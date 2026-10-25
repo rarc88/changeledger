@@ -383,3 +383,4 @@ abajo son literales.
 - **2026-10-25T17:47:46Z** `[finding]` 2 promoted #20261025-174739
 - **2026-10-25T17:47:46Z** `[finding]` 3 promoted #20261025-174739
 - **2026-10-25T17:47:47Z** `[finding]` 4 promoted #20261025-174739
+- **2026-10-25T17:48:03Z** `[finding]` 5 dropped: registrado por error al escribir la resolución con el verbo delante contra la CLI actual; es el hallazgo F4 en acción y lo resuelve 20261025-174739
