@@ -152,7 +152,93 @@ reescriben; la ayuda y el README dicen la forma nueva.
 
 ## Specification
 
+Escrita en `in-progress` con el código delante (`dev` en `54e6d3df`). Sedes:
+`parseFindingPayload`, `CHANGE_ID` y `LOG_EVENT_DEFINITIONS` en
+`src/lifecycle.mjs`; `ID_FORM` y `checkLifecycleSequence` en `src/check.mjs`;
+`findingsInLog`, `recordFindingMutation`, `resolveFindingMutation` y
+`openFindings` en `src/commands/agent.mjs`; el comando `finding` en
+`bin/changeledger.mjs`; `hooks/no-ledger-refs.sh`; `unrecordedTransitions`
+en `src/usage-analysis.mjs`; `listProjects` en `src/registry.mjs`. Los
+mensajes son literales. Ninguna línea añadida fuera de `.changeledger/` lleva
+un id de change ni un criterio con dígitos: los tests que los necesitan los
+construyen con el helper de CR4.
+
+### CR1 — La forma del id tiene una sede
+- **Given** `src/lifecycle.mjs` exporta `CHANGE_ID_FORM` (la expresión `^\d{8}-\d{6}$`)
+- **When** se buscan `ID_FORM` y `CHANGE_ID` en `src/`
+- **Then** no existen: `src/check.mjs` importa `CHANGE_ID_FORM` para el id del frontmatter, `parent` y el enlace de hijos, y `parseFindingPayload` la usa para el brazo `promoted`
+- **And** los mensajes de `check` sobre la forma del id no cambian (`id not in YYYYMMDD-HHMMSS form: <id>`)
+
+### CR2 — check rechaza una resolución huérfana o duplicada en un documento vivo
+- **Given** `findingsInLog(logBody)` vive en `src/lifecycle.mjs`, exportada, y devuelve además las resoluciones que descarta, con el índice de su línea y la causa; `src/commands/agent.mjs` la importa
+- **When** `changeledger check` lee un change vivo cuyo Log lleva `[finding] 9 dropped: x` sin `F9` registrado antes, y otro cuyo Log lleva dos resoluciones de `F1`
+- **Then** reporta `Log line <n>: finding F9 resolved but never recorded` y `Log line <n>: finding F1 already resolved at line <m>`, con `<n>` y `<m>` como números de línea del documento, y sale 1
+- **And** un documento archivado o descartado con las mismas líneas no produce error, como el resto de diagnósticos congelados por `frozenReason`
+- **And** `list --pending findings` y `finding <id> promote|drop` siguen ignorando esas líneas, porque leen con la misma función
+
+### CR3 — La resolución va con el verbo delante
+- **Given** el comando `finding` de `bin/changeledger.mjs`
+- **When** `changeledger finding X promote 2 Y`, `changeledger finding X drop 1 "ya no aplica"` y `changeledger finding X "3 drop tables"` (y la misma frase sin comillas)
+- **Then** los dos primeros resuelven `F2` y `F1` con las líneas `[finding] 2 promoted #Y` y `[finding] 1 dropped: ya no aplica` y la salida `finding F2 on #X → promoted to #Y` / `finding F1 on #X → dropped`; los dos últimos registran un hallazgo abierto con el texto `3 drop tables`
+- **And** `changeledger finding X promote 2` falla con `promote requires the id of the change it becomes`; `changeledger finding X drop 1` falla con `drop requires a reason`; `changeledger finding X promote abc Y` registra el texto `promote abc Y` como hallazgo abierto, porque la segunda palabra no es un ordinal; `changeledger finding X promote 0 Y` falla con `finding ordinal must be a positive integer (got "0")`
+- **And** la ayuda de `finding` describe las tres formas con el verbo delante y la regla de desambiguación; `README.md` las dice; los mensajes de `resolveFindingMutation` sobre ordinales inexistentes o ya resueltos no cambian; los tests de `20261024-202659` que pinaban `<n> promote|drop` se reescriben y se nombran en el Log
+
+### CR4 — Los fixtures del ledger viven en test/helpers, exentos del hook
+- **Given** `hooks/no-ledger-refs.sh` exime las rutas bajo `test/helpers/` además de `.changeledger/`, `.changeledger-state/` y `templates/contract/spec.md`
+- **When** se añade en un repo de pruebas una línea con un id en `test/helpers/fixtures.mjs` y otra en `test/x.test.mjs`
+- **Then** la primera sale 0 y la segunda sale 1 nombrando fichero, línea y coincidencia
+- **And** existe `test/helpers/ledger-fixtures.mjs` con `criterion(n)` → `CR<n>` y `changeId(date, time)` → `<date>-<time>`, y `test/no-ledger-refs.test.mjs` los usa en vez de su helper local; `CONTRIBUTING.md` dice que un fixture del ledger que necesita un id o un criterio se construye con esos helpers y que `test/helpers/` está exento
+
+### CR5 — El sello de aceptación no cuenta como transición sin registro
+- **Given** un change con registros de uso y un Log con `[validation] accepted (merged abc1234)` sin registro en ese instante
+- **When** `analyze` calcula la pista `gap`
+- **Then** no cuenta esa línea: `unrecordedTransitions` descarta los eventos `validation` con `outcome === 'accepted'`, y una transición `[status]` sin registro en el mismo Log sí cuenta
+- **And** `docs/usage-capture.md` dice que el sello de aceptación no cuenta en `gap`, en lugar de que cuenta
+
+### CR6 — listProjects devuelve un orden que no depende de la forma de la clave
+- **Given** un registro con las entradas `locked` (nombre `locked-cache`) y `1717083302` (nombre `changeledger-proj-x`), escritas en ese orden
+- **When** `listProjects()`
+- **Then** devuelve las entradas ordenadas por nombre mostrado y, a igual nombre, por id, con `changeledger-proj-x` antes que `locked-cache`, y el orden es el mismo con la clave numérica escrita primero o después
+- **And** el test «an unprobeable path keeps its cached name and the listing completes» de `test/registry.test.mjs` espera ese orden y deja de depender del orden de inserción; `resolveProjects` del viewer, si ordena por su cuenta, no cambia
+
+### CR7 — El día después
+- **Given** un repo inactivo recién iniciado con los changes `X` e `Y`
+- **When** `changeledger finding X "falta la vista"`, `changeledger finding X promote 1 Y`, `changeledger finding X "otra cosa"`, `changeledger finding X drop 2 "no aplica"`, `changeledger check`, y después se añade a mano `[finding] 7 dropped: nada` al Log de `X` y se repite `check`
+- **Then** `list --pending findings` queda vacío tras las resoluciones, el primer `check` es verde y el segundo falla con `finding F7 resolved but never recorded` y su línea
+
 ## Plan
+
+- [ ] `CHANGE_ID_FORM` exportada en `src/lifecycle.mjs` y usada por `check.mjs`
+  - **Target:** `src/lifecycle.mjs`, `src/check.mjs`, `test/check.test.mjs`
+  - **Verify:** `node --test test/check.test.mjs test/lifecycle.test.mjs`
+  - **Criteria:** CR1
+- [ ] `findingsInLog` en `src/lifecycle.mjs` con las resoluciones descartadas; `check` las reporta en documentos vivos
+  - **Target:** `src/lifecycle.mjs`, `src/check.mjs`, `src/commands/agent.mjs`, `test/lifecycle.test.mjs`, `test/check.test.mjs`
+  - **Verify:** `node --test test/check.test.mjs test/lifecycle.test.mjs test/agent.test.mjs`
+  - **Criteria:** CR2
+- [ ] Verbo delante en el comando `finding`, ayuda, README y tests reescritos
+  - **Target:** `bin/changeledger.mjs`, `src/commands/agent.mjs`, `README.md`, `test/cli-bin.test.mjs`, `test/agent.test.mjs`, `test/contract.test.mjs`
+  - **Verify:** `node --test test/cli-bin.test.mjs test/agent.test.mjs test/contract.test.mjs`
+  - **Criteria:** CR3
+- [ ] Exención de `test/helpers/` en el hook, helper de fixtures y CONTRIBUTING
+  - **Target:** `hooks/no-ledger-refs.sh`, `test/helpers/ledger-fixtures.mjs`, `test/no-ledger-refs.test.mjs`, `CONTRIBUTING.md`, `test/contract.test.mjs`
+  - **Verify:** `node --test test/no-ledger-refs.test.mjs test/contract.test.mjs`
+  - **Criteria:** CR4
+- [ ] `unrecordedTransitions` sin el sello de aceptación, y el doc
+  - **Target:** `src/usage-analysis.mjs`, `test/usage-analysis.test.mjs`, `docs/usage-capture.md`
+  - **Verify:** `node --test test/usage-analysis.test.mjs`
+  - **Criteria:** CR5
+- [ ] Orden estable en `listProjects`
+  - **Target:** `src/registry.mjs`, `test/registry.test.mjs`
+  - **Verify:** `node --test test/registry.test.mjs test/view.test.mjs`
+  - **Criteria:** CR6
+- [ ] El día después por la CLI
+  - **Target:** `test/cli-bin.test.mjs`
+  - **Verify:** `node --test test/cli-bin.test.mjs`
+  - **Criteria:** CR7
+- [ ] Hook sobre la rama, suite completa y `check`
+  - **Support:**
+  - **Verify:** `sh hooks/no-ledger-refs.sh origin/dev...HEAD && pnpm verify`
 
 ## Log
 - **2026-10-25T17:47:39Z** `[version]` 0.19.0
