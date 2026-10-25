@@ -343,7 +343,159 @@ que sobreviven; ningún pin literal nuevo.
 
 ## Specification
 
+Escrita en `in-progress` con el código delante (`dev` en `b1bc5493`, con
+`[finding]` ya fusionado). Las sedes: `MODE_CONTEXT`, `STATUS_CONTEXT`,
+`packBudget` y `composeResult` en `src/commands/context.mjs`; `AGENT_ROLES` y
+`ALLOWED_STATUSES` en `src/commands/agent-context.mjs`, reutilizados por
+`src/commands/agent-prompt.mjs`; los techos en `templates/contract/budgets.yml`
+y `PINNED_CEILINGS` en `test/context.test.mjs`; la medida de tokens en
+`test/budget-support.mjs`. «No contiene» se verifica con barridos tolerantes
+a la redacción sobre todo `templates/contract/` recursivo, como `143656 CR4`.
+Los mensajes de error son literales.
+
+### CR1 — El inventario queda en diez fragmentos
+- **Given** `templates/contract/`
+- **When** se listan sus ficheros Markdown recursivamente
+- **Then** son exactamente `close.md`, `core.md`, `delegation.md`, `global-state.md`, `implement.md`, `release.md`, `review.md`, `spec.md`, `agent-contexts/review.md` y `agent-prompts/review.md`, más `budgets.yml`
+- **And** no existen `handoff.md`, `discarded.md`, `agent-contexts/graduation-review.md`, `agent-contexts/implementation.md`, `agent-contexts/investigation.md`, `agent-prompts/graduation-review.md`, `agent-prompts/implementation.md` ni `agent-prompts/investigation.md`
+- **And** el inventario pinado en `143656 CR4` de `test/context.test.mjs` dice eso mismo
+
+### CR2 — La composición no carga lo que ya no existe
+- **Given** `MODE_CONTEXT` y `STATUS_CONTEXT` en `src/commands/context.mjs`
+- **When** se componen los modos y los estados
+- **Then** `spec` compone `spec` y `delegation`; `implement` compone `implement` y `delegation`; `review` compone sólo `review`; `release` sólo `release`; `done` compone el overlay `close`
+- **And** `changeledger context <id>` de un change `discarded` compone el core y el documento sin overlay, con `mode: discarded` en la línea `BEGIN` y sin entrada propia en `budgets.yml`
+- **And** los encabezados poseídos (`ownedHeadings` de `234939`) son: `spec` → `# Authoring a Change`, `# Economical Delegation`; `implement` → `# Implementing an Approved Change`, `# Economical Delegation`; `review` → `# Independent Review`; ninguno lleva `# Handoff Triage` ni `# Discarded — Terminal`
+
+### CR3 — El estado global se carga sólo en un repo activado
+- **Given** `templates/contract/global-state.md` con la semántica de `cutover`, `activate` y `sync`
+- **When** `changeledger context` (sin argumento) se ejecuta en un repo recién iniciado y en el mismo repo tras `changeledger cutover`
+- **Then** la primera captura no contiene `cutover`, `activate` ni `sync` fuera de la tabla de intención, y la línea `BEGIN` publica `lines:<n>/<base.core.lines>`
+- **And** la segunda captura contiene el texto de `global-state.md` después del core, antes del `END`, y publica `lines:<n>/<base.core.lines + overlays.global-state.lines>`
+- **And** `core.md` no tiene la sección `## Synchronizing the global state` ni la frase del ciclo sobre la rama que aterriza tras la graduación; ambas viven en `global-state.md`, igual que el comando `changeledger sync [--status]` que `implement.md` listaba
+- **And** el guard 15 de `CONCEPT_GUARDS` exige sus cuatro ideas —puntos estratégicos, mismo documento → humano, nunca bloquea, adopción por `cutover`— en `global-state.md`, y `124835 CR1` pina once `##` en el core, sin «Synchronizing»
+
+### CR4 — Sólo queda el rol review
+- **Given** `AGENT_ROLES` en `src/commands/agent-context.mjs`
+- **When** `changeledger agent-context investigation`, `changeledger agent-context implementation <id>`, `changeledger agent-context graduation-review <id>`, `changeledger agent-prompt investigation`, `changeledger agent-prompt implementation` y `changeledger agent-prompt graduation-review`
+- **Then** cada uno falla con `Unknown role "<rol>" — valid roles: review` y sale 1
+- **And** `changeledger agent-context review <id>` y `changeledger agent-prompt review` siguen produciendo su cápsula y su esqueleto dentro del techo `agent`
+- **And** la ayuda de `agent-context` y `agent-prompt` lista sólo `review` y no nombra `investigation`, `implementation` ni `graduation-review`; `core.md` remite a `changeledger agent-prompt review` y a ningún otro rol
+- **And** los tests `152555 CR1/CR2/CR3/CR7` y `152555 CR8` que ejercitan `graduation-review` se retiran con nombre en el Log; `144327 CR7` (guards de rol), `144327 CR8`, `212043 CR6`, `CR3` y `CR4` de `agent-prompt.test.mjs` y `134716 CR2` de `cli-bin.test.mjs` se reapuntan a un solo rol
+
+### CR5 — Las cinco reglas del §2.2 no están en ningún fragmento
+- **Given** `templates/contract/` recursivo
+- **When** se barren los fragmentos
+- **Then** ninguno contiene, con tolerancia a la redacción: `quantif` (el estándar de cuantificadores y su contabilidad, incluida la viñeta de criterios de `spec.md`), `copy its checklist` / `Do not copy`, `figures, line numbers`, `Mutate one thing` / `restore it by editing`, `once; do not reload` / `never reload one already held`
+- **And** el paso de la puerta ordenada de `implement.md` que carga `changeledger context review` sigue existiendo sin la cláusula «una sola vez», y el regex de `134702/122950 CR1/CR2` se reapunta a él
+- **And** `DELEGATION_OBLIGATIONS` pierde las filas 2, 3, 4, 5, 7 y 8 y `DRAFTING_OBLIGATIONS` la fila 2, nombradas en el Log; el guard 11 exige por patrón las seis obligaciones de evidencia que sobreviven —disciplina de alcance con residuales nombrados, reproducir el defecto, test en rojo antes del arreglo, informar de una instrucción contraria al contrato, parar ante un alcance mayor, listar las decisiones no especificadas— y ya no cuenta cláusulas
+
+### CR6 — Una corrección es una selección resuelta más
+- **Given** `core.md`, `implement.md` y `review.md`
+- **When** se barren
+- **Then** ninguno contiene `Correction isolation`, `uncommitted correction`, `kept uncommitted`, `left uncommitted`, `confirmation review` ni `confirms it`
+- **And** el bloque `## Commits` del core declara cuatro clases —Draft, Baseline, Implementation, Handoff— y dice que una corrección tras `fail` o tras un rechazo humano es un commit de implementación más, committeado antes de volver a `in-review`; `review.md` dice que una re-revisión inspecciona `baseline..HEAD` de nuevo bajo el mandato declarado y conserva el tope del tercer round y el modelo de confianza (guard 14)
+- **And** el guard 9 pasa a exigir «la corrección se committea antes de volver a in-review»; `DELEGATION_OBLIGATIONS` pierde las filas 6 y 9; `164620 CR3` se reapunta a que `review.md` no declara clases de commit; `CONTRIBUTING.md` no describe el aislamiento
+
+### CR7 — graduation-review no existe
+- **Given** `templates/contract/`, `src/`, `bin/` y `test/`
+- **When** se busca `graduation-review`
+- **Then** no aparece en ningún fragmento ni en `src/commands/agent-context.mjs`, `src/commands/agent-prompt.mjs` ni `bin/changeledger.mjs`; `close.md` no delega la reconciliación y dice que la revisa el humano al fusionar
+- **And** los guards 18 y 19 y `144327 CR5` se retiran con nombre en el Log; `lifecycle.test.mjs` `152555 CR8` se retira
+
+### CR8 — delegation.md absorbe el triaje y el contrato de prompt
+- **Given** `templates/contract/delegation.md`
+- **When** se compone `context implement` y `context spec`
+- **Then** `delegation.md` lleva una sección de triaje con las cuatro salidas —necesario al change: Specification, Plan y Log; paso operativo: ejecutarlo; fuera del objetivo o la frontera: `changeledger finding <id>`; demasiado vago: mencionarlo sin fichero— y la regla de no mezclar concerns ni retener una entrega lista
+- **And** su contrato de prompt enumera los ítems que todo prompt declara: por qué se delega, objetivo y frontera, ficheros que posee, baseline a verificar, comando de verificación, formato de vuelta y la prohibición de delegar de nuevo; no remite a un esqueleto para roles que no existen
+- **And** `templates/contract/review.md` no contiene el triaje; `225213 CR4/CR5/CR7` se reapuntan
+
+### CR9 — discarded y su overlay desaparecen
+- **Given** `budgets.yml` y `bin/changeledger.mjs`
+- **When** se leen
+- **Then** `budgets.yml` no tiene `overlays.discarded` y `PINNED_CEILINGS` tampoco; la ayuda de `context` nombra el overlay `close` y no «overlays such as close and discarded»
+- **And** `core.md` sigue diciendo que `discarded` es terminal y nunca se reabre (`171002` de `cli.test.mjs` pasa); `20260629-210543 CR2/CR8/CR9` y `225213 CR6 overlays` se reapuntan a `done`
+
+### CR10 — El contrato enuncia la regla del §6.3 y la cápsula deja de recorrer CRn
+- **Given** `implement.md` y `agent-contexts/review.md`
+- **When** se componen `context implement` y `agent-context review <id>`
+- **Then** `implement.md` contiene la regla, con tolerancia a la redacción: ningún fichero fuera de `.changeledger/` contiene un id de change ni un `CRn`; la referencia va del change al código por `Target`, `Verify` y el marcador `[#id]`; un test se nombra por lo que prueba
+- **And** `agent-contexts/review.md` no contiene `every \`CRn\`` y dice que el revisor verifica el comportamiento que la Specification declara contra el diff y los tests, sin buscar ids de criterio en el código; `agent-prompts/review.md` conserva la evidencia por criterio
+- **And** un guard nuevo de `CONCEPT_GUARDS` exige la regla en `implement.md` y su ausencia en `spec.md` y `core.md`
+
+### CR11 — El hook rechaza una línea añadida con referencia al ledger
+- **Given** `hooks/no-ledger-refs.sh`, invocado por `hooks/pre-commit` antes de `pnpm test` con `--cached` y por `.github/workflows/ci.yml` con `origin/dev...HEAD` en `pull_request`
+- **When** en un repo de pruebas se añade a `src/x.mjs` la línea `// see CR3` y se ejecuta `hooks/no-ledger-refs.sh --cached` con el fichero en el índice
+- **Then** imprime `src/x.mjs:1: ledger reference outside .changeledger/: CR3` y sale 1
+- **And** una línea añadida con `20261024-202718` en `src/y.mjs` sale 1 con el id como coincidencia; la misma línea en `.changeledger/changes/z.md`, en `.changeledger-state/changes/z.md` o en `templates/contract/spec.md` sale 0; una línea ya existente con `CR1` cuyo fichero recibe otra línea limpia sale 0 (sólo líneas `+`, `-U0`); con un rango `<base>...HEAD` en vez de `--cached` inspecciona los commits del rango con las mismas reglas; sin nada que inspeccionar sale 0
+- **And** `hooks/pre-commit` ejecuta el script antes de `pnpm test` y `ci.yml` lo ejecuta en el job `verify` tras `pnpm install` sólo cuando el evento es `pull_request`; un test de `test/` ejecuta el script en un repo de pruebas y prueba cada uno de esos casos
+
+### CR12 — Ningún ejemplo de ayuda lleva un id
+- **Given** `bin/changeledger.mjs`
+- **When** se ejecuta `changeledger <cmd> --help` para cada comando registrado
+- **Then** ninguna salida contiene una secuencia `\d{8}-\d{6}`; los ejemplos usan `<id>` o `<epic-id>`
+- **And** los dos comentarios de `bin/changeledger.mjs` que citan un id se quedan como están
+
+### CR13 — Los techos siguen a lo medido y sólo bajan
+- **Given** `budgets.yml` y `PINNED_CEILINGS`
+- **When** se miden las capturas con `test/budget-support.mjs` en este repo activado y en el fixture recién iniciado, al cerrar la implementación
+- **Then** cada entrada que sobrevive es la mayor medida redondeada a la decena superior, con `lines = tokens / 10`, y no supera su valor en `b1bc5493`; `overlays.global-state` es una entrada nueva medida igual; `agent` se mide sobre las dos cápsulas que quedan; `blocks.core-commits` se mide sobre el bloque de cuatro clases
+- **And** el Log registra, por fragmento, palabras medidas frente a la cifra del §5 del plan y el hueco cuando lo hay
+
+### CR14 — Las obligaciones conservadas del §4 siguen encontrables
+- **Given** `CONCEPT_GUARDS`, `DELEGATION_OBLIGATIONS` y `CLASSIFICATION_OBLIGATIONS` tras el recorte
+- **When** se ejecuta `test/context.test.mjs`
+- **Then** un guard por patrón encuentra cada obligación en su sede: revisión independiente con contexto limpio (`review.md`), aprobación humana sobre objetivo y frontera (`core.md`, `spec.md`), un concern con frontera pre-autorizada (`core.md`), nunca en integración ni release (`implement.md`), trazabilidad `[#id]` y `check --commits` (`core.md`), toda selección committeada antes de delegar la revisión (`core.md`), TDD rojo-verde (`implement.md`), reproducir el defecto y mostrar el test en rojo (`implement.md`), graduación y reconciliación (`close.md`), un nivel de delegación y un dueño por superficie (`core.md`, `delegation.md`), taxonomía de fallos (`review.md`), triaje (`delegation.md`), tercer round y modelo de confianza (`review.md`)
+- **And** ningún test nuevo pina una frase literal de un fragmento
+
+### CR15 — README, CONTRIBUTING y ayuda describen la forma nueva
+- **Given** `README.md`, `CONTRIBUTING.md` y `changeledger context --help`
+- **When** se leen
+- **Then** README y CONTRIBUTING no nombran `investigation`, `implementation` ni `graduation-review` como roles, ni el aislamiento de correcciones; CONTRIBUTING documenta el hook `no-ledger-refs.sh`, la regla del §6.3 y que los tests se nombran por comportamiento; README explica que un repo consumidor copia el script en su propio pre-commit porque `hooks/` no se empaqueta
+- **And** `test/contract.test.mjs` lo verifica con barridos y guards tolerantes, como `20261024-121022 CR18`
+
+### CR16 — El día después
+- **Given** un repo de pruebas recién iniciado
+- **When** `changeledger context` y `changeledger context implement` se leen, se delega con `changeledger agent-prompt review` y `agent-context review <id>` sobre un change en `in-review`, y el hook corre sobre un commit limpio y otro con `CR2` en un comentario
+- **Then** las capturas caben en sus techos y no contienen ninguna frase retirada por CR5–CR7, la cápsula y el esqueleto se producen, el commit limpio pasa y el sucio sale 1 nombrando fichero, línea y coincidencia
+
 ## Plan
+
+- [ ] Retirar los roles `investigation`, `implementation` y `graduation-review`: `AGENT_ROLES`, `ALLOWED_STATUSES`, ayuda de `agent-context` y `agent-prompt`, borrado de las seis cápsulas y sus tests
+  - **Target:** `src/commands/agent-context.mjs`, `src/commands/agent-prompt.mjs`, `bin/changeledger.mjs`, `templates/contract/agent-contexts/`, `templates/contract/agent-prompts/`, `test/agent-context.test.mjs`, `test/agent-prompt.test.mjs`, `test/cli-bin.test.mjs`, `test/lifecycle.test.mjs`
+  - **Verify:** `node --test test/agent-context.test.mjs test/agent-prompt.test.mjs test/cli-bin.test.mjs test/lifecycle.test.mjs`
+  - **Criteria:** CR4, CR7
+- [ ] Ejemplos de ayuda sin ids
+  - **Target:** `bin/changeledger.mjs`, `test/cli-bin.test.mjs`
+  - **Verify:** `node --test test/cli-bin.test.mjs`
+  - **Criteria:** CR12
+- [ ] Composición: `handoff` y `discarded` fuera de `MODE_CONTEXT` y `STATUS_CONTEXT`, `global-state.md` compuesto por activación con su techo, ayuda de `context`
+  - **Target:** `src/commands/context.mjs`, `templates/contract/global-state.md`, `templates/contract/budgets.yml`, `bin/changeledger.mjs`, `test/context.test.mjs`
+  - **Verify:** `node --test test/context.test.mjs test/contract.test.mjs`
+  - **Criteria:** CR2, CR3, CR9
+- [ ] Recorte de prosa por fragmento: `core`, `spec`, `implement`, `review`, `close`, `delegation` (absorbe `handoff`) y la cápsula de revisión; borrado de `handoff.md` y `discarded.md`; barridos y guards reapuntados
+  - **Target:** `templates/contract/*.md`, `templates/contract/agent-contexts/review.md`, `templates/contract/agent-prompts/review.md`, `test/context.test.mjs`, `test/contract.test.mjs`, `test/cli.test.mjs`, `test/search.test.mjs`
+  - **Verify:** `node --test test/context.test.mjs test/contract.test.mjs test/cli.test.mjs test/search.test.mjs`
+  - **Criteria:** CR1, CR5, CR6, CR7, CR8, CR10, CR14
+- [ ] Hook `no-ledger-refs.sh`, `pre-commit` y CI, con su test
+  - **Target:** `hooks/no-ledger-refs.sh`, `hooks/pre-commit`, `.github/workflows/ci.yml`, `test/no-ledger-refs.test.mjs`
+  - **Verify:** `node --test test/no-ledger-refs.test.mjs`
+  - **Criteria:** CR11
+- [ ] README y CONTRIBUTING
+  - **Target:** `README.md`, `CONTRIBUTING.md`, `test/contract.test.mjs`
+  - **Verify:** `node --test test/contract.test.mjs`
+  - **Criteria:** CR15
+- [ ] Medir, bajar techos y registrar palabras por fragmento frente al §5
+  - **Target:** `templates/contract/budgets.yml`, `test/context.test.mjs`
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR13
+- [ ] El día después, de punta a punta
+  - **Target:** `test/cli-bin.test.mjs`
+  - **Verify:** `node --test test/cli-bin.test.mjs`
+  - **Criteria:** CR16
+- [ ] Suite completa, lint y `check` antes de pedir la revisión
+  - **Support:**
+  - **Verify:** `pnpm verify`
 
 ## Log
 - **2026-10-24T20:27:18Z** `[version]` 0.19.0
