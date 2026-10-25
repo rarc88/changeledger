@@ -2,7 +2,7 @@
 id: "20261025-174739"
 title: "Un hallazgo mal formado se rechaza: sede única del id, check contra resoluciones huérfanas o duplicadas y resolución con el verbo delante"
 type: change
-status: draft
+status: approved
 created: 2026-10-25T17:47:39Z
 depends_on: []
 related_to:
@@ -156,3 +156,4 @@ reescriben; la ayuda y el README dicen la forma nueva.
 ## Log
 - **2026-10-25T17:47:39Z** `[version]` 0.19.0
 - **2026-10-25T19:30:55Z** `[note]` Frontera ampliada antes de aprobar, por decisión del humano (2026-10-25): entran la exención de test/helpers/ en el hook con la convención de fixtures, la corrección de unrecordedTransitions para el sello de aceptación y el orden estable de listProjects; los tres hallazgos se promueven a este change.
+- **2026-10-25T19:30:57Z** `[status]` draft → approved (human via conversation)
