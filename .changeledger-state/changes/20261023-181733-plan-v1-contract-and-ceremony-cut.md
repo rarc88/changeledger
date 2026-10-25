@@ -193,3 +193,4 @@ hijos el modelo que construye.
 - **2026-10-25T23:13:23Z** `[status]` in-progress → done
 - **2026-10-25T23:13:38Z** `[validation]` accepted (merged 0cda03c)
 - **2026-10-25T23:13:38Z** `[graduation]` spec: `lifecycle.md`
+- **2026-10-25T23:13:38Z** `[graduation]` spec: `validation.md`
