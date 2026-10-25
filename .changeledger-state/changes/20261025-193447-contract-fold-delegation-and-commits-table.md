@@ -228,3 +228,4 @@ guards tolerantes, nunca pins de frase. Ninguna línea añadida fuera de
 - **2026-10-25T20:58:10Z** `[status]` draft → approved (human via conversation)
 - **2026-10-25T21:24:53Z** `[status]` approved → in-progress
 - **2026-10-25T21:24:53Z** `[branch]` set: change/20261025-193447 (auto)
+- **2026-10-25T21:24:59Z** `[note]` Specification y Plan escritos en in-progress con el código delante (dev tras el PR 32). Decisiones no fijadas por el Request: la sección se llama «## Delegation» y va tras «Protect the orchestrator's context»; la tabla de commits lleva columnas cuántos, cuándo y qué lleva; los guards que leían delegation.md se reapuntan al core, y los que sólo tenían sentido con el fragmento separado (162015 CR3/CR4, 144327 CR5 en su mitad anti-duplicación) se retiran con nombre.
