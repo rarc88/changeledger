@@ -471,10 +471,11 @@ Los mensajes de error son literales.
   - **Verify:** `node --test test/cli-bin.test.mjs`
   - **Criteria:** CR12
   - **Resolved:** `2026-10-25T16:58:37Z`
-- [ ] Composición: `handoff` y `discarded` fuera de `MODE_CONTEXT` y `STATUS_CONTEXT`, `global-state.md` compuesto por activación con su techo, ayuda de `context`
+- [x] Composición: `handoff` y `discarded` fuera de `MODE_CONTEXT` y `STATUS_CONTEXT`, `global-state.md` compuesto por activación con su techo, ayuda de `context`
   - **Target:** `src/commands/context.mjs`, `templates/contract/global-state.md`, `templates/contract/budgets.yml`, `bin/changeledger.mjs`, `test/context.test.mjs`
   - **Verify:** `node --test test/context.test.mjs test/contract.test.mjs`
   - **Criteria:** CR2, CR3, CR9
+  - **Resolved:** `2026-10-25T16:58:38Z`
 - [ ] Recorte de prosa por fragmento: `core`, `spec`, `implement`, `review`, `close`, `delegation` (absorbe `handoff`) y la cápsula de revisión; borrado de `handoff.md` y `discarded.md`; barridos y guards reapuntados
   - **Target:** `templates/contract/*.md`, `templates/contract/agent-contexts/review.md`, `templates/contract/agent-prompts/review.md`, `test/context.test.mjs`, `test/contract.test.mjs`, `test/cli.test.mjs`, `test/search.test.mjs`
   - **Verify:** `node --test test/context.test.mjs test/contract.test.mjs test/cli.test.mjs test/search.test.mjs`
