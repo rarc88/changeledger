@@ -238,10 +238,11 @@ construyen con el helper de CR4.
   - **Verify:** `node --test test/registry.test.mjs test/view.test.mjs`
   - **Criteria:** CR6
   - **Resolved:** `2026-10-25T19:49:34Z`
-- [ ] El día después por la CLI
+- [x] El día después por la CLI
   - **Target:** `test/cli-bin.test.mjs`
   - **Verify:** `node --test test/cli-bin.test.mjs`
   - **Criteria:** CR7
+  - **Resolved:** `2026-10-25T19:49:35Z`
 - [ ] Hook sobre la rama, suite completa y `check`
   - **Support:**
   - **Verify:** `sh hooks/no-ledger-refs.sh origin/dev...HEAD && pnpm verify`
