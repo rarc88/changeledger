@@ -136,3 +136,25 @@ test('line numbers follow the new file for a hunk in the middle and every offenc
   );
   assert.equal(result.status, 1);
 });
+
+test('an added line in a renamed file is inspected like any other', () => {
+  const root = scratchRepo({ 'README.md': 'base\n', 'src/ren.mjs': 'export const a = 1;\n' });
+  git(root, 'mv', 'src/ren.mjs', 'src/renamed.mjs');
+  fs.appendFileSync(path.join(root, 'src/renamed.mjs'), `// ${cr(3)} in rename\n`);
+  git(root, 'add', '-A');
+  const result = run(root, '--cached');
+  assert.equal(
+    result.stdout,
+    `src/renamed.mjs:2: ledger reference outside .changeledger/: ${cr(3)}\n`,
+  );
+  assert.equal(result.status, 1);
+});
+
+test('the exemptions hold when the user configures diff.noprefix', () => {
+  const root = scratchRepo();
+  git(root, 'config', 'diff.noprefix', 'true');
+  stage(root, { '.changeledger/changes/np.md': `${ID}\n`, 'src/z.mjs': `// ${cr(4)}\n` });
+  const result = run(root, '--cached');
+  assert.equal(result.stdout, `src/z.mjs:1: ledger reference outside .changeledger/: ${cr(4)}\n`);
+  assert.equal(result.status, 1);
+});

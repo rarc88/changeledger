@@ -1807,8 +1807,8 @@ for (const [label, owner, mode, patterns] of DELEGATION_OBLIGATIONS) {
 // `124655`, the change that owns the obligation, rather than `165310`.
 //
 // Tolerant concept matches over flattened text, never the sentence. A half that a
-// pre-existing sentence already satisfies guards nothing — the lesson the reviewer
-// quantifier entry above records, whose first draft matched the unrelated
+// pre-existing sentence already satisfies guards nothing — the lesson a retired
+// quantifier row of this table recorded, whose first draft matched the unrelated
 // `fail --retry` line. The co-traveller fragment was where that trap sprang again
 // here: `handoff.md` composes into the review pack, and its "Before handing
 // completed or stopped work to the human, classify friction" line satisfied a first
@@ -1927,14 +1927,15 @@ function declaredCeilings() {
 // section); `overlays.global-state` is that section, so the activated core capture
 // publishes the sum of both. `overlays.done` excludes the dependency and related
 // blocks, which belong to the change like its text. `agent` covers the review
-// capsule base and the review skeleton; `overlays.discarded` left with its overlay.
+// capsule base and the review skeleton, measured on both frames too (this repo's
+// capsule carries the policy line: 385); `overlays.discarded` left with its overlay.
 const PINNED_CEILINGS = {
   'base.core': { tokens: 2380, lines: 238 },
   'base.spec': { tokens: 2380, lines: 238 },
   'base.implement': { tokens: 1960, lines: 196 },
   'base.review': { tokens: 820, lines: 82 },
   'base.release': { tokens: 440, lines: 44 },
-  agent: { tokens: 380, lines: 38 },
+  agent: { tokens: 390, lines: 39 },
   'overlays.done': { tokens: 1030, lines: 103 },
   'overlays.global-state': { tokens: 160, lines: 16 },
   'blocks.core-commits': { tokens: 510, lines: 51 },

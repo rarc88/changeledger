@@ -10,8 +10,10 @@ set -eu
 [ $# -eq 1 ] || { echo "usage: $0 --cached | <range>" >&2; exit 2; }
 if [ "$1" = "--cached" ]; then target=--cached; else target=$1; fi
 
-# -U0 plus --diff-filter=AM: only added or modified files, only their changed lines.
-diff=$(git -c core.quotePath=false diff -U0 --diff-filter=AM --no-color "$target") || exit 2
+# -U0 plus --diff-filter=AMR: added, modified or renamed files, only their changed
+# lines. Fixed prefixes and no external driver: the `+++ b/` header is parsed below.
+diff=$(git -c core.quotePath=false diff -U0 --diff-filter=AMR --no-color --no-ext-diff \
+  --src-prefix=a/ --dst-prefix=b/ "$target") || exit 2
 
 printf '%s\n' "$diff" | awk '
 BEGIN {

@@ -6,7 +6,7 @@
     "review": { "tokens": 820, "lines": 82 },
     "release": { "tokens": 440, "lines": 44 }
   },
-  "agent": { "tokens": 380, "lines": 38 },
+  "agent": { "tokens": 390, "lines": 39 },
   "overlays": {
     "done": { "tokens": 1030, "lines": 103 },
     "global-state": { "tokens": 160, "lines": 16 }

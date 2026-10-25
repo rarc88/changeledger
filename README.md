@@ -157,7 +157,7 @@ changeledger context                    # minimal non-negotiable core
 changeledger context <change-id>        # lifecycle-aware rules + selected change
 changeledger context review             # explicit task mode
 changeledger agent-prompt <role>         # portable delegation skeleton
-changeledger agent-context <role> [id]  # self-contained context for that delegate
+changeledger agent-context review <id>  # self-contained context for the reviewer
 ```
 
 `init` places a small optional-discovery bootstrap in the project-owned
@@ -176,7 +176,7 @@ Any other delegation follows the prompt contract in the `delegation` fragment.
 The contract forbids change ids and `CRn` criteria outside `.changeledger/`: a change
 reaches the code through the Plan's `Target` and `Verify` and the `[#id]` commit marker,
 and the code does not cite the change. This repo enforces it with `hooks/no-ledger-refs.sh`, run from its
-pre-commit hook (`--cached`) and from CI on pull requests (Linux and macOS legs, over `origin/<base>...HEAD`).
+pre-commit hook (`--cached`) and from CI on pull requests (Linux and macOS legs, over `origin/dev...HEAD`, the integration branch, so a dev→main PR inspects nothing).
 `hooks/` is not packaged, so a consuming repo copies the script into its own pre-commit.
 
 ### Upgrading an existing repo's configuration

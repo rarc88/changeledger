@@ -320,7 +320,7 @@ test('221849: installed CLI reference names actors and dedicated terminal action
 // consumer-facing interface and out of this change's scope.
 
 // 20260730-002730: the twelve presence pins are retired — the commit unit, the baseline
-// and the correction isolation are curated entries 6 and 9. The two retired-phrase
+// and the commit-before-in-review correction rule are curated entries 6 and 9. The two retired-phrase
 // sweeps stay: the installed contract must not regrow the fixed per-change count or the
 // inseparable-Plan-tasks excuse, and that is the class the decision preserves.
 test('214902 CR5/CR6: the installed contract regrows no retired commit rule', () => {

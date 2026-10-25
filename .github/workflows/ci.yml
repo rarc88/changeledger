@@ -34,8 +34,8 @@ jobs:
       - name: no ledger references outside .changeledger/
         if: github.event_name == 'pull_request' && runner.os != 'Windows'
         run: |
-          git fetch origin ${{ github.base_ref }}
-          sh hooks/no-ledger-refs.sh origin/${{ github.base_ref }}...HEAD
+          git fetch origin dev
+          sh hooks/no-ledger-refs.sh origin/dev...HEAD
       # `activate` records its decision as a git commit (commit-tree), and
       # linux/windows runners carry no git identity to author it with.
       - run: |

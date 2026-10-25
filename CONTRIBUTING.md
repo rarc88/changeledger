@@ -63,7 +63,7 @@ The versioned pre-commit hook runs `lint-staged`, `hooks/no-ledger-refs.sh --cac
 `pnpm test` and `changeledger check`. `no-ledger-refs.sh` rejects an added line outside
 `.changeledger/` (`.changeledger-state/` and `templates/contract/spec.md` are exempt) that
 holds a change id or a `CRn`, naming file and line; CI runs it on
-pull requests (Linux and macOS legs) over `origin/<base>...HEAD`. Existing references stay as they are.
+pull requests (Linux and macOS legs) over `origin/dev...HEAD`. Existing references stay as they are.
 `lint-staged` formats only staged JavaScript, JSON and CSS files while preserving
 partial commits; `pnpm verify` remains the complete manual and CI gate.
 

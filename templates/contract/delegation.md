@@ -17,7 +17,7 @@ is independent, what it returns and how you will integrate it, keep it in the ma
 
 ## Delegation prompt contract
 
-The review skeleton materializes these items; every other prompt states them inline: why the
+The review skeleton carries placeholders for its own; every other prompt states them inline: why the
 work is delegated; the objective and frontier it serves; the files it owns; for a role that
 writes, the baseline (branch or commit) it verifies before starting; the command that
 verifies its result; the return format; and that it must not delegate further.
