@@ -375,3 +375,4 @@ abajo son literales.
 - **2026-10-25T13:48:24Z** `[finding]` CHANGE_ID en src/lifecycle.mjs duplica ID_FORM de src/check.mjs; una sede para la forma del id.
 - **2026-10-25T13:48:25Z** `[finding]` check acepta resoluciones de hallazgo huérfanas o duplicadas (un «9 dropped:» sin F9, o dos resoluciones del mismo ordinal); ningún criterio pidió rechazarlas.
 - **2026-10-25T13:48:25Z** `[finding]` La CLI despacha una resolución cuando la segunda palabra es promote|drop: un texto sin comillas como «3 drop tables» descarta F3 en vez de registrar un hallazgo. La forma documentada entrecomilla el texto.
+- **2026-10-25T13:48:26Z** `[finding]` 1 promoted #20261024-202718
