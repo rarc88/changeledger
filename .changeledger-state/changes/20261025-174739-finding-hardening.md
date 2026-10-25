@@ -5,6 +5,7 @@ type: change
 status: done
 created: 2026-10-25T17:47:39Z
 depends_on: []
+archived: true
 reviewed: true
 branch: change/20261025-174739
 related_to:
@@ -267,3 +268,4 @@ construyen con el helper de CR4.
 - **2026-10-25T20:11:38Z** `[review]` in-review → done (delegated subagent, clean context)
 - **2026-10-25T20:11:43Z** `[finding]` La expresión de encabezado y frontmatter está copiada en change.mjs, fix.mjs y check.mjs; una pasada de etapas con números de línea exportada desde change.mjs las uniría. Deuda, no defecto.
 - **2026-10-25T20:11:43Z** `[graduation]` skipped: código sin verdad persistente nueva: la forma de finding y las reglas de check las documentan la ayuda, README y CONTRIBUTING; la spec usage.md la reconcilia la épica 20261023-181733 al cerrar
+- **2026-10-25T21:24:52Z** `[archive]` archived
