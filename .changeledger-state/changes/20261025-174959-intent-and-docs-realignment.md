@@ -219,7 +219,7 @@ queda registrado como hallazgo (CR5).
 ### CR5 — La pista gap se documenta como es y el desajuste queda registrado
 - **Given** la sección de `gap` de `docs/usage-capture.md`
 - **When** se lee
-- **Then** dice que la pista cuenta también las líneas `[validation] accepted` de un ledger activado, porque hoy el análisis no distingue el sello de aceptación de una transición
+- **Then** dice que la pista cuenta también las líneas `[validation] accepted`, en cualquier disposición, porque hoy el análisis filtra por tipo de evento y no por resultado
 - **And** el Log de este change registra con `changeledger finding` el desajuste, nombrando `unrecordedTransitions` y la condición que lo corrige (`outcome !== 'accepted'`), para que el humano lo promueva si quiere
 
 ### CR6 — El acta de julio desaparece sin dejar referencias
