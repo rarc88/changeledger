@@ -2,7 +2,7 @@
 id: "20261025-193447"
 title: "Opciones 1 y 2 del §12: delegation.md dentro del core y el bloque de commits como tabla; la épica mide su objetivo contra el contrato real"
 type: change
-status: in-review
+status: in-progress
 created: 2026-10-25T19:34:47Z
 depends_on: []
 branch: change/20261025-193447
@@ -239,3 +239,4 @@ guards tolerantes, nunca pins de frase. Ninguna línea añadida fuera de
 - **2026-10-25T22:25:44Z** `[note]` Entrega: core 1633 → 1722 palabras (Delegation 200, Commits 348 → 243), contrato 6190 → 6009; tokens fixture/este repo: core 2455/2461, spec 2021/2027, implement 1595/1601, core-commits 346. Tests retirados con nombre: «162015 CR3/CR4: delegation.md points at the unit instead of redefining it» y la mitad de 144327 CR5 que leía delegation.md; renombrado «141121 CR2/CR3» → «every draft type composes the spec fragment alone» porque su línea nueva no puede llevar ids. Decisiones del implementador: frases de justificación y ejemplos que caen con la tabla y el pliegue (la lista está en su informe y ninguna es una obligación del §4).
 - **2026-10-25T22:25:45Z** `[status]` in-progress → in-review
 - **2026-10-25T22:25:49Z** `[note]` Mandato de revisión: auditoría completa del rango c2bb4bca..HEAD (un commit) contra CR1–CR7, con la subida del techo del core como decisión humana registrada y las frases que el implementador dejó caer como puntos de escrutinio frente a las obligaciones del §4.
+- **2026-10-25T22:33:07Z** `[review]` in-review → in-progress: Ronda 1: el comentario de PINNED_CEILINGS en test/context.test.mjs y la nota del Log afirman que base.core es «la primera subida de un techo desde que existen»; es falso: a893e604 subió spec e implement de 2500 a 3000 y 70876bda subió core de 2680 a 2690. Corrección: reescribir el comentario como subida por decisión humana sin la afirmación histórica, y nota correctora en el Log. Clase: enumeración incompleta dentro de la estrategia verificada; el resto de criterios pasa.
