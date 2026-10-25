@@ -183,7 +183,82 @@ test pueda ejercitar; la rama toca `test/`, así que pasa por revisión.
 
 ## Specification
 
+Escrita en `in-progress` con el código delante (`dev` en `2f481a54`). Las
+comprobaciones sobre prosa son barridos y guards tolerantes a la redacción,
+nunca pins de frase literal (AGENTS.md). Verificado antes de escribir:
+`unrecordedTransitions` en `src/usage-analysis.mjs` filtra por tipo `status`,
+`review` y `validation` sin mirar `outcome`, así que la línea `[validation]
+accepted (merged <sha>)` que `graduate` y `sync` escriben sin instantánea
+cuenta en la pista `gap`; es un desajuste de código fuera de esta frontera y
+queda registrado como hallazgo (CR5).
+
+### CR1 — INTENT.md cuenta el ciclo vigente
+- **Given** `INTENT.md` tras el cambio
+- **When** se leen las secciones del flujo y las reglas generales
+- **Then** contiene, con tolerancia a la redacción: que el humano aprueba el objetivo y la frontera de un draft y que Specification y Plan se escriben en `in-progress` con el código delante; que la revisión independiente existe cuando la rama toca código fuera del ledger y no según el tipo; que la aceptación es la fusión de la rama en la de integración y que una entrega vuelve a `in-progress` con razón; que una corrección tras un `fail` o un rechazo se committea como una selección resuelta más y se revisa de nuevo; que la unidad de commit es la selección resuelta; que sólo una release registrada es irreversible; que un hallazgo fuera de la frontera se registra con `changeledger finding` y lo promueve el humano; que `discarded` es terminal
+- **And** no contiene `bloqueado`, `validación humana`, `sin commit`, `frontera durable`, `provisional`, `algunos tipos de change` ni `ampliación material`
+
+### CR2 — Lo que sigue siendo verdad no cambia
+- **Given** `git diff origin/dev -- INTENT.md`
+- **When** se inspecciona
+- **Then** las secciones «Propósito», «1. Conversación primero», «2. Creación del borrador», «Estado global» y «Filtros de evolución del producto» no tienen líneas cambiadas, y la frase «**Commit es confianza.** ChangeLedger no defiende contra quien ya puede escribir en el repositorio…» sigue idéntica, porque `review.md` cita ese modelo de confianza y un guard de `test/context.test.mjs` lo exige
+- **And** `INTENT.md` no contiene ninguna cifra de palabras, fragmentos, tipos o estados del contrato
+
+### CR3 — El test de INTENT guarda obligaciones, no frases
+- **Given** `test/intent.test.mjs`
+- **When** se ejecuta contra `INTENT.md` nuevo y contra `git show origin/dev:INTENT.md`
+- **Then** pasa contra el nuevo y falla contra el antiguo, con cinco guards tolerantes: el humano aprueba objetivo y frontera; la aceptación es la fusión en integración; una entrega vuelve a `in-progress` con razón; sólo una release registrada es irreversible; `discarded` es terminal
+- **And** ningún guard pina una frase completa, el nombre del test describe la obligación y ninguna línea añadida lleva un id de change ni un `CRn`
+
+### CR4 — usage-capture.md dice qué toma instantánea hoy
+- **Given** `docs/usage-capture.md`
+- **When** se leen las secciones de instantáneas, del registro y del análisis
+- **Then** los escritores de instantánea son la creación (`new`, `apply` con `target: "new"`), `status`, `approve`, `review`, `discard`, `status --human` al devolver una entrega, una transición del viewer y una entrada `status` de `apply`; `validation` y `reopen` no aparecen como comandos; dice que `[validation] accepted (merged <sha>)`, escrito por `graduate` y `sync`, no toma instantánea; el campo `event` de un registro nuevo es `created | status | review` y `validation` sólo aparece en registros anteriores; un veredicto fallido es `[review] in-review → in-progress` o `[status] done → in-progress`, y los bordes `in-review → blocked` e `in-validation → in-progress` sólo clasifican registros de ledgers anteriores; la lista de comandos sin instantánea nombra `finding`, `sync`, `commit` y `release` o se enuncia como regla positiva
+- **And** la versión pinada de ccusage, el tiempo límite, los mensajes de aviso, los grupos de `--by` y las pistas de `analyze` no cambian, porque coinciden con el código
+
+### CR5 — La pista gap se documenta como es y el desajuste queda registrado
+- **Given** la sección de `gap` de `docs/usage-capture.md`
+- **When** se lee
+- **Then** dice que la pista cuenta también las líneas `[validation] accepted` de un ledger activado, porque hoy el análisis no distingue el sello de aceptación de una transición
+- **And** el Log de este change registra con `changeledger finding` el desajuste, nombrando `unrecordedTransitions` y la condición que lo corrige (`outcome !== 'accepted'`), para que el humano lo promueva si quiere
+
+### CR6 — El acta de julio desaparece sin dejar referencias
+- **Given** la rama del change
+- **When** se lista `docs/` y se buscan referencias
+- **Then** `docs/workflow-hardening.md` no existe; `docs/changeledger-v1-plan.md` y `docs/usage-capture.md` sí; `grep -rn "workflow-hardening" README.md AGENTS.md CONTRIBUTING.md INTENT.md src/ bin/ docs/` no devuelve nada; las dos apariciones en `test/cli.test.mjs` y `test/cli-bin.test.mjs` son nombres de fichero de fixtures temporales, que no leen el fichero real, y se quedan
+
+### CR7 — Ninguna línea añadida cita al ledger
+- **Given** los commits de la rama
+- **When** `sh hooks/no-ledger-refs.sh origin/dev...HEAD`
+- **Then** sale 0 sin salida
+
+### CR8 — El día después
+- **Given** la rama con todo lo anterior
+- **When** `pnpm verify` y `node bin/changeledger.mjs context`
+- **Then** la suite pasa entera, `check` es verde y la captura del core no cambia de tamaño, porque `INTENT.md` y `docs/` no forman parte del contrato
+
 ## Plan
+
+- [ ] Reescribir en `INTENT.md` las secciones 3 a 10 del flujo y las reglas generales en el vocabulario del contrato, sin tocar propósito, conversación, creación, modelo de confianza, estado global ni filtros
+  - **Target:** `INTENT.md`
+  - **Verify:** `node --test test/intent.test.mjs`
+  - **Criteria:** CR1, CR2
+- [ ] Reescribir `test/intent.test.mjs` como cinco guards tolerantes, rojos contra el `INTENT.md` de `origin/dev`
+  - **Target:** `test/intent.test.mjs`
+  - **Verify:** `node --test test/intent.test.mjs`
+  - **Criteria:** CR3
+- [ ] Corregir `docs/usage-capture.md`: escritores de instantánea, campo `event`, bordes de `rework`, comandos sin instantánea y la pista `gap`; registrar el hallazgo sobre `unrecordedTransitions`
+  - **Target:** `docs/usage-capture.md`
+  - **Verify:** `grep -n "reopen\|validation\b" docs/usage-capture.md`
+  - **Criteria:** CR4, CR5
+- [ ] Borrar `docs/workflow-hardening.md` y comprobar que nada lo referencia
+  - **Target:** `docs/workflow-hardening.md`
+  - **Verify:** `grep -rn "workflow-hardening" README.md AGENTS.md CONTRIBUTING.md INTENT.md src/ bin/ docs/`
+  - **Criteria:** CR6
+- [ ] Hook sobre la rama, suite completa y `check` antes de pedir la revisión
+  - **Support:**
+  - **Verify:** `sh hooks/no-ledger-refs.sh origin/dev...HEAD && pnpm verify`
+  - **Criteria:** CR7, CR8
 
 ## Log
 - **2026-10-25T17:49:59Z** `[version]` 0.19.0
