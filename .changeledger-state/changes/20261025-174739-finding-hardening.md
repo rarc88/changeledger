@@ -246,3 +246,4 @@ construyen con el helper de CR4.
 - **2026-10-25T19:30:57Z** `[status]` draft → approved (human via conversation)
 - **2026-10-25T19:31:02Z** `[status]` approved → in-progress
 - **2026-10-25T19:31:02Z** `[branch]` set: change/20261025-174739 (auto)
+- **2026-10-25T19:32:42Z** `[note]` Specification y Plan escritos en in-progress con el código delante (dev 54e6d3df). Decisiones no fijadas por el Request: la sede del id es src/lifecycle.mjs (check.mjs ya lo importa y lifecycle no importa check); findingsInLog devuelve también las resoluciones descartadas con línea y causa; listProjects ordena por nombre y después por id; un texto cuyo primer palabra es promote|drop y cuya segunda es un ordinal es una resolución, en cualquier otro caso es texto; los helpers de fixtures son criterion(n) y changeId(date, time) en test/helpers/ledger-fixtures.mjs.
