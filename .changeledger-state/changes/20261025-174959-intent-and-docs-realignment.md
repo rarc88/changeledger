@@ -249,10 +249,11 @@ queda registrado como hallazgo (CR5).
   - **Verify:** `node --test test/intent.test.mjs`
   - **Criteria:** CR3
   - **Resolved:** `2026-10-25T18:10:05Z`
-- [ ] Corregir `docs/usage-capture.md`: escritores de instantánea, campo `event`, bordes de `rework`, comandos sin instantánea y la pista `gap`; registrar el hallazgo sobre `unrecordedTransitions`
+- [x] Corregir `docs/usage-capture.md`: escritores de instantánea, campo `event`, bordes de `rework`, comandos sin instantánea y la pista `gap`; registrar el hallazgo sobre `unrecordedTransitions`
   - **Target:** `docs/usage-capture.md`
   - **Verify:** `grep -n "reopen\|validation\b" docs/usage-capture.md`
   - **Criteria:** CR4, CR5
+  - **Resolved:** `2026-10-25T18:10:06Z`
 - [ ] Borrar `docs/workflow-hardening.md` y comprobar que nada lo referencia
   - **Target:** `docs/workflow-hardening.md`
   - **Verify:** `grep -rn "workflow-hardening" README.md AGENTS.md CONTRIBUTING.md INTENT.md src/ bin/ docs/`
