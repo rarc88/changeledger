@@ -2,7 +2,7 @@
 id: "20261024-202659"
 title: "Un hallazgo fuera de la frontera se registra como evento del Log: finding, list --pending findings y su promoción a change"
 type: change
-status: in-progress
+status: in-review
 created: 2026-10-24T20:26:59Z
 depends_on: []
 branch: change/20261024-202659
@@ -363,3 +363,4 @@ abajo son literales.
 - **2026-10-25T13:06:55Z** `[branch]` set: change/20261024-202659 (auto)
 - **2026-10-25T13:10:54Z** `[note]` Specification y Plan escritos en in-progress con el código delante (dev 3e1f23de). Decisiones no fijadas por el Request: la forma de la CLI es un solo comando finding <id> con la cola <texto...> o <n> promote|drop …, distinguida por si las dos primeras palabras son un entero y promote|drop; la lista de --pending findings devuelve filas de hallazgo (id, n, text, at), no de change; --archived restringe a orígenes archivados y --all equivale a no pasar nada; los techos de core, implement y review bajan a lo medido redondeado a la decena (pre-autorizado). El documento del change vive en la ref de estado, así que no hay commit de baseline en la rama: cada edit es un commit de esa ref.
 - **2026-10-25T13:33:40Z** `[note]` Implementación delegada entregada (rojo→verde por criterio, mutantes en CR1/CR6/CR8, pnpm verify 2193/2193). Pins reapuntados, no retirados: context.test 213942 CR1-CR4 y 124835 CR2/CR3 (fila y viñetas de --pending), lifecycle.test 134716 CR1/CR2 (diez tipos), cli-bin.test 131649 CR3/CR4/CR6/CR8-CR10 (dominio de --pending). Medido con budget-support sobre repo recién iniciado: core 2681→2678, implement 2478→2471, review 1100→1093 tokens; techos a 2680/2480/1100. La frase del handoff «Create the draft only after explicit authorization» cae: su obligación vive en el invariante del core «No artifact without explicit human authorization». Residuales: apply no escribe hallazgos; sin vista en el viewer; CR11 sin mutante de fuente (usage-analysis.mjs fuera de la frontera).
+- **2026-10-25T13:33:56Z** `[status]` in-progress → in-review
