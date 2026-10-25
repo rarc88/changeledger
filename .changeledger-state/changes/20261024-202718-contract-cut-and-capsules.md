@@ -491,10 +491,11 @@ Los mensajes de error son literales.
   - **Verify:** `node --test test/contract.test.mjs`
   - **Criteria:** CR15
   - **Resolved:** `2026-10-25T16:58:40Z`
-- [ ] Medir, bajar techos y registrar palabras por fragmento frente al §5
+- [x] Medir, bajar techos y registrar palabras por fragmento frente al §5
   - **Target:** `templates/contract/budgets.yml`, `test/context.test.mjs`
   - **Verify:** `node --test test/context.test.mjs`
   - **Criteria:** CR13
+  - **Resolved:** `2026-10-25T16:58:40Z`
 - [ ] El día después, de punta a punta
   - **Target:** `test/cli-bin.test.mjs`
   - **Verify:** `node --test test/cli-bin.test.mjs`
