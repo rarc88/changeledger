@@ -528,3 +528,4 @@ Los mensajes de error son literales.
 - **2026-10-25T17:18:08Z** `[finding]` Bajo el hook, un fixture de test que necesita un id o un ### CRn lo ensambla por concatenación (CR${n}, '20260705'-…): legible a medias y trivial de esquivar. Convención a confirmar por el humano, o una exención explícita para fixtures del ledger.
 - **2026-10-25T17:18:09Z** `[finding]` docs/workflow-hardening.md y docs/changeledger-v1-plan.md siguen nombrando los roles retirados y el aislamiento de correcciones; es el hijo de INTENT.md y docs.
 - **2026-10-25T17:34:58Z** `[archive]` archived
+- **2026-10-25T17:50:05Z** `[finding]` 3 promoted #20261025-174959
