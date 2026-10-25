@@ -202,10 +202,11 @@ guards tolerantes, nunca pins de frase. Ninguna línea añadida fuera de
 
 ## Plan
 
-- [ ] `## Delegation` en el core, borrado de `delegation.md`, `MODE_CONTEXT`, inventario, encabezados, guards reapuntados
+- [x] `## Delegation` en el core, borrado de `delegation.md`, `MODE_CONTEXT`, inventario, encabezados, guards reapuntados
   - **Target:** `templates/contract/core.md`, `templates/contract/delegation.md`, `src/commands/context.mjs`, `test/context.test.mjs`, `test/contract.test.mjs`
   - **Verify:** `node --test test/context.test.mjs test/contract.test.mjs`
   - **Criteria:** CR1, CR2, CR3
+  - **Resolved:** `2026-10-25T22:25:41Z`
 - [ ] Tabla de clases de commit con las reglas en prosa breve
   - **Target:** `templates/contract/core.md`, `test/context.test.mjs`
   - **Verify:** `node --test test/context.test.mjs test/cli.test.mjs`
