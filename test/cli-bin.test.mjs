@@ -645,7 +645,7 @@ test('131649 CR3/CR4/CR6/CR10: list help documents its complete filter domain', 
   assert.match(out, /\.changeledger\/config\.yml/);
   assert.match(out, /--owner/);
   assert.match(out, /--unowned/);
-  assert.match(out, /--pending.*graduation.*archive/is);
+  assert.match(out, /--pending.*graduation.*archive.*findings/is);
   assert.match(out, /--archived/);
   assert.match(out, /--all/);
 });
@@ -660,7 +660,10 @@ test('131649 CR4/CR6/CR8-CR10: CLI rejects removed, conflicting and invalid quer
     ['list', '--pending', 'release'],
   ];
   for (const args of cases) assert.equal(runIn(root, env, ...args).code, 1, args.join(' '));
-  assert.match(runIn(root, env, 'list', '--pending', 'release').err, /graduation.*archive/);
+  assert.match(
+    runIn(root, env, 'list', '--pending', 'release').err,
+    /graduation, archive, findings/,
+  );
 });
 
 test('225212 CR4: changeledger view -h shows explicit syntax for view, view . and a port', () => {
@@ -2248,4 +2251,154 @@ test('20261024-121022 CR4: the written scaffold is the printed one, and approve 
   const approve = runIn(root, env, 'approve', id);
   assert.notEqual(approve.code, 0);
   assert.match(approve.err, /cannot approve: "### Objective", "### Frontier" are empty/);
+});
+
+test('20261024-202659 CR2: log --help prints finding with its only writer', () => {
+  const { code, out } = run('log', '--help');
+  assert.equal(code, 0);
+  assert.ok(
+    out.includes(
+      [
+        '  finding',
+        '    Payload: <text>',
+        '    Or: <n> promoted #<id>',
+        '    Or: <n> dropped: <reason>',
+        '    Written by:',
+        '      changeledger finding',
+      ].join('\n'),
+    ),
+    out,
+  );
+});
+
+function findingCliRepo() {
+  const { root, env, id, changeFile } = doneRepo();
+  assert.equal(runIn(root, env, 'new', 'change', 'y', 'Y', '--owner', 'Ana').code, 0);
+  const other = JSON.parse(runIn(root, env, 'list', '--json').out).find((c) => c.id !== id).id;
+  return { root, env, x: id, y: other, changeFile };
+}
+
+const lastLogLine = (file) => fs.readFileSync(file, 'utf8').trimEnd().split('\n').at(-1);
+
+test('20261024-202659 CR4-CR7: the finding command records, promotes and drops through the CLI', () => {
+  const { root, env, x, y, changeFile } = findingCliRepo();
+  const first = runIn(root, env, 'finding', x, 'el ejemplo de ayuda cita un id');
+  assert.equal(first.code, 0, first.err);
+  assert.equal(first.out, `finding F1 recorded on #${x}\n`);
+  assert.match(lastLogLine(changeFile), /`\[finding\]` el ejemplo de ayuda cita un id$/);
+  assert.equal(runIn(root, env, 'finding', x, 'segundo').out, `finding F2 recorded on #${x}\n`);
+
+  const promoted = runIn(root, env, 'finding', x, '2', 'promote', y);
+  assert.equal(promoted.code, 0, promoted.err);
+  assert.equal(promoted.out, `finding F2 on #${x} → promoted to #${y}\n`);
+  assert.match(lastLogLine(changeFile), new RegExp(`\`\\[finding\\]\` 2 promoted #${y}$`));
+
+  const dropped = runIn(root, env, 'finding', x, '1', 'drop', 'ya', 'no', 'aplica');
+  assert.equal(dropped.code, 0, dropped.err);
+  assert.equal(dropped.out, `finding F1 on #${x} → dropped\n`);
+  assert.match(lastLogLine(changeFile), /`\[finding\]` 1 dropped: ya no aplica$/);
+
+  const before = fs.readFileSync(changeFile, 'utf8');
+  for (const [args, message] of [
+    [[x, ''], 'finding text must not be empty'],
+    [
+      [x, '2 promoted #20260101-000000'],
+      'finding text "2 promoted #20260101-000000" reads as a resolution; resolve a finding with changeledger finding <id> <n> promote|drop',
+    ],
+    [[x, 'abc', 'promote', y], 'finding ordinal must be a positive integer (got "abc")'],
+    [[x, '3', 'promote', y], `change #${x} has no finding F3`],
+    [[x, '1', 'drop', ''], 'drop requires a reason'],
+  ]) {
+    const result = runIn(root, env, 'finding', ...args);
+    assert.equal(result.code, 1, args.join(' '));
+    assert.equal(result.err, `Error: ${message}\n`, args.join(' '));
+  }
+  assert.equal(fs.readFileSync(changeFile, 'utf8'), before);
+});
+
+test('20261024-202659 CR4: finding --help names both forms and what a finding is', () => {
+  const { code, out } = run('finding', '--help');
+  assert.equal(code, 0);
+  assert.match(out, /outside the active change's frontier/);
+  assert.match(out, /changeledger finding <id> "<text>"/);
+  assert.match(out, /changeledger finding <id> <n> promote <change-id>/);
+  assert.match(out, /changeledger finding <id> <n> drop "<reason>"/);
+});
+
+test('20261024-202659 CR8: list --pending findings prints the open findings of the whole ledger', () => {
+  const { root, env, x, y, changeFile } = findingCliRepo();
+  assert.equal(runIn(root, env, 'finding', x, 'falta la vista').code, 0);
+  assert.equal(runIn(root, env, 'finding', x, 'sobra un test').code, 0);
+  assert.equal(runIn(root, env, 'finding', x, '2', 'drop', 'no', 'aplica').code, 0);
+  fs.writeFileSync(
+    changeFile,
+    fs.readFileSync(changeFile, 'utf8').replace('status: done', 'status: done\narchived: true'),
+  );
+  assert.equal(runIn(root, env, 'finding', y, 'otro hallazgo').code, 0);
+
+  const text = runIn(root, env, 'list', '--pending', 'findings');
+  assert.equal(text.code, 0, text.err);
+  assert.equal(text.out, `#${x} F1  falta la vista\n#${y} F1  otro hallazgo\n`);
+  const rows = JSON.parse(runIn(root, env, 'list', '--pending', 'findings', '--json').out);
+  assert.deepEqual(
+    rows.map(({ id, n, text: t }) => ({ id, n, text: t })),
+    [
+      { id: x, n: 1, text: 'falta la vista' },
+      { id: y, n: 1, text: 'otro hallazgo' },
+    ],
+  );
+  for (const row of rows) assert.match(row.at, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
+  assert.equal(
+    runIn(root, env, 'list', '--pending', 'findings', '--archived').out,
+    `#${x} F1  falta la vista\n`,
+  );
+  assert.equal(
+    runIn(root, env, 'list', '--pending', 'findings', '--owner', 'Roberto Ruiz').out,
+    `#${x} F1  falta la vista\n`,
+  );
+  assert.equal(runIn(root, env, 'list', '--pending', 'findings', '--all').out, text.out);
+});
+
+test('20261024-202659 CR9: an invalid --pending names the three kinds, and the help documents findings', () => {
+  const { root, env } = doneRepo();
+  const invalid = runIn(root, env, 'list', '--pending', 'release');
+  assert.equal(invalid.code, 1);
+  assert.equal(
+    invalid.err,
+    'Error: Invalid --pending "release". Valid: graduation, archive, findings\n',
+  );
+  const help = run('list', '--help').out;
+  assert.match(help, /filter pending work \(graduation\|archive\|findings\)/);
+  assert.match(help, /changeledger list --pending findings/);
+});
+
+test('20261024-202659 CR14: the day after, a finding is recorded, listed and promoted', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
+  assert.equal(runIn(root, env, 'init').code, 0);
+  assert.equal(runIn(root, env, 'new', 'change', 'x', 'X', '--owner', 'Ana').code, 0);
+  const x = JSON.parse(runIn(root, env, 'list', '--json').out)[0].id;
+  assert.equal(runIn(root, env, 'new', 'change', 'y', 'Y', '--owner', 'Ana').code, 0);
+  const y = JSON.parse(runIn(root, env, 'list', '--json').out).find((c) => c.id !== x).id;
+
+  assert.equal(runIn(root, env, 'finding', x, 'falta la vista').code, 0);
+  assert.equal(runIn(root, env, 'list', '--pending', 'findings').out, `#${x} F1  falta la vista\n`);
+  const promoted = runIn(root, env, 'finding', x, '1', 'promote', y);
+  assert.equal(promoted.code, 0, promoted.err);
+  assert.equal(runIn(root, env, 'list', '--pending', 'findings').out, '');
+  assert.equal(JSON.parse(runIn(root, env, 'list', '--all', '--json').out).length, 2);
+
+  const shown = JSON.parse(runIn(root, env, 'show', x, '--json').out);
+  const logBody = shown.stages.find((s) => s.key === 'log').body;
+  assert.deepEqual(
+    logBody
+      .split('\n')
+      .filter((line) => line.includes('`[finding]`'))
+      .map((line) => line.replace(/^- \*\*\S+\*\* /, '')),
+    ['`[finding]` falta la vista', `\`[finding]\` 1 promoted #${y}`],
+  );
+  const check = runIn(root, env, 'check');
+  assert.equal(check.code, 0, check.out + check.err);
 });

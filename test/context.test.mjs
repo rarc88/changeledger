@@ -292,8 +292,9 @@ test('213942 CR1-CR4: core teaches operational discovery without embedding or mu
   const second = buildContext(undefined, root);
 
   assert.match(first, /`changeledger list --status approved`/);
-  assert.match(first, /`changeledger list --pending graduation`/);
-  assert.match(first, /`changeledger list --pending archive`/);
+  for (const kind of ['graduation', 'archive', 'findings']) {
+    assert.match(first, new RegExp(`\`changeledger list --pending [^\`]*\\b${kind}\\b[^\`]*\``));
+  }
   assert.doesNotMatch(first, /`changeledger graduate --pending`/);
   assert.doesNotMatch(first, /`changeledger archive --graduated --dry-run`/);
   assert.match(first, /before (scanning|searching) files/i);
@@ -2028,11 +2029,14 @@ function declaredCeilings() {
 // that leaves at least 25 tokens over the largest measurement (the template
 // fixture and this repo's own capture). `base.spec` measured 2390 and stays at
 // 2400, the one entry under that headroom, because a ceiling may only decrease.
+// 20261024-202659 CR12 lowered `base.core`, `base.implement` and `base.review`
+// again, to the largest measurement (this repo's own capture: 2684, 2477 and
+// 1099) rounded up to the nearest ten, with lines = tokens / 10.
 const PINNED_CEILINGS = {
-  'base.core': { tokens: 2750, lines: 275 },
+  'base.core': { tokens: 2690, lines: 269 },
   'base.spec': { tokens: 2400, lines: 240 },
-  'base.implement': { tokens: 2500, lines: 250 },
-  'base.review': { tokens: 1150, lines: 115 },
+  'base.implement': { tokens: 2480, lines: 248 },
+  'base.review': { tokens: 1100, lines: 110 },
   'base.release': { tokens: 500, lines: 50 },
   agent: { tokens: 600, lines: 60 },
   'overlays.done': { tokens: 1150, lines: 115 },
@@ -2314,7 +2318,7 @@ test('124835 CR2/CR3: the intent table routes every observed intent', () => {
     '| asks, explores or wants understanding | answer from the repo: `changeledger search <terms>` before reading code |',
     '| reports a problem or asks for new work | conversation first, then `changeledger context spec` only once the human authorizes documenting it |',
     '| names a change or says "continue" | `changeledger context <id>` |',
-    '| asks what is pending | `changeledger list --status <s>`, `--pending graduation`, `--pending archive` |',
+    '| asks what is pending | `changeledger list --status <s>`, `--pending findings`, `graduation`, `archive` |',
     '| asks to review finished work | `changeledger context review` in a fresh clean context |',
     '| asks to release | `changeledger context release` |',
     '| requests an edit no change covers | ask the human: a `change` with Request and Log, or an operational edit |',

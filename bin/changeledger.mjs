@@ -13,6 +13,8 @@ import {
   list,
   log,
   owner,
+  recordFinding,
+  resolveFinding,
   review,
   show,
   status,
@@ -134,8 +136,9 @@ const LOG_EVENT_PRODUCERS = Object.freeze({
   note: ['changeledger log'],
   version: [
     'changeledger new, changeledger apply (creation)',
-    'every command above that appends a Log event, when the Log has no stamp or its last one differs from the installed version (not edit or apply documents)',
+    'every command listed here that appends a Log event, when the Log has no stamp or its last one differs from the installed version (not edit or apply documents)',
   ],
+  finding: ['changeledger finding'],
 });
 
 function logEventGrammarHelp() {
@@ -185,7 +188,7 @@ prompt identifies your role and tells you to run \`agent-context\` instead.
 
   changeledger init | register | new | edit | apply | view | check | fix | context | agent-context
   changeledger commit | status | approve | discard | review | owner
-  changeledger archive | log | task | list | show | search | analyze | graduate | config | release
+  changeledger archive | log | finding | task | list | show | search | analyze | graduate | config | release
   changeledger cutover | activate | import | sync
 
 Run \`changeledger <command> --help\` for that command's syntax, values and examples.`;
@@ -974,6 +977,44 @@ program
   );
 
 program
+  .command('finding')
+  .description("record a finding outside the active change's frontier, or resolve one")
+  .argument('<id>', 'the change whose Log holds the finding')
+  .argument('<parts...>', '"<text>", or <n> promote <change-id>, or <n> drop "<reason>"')
+  .addHelpText(
+    'after',
+    [
+      '',
+      "A finding is something found outside the active change's frontier. It is",
+      'recorded in the Log of the change where it was found, and the human decides',
+      'later whether it becomes a change (promote) or not (drop).',
+      '',
+      'Forms:',
+      '  changeledger finding <id> "<text>"                  record an open finding',
+      '  changeledger finding <id> <n> promote <change-id>   link finding F<n> to the change it became',
+      '  changeledger finding <id> <n> drop "<reason>"       close finding F<n> with a reason',
+      '',
+      "<n> is the finding's ordinal in that change's Log (F1, F2, ...). promote only",
+      'appends to this Log and creates no change: create it first through the authorized flow.',
+      'List the open findings with `changeledger list --pending findings`.',
+    ].join('\n'),
+  )
+  .action(
+    action((id, parts) => {
+      if (parts.length >= 2 && ['promote', 'drop'].includes(parts[1])) {
+        const [n, outcome, ...rest] = parts;
+        const value = rest.join(' ').trim();
+        resolveFinding(id, n, outcome, value);
+        const result = outcome === 'promote' ? `promoted to #${value}` : 'dropped';
+        console.log(`finding F${n} on #${id} → ${result}`);
+        return;
+      }
+      const { n } = recordFinding(id, parts.join(' ').trim());
+      console.log(`finding F${n} recorded on #${id}`);
+    }),
+  );
+
+program
   .command('task')
   .description('mark a Plan task')
   .argument('<id>')
@@ -1011,7 +1052,7 @@ program
   .option('--owner <name>', 'filter by exact owner name; incompatible with --unowned')
   .option('--unowned', 'list changes without an owner; incompatible with --owner')
   .option('--parent <id>', 'list the children of that epic')
-  .option('--pending <kind>', 'filter pending work (graduation|archive)')
+  .option('--pending <kind>', 'filter pending work (graduation|archive|findings)')
   .option('--archived', 'list only archived changes; incompatible with --all')
   .option('--all', 'include archived and non-archived changes; incompatible with --archived')
   .option('--json', 'print JSON')
@@ -1026,6 +1067,7 @@ program
       '  changeledger list --pending graduation',
       '  changeledger list --parent 20260613-110000',
       '  changeledger list --pending archive',
+      '  changeledger list --pending findings   # open findings, archived changes included',
       '  changeledger list --archived',
       '  changeledger list --type change --json',
     ].join('\n'),
@@ -1044,6 +1086,8 @@ program
       });
       if (options.json) {
         console.log(JSON.stringify(items, null, 2));
+      } else if (options.pending === 'findings') {
+        for (const f of items) console.log(`#${f.id} F${f.n}  ${f.text}`);
       } else {
         for (const c of items) console.log(`${String(c.status).padEnd(12)} #${c.id}  ${c.title}`);
       }

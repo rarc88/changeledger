@@ -10,8 +10,7 @@ unfinished observations instead of silently mixing them into the active change:
 - An operational step (verify, commit, graduate, archive, close): execute or
   record it in the current flow.
 - Outside the approved objective, or beyond the frontier: keep it outside the
-  change and propose type, title and reason to the human, batching related proposals.
-  Create the draft only after explicit authorization.
+  change and record it with `changeledger finding <id>`; the human promotes it.
 - Too vague for a backlog entry: mention it in the handoff, create no file.
 
 Never mix independent concerns into active work or hold up an otherwise-ready

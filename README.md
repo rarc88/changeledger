@@ -97,11 +97,13 @@ changeledger analyze [id] [--by K]        # token use and cost from the usage re
 ```sh
 changeledger new change|epic <slug> <title> # create a draft change
 changeledger list [--status S] [--type T] [--owner NAME|--unowned]
-changeledger list [--pending graduation|archive] [--archived|--all]
+changeledger list [--pending graduation|archive|findings] [--archived|--all]
 changeledger show <id> [--json]
 changeledger status <id> <status>
 changeledger task <id> done|block <n> [reason]
 changeledger log <id> <message>
+# a finding is something found outside the active change's frontier, kept in its Log
+changeledger finding <id> "<text>" | <n> promote <id> | <n> drop "<reason>"
 changeledger review <id> pass
 changeledger review <id> fail "<reason>"
 changeledger discard <id> <reason>
