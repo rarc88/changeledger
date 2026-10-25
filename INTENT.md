@@ -44,23 +44,23 @@ La aceptación humana es la fusión de la rama del change en la rama de integrac
 
 ### 7. Correcciones
 
-Una corrección —venga del subagente revisor o del rechazo humano— es una selección resuelta más: se committea cuando pasa su verificación local y el change vuelve a revisión, donde un revisor fresco inspecta de nuevo todo lo entregado. El historial muestra el intento y su confirmación; no se mantiene trabajo aislado en el worktree esperando una confirmación.
+Una corrección —venga del subagente revisor o del rechazo humano— es una selección resuelta más: se committea cuando pasa su verificación local y, si la rama toca código, el change vuelve a revisión, donde un revisor fresco inspecciona de nuevo lo entregado bajo el mandato que el orquestador declara. El historial muestra el intento y su confirmación; no se mantiene trabajo aislado en el worktree esperando una confirmación.
 
 ### 8. Cierre y graduación
 
-Entregado un change, si el trabajo modificó algo permanente, el agente actualiza la verdad persistente en las specs; si no, registra esa decisión. Los hijos de una épica no gradúan por separado: la épica reconcilia las specs una sola vez al cerrar.
+Entregado un change, si el trabajo modificó algo permanente, el agente actualiza la verdad persistente en las specs; si no, registra esa decisión. Un hijo de una épica registra su decisión con un skip y no toca specs: la épica las reconcilia una sola vez al cerrar.
 
-Mientras un change no figure en una release registrada, puede volver a en progreso con una razón: la graduación y el archivo se deshacen por su propia documentación. La release es la única frontera irreversible, porque congela la membresía de una versión publicada. `discarded` es terminal desde el principio.
+Mientras un change no figure en una release registrada, puede volver a en progreso con una razón: la graduación es un enlace que se vuelve a resolver y el archivo se deshace en el documento, aunque la rama local que borró no vuelve. La release es la única frontera irreversible, porque congela la membresía de una versión publicada. `discarded` es terminal desde el principio.
 
 ### 9. Trazabilidad como hábito
 
-- Cada selección resuelta queda en un commit trazable junto a los archivos que modificó, con el marcador del change en el asunto. Una tarea sola rara vez es esa unidad; una transición de estado nunca lo es.
+- Cada selección resuelta queda en un commit trazable junto a los archivos que modificó, con el marcador del change en el asunto o, cuando varios changes comparten el commit, en el cuerpo. Una tarea sola rara vez es esa unidad; una transición de estado nunca lo es.
 - No es obligatorio ser rígido, pero sí es obligatorio no mezclar cambios de distintos temas en el mismo commit.
 - La referencia va siempre del change al código, nunca al revés: el código no cita changes ni criterios. Lo importante es que cualquier persona pueda seguir el hilo de cómo se resolvió un change leyendo el historial de git.
 
 ### 10. Retrospectiva al final de cada ciclo
 
-Cuando un change se entrega, el agente hace un análisis breve: ¿hubo fricciones en el proceso? ¿Algo fue confuso, repetitivo o podría hacerse mejor? Las observaciones se comparten con el humano como propuestas; lo que queda fuera de la frontera ya está registrado como hallazgo.
+Cerrado un change, el agente hace un análisis breve: ¿hubo fricciones en el proceso? ¿Algo fue confuso, repetitivo o podría hacerse mejor? Las observaciones se comparten con el humano como propuestas; lo que queda fuera de la frontera ya está registrado como hallazgo.
 
 Ninguna propuesta ni hallazgo se convierte en un change por cuenta propia. Solo si el humano lo autoriza.
 

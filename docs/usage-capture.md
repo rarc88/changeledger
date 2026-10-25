@@ -218,8 +218,8 @@ otherwise.
   closes: `pre-draft` for `created`, otherwise the `from` state. An
   `in-progress` segment closed at or after the first failed verdict in its
   change's Log is named `rework` instead; a failed verdict is
-  `[review] in-review → in-progress` or `[status] done → in-progress`, the
-  human rejection of delivered work. The edges `[review] in-review → blocked`
+  `[review] in-review → in-progress` or `[status] done → in-progress`, any
+  return of delivered work, whether the human or the agent recorded it. The edges `[review] in-review → blocked`
   and `[validation] in-validation → in-progress` belong to retired statuses and
   only classify records of earlier ledgers.
 - A recorder's first record with data is its baseline and is not attributed. A
@@ -242,10 +242,9 @@ hint counts the Log transitions of any change (`[status]`, `[review]`,
 (the recorder's previous record with data) and its closing record that have no
 record with the same change and `at`. The analysis filters transitions by
 event type, not by outcome, so the `[validation] accepted (merged <sha>)` stamp
-that `graduate` and `sync` write, which takes no snapshot, is counted there too.
-What the segment's recorder consumed
-while those transitions happened is inside that segment; what another recorder
-consumed for them is not.
+that `graduate` and `sync` write, which takes no snapshot, is counted there too. What the segment's recorder consumed while those
+transitions happened is inside that segment; what another recorder consumed
+for them is not.
 
 ## Failures
 
