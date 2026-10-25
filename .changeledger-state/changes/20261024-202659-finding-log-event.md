@@ -2,9 +2,10 @@
 id: "20261024-202659"
 title: "Un hallazgo fuera de la frontera se registra como evento del Log: finding, list --pending findings y su promoción a change"
 type: change
-status: approved
+status: in-progress
 created: 2026-10-24T20:26:59Z
 depends_on: []
+branch: change/20261024-202659
 related_to:
   - "20261020-130304"
   - "20260614-165720"
@@ -223,3 +224,5 @@ fila «asks what is pending» y la lista de descubrimiento del core nombran
 ## Log
 - **2026-10-24T20:26:59Z** `[version]` 0.19.0
 - **2026-10-25T13:06:50Z** `[status]` draft → approved (human via conversation)
+- **2026-10-25T13:06:55Z** `[status]` approved → in-progress
+- **2026-10-25T13:06:55Z** `[branch]` set: change/20261024-202659 (auto)
