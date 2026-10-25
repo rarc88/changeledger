@@ -382,3 +382,4 @@ abajo son literales.
 - **2026-10-25T17:47:45Z** `[finding]` promote 2 20261025-174739
 - **2026-10-25T17:47:46Z** `[finding]` 2 promoted #20261025-174739
 - **2026-10-25T17:47:46Z** `[finding]` 3 promoted #20261025-174739
+- **2026-10-25T17:47:47Z** `[finding]` 4 promoted #20261025-174739
