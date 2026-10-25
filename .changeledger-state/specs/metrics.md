@@ -75,5 +75,6 @@ la cifra es el número de rondas de revisión que no pasaron, sin distinguir ent
 un defecto corregible y uno que necesita juicio del humano — esa clasificación
 vive en el informe del revisor, no en la métrica.
 
-El visor las calcula en el navegador con este mismo módulo, sobre los changes
-visibles, y las pinta en la pestaña **Metrics**.
+La API documental del visor las sirve precalculadas con este mismo módulo, y la
+pestaña **Metrics** las vuelve a calcular en el navegador sobre los changes
+visibles, con el filtro aplicado, antes de pintarlas.
