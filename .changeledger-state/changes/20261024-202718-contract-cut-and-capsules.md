@@ -414,7 +414,7 @@ Los mensajes de error son literales.
 - **Given** `budgets.yml` y `bin/changeledger.mjs`
 - **When** se leen
 - **Then** `budgets.yml` no tiene `overlays.discarded` y `PINNED_CEILINGS` tampoco; la ayuda de `context` nombra el overlay `close` y no «overlays such as close and discarded»
-- **And** `core.md` sigue diciendo que `discarded` es terminal y nunca se reabre (`171002` de `cli.test.mjs` pasa); `20260629-210543 CR2/CR8/CR9` y `225213 CR6 overlays` se reapuntan a `done`
+- **And** `core.md` sigue diciendo que `discarded` es terminal y nunca se reabre (`171002` de `cli.test.mjs` pasa); `210543 CR2/CR8/CR9` y `225213 CR6 overlays` se reapuntan a `done`
 
 ### CR10 — El contrato enuncia la regla del §6.3 y la cápsula deja de recorrer CRn
 - **Given** `implement.md` y `agent-contexts/review.md`
