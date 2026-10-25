@@ -2,7 +2,7 @@
 id: "20261024-202659"
 title: "Un hallazgo fuera de la frontera se registra como evento del Log: finding, list --pending findings y su promoción a change"
 type: change
-status: draft
+status: approved
 created: 2026-10-24T20:26:59Z
 depends_on: []
 related_to:
@@ -222,3 +222,4 @@ fila «asks what is pending» y la lista de descubrimiento del core nombran
 
 ## Log
 - **2026-10-24T20:26:59Z** `[version]` 0.19.0
+- **2026-10-25T13:06:50Z** `[status]` draft → approved (human via conversation)
