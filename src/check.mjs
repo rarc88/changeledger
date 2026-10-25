@@ -28,7 +28,14 @@ import {
 } from './config.mjs';
 import { hasFixableDefects } from './fix.mjs';
 import { mergeRecord } from './git.mjs';
-import { CANONICAL_STATUSES, canTransition, LOG_EVENT_TYPES, parseLogEvent } from './lifecycle.mjs';
+import {
+  CANONICAL_STATUSES,
+  CHANGE_ID_FORM,
+  canTransition,
+  findingsInLog,
+  LOG_EVENT_TYPES,
+  parseLogEvent,
+} from './lifecycle.mjs';
 import { compareVersions, parseVersion, RELEASE_IMPACTS } from './release.mjs';
 import {
   parseUsageRecordName,
@@ -39,7 +46,6 @@ import { minCliVersionDeclarationError } from './version-guard.mjs';
 
 const REQUIRED = ['id', 'title', 'type', 'status', 'created', 'depends_on'];
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
-const ID_FORM = /^\d{8}-\d{6}$/;
 const SEMANTIC_STAGES = new Set(['request', 'specification', 'plan']);
 // The stages the `in-review` gate reads, and the ones an epic never carries:
 // its children hold the implementation.
@@ -237,7 +243,8 @@ export function checkRepo({ config, changes, specs = [], releases = [], usage = 
 
     for (const k of REQUIRED) if (!(k in fm)) err(c, `missing frontmatter "${k}"`);
     if (fm.created && !ISO_UTC.test(fm.created)) err(c, `created not ISO 8601 UTC: ${fm.created}`);
-    if (fm.id && !ID_FORM.test(String(fm.id))) err(c, `id not in YYYYMMDD-HHMMSS form: ${fm.id}`);
+    if (fm.id && !CHANGE_ID_FORM.test(String(fm.id)))
+      err(c, `id not in YYYYMMDD-HHMMSS form: ${fm.id}`);
     if (fm.id && c.name && !c.name.startsWith(`${fm.id}-`))
       err(c, `filename does not match id "${fm.id}"`);
     if (fm.type) {
@@ -263,7 +270,7 @@ export function checkRepo({ config, changes, specs = [], releases = [], usage = 
     if ('related_to' in fm && !Array.isArray(fm.related_to)) err(c, 'related_to must be a list');
     if ('parent' in fm) {
       if (Array.isArray(fm.parent)) err(c, 'parent must be a single change id, not a list');
-      else if (typeof fm.parent !== 'string' || !ID_FORM.test(fm.parent)) {
+      else if (typeof fm.parent !== 'string' || !CHANGE_ID_FORM.test(fm.parent)) {
         err(c, `parent "${fm.parent}" is not a change id`);
       }
     }
@@ -322,6 +329,7 @@ export function checkRepo({ config, changes, specs = [], releases = [], usage = 
 
     checkDeliveryVerdict(c, fm, err);
     checkLifecycleSequence(c, fm, err);
+    checkFindingResolutions(c, err);
     checkUnclassifiedMentions(c, knownIds, incomingRelations, warn);
   }
 
@@ -522,7 +530,7 @@ function checkParents(changes, ids, err) {
     if (parent === undefined) continue;
     // A malformed value is already reported once as a shape error; reading it
     // as a reference too would charge one defect two diagnostics.
-    if (!ID_FORM.test(parent)) continue;
+    if (!CHANGE_ID_FORM.test(parent)) continue;
     if (parent === id) {
       err(c, `parent cannot reference its own change "${parent}"`);
       continue;
@@ -949,28 +957,35 @@ function checkDeliveryVerdict(c, fm, err) {
   }
 }
 
+// The lines under `## Log`, each with its 1-based line number in the document:
+// the numbering every `Log line <n>` diagnostic cites.
+function logSection(text) {
+  const section = [];
+  let inLog = false;
+  for (const [i, line] of (text ?? '').split('\n').entries()) {
+    if (/^##\s/.test(line)) {
+      inLog = /^##\s+Log\s*$/.test(line);
+      continue;
+    }
+    if (inLog) section.push({ number: i + 1, line });
+  }
+  return section;
+}
+
 // Replays `## Log` lifecycle events from `draft` against the transition graph
 // in lifecycle.mjs. Stops at the first inconsistency to avoid cascading noise.
 // Changes using non-canonical statuses are left alone — the graph cannot
 // reason about states it does not model.
 function checkLifecycleSequence(c, fm, err) {
-  const lines = (c.text ?? '').split('\n');
-  let inLog = false;
   let current = 'draft';
   let events = 0;
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    if (/^##\s/.test(line)) {
-      inLog = /^##\s+Log\s*$/.test(line);
-      continue;
-    }
-    if (!inLog) continue;
+  for (const { number, line } of logSection(c.text)) {
     const event = parseLogEvent(line);
     if (!event) {
       if (/^- /.test(line)) {
         err(
           c,
-          `Log line ${i + 1}: invalid typed event; valid types: ${LOG_EVENT_TYPES.join(', ')}; expected: - **YYYY-MM-DDTHH:MM:SSZ** \`[type]\` payload`,
+          `Log line ${number}: invalid typed event; valid types: ${LOG_EVENT_TYPES.join(', ')}; expected: - **YYYY-MM-DDTHH:MM:SSZ** \`[type]\` payload`,
         );
       }
       continue;
@@ -991,20 +1006,37 @@ function checkLifecycleSequence(c, fm, err) {
       if (!legacyGap) {
         err(
           c,
-          `Log line ${i + 1}: transition "${event.from} → ${event.to}" starts from "${event.from}" but the reconstructed status is "${current}"`,
+          `Log line ${number}: transition "${event.from} → ${event.to}" starts from "${event.from}" but the reconstructed status is "${current}"`,
         );
         return;
       }
       current = event.from;
     }
     if (!canTransition(event.from, event.to) && !LEGACY_EDGES.has(`${event.from}→${event.to}`)) {
-      err(c, `Log line ${i + 1}: invalid lifecycle transition "${event.from} → ${event.to}"`);
+      err(c, `Log line ${number}: invalid lifecycle transition "${event.from} → ${event.to}"`);
       return;
     }
     current = event.to;
   }
   if (events && CANONICAL.has(fm.status) && current !== fm.status) {
     err(c, `Log reconstructs status "${current}" but frontmatter says "${fm.status}"`);
+  }
+}
+
+// A finding resolution that resolves nothing — no finding opened before it, or
+// one already resolved — makes the Log lie about what is pending. `finding`
+// and `list` ignore it through the same reader; here it is an error.
+function checkFindingResolutions(c, err) {
+  const section = logSection(c.text);
+  const { rejected } = findingsInLog(section.map(({ line }) => line).join('\n'));
+  for (const { line, n, cause } of rejected) {
+    const at = `Log line ${section[line].number}: finding F${n}`;
+    err(
+      c,
+      cause === 'never recorded'
+        ? `${at} resolved but never recorded`
+        : `${at} already resolved at line ${section[cause.alreadyAt].number}`,
+    );
   }
 }
 

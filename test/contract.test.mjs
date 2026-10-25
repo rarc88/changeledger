@@ -883,7 +883,7 @@ test('20261024-202659 CR12: the contract records an out-of-frontier finding inst
 test('20261024-202659 CR13: README documents the finding command and the findings query', () => {
   const readme = fs.readFileSync(new URL('../README.md', import.meta.url), 'utf8');
   assert.ok(readme.includes('changeledger list [--pending graduation|archive|findings]'));
-  const entry = 'changeledger finding <id> "<text>" | <n> promote <id> | <n> drop "<reason>"';
+  const entry = 'changeledger finding <id> "<text>" | promote <n> <id> | drop <n> "<reason>"';
   const lines = readme.split('\n');
   const at = lines.findIndex((line) => line.startsWith(entry));
   assert.notEqual(at, -1, 'README has no finding entry');
@@ -918,6 +918,12 @@ test('CONTRIBUTING documents the no-ledger-refs hook and naming tests by behavio
   assert.match(text, /\b(?:change id|id of a change)\b[^.]{0,40}`?CRn`?/i);
   assert.match(text, /name[^.]{0,30}test[^.]{0,40}behaviou?r/i);
   assert.match(text, /`?Target`?[^.]{0,20}`?Verify`?[^.]{0,60}\[#id\]/);
+});
+
+test('CONTRIBUTING says ledger fixtures are built with the helpers under the exempt test/helpers/', () => {
+  const text = repoDoc('CONTRIBUTING.md').replace(/\s+/g, ' ');
+  assert.match(text, /fixture[^.]{0,80}`?criterion\(n\)`?[^.]{0,40}`?changeId\(date, time\)`?/i);
+  assert.match(text, /`?test\/helpers\/`?[^.]{0,30}\bexempt\b/i);
 });
 
 test('README says hooks/ is not packaged and a consuming repo copies the script', () => {

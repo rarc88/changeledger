@@ -9,6 +9,7 @@ import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import {
   assertTransition,
   canTransition,
+  findingsInLog,
   LOG_EVENT_DEFINITIONS,
   LOG_EVENT_PAYLOAD_FORMS,
   LOG_EVENT_TYPES,
@@ -18,6 +19,7 @@ import {
   TASK_ACTIONS,
 } from '../src/lifecycle.mjs';
 import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
+import { changeId } from './helpers/ledger-fixtures.mjs';
 
 const LOG_AT = '- **2026-08-24T16:00:00Z**';
 const logLine = (type, payload) => `${LOG_AT} \`[${type}]\` ${payload}`;
@@ -633,4 +635,32 @@ test('20261024-202659 CR1: finding serializes its three arms and refuses an empt
       }),
     /^Error: invalid finding Log event$/,
   );
+});
+
+test('findingsInLog numbers the open findings and returns the resolutions it rejects with line and cause', () => {
+  const target = changeId('20260101', '000000');
+  const body = [
+    logLine('finding', 'falta la vista'),
+    logLine('finding', '9 dropped: x'),
+    logLine('finding', '1 dropped: ya no aplica'),
+    logLine('note', 'between'),
+    logLine('finding', `1 promoted #${target}`),
+    logLine('finding', '2 dropped: early'),
+    logLine('finding', 'sobra un test'),
+  ].join('\n');
+  const { findings, rejected } = findingsInLog(body);
+  assert.deepEqual(findings, [
+    {
+      n: 1,
+      text: 'falta la vista',
+      at: '2026-08-24T16:00:00Z',
+      resolution: parseLogEvent(logLine('finding', '1 dropped: ya no aplica')),
+    },
+    { n: 2, text: 'sobra un test', at: '2026-08-24T16:00:00Z', resolution: null },
+  ]);
+  assert.deepEqual(rejected, [
+    { line: 1, n: 9, cause: 'never recorded' },
+    { line: 4, n: 1, cause: { alreadyAt: 2 } },
+    { line: 5, n: 2, cause: 'never recorded' },
+  ]);
 });

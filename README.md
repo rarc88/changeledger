@@ -103,7 +103,7 @@ changeledger status <id> <status>
 changeledger task <id> done|block <n> [reason]
 changeledger log <id> <message>
 # a finding is something found outside the active change's frontier, kept in its Log
-changeledger finding <id> "<text>" | <n> promote <id> | <n> drop "<reason>"
+changeledger finding <id> "<text>" | promote <n> <id> | drop <n> "<reason>"
 changeledger review <id> pass
 changeledger review <id> fail "<reason>"
 changeledger discard <id> <reason>

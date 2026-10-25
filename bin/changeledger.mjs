@@ -963,7 +963,7 @@ program
   .command('finding')
   .description("record a finding outside the active change's frontier, or resolve one")
   .argument('<id>', 'the change whose Log holds the finding')
-  .argument('<parts...>', '"<text>", or <n> promote <change-id>, or <n> drop "<reason>"')
+  .argument('<parts...>', '"<text>", or promote <n> <change-id>, or drop <n> "<reason>"')
   .addHelpText(
     'after',
     [
@@ -974,18 +974,21 @@ program
       '',
       'Forms:',
       '  changeledger finding <id> "<text>"                  record an open finding',
-      '  changeledger finding <id> <n> promote <change-id>   link finding F<n> to the change it became',
-      '  changeledger finding <id> <n> drop "<reason>"       close finding F<n> with a reason',
+      '  changeledger finding <id> promote <n> <change-id>   link finding F<n> to the change it became',
+      '  changeledger finding <id> drop <n> "<reason>"       close finding F<n> with a reason',
       '',
-      "<n> is the finding's ordinal in that change's Log (F1, F2, ...). promote only",
-      'appends to this Log and creates no change: create it first through the authorized flow.',
+      "<n> is the finding's ordinal in that change's Log (F1, F2, ...).",
+      'A first word promote or drop followed by an ordinal reads as a resolution; any',
+      'other text, quoted or not, is recorded as an open finding.',
+      'promote only appends to this Log and creates no change: create it first through',
+      'the authorized flow.',
       'List the open findings with `changeledger list --pending findings`.',
     ].join('\n'),
   )
   .action(
     action((id, parts) => {
-      if (parts.length >= 2 && ['promote', 'drop'].includes(parts[1])) {
-        const [n, outcome, ...rest] = parts;
+      if (['promote', 'drop'].includes(parts[0]) && /^\d+$/.test(parts[1] ?? '')) {
+        const [outcome, n, ...rest] = parts;
         const value = rest.join(' ').trim();
         resolveFinding(id, n, outcome, value);
         const result = outcome === 'promote' ? `promoted to #${value}` : 'dropped';

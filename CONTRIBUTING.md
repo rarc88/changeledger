@@ -64,6 +64,9 @@ The versioned pre-commit hook runs `lint-staged`, `hooks/no-ledger-refs.sh --cac
 `.changeledger/` (`.changeledger-state/` and `templates/contract/spec.md` are exempt) that
 holds a change id or a `CRn`, naming file and line; CI runs it on
 pull requests (Linux and macOS legs) over `origin/dev...HEAD`. Existing references stay as they are.
+A ledger fixture that needs a change id or a criterion is built with `criterion(n)` and
+`changeId(date, time)` from `test/helpers/ledger-fixtures.mjs`, never written inline:
+`test/helpers/` is exempt from the hook.
 `lint-staged` formats only staged JavaScript, JSON and CSS files while preserving
 partial commits; `pnpm verify` remains the complete manual and CI gate.
 
