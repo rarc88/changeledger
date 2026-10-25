@@ -40,11 +40,21 @@ forma del id tiene una sede. Terminado significa que:
   fija la decisión 1 y la aprueba el humano con este objetivo;
 - los documentos archivados y descartados siguen congelados para `check`:
   la regla nueva sólo juzga documentos vivos, como el resto de errores;
-- la ayuda de `finding`, `log --help` y el README dicen la forma nueva.
+- la ayuda de `finding`, `log --help` y el README dicen la forma nueva;
+- tres hallazgos de código abiertos en otros changes, añadidos por decisión
+  del humano el 2026-10-25, quedan cerrados: `hooks/no-ledger-refs.sh` exime
+  `test/helpers/` y un fixture del ledger que necesita un id o un `CRn` se
+  construye allí con un helper, no inline (`CONTRIBUTING.md` lo dice);
+  `unrecordedTransitions` en `src/usage-analysis.mjs` deja de contar la línea
+  `[validation] accepted (merged <sha>)` como transición sin registro, y
+  `docs/usage-capture.md` lo refleja; y `listProjects` en `src/registry.mjs`
+  devuelve los proyectos en un orden que no depende de la forma de la clave,
+  para que el test del registro deje de fallar cuando `project_id` sale todo
+  dígitos.
 
 ### Frontier
 
-**Entra.** `src/lifecycle.mjs` (la definición `finding`, `CHANGE_ID`), la
+**Entra.** `hooks/no-ledger-refs.sh` y su test, `CONTRIBUTING.md`, `src/usage-analysis.mjs` (`unrecordedTransitions`) con `docs/usage-capture.md` y `test/usage-analysis.test.mjs`, `src/registry.mjs` (`listProjects`) con `test/registry.test.mjs`; `src/lifecycle.mjs` (la definición `finding`, `CHANGE_ID`), la
 sede única del id (donde `check.mjs` y `lifecycle.mjs` puedan importarla sin
 ciclo, por ejemplo `src/change.mjs` o `src/paths.mjs`), `src/check.mjs`
 (`ID_FORM` y la validación del Log en `checkLifecycleSequence` o una función
@@ -54,10 +64,8 @@ hermana), `src/commands/agent.mjs` (`findingsInLog`, `recordFindingMutation`,
 `test/lifecycle.test.mjs`, `test/check.test.mjs`, `test/agent.test.mjs`,
 `test/cli-bin.test.mjs`, `test/contract.test.mjs` donde pine la ayuda.
 
-**Queda fuera.** El viewer; `analyze`; `apply`; convertir hallazgos
-históricos; la regla del hook `no-ledger-refs.sh` y sus exenciones (hallazgo
-F2 de `20261024-202718`, decisión aparte del humano); cualquier otro tipo de
-evento del Log.
+**Queda fuera.** El viewer; `apply`; convertir hallazgos históricos; el
+resto de `analyze` y del hook; cualquier otro tipo de evento del Log.
 
 **Pre-autorizado.** Mover `findingsInLog` a la sede que `check` y `agent`
 compartan; reescribir los tests de `20261024-202659` que pinan la forma
