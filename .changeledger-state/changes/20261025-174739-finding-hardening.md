@@ -218,10 +218,11 @@ construyen con el helper de CR4.
   - **Verify:** `node --test test/check.test.mjs test/lifecycle.test.mjs test/agent.test.mjs`
   - **Criteria:** CR2
   - **Resolved:** `2026-10-25T19:49:32Z`
-- [ ] Verbo delante en el comando `finding`, ayuda, README y tests reescritos
+- [x] Verbo delante en el comando `finding`, ayuda, README y tests reescritos
   - **Target:** `bin/changeledger.mjs`, `src/commands/agent.mjs`, `README.md`, `test/cli-bin.test.mjs`, `test/agent.test.mjs`, `test/contract.test.mjs`
   - **Verify:** `node --test test/cli-bin.test.mjs test/agent.test.mjs test/contract.test.mjs`
   - **Criteria:** CR3
+  - **Resolved:** `2026-10-25T19:49:32Z`
 - [ ] Exención de `test/helpers/` en el hook, helper de fixtures y CONTRIBUTING
   - **Target:** `hooks/no-ledger-refs.sh`, `test/helpers/ledger-fixtures.mjs`, `test/no-ledger-refs.test.mjs`, `CONTRIBUTING.md`, `test/contract.test.mjs`
   - **Verify:** `node --test test/no-ledger-refs.test.mjs test/contract.test.mjs`
