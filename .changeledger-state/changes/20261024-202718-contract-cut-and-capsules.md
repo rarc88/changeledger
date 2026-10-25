@@ -2,7 +2,7 @@
 id: "20261024-202718"
 title: "El contrato baja a diez fragmentos y dos cápsulas: fuera §2.2, el aislamiento de correcciones y graduation-review; el estado global sale del core y nada fuera de .changeledger/ cita al ledger"
 type: change
-status: in-progress
+status: in-review
 created: 2026-10-24T20:27:18Z
 depends_on:
   - "20261024-202659"
@@ -518,3 +518,4 @@ Los mensajes de error son literales.
 - **2026-10-25T16:58:56Z** `[note]` Mandato de revisión: auditoría completa del rango b1bc5493..cd5ace84 (dos commits) contra CR1–CR16, con las decisiones no especificadas de los tres delegados como puntos de escrutinio.
 - **2026-10-25T17:10:59Z** `[review]` in-review → in-progress: Ronda 1: D1 el paso de CI diffea contra origin/<base_ref> y no contra origin/dev, así que un PR dev→main fallaría con 608 referencias existentes; D2 el hook ignora las líneas añadidas en ficheros renombrados (--diff-filter=AM); D3 el techo agent 380 queda por debajo de la cápsula medida en este repo (385); D4 agent-context investigation sin id devuelve «missing required argument» y no el mensaje de dominio cerrado que CR4 fija. Residuo: README [id] opcional, prefijos de diff configurables en el hook, sobreafirmación en delegation.md, dos comentarios rancios, Log impreciso sobre 144327 CR5. Clase: enumeración incompleta dentro de la estrategia verificada.
 - **2026-10-25T17:12:42Z** `[note]` Corrección de la ronda 1: CI diffea contra origin/dev (README y CONTRIBUTING lo dicen); el hook acepta renombrados (--diff-filter=AMR) y fija prefijos a/ b/ con --no-ext-diff, con dos tests nuevos (renombrado; diff.noprefix) que fallan sin cada arreglo; techo agent 390/39 medido también en este repo (385) con el comentario corregido; CR4 enmendado para que cada invocación del rol retirado lleve id, porque la aridad se valida antes que el dominio; README exige <id> en agent-context review; delegation.md deja de afirmar que el esqueleto materializa todos los ítems; comentarios rancios de cli.test y context.test corregidos. Precisiones al Log anterior: 144327 CR5 fue reapuntado, no retirado; 20260809-113242 CR3 pasó a llamarse «agent-context uses the activated config policy»; el arreglo de ruta en test/view.test.mjs es consecuencia necesaria de la cápsula borrada y lo hizo el orquestador. Mandato de la segunda revisión: los cuatro defectos y el residuo nombrados, y cualquier regresión de la corrección.
+- **2026-10-25T17:12:44Z** `[status]` in-progress → in-review
