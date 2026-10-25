@@ -466,10 +466,11 @@ Los mensajes de error son literales.
   - **Verify:** `node --test test/agent-context.test.mjs test/agent-prompt.test.mjs test/cli-bin.test.mjs test/lifecycle.test.mjs`
   - **Criteria:** CR4, CR7
   - **Resolved:** `2026-10-25T16:58:37Z`
-- [ ] Ejemplos de ayuda sin ids
+- [x] Ejemplos de ayuda sin ids
   - **Target:** `bin/changeledger.mjs`, `test/cli-bin.test.mjs`
   - **Verify:** `node --test test/cli-bin.test.mjs`
   - **Criteria:** CR12
+  - **Resolved:** `2026-10-25T16:58:37Z`
 - [ ] Composición: `handoff` y `discarded` fuera de `MODE_CONTEXT` y `STATUS_CONTEXT`, `global-state.md` compuesto por activación con su techo, ayuda de `context`
   - **Target:** `src/commands/context.mjs`, `templates/contract/global-state.md`, `templates/contract/budgets.yml`, `bin/changeledger.mjs`, `test/context.test.mjs`
   - **Verify:** `node --test test/context.test.mjs test/contract.test.mjs`
