@@ -6,6 +6,7 @@ status: done
 created: 2026-10-24T20:27:18Z
 depends_on:
   - "20261024-202659"
+archived: true
 reviewed: true
 branch: change/20261024-202718
 related_to:
@@ -526,3 +527,4 @@ Los mensajes de error son literales.
 - **2026-10-25T17:18:08Z** `[finding]` El recorte no alcanza las cifras del §5 del plan: core 1633/~960, spec 1318/~690, implement 1007/~500, review 538/~450, close 612/~350, delegation 268/~200, cápsula 261/~150. Sin retirar prosa normativa, el resto está en las opciones del §12 (delegation dentro del core, tabla de clases de commit): decisión de la épica.
 - **2026-10-25T17:18:08Z** `[finding]` Bajo el hook, un fixture de test que necesita un id o un ### CRn lo ensambla por concatenación (CR${n}, '20260705'-…): legible a medias y trivial de esquivar. Convención a confirmar por el humano, o una exención explícita para fixtures del ledger.
 - **2026-10-25T17:18:09Z** `[finding]` docs/workflow-hardening.md y docs/changeledger-v1-plan.md siguen nombrando los roles retirados y el aislamiento de correcciones; es el hijo de INTENT.md y docs.
+- **2026-10-25T17:34:58Z** `[archive]` archived
