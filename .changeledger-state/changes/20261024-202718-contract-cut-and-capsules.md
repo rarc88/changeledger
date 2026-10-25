@@ -496,10 +496,11 @@ Los mensajes de error son literales.
   - **Verify:** `node --test test/context.test.mjs`
   - **Criteria:** CR13
   - **Resolved:** `2026-10-25T16:58:40Z`
-- [ ] El día después, de punta a punta
+- [x] El día después, de punta a punta
   - **Target:** `test/cli-bin.test.mjs`
   - **Verify:** `node --test test/cli-bin.test.mjs`
   - **Criteria:** CR16
+  - **Resolved:** `2026-10-25T16:58:41Z`
 - [ ] Suite completa, lint y `check` antes de pedir la revisión
   - **Support:**
   - **Verify:** `pnpm verify`
