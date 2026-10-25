@@ -530,3 +530,4 @@ Los mensajes de error son literales.
 - **2026-10-25T17:34:58Z** `[archive]` archived
 - **2026-10-25T17:50:05Z** `[finding]` 3 promoted #20261025-174959
 - **2026-10-25T19:30:55Z** `[finding]` 2 promoted #20261025-174739
+- **2026-10-25T19:34:53Z** `[finding]` 1 promoted #20261025-193447
