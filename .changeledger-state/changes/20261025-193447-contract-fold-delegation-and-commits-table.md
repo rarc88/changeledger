@@ -2,7 +2,7 @@
 id: "20261025-193447"
 title: "Opciones 1 y 2 del §12: delegation.md dentro del core y el bloque de commits como tabla; la épica mide su objetivo contra el contrato real"
 type: change
-status: in-progress
+status: in-review
 created: 2026-10-25T19:34:47Z
 depends_on: []
 branch: change/20261025-193447
@@ -241,3 +241,4 @@ guards tolerantes, nunca pins de frase. Ninguna línea añadida fuera de
 - **2026-10-25T22:25:49Z** `[note]` Mandato de revisión: auditoría completa del rango c2bb4bca..HEAD (un commit) contra CR1–CR7, con la subida del techo del core como decisión humana registrada y las frases que el implementador dejó caer como puntos de escrutinio frente a las obligaciones del §4.
 - **2026-10-25T22:33:07Z** `[review]` in-review → in-progress: Ronda 1: el comentario de PINNED_CEILINGS en test/context.test.mjs y la nota del Log afirman que base.core es «la primera subida de un techo desde que existen»; es falso: a893e604 subió spec e implement de 2500 a 3000 y 70876bda subió core de 2680 a 2690. Corrección: reescribir el comentario como subida por decisión humana sin la afirmación histórica, y nota correctora en el Log. Clase: enumeración incompleta dentro de la estrategia verificada; el resto de criterios pasa.
 - **2026-10-25T22:33:12Z** `[note]` Corrección de la ronda 1: el comentario de PINNED_CEILINGS dice «raised by a human decision recorded in the change» y deja de afirmar que es la primera subida; esta nota corrige la anterior: ya hubo dos subidas (spec e implement 2500→3000 en a893e604; core 2680→2690 en 70876bda). Mandato de confirmación: sólo esa frase y cualquier regresión.
+- **2026-10-25T22:33:13Z** `[status]` in-progress → in-review
