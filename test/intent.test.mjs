@@ -4,10 +4,28 @@ import { test } from 'node:test';
 
 const intent = fs.readFileSync(new URL('../INTENT.md', import.meta.url), 'utf8');
 
-test('102908: intent describes done as provisional and durable closure as terminal', () => {
-  assert.match(intent, /`done` significa.*provisional/i);
-  assert.match(intent, /agente o el humano pueden devolverlo a `in-progress`/i);
-  assert.match(intent, /graduación\/skip, archivo o release.*irreversible/i);
-  assert.match(intent, /`discarded` es terminal/i);
-  assert.match(intent, /humano sigue siendo quien aprueba un draft y acepta/i);
+// Each guard spans at most one sentence (`[^.]*`) and names the obligation, not
+// its wording, so the prose can be rewritten without retargeting the test.
+
+test('the human approves the objective and the frontier of a draft', () => {
+  assert.match(intent, /human\w*[^.]*aprueba[^.]*objetivo[^.]*frontera/i);
+});
+
+test('acceptance is the merge into the integration branch', () => {
+  assert.match(intent, /aceptaci[oó]n[^.]*fusi[oó]n[^.]*integraci[oó]n/i);
+});
+
+test('a delivered change returns to in-progress with a reason', () => {
+  assert.match(
+    intent,
+    /(vuelv\w*|volver|devuelv\w*)[^.]*(en progreso|`in-progress`)[^.]*raz[oó]n/i,
+  );
+});
+
+test('only a recorded release is irreversible', () => {
+  assert.match(intent, /release[^.]*[uú]nica[^.]*irreversible/i);
+});
+
+test('discarded is terminal', () => {
+  assert.match(intent, /`discarded`[^.]*terminal/i);
 });

@@ -22,69 +22,56 @@ Los changes comienzan como borradores. No hay implementación todavía.
 
 ### 3. Aprobación humana
 
-El humano revisa los borradores y los aprueba. Solo cuando un change está aprobado, el agente puede comenzar a trabajarlo. Sin aprobación, no hay código.
+El humano aprueba de un borrador dos cosas y nada más: el **objetivo** —qué problema se resuelve y qué significa terminado— y la **frontera** —qué superficie entra, qué queda fuera y qué queda pre-autorizado dentro de ella—. Solo cuando un change está aprobado, el agente puede comenzar a trabajarlo. Sin aprobación, no hay código.
+
+La Specification y el Plan no pasan por esa aprobación: se escriben ya en progreso, con el código delante, y reescribirlos mientras se implementa es el comportamiento esperado. Git versiona el documento; el humano aprobó el objetivo y la frontera, no un plan hecho antes de investigar.
 
 ### 4. Implementación
 
-El agente resuelve las tareas del change. A medida que avanza, actualiza el documento: tareas completadas, decisiones tomadas, novedades del Log.
+Antes de tocar código, el agente hace un commit con el documento aprobado. Así queda registrado que el trabajo comenzó desde un acuerdo, no desde una suposición.
 
-Antes de tocar código, el agente hace un commit con la documentación aprobada. Así queda registrado que el trabajo comenzó desde un acuerdo, no desde una suposición.
+El agente resuelve el trabajo por selecciones: un conjunto de tareas que se verifica y se commitea junto, sin esperar al resto. A medida que avanza, actualiza el documento: tareas completadas, decisiones tomadas, novedades del Log. Lo que encuentra fuera de la frontera no lo arregla de paso ni lo mete en el change: lo registra como hallazgo en el Log y sigue; el humano decide después si ese hallazgo se convierte en un change.
 
-### 5. Revisión independiente (cuando aplica)
+### 5. Revisión independiente (cuando la rama toca código)
 
-Al terminar la implementación, algunos tipos de change requieren una revisión por un subagente con contexto limpio — sin haber participado en la implementación, para evitar sesgos.
+Al terminar la implementación, si la rama del change toca algo fuera del ledger, una revisión por un subagente con contexto limpio —sin haber participado en la implementación— verifica que el comportamiento declarado se cumple. Un change que solo toca documentos del ledger se entrega sin revisión. No es el tipo del change lo que decide la revisión, sino lo que su rama cambia; el riesgo decide la profundidad de la revisión, nunca su existencia.
 
-Si la revisión detecta problemas:
+Si la revisión encuentra defectos, el change vuelve a en progreso con la razón. Un defecto que revela una dimensión que la estrategia no cubría se decide con el humano antes de corregir; a la tercera ronda sobre el mismo change, la elección entre reencuadrar y abrir trabajo nuevo vuelve al humano. Si todo está bien, el change queda entregado.
 
-- **Problemas simples que el agente puede resolver solo** → el change vuelve a en progreso. El agente corrige y repite el ciclo.
-- **Problemas que requieren decisión humana** → el change queda bloqueado hasta que el humano dé instrucciones.
+### 6. Aceptación por fusión
 
-Si todo está bien, el change pasa a validación humana.
+La aceptación humana es la fusión de la rama del change en la rama de integración. No hay una etapa aparte de validación: el humano revisa la entrega y la fusiona, o la devuelve a en progreso con la razón del rechazo. ChangeLedger registra el instante de la aceptación como dato, no como puerta.
 
-### 6. Validación humana
+### 7. Correcciones
 
-El humano prueba el resultado completo. Dos opciones:
-
-- **Aprobado** → el change queda cerrado. Listo.
-- **Rechazado** → el change vuelve a en progreso con los ajustes necesarios. El ciclo continúa.
-
-### 7. Correcciones sin commit apresurado
-
-Cuando se detecta un error — ya sea por el subagente revisor o por el humano en validación — la corrección **no se commitea hasta tener confirmación de que resuelve el problema**:
-
-- Si el error lo encontró el **subagente**, la confirmación viene de una nueva revisión limpia que lo dé por cerrado.
-- Si el error lo reportó el **humano**, la confirmación viene de su validación final.
-
-Después de que la nueva revisión limpia aprueba una corrección, el agente commitea esa corrección y la actualización del ledger antes de solicitar validación humana. Tras un rechazo humano, la corrección permanece sin commit hasta la aceptación final, momento en que se commitea junto con su verdad relacionada.
-
-En ambos casos el objetivo es el mismo: no ensuciar el historial con intentos fallidos que parecen avances reales ni mantener trabajo ya confirmado aislado innecesariamente en el worktree.
+Una corrección —venga del subagente revisor o del rechazo humano— es una selección resuelta más: se committea cuando pasa su verificación local y el change vuelve a revisión, donde un revisor fresco inspecta de nuevo todo lo entregado. El historial muestra el intento y su confirmación; no se mantiene trabajo aislado en el worktree esperando una confirmación.
 
 ### 8. Cierre y graduación
 
-`done` significa que el humano aceptó el resultado, pero sigue siendo provisional hasta resolver su graduación o skip y cruzar una frontera durable. Con motivo, el agente o el humano pueden devolverlo a `in-progress` sólo para completar el alcance ya autorizado; graduación/skip, archivo o release lo vuelven irreversible. Después de la aceptación humana, si el trabajo modificó algo permanente, el agente actualiza la verdad persistente; si no, registra esa decisión. `discarded` es terminal desde el principio.
+Entregado un change, si el trabajo modificó algo permanente, el agente actualiza la verdad persistente en las specs; si no, registra esa decisión. Los hijos de una épica no gradúan por separado: la épica reconcilia las specs una sola vez al cerrar.
+
+Mientras un change no figure en una release registrada, puede volver a en progreso con una razón: la graduación y el archivo se deshacen por su propia documentación. La release es la única frontera irreversible, porque congela la membresía de una versión publicada. `discarded` es terminal desde el principio.
 
 ### 9. Trazabilidad como hábito
 
-- Cada unidad de trabajo resuelta debería quedar en un commit trazable junto a los archivos que modificó. Una tarea suele ser esa unidad, pero varias pueden compartir commit cuando separarlas rompería una modificación atómica.
+- Cada selección resuelta queda en un commit trazable junto a los archivos que modificó, con el marcador del change en el asunto. Una tarea sola rara vez es esa unidad; una transición de estado nunca lo es.
 - No es obligatorio ser rígido, pero sí es obligatorio no mezclar cambios de distintos temas en el mismo commit.
-- Lo importante es que cualquier persona pueda seguir el hilo de cómo se resolvió un change leyendo el historial de git.
+- La referencia va siempre del change al código, nunca al revés: el código no cita changes ni criterios. Lo importante es que cualquier persona pueda seguir el hilo de cómo se resolvió un change leyendo el historial de git.
 
 ### 10. Retrospectiva al final de cada ciclo
 
-Cuando un change llega a `done`, el agente hace un análisis breve: ¿hubo fricciones en el proceso? ¿Algo fue confuso, repetitivo o podría hacerse mejor? Las observaciones se comparten con el humano como propuestas. El humano sigue siendo quien aprueba un draft y acepta el resultado en validación; el cierre definitivo requiere la frontera durable.
+Cuando un change se entrega, el agente hace un análisis breve: ¿hubo fricciones en el proceso? ¿Algo fue confuso, repetitivo o podría hacerse mejor? Las observaciones se comparten con el humano como propuestas; lo que queda fuera de la frontera ya está registrado como hallazgo.
 
-Además, cuando entrega al humano un resultado completado o bloqueado, clasifica cualquier fricción ya descubierta para decidir si pertenece al trabajo actual, es un paso operacional, merece proponerse como trabajo independiente o todavía es demasiado vaga. Este triage no exige esperar al cierre del change.
-
-Ninguna propuesta se convierte en un change por cuenta propia. Solo si el humano lo autoriza.
+Ninguna propuesta ni hallazgo se convierte en un change por cuenta propia. Solo si el humano lo autoriza.
 
 ---
 
 ## Reglas generales
 
-- **Un change activo puede crecer** con trabajo necesario para cumplir su objetivo autorizado. Si lo nuevo amplía materialmente el comportamiento observable, aunque esté relacionado, el humano debe autorizar la ampliación antes de incorporarla. Si es independiente, se propone otro change.
-- **Un change con cierre durable es terminal.** Antes de graduación/skip, archive o release, `done` puede reabrirse con razón sólo para su alcance original; lo posterior o más amplio requiere un change nuevo.
-- **El humano decide en los momentos clave**: qué alcance se autoriza, si un borrador se aprueba, si una ampliación material se incorpora y si el resultado final es aceptable.
-- **El agente decide en la ejecución dentro del alcance autorizado**: cómo dividir el trabajo, cuándo commitear y qué tamaño de subagente usar para la revisión.
+- **Un change activo puede crecer** con trabajo que tiene que ser cierto para que su objetivo se cumpla. Lo que, sin hacerse, deja el objetivo cumplido igual, queda fuera: se registra como hallazgo o se propone como otro change. Cambiar el objetivo o la frontera vuelve al humano.
+- **La release es la única frontera irreversible.** Antes de una release registrada, un change entregado puede volver a en progreso con razón; después, el trabajo nuevo es un change nuevo.
+- **El humano decide en los momentos clave**: qué objetivo y qué frontera se aprueban, si un hallazgo se promueve a change y si una entrega se acepta fusionándola o se devuelve.
+- **El agente decide en la ejecución dentro de la frontera autorizada**: cómo dividir el trabajo en selecciones, cuándo commitear y qué tamaño de subagente usar para la revisión.
 - **Commit es confianza.** ChangeLedger no defiende contra quien ya puede escribir en el repositorio: esa defensa pertenece a la plataforma git y a sus protecciones de rama. Todo endurecimiento adversarial se mide contra este modelo de confianza antes de incorporarse.
 
 ---
