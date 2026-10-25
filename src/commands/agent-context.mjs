@@ -1,16 +1,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { findChangeledgerDir, loadEffectiveConfig } from '../config.mjs';
+import { findChangeledgerDir } from '../config.mjs';
 import { beginSentinel, endSentinel, VERSION } from '../framing.mjs';
 import { contractTemplatesDir } from '../paths.mjs';
 import { loadRepo, resolveChangeInRepo } from '../repo.mjs';
 import { changeParseFailureMessage, transversalPolicy } from './context.mjs';
 
-export const AGENT_ROLES = ['investigation', 'implementation', 'review', 'graduation-review'];
+export const AGENT_ROLES = ['review'];
 const ALLOWED_STATUSES = {
-  implementation: ['approved', 'in-progress'],
   review: ['in-review'],
-  'graduation-review': ['done'],
 };
 
 function requireRepo(cwd) {
@@ -25,20 +23,10 @@ function capsule(role) {
     .trim();
 }
 
-// `repo` is `null` unless `changeId` is truthy: `investigation` with no id
-// never needs a change document, so it must not pay for a full `loadRepo`
-// (whose sync loader throws on the first unparseable change document
-// anywhere in the repo — a regression the confirmation review caught, since
-// this guard used to run with no repo touched at all). When `repo` is
-// non-null, it resolves against whichever authority it was loaded under —
-// the state-ref snapshot on an activated repo, never a worktree phantom
+// `repo` resolves against whichever authority it was loaded under — the
+// state-ref snapshot on an activated repo, never a worktree phantom
 // (20260808-151641 CR7).
 function selectedChange(role, changeId, repo) {
-  if (role !== 'investigation' && !changeId) {
-    throw new Error(`role ${role} requires a change id`);
-  }
-  if (!changeId) return undefined;
-
   let resolved;
   try {
     resolved = resolveChangeInRepo(repo, changeId);
@@ -60,22 +48,20 @@ export function buildAgentContext(role, changeId, cwd = process.cwd()) {
   if (!AGENT_ROLES.includes(role)) {
     throw new Error(`Unknown role "${role}" — valid roles: ${AGENT_ROLES.join(', ')}`);
   }
-  const changeledgerDir = requireRepo(cwd);
-  const repo = changeId ? loadRepo(cwd, { isolateChangeErrors: true }) : null;
+  requireRepo(cwd);
+  if (!changeId) throw new Error(`role ${role} requires a change id`);
+  const repo = loadRepo(cwd, { isolateChangeErrors: true });
   const selected = selectedChange(role, changeId, repo);
-  const config = repo
-    ? repo.config
-    : loadEffectiveConfig(path.dirname(changeledgerDir), changeledgerDir);
-  const change = selected ? ` — change: #${selected.id}` : '';
   const sections = [
-    beginSentinel('AGENT CONTEXT', `role: ${role}${change} — v${VERSION}`),
-    // The delegate's capsule conditions its obligations on this line, so a
-    // selected change publishes its own tdd; no change, the global one.
-    transversalPolicy(config, selected?.frontmatter),
+    beginSentinel('AGENT CONTEXT', `role: ${role} — change: #${selected.id} — v${VERSION}`),
+    // The delegate's capsule conditions its obligations on this line, so the
+    // selected change publishes its own tdd.
+    transversalPolicy(repo.config, selected.frontmatter),
     capsule(role),
+    '---\n\n# Selected change',
+    selected.text.trim(),
+    endSentinel('AGENT CONTEXT'),
   ];
-  if (selected) sections.push('---\n\n# Selected change', selected.text.trim());
-  sections.push(endSentinel('AGENT CONTEXT'));
   return `${sections.join('\n\n')}\n`;
 }
 

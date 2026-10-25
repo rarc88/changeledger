@@ -869,9 +869,10 @@ test('20261024-202659 CR12: the contract records an out-of-frontier finding inst
     assert.doesNotMatch(text, /Create the draft only after explicit authorization/i, name);
   }
   const read = (file) => fs.readFileSync(new URL(file, contractDir), 'utf8');
+  // The handoff triage lives in the delegation fragment since the cut.
   assert.match(
-    read('handoff.md'),
-    /Outside the approved objective[\s\S]*?`changeledger finding <id>`/,
+    read('delegation.md').replace(/\s+/g, ' '),
+    /\boutside\b[^.]{0,60}\b(objective|frontier)\b[^.]{0,80}`changeledger finding <id>`/i,
   );
   const core = read('core.md');
   assert.match(core, /^\| asks what is pending \|[^\n]*--pending findings/m);
@@ -887,4 +888,42 @@ test('20261024-202659 CR13: README documents the finding command and the finding
   const at = lines.findIndex((line) => line.startsWith(entry));
   assert.notEqual(at, -1, 'README has no finding entry');
   assert.match(lines.slice(at - 1, at + 1).join('\n'), /finding[^\n]*outside[^\n]*frontier/i);
+});
+
+// README and CONTRIBUTING describe the contract that remains: one delegate
+// capsule (`review`), no correction isolation, and the rule that nothing
+// outside `.changeledger/` cites the ledger, enforced by `no-ledger-refs.sh`.
+// The test names carry no change id or criterion: this file is itself subject
+// to that rule (see hooks/no-ledger-refs.sh).
+const RETIRED_DELEGATION_PHRASES = [
+  /graduation-review/,
+  /agent-prompt investigation/,
+  /agent-context implementation/,
+  /uncommitted until/i,
+  /Correction isolation/i,
+];
+
+test('README and CONTRIBUTING name no retired delegate role nor correction isolation', () => {
+  for (const name of ['README.md', 'CONTRIBUTING.md']) {
+    const text = repoDoc(name);
+    for (const pattern of RETIRED_DELEGATION_PHRASES) {
+      assert.doesNotMatch(text, pattern, `${name} still carries a retired phrase: ${pattern}`);
+    }
+  }
+});
+
+test('CONTRIBUTING documents the no-ledger-refs hook and naming tests by behaviour', () => {
+  const text = repoDoc('CONTRIBUTING.md');
+  assert.match(text, /no-ledger-refs\.sh/);
+  assert.match(text, /\b(?:change id|id of a change)\b[^.]{0,40}`?CRn`?/i);
+  assert.match(text, /name[^.]{0,30}test[^.]{0,40}behaviou?r/i);
+  assert.match(text, /`?Target`?[^.]{0,20}`?Verify`?[^.]{0,60}\[#id\]/);
+});
+
+test('README says hooks/ is not packaged and a consuming repo copies the script', () => {
+  const text = repoDoc('README.md');
+  assert.match(text, /no-ledger-refs\.sh/);
+  assert.match(text, /`?hooks\/`? is not packaged/i);
+  assert.match(text, /copies? the script/i);
+  assert.match(text, /outside `\.changeledger\/`/);
 });

@@ -10,6 +10,7 @@ import { status, task } from '../src/commands/agent.mjs';
 import { buildMigration } from '../src/config-migration.mjs';
 import { LOG_EVENT_DEFINITIONS } from '../src/lifecycle.mjs';
 import { STATE_REF, writeActivation } from '../src/state-store.mjs';
+import { assertWithinBudget, contextBudgets } from './budget-support.mjs';
 import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
@@ -215,8 +216,8 @@ test('131649 CR8: graduate help contains only mutation modes and points to list'
 
 test('20260824-134716 CR2: static CLI domains are complete in help and invalid-value errors', () => {
   for (const [command, values] of [
-    ['agent-prompt', 'investigation | implementation | review | graduation-review'],
-    ['agent-context', 'investigation | implementation | review | graduation-review'],
+    ['agent-prompt', 'review'],
+    ['agent-context', 'review'],
     ['review', 'pass|fail'],
     ['task', 'done|block'],
   ]) {
@@ -711,6 +712,20 @@ test('225212 CR6: help matrix — every command and subcommand documents Usage o
   }
 });
 
+// A help example that carries a real change id sends the
+// reader to a change that may not exist in their repo, so examples use `<id>`.
+test('no command help carries a literal change id', () => {
+  const commandHelp = registeredCommandHelp();
+  assert.ok(commandHelp.length > 20, 'the help matrix looks truncated');
+  for (const { command, out } of [{ command: [], out: run('--help').out }, ...commandHelp]) {
+    assert.doesNotMatch(
+      out,
+      /\d{8}-\d{6}/,
+      `\`changeledger ${command.join(' ')} -h\` carries a literal change id`,
+    );
+  }
+});
+
 test('CR3: changeledger graduate with no args fails with its usage', () => {
   const { code, err } = run('graduate');
   assert.notEqual(code, 0);
@@ -766,7 +781,7 @@ test('20260808-171107 CR5: unknown context ids outrank unrelated parse errors wi
   assert.match(context.err, /Unknown context "20990101-000000"/);
   assert.doesNotMatch(context.out, /CHANGELEDGER CONTEXT BEGIN/);
 
-  const agent = runIn(root, env, 'agent-context', 'implementation', '20990101-000000');
+  const agent = runIn(root, env, 'agent-context', 'review', `${'20990101'}-000000`);
   assert.equal(agent.code, 1);
   assert.match(agent.err, /No change with id "20990101-000000"/);
   assert.doesNotMatch(agent.out, /CHANGELEDGER AGENT CONTEXT BEGIN/);
@@ -2401,4 +2416,97 @@ test('20261024-202659 CR14: the day after, a finding is recorded, listed and pro
   );
   const check = runIn(root, env, 'check');
   assert.equal(check.code, 0, check.out + check.err);
+});
+
+// The day after the contract cut, walked end to end through the real binary: a
+// fresh repo reads core and implement inside their ceilings and free of every
+// retired rule, delegates a review through the one skeleton and capsule left,
+// has a criterion id in code rejected at commit time, and loads the global-state
+// overlay only once it is activated.
+test('the day after the contract cut: from a fresh repo to review delegation and activation', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
+  initGitFixture(root, { args: ['-b', 'main'] });
+  assert.equal(runIn(root, env, 'init').code, 0);
+
+  const retired = [
+    /quantif/i,
+    /copy its checklist|\bDo not copy\b/i,
+    /figures, line numbers/i,
+    /Mutate one thing|restore it by editing/i,
+    /once; do not reload|never reload one already held/i,
+    /Correction isolation|uncommitted correction|kept uncommitted|left uncommitted|confirmation review|confirms it/i,
+    /graduation-review/,
+  ];
+  for (const [args, budget] of [
+    [[], contextBudgets.base.core],
+    [['implement'], contextBudgets.base.implement],
+  ]) {
+    const { code, out, err } = runIn(root, env, 'context', ...args);
+    assert.equal(code, 0, err);
+    assertWithinBudget(`context ${args.join(' ')}`.trim(), out, budget);
+    const flat = out.replace(/\s+/g, ' ');
+    for (const pattern of retired) assert.doesNotMatch(flat, pattern);
+    assert.ok(!out.includes('# Global State'), 'an inactive repo loaded the global-state overlay');
+  }
+
+  const prompt = runIn(root, env, 'agent-prompt', 'review');
+  assert.equal(prompt.code, 0, prompt.err);
+  assert.match(prompt.out, /^===== CHANGELEDGER AGENT PROMPT BEGIN — role: review/);
+  assert.match(prompt.out, /\{\{mandate\}\}/);
+
+  const created = runIn(root, env, 'new', 'change', 'day-after', 'Day after', '--owner', 'Test');
+  assert.equal(created.code, 0, created.err);
+  const { id } = JSON.parse(runIn(root, env, 'list', '--json').out)[0];
+  const changes = path.join(root, '.changeledger', 'changes');
+  const file = path.join(
+    changes,
+    fs.readdirSync(changes).find((name) => name.startsWith(id)),
+  );
+  fs.writeFileSync(
+    file,
+    fs.readFileSync(file, 'utf8').replace('status: draft', 'status: in-review'),
+  );
+  const capsule = runIn(root, env, 'agent-context', 'review', id);
+  assert.equal(capsule.code, 0, capsule.err);
+  assert.match(capsule.out, new RegExp(`role: review — change: #${id}`));
+  assert.doesNotMatch(capsule.out, /every `CRn`/);
+
+  const git = (...args) =>
+    execFileSync('git', args, { cwd: root, env: sanitizedEnv(), encoding: 'utf8' });
+  git('add', '-A');
+  git('commit', '-q', '-m', 'chore: seed the ledger');
+  const hook = fileURLToPath(new URL('../hooks/no-ledger-refs.sh', import.meta.url));
+  const stageAndCheck = (name, text) => {
+    fs.mkdirSync(path.dirname(path.join(root, name)), { recursive: true });
+    fs.writeFileSync(path.join(root, name), text);
+    git('add', name);
+    return spawnSync('sh', [hook, '--cached'], { cwd: root, env, encoding: 'utf8' });
+  };
+  const clean = stageAndCheck('src/clean.mjs', '// the parser keeps blank lines\n');
+  assert.equal(clean.status, 0, clean.stdout + clean.stderr);
+  git('commit', '-q', '-m', 'feat: clean line');
+  const criterion = `CR${2}`;
+  const dirty = stageAndCheck('src/dirty.mjs', `// see ${criterion}\n`);
+  assert.equal(dirty.status, 1, dirty.stdout + dirty.stderr);
+  assert.match(
+    dirty.stdout,
+    new RegExp(`^src/dirty\\.mjs:1: ledger reference outside \\.changeledger/: ${criterion}$`, 'm'),
+  );
+  git('rm', '-q', '--cached', 'src/dirty.mjs');
+  fs.rmSync(path.join(root, 'src', 'dirty.mjs'));
+
+  const cutover = runIn(root, env, 'cutover');
+  assert.equal(cutover.code, 0, cutover.err);
+  const activated = runIn(root, env, 'context');
+  assert.equal(activated.code, 0, activated.err);
+  assert.match(activated.out, /\n# Global State\n/);
+  const summed = {
+    tokens: contextBudgets.base.core.tokens + contextBudgets.overlays['global-state'].tokens,
+    lines: contextBudgets.base.core.lines + contextBudgets.overlays['global-state'].lines,
+  };
+  assert.match(activated.out.split('\n')[0], new RegExp(`lines:\\d+/${summed.lines} =====$`));
+  assertWithinBudget('activated context', activated.out, summed);
 });
