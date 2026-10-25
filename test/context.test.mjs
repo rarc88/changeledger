@@ -1943,9 +1943,9 @@ function declaredCeilings() {
 // table lowered three entries by the same rule and the same two frames: `base.spec`
 // (this repo's capture: 2027) and `base.implement` (1601) lost the fragment they no
 // longer compose, and `blocks.core-commits` (346) is the table plus its rules.
-// `base.core` is the one raise since ceilings exist: the folded core measures 2461
-// (fixture 2455) against 2380, and the human set it to 3000/300 so the next rule
-// that enters does not block again. Headroom under it is still never permission
+// `base.core` is raised by a human decision recorded in the change: the folded core
+// measures 2461 (fixture 2455) against 2380, and the human set it to 3000/300 so the
+// next rule that enters does not block again. Headroom under it is still never permission
 // to spend (AGENTS.md); 300 lines plus the global-state overlay stay under the
 // bootstrap's 400-line cut.
 const PINNED_CEILINGS = {
