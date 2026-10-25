@@ -50,8 +50,12 @@ uno es un change con su propia revisión.
 Terminado significa que, medido sobre `templates/contract/` y
 `templates/config.yml`:
 
-- el contrato compuesto cabe en los pesos del §5 del plan, con los techos de
-  `budgets.yml` bajados a lo medido y declarados decrecientes (§7);
+- el contrato compuesto cabe en los pesos medidos tras el §12 —6.009 palabras
+  en nueve fragmentos, `core.md` 1.722, `core` + `implement` 2.729, dos
+  cápsulas— con los techos de `budgets.yml` bajados a ellos y declarados
+  decrecientes (§7), salvo `base.core`, que el humano subió a 3000/300 el
+  2026-10-25 en el hijo del §12; las cifras del §5 quedan en el Log como la
+  meta que el plan fijó y la medida alcanzada (decisión 1 de ese hijo);
 - el humano aprueba de un change su objetivo y su frontera, y Specification y
   Plan nacen en `in-progress` sin volver a pasar por aprobación (§3);
 - el Definition of Ready y sus claves `readiness.*` no existen, y `check` no
