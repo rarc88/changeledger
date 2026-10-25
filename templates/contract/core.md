@@ -16,7 +16,7 @@ context is not, so never load one speculatively and never reload one already hel
 | asks, explores or wants understanding | answer from the repo: `changeledger search <terms>` before reading code |
 | reports a problem or asks for new work | conversation first, then `changeledger context spec` only once the human authorizes documenting it |
 | names a change or says "continue" | `changeledger context <id>` |
-| asks what is pending | `changeledger list --status <s>`, `--pending graduation`, `--pending archive` |
+| asks what is pending | `changeledger list --status <s>`, `--pending findings`, `graduation`, `archive` |
 | asks to review finished work | `changeledger context review` in a fresh clean context |
 | asks to release | `changeledger context release` |
 | requests an edit no change covers | ask the human: a `change` with Request and Log, or an operational edit |
@@ -193,8 +193,7 @@ inference — the human coordinates that resolution.
 Prefer structured CLI queries before scanning files:
 
 - `changeledger list --status approved`: find approved changes ready to implement.
-- `changeledger list --pending graduation`: find unresolved graduation decisions.
-- `changeledger list --pending archive`: preview graduated or skipped changes.
+- `changeledger list --pending findings|graduation|archive`: open findings, pending graduation decisions, archive candidates.
 - `changeledger search <terms...>`: find related changes (incl. archived) and specs by content before investigating from scratch.
 - `changeledger analyze [id]`: query recorded consumption and cost per change, segment, model or version instead of reading the usage records.
 

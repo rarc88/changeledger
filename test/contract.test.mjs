@@ -855,3 +855,36 @@ test('20261024-121022 CR18: the CLI help names no retired type and describes the
   assert.match(helpOf('fix', '--help'), /Investigation[^.]{0,40}Proposal[^.]{0,60}Request/);
   assert.match(helpOf('config', 'migrate', '--help'), /schema 6 to 7/);
 });
+
+// 20261024-202659 CR12: a finding outside the frontier is recorded with the
+// `finding` command; the prose proposal it replaced stays retired everywhere.
+test('20261024-202659 CR12: the contract records an out-of-frontier finding instead of proposing it', () => {
+  const contractDir = new URL('../templates/contract/', import.meta.url);
+  const fragments = fs
+    .readdirSync(contractDir, { recursive: true })
+    .filter((name) => String(name).endsWith('.md'))
+    .map((name) => [name, fs.readFileSync(new URL(name, contractDir), 'utf8')]);
+  for (const [name, text] of fragments) {
+    assert.doesNotMatch(text, /propose type, title and reason/i, `${name} still proposes in prose`);
+    assert.doesNotMatch(text, /Create the draft only after explicit authorization/i, name);
+  }
+  const read = (file) => fs.readFileSync(new URL(file, contractDir), 'utf8');
+  assert.match(
+    read('handoff.md'),
+    /Outside the approved objective[\s\S]*?`changeledger finding <id>`/,
+  );
+  const core = read('core.md');
+  assert.match(core, /^\| asks what is pending \|[^\n]*--pending findings/m);
+  const discovery = core.slice(core.indexOf('## Operational discovery'));
+  assert.match(discovery, /`changeledger list --pending [^`]*\bfindings\b[^`]*`/);
+});
+
+test('20261024-202659 CR13: README documents the finding command and the findings query', () => {
+  const readme = fs.readFileSync(new URL('../README.md', import.meta.url), 'utf8');
+  assert.ok(readme.includes('changeledger list [--pending graduation|archive|findings]'));
+  const entry = 'changeledger finding <id> "<text>" | <n> promote <id> | <n> drop "<reason>"';
+  const lines = readme.split('\n');
+  const at = lines.findIndex((line) => line.startsWith(entry));
+  assert.notEqual(at, -1, 'README has no finding entry');
+  assert.match(lines.slice(at - 1, at + 1).join('\n'), /finding[^\n]*outside[^\n]*frontier/i);
+});
