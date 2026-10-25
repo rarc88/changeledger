@@ -461,10 +461,11 @@ Los mensajes de error son literales.
 
 ## Plan
 
-- [ ] Retirar los roles `investigation`, `implementation` y `graduation-review`: `AGENT_ROLES`, `ALLOWED_STATUSES`, ayuda de `agent-context` y `agent-prompt`, borrado de las seis cápsulas y sus tests
+- [x] Retirar los roles `investigation`, `implementation` y `graduation-review`: `AGENT_ROLES`, `ALLOWED_STATUSES`, ayuda de `agent-context` y `agent-prompt`, borrado de las seis cápsulas y sus tests
   - **Target:** `src/commands/agent-context.mjs`, `src/commands/agent-prompt.mjs`, `bin/changeledger.mjs`, `templates/contract/agent-contexts/`, `templates/contract/agent-prompts/`, `test/agent-context.test.mjs`, `test/agent-prompt.test.mjs`, `test/cli-bin.test.mjs`, `test/lifecycle.test.mjs`
   - **Verify:** `node --test test/agent-context.test.mjs test/agent-prompt.test.mjs test/cli-bin.test.mjs test/lifecycle.test.mjs`
   - **Criteria:** CR4, CR7
+  - **Resolved:** `2026-10-25T16:58:37Z`
 - [ ] Ejemplos de ayuda sin ids
   - **Target:** `bin/changeledger.mjs`, `test/cli-bin.test.mjs`
   - **Verify:** `node --test test/cli-bin.test.mjs`
