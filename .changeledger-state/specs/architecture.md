@@ -51,12 +51,15 @@ desconocidas en lugar de ignorarlas silenciosamente.
 
 La CLI enumera los dominios cerrados auditados desde sus autoridades ejecutables:
 roles, veredictos, acciones de tarea, impactos de release y placeholders de
-rama; los tipos, estados y etapas provienen de la configuración efectiva del
-repo. Los modos de migración de `fix` son mutuamente excluyentes, al igual que
-los de `graduate`; una combinación ambigua falla antes de escribir.
+rama; los tipos (`change`, `epic`) y las etapas están fijados en código
+(`CHANGE_TYPES` y `CANONICAL_STAGES`, `src/change.mjs`) y los estados provienen
+de la configuración efectiva del repo. Los modos de `graduate` son mutuamente
+excluyentes; una combinación ambigua falla antes de escribir.
 La ayuda de `log` explica que el comando sólo escribe `note`, muestra un ejemplo
-concreto y enumera los nueve tipos válidos con sus payloads y comandos productores
-a partir de `LOG_EVENT_PRODUCERS`. El flujo por lotes de `apply` se presenta
+concreto y enumera los diez tipos válidos con sus payloads, leídos de
+`LOG_EVENT_DEFINITIONS` (`src/lifecycle.mjs`), y sus comandos productores, de
+`LOG_EVENT_PRODUCERS`; la ayuda falla si los dos mapas no cubren los mismos
+tipos. El flujo por lotes de `apply` se presenta
 por separado. La ayuda de cada comando marca con `(required)` las opciones
 obligatorias que el parser exige.
 
@@ -72,7 +75,7 @@ config ni IO.
 
 Desde el schema 6, `min_cli_version` declara la versión mínima de la CLI que
 puede trabajar sobre el repo: una versión SemVer concreta, prereleases incluidos,
-que `init` y la migración 5 → 6 fijan en la versión del paquete que las ejecuta;
+que `init` y la migración 6 → 7 fijan en la versión del paquete que las ejecuta;
 su ausencia o invalidez es un error de `check`, y por debajo del schema 6 la
 clave no tiene efecto. Antes de ejecutar la acción de un comando, el despacho de
 la CLI compara por precedencia SemVer la versión instalada con el mínimo de la
@@ -94,37 +97,20 @@ actualiza la ref de seguimiento del remoto. El guard no consulta gestores de
 paquetes ni la red, y las versiones publicadas antes de él no leen la clave.
 
 `.changeledger/config.yml` declara un `schema_version` entero. La ausencia se
-interpreta como schema histórico `0`; `check` y `register` lo detectan y ofrecen
-`changeledger config migrate --dry-run`, pero nunca migran implícitamente. La
+interpreta como schema histórico `0`; `check` y `register` avisan de un schema
+anterior al vigente, pero nunca migran implícitamente. La
 migración explícita construye un candidato con el AST de YAML, actualiza estructura
 y comentarios administrados, conserva decisiones y extensiones propias, no mueve
 directorios y escribe atómicamente. Repetirla sobre el schema vigente es un no-op
-byte-idéntico; un schema más nuevo que el soportado falla cerrado. Las
-migraciones son una cadena versionada y aditiva: el schema vigente es `6` —
-la 5 → 6 publica `min_cli_version` con la versión del paquete que la ejecuta,
-reemplazando cualquier valor previo; la 4 → 5 publica `git.change_branch_format` con su valor por defecto
-`{type}/{id}` en los repos que no habían elegido formato (vaciar la clave
-sigue siendo opt-out). La
-migración 1 → 2 añade el tipo `quick` y sus impactos a repos schema 1 sin pisar
-un `quick` custom ni extensiones propias (guardas `Object.hasOwn`). La migración
-3 → 4 repara el acoplamiento entre `review_required` y las stages verificables:
-inserta, en su posición canónica y sólo en los tipos que declaran
-`review_required: true`, las stages ausentes que exige
-`stagesRequiredByReview(config, tipo)` (`src/check.mjs`), la misma regla que
-aplica `checkConfig`: `specification` y `plan` con el `tdd` efectivo del tipo
-encendido, sólo `specification` con él apagado (el `tdd` del tipo manda sobre el
-global). Deja byte a byte los demás tipos. Lee el documento
-YAML vivo y no la instantánea previa, porque una migración anterior de la misma
-cadena puede haber añadido el propio `review_required` que dispara la reparación.
-Nunca inserta una stage que la lista canónica del repo no declare: sin punto de
-inserción legítimo se abstiene y deja en pie el error exacto de `checkConfig`, si
-lo hay, en
-vez de fabricar una lista inválida y declararse terminada. La misma 3 → 4 añade
-además la sección `readiness` cuando falta, copiando valores y comentario de
-`templates/config.yml` para que plantilla y migración no puedan divergir, y
-dejando intacto —byte a byte— cualquier `readiness` que el repo ya declarara,
-incluso malformado: esa clave es del usuario y su diagnóstico pertenece a
-`check`. El resumen
+byte-idéntico; un schema más nuevo que el soportado falla cerrado. El schema
+vigente es `7` y `src/config-migration.mjs` sólo sabe migrar desde el `6`: la
+6 → 7 borra `types`, `stages` y `readiness` junto con el comentario que
+introduce cada clave, sustituye `release.impacts` por `release.default_impact`
+(`patch` salvo que el repo ya lo declare), quita de `statuses` los estados
+retirados `in-validation` y `blocked` y publica `min_cli_version` con la versión
+del paquete que la ejecuta, reemplazando cualquier valor previo. Un schema
+anterior al `6` no se migra: `config migrate` falla, y `check` y `register`
+avisan, pidiendo migrarlo con ChangeLedger 0.19 antes de actualizar. El resumen
 de la migración expone la versión de origen real detectada, y CLI y visor
 comparten el mismo motor; el cliente del visor lee la versión soportada del
 payload del servidor en vez de duplicar la constante. En repos activados
@@ -154,8 +140,8 @@ disponibles para diagnosticar el repositorio sin mutarlo.
 
 El contexto core funciona también como índice operativo mínimo. Antes de escanear
 archivos, orienta a consultar trabajo autorizado con `changeledger list --status
-approved` y decisiones de cierre pendientes con `changeledger list --pending
-graduation`. La orientación es estática: no ejecuta esas consultas ni incorpora
+approved` y hallazgos abiertos, decisiones de cierre pendientes y candidatos a
+archivo con `changeledger list --pending findings|graduation|archive`. La orientación es estática: no ejecuta esas consultas ni incorpora
 estado efímero al contexto determinista.
 
 ## Store del estado global (núcleo local)
@@ -236,9 +222,10 @@ ruta pertenece por diseño a `20260808-151643` (el change de escritura).
 `resolveChangeInRepo`, en cambio, resuelve el mismo id por búsqueda exacta
 pero contra `repo.changes` de un `loadRepo*` ya cargado — hereda la autoridad
 bajo la que ese repo se cargó (snapshot si está activado) en lugar de leer
-disco de nuevo. `context`/`agent-context` (`src/commands/context.mjs`,
-`src/commands/agent-context.mjs`) la usan para sus lecturas por id de change,
-dependencia y relación; su captura sin id (modo core o palabra clave) no
+disco de nuevo. `context` (`src/commands/context.mjs`) la usa para sus
+lecturas por id de change, dependencia y relación, y `agent-context`
+(`src/commands/agent-context.mjs`), que siempre exige un id, para el change
+seleccionado; la captura sin id de `context` (modo core o palabra clave) no
 necesita ningún documento de change, así que no paga un `loadRepo` completo.
 La frontera de config quedó cerrada en `20260809-113242` con un único camino
 de autoridad: `loadEffectiveConfig(repoRoot, changeledgerDir)`
@@ -247,7 +234,7 @@ de autoridad: `loadEffectiveConfig(repoRoot, changeledgerDir)`
 el layout completo con las mismas garantías de blob regular y UTF-8 que
 `readSnapshot` sin cargar los documentos — y el del worktree cuando no. Todos
 los antiguos callers frontera enrutan por él: `register`, el bootstrap de
-`check`, las capturas sin id de `context`/`agent-context`, el propio
+`check`, las capturas sin id de `context`, el propio
 bootstrap de `loadRepo*`, las lecturas de config del visor y el listado del
 registry (que conserva el nombre cacheado cuando la ruta registrada no
 es un directorio utilizable, pero distingue "no activado" de "activación
@@ -306,7 +293,7 @@ ref en local, tanto en lectura como en escritura.
 La autoría de documentos (`20260810-182641`) es la misma costura con
 contrato de documento completo: `changeledger edit <change-id|spec:slug>
 --from <archivo|->` reemplaza frontmatter y cuerpo de una vez. El documento
-entrante se valida íntegro a la severidad del status vigente antes de
+entrante se valida íntegro con las reglas de `check` antes de
 escribir — nada inválido aterriza, y el candidato completo del repo se
 compara contra el estado actual: solo los errores NUEVOS que la escritura
 introduce la rechazan (`introducedErrors`, sobre el diff multiset
@@ -519,8 +506,9 @@ clones ya CAS-aron) y publicado. El mismo documento cambiado distinto en
 ambos lados — change, spec, config o manifest; el caso probable son dos
 graduaciones concurrentes de la misma spec — es conflicto fail-closed: nada
 se escribe, el reporte nombra cada documento con ambos tips y su clase, y la
-resolución la coordina el humano (el fragmento de contrato de `20260811-151427`
-posee los puntos estratégicos y el protocolo). Byte-idéntico en ambos lados
+resolución la coordina el humano (el fragmento de contrato `global-state.md`,
+que `context` compone tras el core sólo en un repo activado, posee los puntos
+estratégicos y el protocolo). Byte-idéntico en ambos lados
 no es colisión.
 
 Nunca bloqueante y desacoplado: sin remoto no transporta nada; un fallo de
@@ -637,7 +625,7 @@ antes de investigar desde cero para reutilizar decisiones ya registradas.
 - [Validación (changeledger check)](validation.md)
 - [Trazabilidad git](git-traceability.md)
 - [Discovery del contrato](contract-discovery.md)
-- [Definition of Ready](readiness.md)
+- [Definition of Ready](readiness.md) — registro de su retirada
 - [Política de idioma](language.md)
 - [Viewer y presentación](viewer.md)
 - [Política de dependencias](dependencies.md)
