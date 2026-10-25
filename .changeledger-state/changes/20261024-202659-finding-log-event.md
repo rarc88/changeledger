@@ -380,3 +380,4 @@ abajo son literales.
 - **2026-10-25T13:48:26Z** `[finding]` 1 promoted #20261024-202718
 - **2026-10-25T16:09:33Z** `[archive]` archived
 - **2026-10-25T17:47:45Z** `[finding]` promote 2 20261025-174739
+- **2026-10-25T17:47:46Z** `[finding]` 2 promoted #20261025-174739
