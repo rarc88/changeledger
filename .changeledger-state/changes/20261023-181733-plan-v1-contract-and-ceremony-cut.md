@@ -66,7 +66,10 @@ Terminado significa que, medido sobre `templates/contract/` y
 
 **Entra:** todo lo que el plan enumera en §2 (qué desaparece), §3 (modelo de
 aprobación), §6 (lo que se añade), §13.2 a §13.4 (tipos y config, contrato,
-cápsulas) y §15 (el criterio del ceremonial); la realineación de `INTENT.md` y
+cápsulas) y §15 (el criterio del ceremonial); las opciones 1 y 2 del §12
+(`delegation.md` dentro del core y el bloque de commits como tabla), añadidas
+por decisión del humano el 2026-10-25 cuando el recorte del §13.3 no alcanzó
+los pesos del §5 sin retirar prosa normativa; la realineación de `INTENT.md` y
 de `docs/usage-capture.md`; y la poda de los tests que prueban una capacidad
 retirada o la prosa del contrato, que viaja con el hijo que retira cada una
 (§9.1, filas «capacidad retirada» y «prosa del contrato»).
