@@ -254,10 +254,11 @@ queda registrado como hallazgo (CR5).
   - **Verify:** `grep -n "reopen\|validation\b" docs/usage-capture.md`
   - **Criteria:** CR4, CR5
   - **Resolved:** `2026-10-25T18:10:06Z`
-- [ ] Borrar `docs/workflow-hardening.md` y comprobar que nada lo referencia
+- [x] Borrar `docs/workflow-hardening.md` y comprobar que nada lo referencia
   - **Target:** `docs/workflow-hardening.md`
   - **Verify:** `grep -rn "workflow-hardening" README.md AGENTS.md CONTRIBUTING.md INTENT.md src/ bin/ docs/`
   - **Criteria:** CR6
+  - **Resolved:** `2026-10-25T18:10:06Z`
 - [ ] Hook sobre la rama, suite completa y `check` antes de pedir la revisión
   - **Support:**
   - **Verify:** `sh hooks/no-ledger-refs.sh origin/dev...HEAD && pnpm verify`
