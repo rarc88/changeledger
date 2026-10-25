@@ -12,14 +12,17 @@ graduated_from: ["20260616-210825", "20260630-225210", "20261018-131621", "20261
 `src/lifecycle.mjs` — el mismo parser que usa la validación secuencial de
 `changeledger check`, para que métricas y validación no diverjan: una entrada que
 métricas contaría pero que rompe la secuencia la señala `check` como error, no
-produce silenciosamente una timeline engañosa. Reconoce `status: from → estado`, `review → estado` y
-`validation → estado`;
+produce silenciosamente una timeline engañosa. Reconoce `status: from → estado` y `review → estado`, y
+`validation → estado` en la forma histórica
+`[validation] in-validation → <estado>`, que sólo lee registros antiguos;
 un evento sin estado de destino —la línea `[validation] accepted (merged <sha>)`
-que estampan la graduación y `sync`— no siembra ningún tramo de la timeline, porque el
-tramo exige `event.to`. De la timeline salen:
+que estampan la graduación y `sync`, el sello de la aceptación— no siembra ningún
+tramo de la timeline, porque el tramo exige `event.to`. Una línea `[finding]`
+tampoco: no es una transición y ninguna métrica la cuenta. De la timeline salen:
 cycle time (`done − created`), lead time por etapa, WIP actual sobre los tres
 estados vivos (`approved`, `in-progress`, `in-review`), aging de los
-`in-progress`, throughput por día y desgloses por tipo/owner.
+`in-progress`, throughput por día y desgloses por tipo/owner; el tipo es `change`
+o `epic`, así que el desglose por tipo tiene dos filas como máximo.
 
 El tiempo bloqueado (`blockedMs`) suma los tramos en `blocked`. Como `blocked` no
 es un estado del ciclo, sólo lee histórico de changes que lo atravesaron y vale
@@ -61,9 +64,9 @@ del humano. Contarlos todos inflaba la métrica alrededor del doble.
 el retrabajo no filtra ninguno, porque mide consumo y un tramo rehecho cuesta
 lo mismo lo pidiera quien lo pidiera, así que `[status] done → in-progress
 (agent)` es retrabajo y no es rechazo. Y por aristas: el retrabajo cuenta
-además `[review] in-review → in-progress` y `[review] in-review → blocked`, que
-son veredictos del revisor y no devoluciones del humano, así que
-`rejectionCount` no los cuenta nunca. Leer las dos cifras como si midieran lo
+además `[review] in-review → in-progress` y la histórica
+`[review] in-review → blocked`, que son veredictos del revisor y no devoluciones
+del humano, así que `rejectionCount` no los cuenta nunca. Leer las dos cifras como si midieran lo
 mismo es el error que esta nota existe para evitar.
 
 `reviewRetries` cuenta esa otra arista, `[review] in-review → in-progress`: todo
@@ -72,4 +75,5 @@ la cifra es el número de rondas de revisión que no pasaron, sin distinguir ent
 un defecto corregible y uno que necesita juicio del humano — esa clasificación
 vive en el informe del revisor, no en la métrica.
 
-El server las precalcula y el visor las pinta en la pestaña **Metrics**.
+El visor las calcula en el navegador con este mismo módulo, sobre los changes
+visibles, y las pinta en la pestaña **Metrics**.
