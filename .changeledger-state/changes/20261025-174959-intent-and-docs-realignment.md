@@ -287,3 +287,4 @@ queda registrado como hallazgo (CR5).
 - **2026-10-25T18:50:02Z** `[finding]` Test intermitente en CI (Ubuntu, Node 24): el guard «an unprobeable path keeps its cached name and the listing completes» de test/registry.test.mjs asume que listProjects conserva el orden de registro, pero recorre Object.entries(readRegistry()) y una clave numérica se enumera primero; init genera project_id con randomBytes(5) en hex, que sale todo dígitos ~0,9 % de las veces (en el fallo, 1717083302). Arreglo: ordenar explícitamente en listProjects o no depender del orden en el test.
 - **2026-10-25T19:25:52Z** `[archive]` archived
 - **2026-10-25T19:30:56Z** `[finding]` 1 promoted #20261025-174739
+- **2026-10-25T19:30:56Z** `[finding]` 2 promoted #20261025-174739
