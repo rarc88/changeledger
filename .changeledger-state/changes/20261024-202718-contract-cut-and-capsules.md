@@ -501,9 +501,10 @@ Los mensajes de error son literales.
   - **Verify:** `node --test test/cli-bin.test.mjs`
   - **Criteria:** CR16
   - **Resolved:** `2026-10-25T16:58:41Z`
-- [ ] Suite completa, lint y `check` antes de pedir la revisión
+- [x] Suite completa, lint y `check` antes de pedir la revisión
   - **Support:**
   - **Verify:** `pnpm verify`
+  - **Resolved:** `2026-10-25T16:58:51Z`
 
 ## Log
 - **2026-10-24T20:27:18Z** `[version]` 0.19.0
