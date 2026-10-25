@@ -9,18 +9,23 @@ graduated_from: ["20260614-151759", "20260616-162027", "20260626-174204", "20260
 
 El contrato canónico es un artefacto de la herramienta, separado del contrato
 propio de cada repo. Vive como fragmentos normativos únicos en
-`templates/contract/`: `core.md`, packs de tarea (`spec`, `implement`, `review`,
-`release`), fragmentos compartidos (`readiness`, `delegation`, `handoff`) y
-overlays de lifecycle (`close`, `discarded`). No existe
-un monolito paralelo que pueda divergir.
+`templates/contract/`, nueve en total: `core.md`, packs de tarea (`spec`,
+`implement`, `review`, `release`), el overlay de lifecycle `close`, el overlay
+de repo `global-state` y las dos piezas del único rol delegado
+(`agent-contexts/review.md` y `agent-prompts/review.md`). No existe
+un monolito paralelo que pueda divergir. Los fragmentos están fuera de
+`.changeledger/`, así que la regla de que nada fuera del ledger lleva un id de
+change ni un `CRn` también los alcanza; de entre ellos, `hooks/no-ledger-refs.sh` sólo exime
+`templates/contract/spec.md`, cuyos ejemplos de gramática llevan un id y
+criterios de muestra.
 
 El contexto dinámico reduce carga seleccionando el detalle que necesita la
 etapa, no recortando precisión operativa. Conserva comandos y ejemplos
 canónicos, antipatrones del parser, razones que evitan decisiones erróneas y
 reglas de ownership/integración. Una regla transversal puede tener un resumen
-en `core` y una única elaboración normativa compartida, sin crear fuentes
-competidoras; el resumen debe leerse como mínimo con puntero al pack propietario
-("at least ..."), nunca como lista exhaustiva ni como regla absoluta que
+en `core` y una única elaboración normativa en su pack propietario, sin crear
+fuentes competidoras; el resumen debe leerse como mínimo con puntero al pack
+propietario, nunca como lista exhaustiva ni como regla absoluta que
 contradiga la excepción que el pack define.
 
 Ningún fragmento enseña lo que un `--help` imprime. El contrato se carga
@@ -33,83 +38,76 @@ antiguas de Plan pero no nombra el remedio en ningún diagnóstico.
 
 `changeledger context` los compone de forma determinista:
 
-- sin argumento entrega sólo el núcleo no negociable;
+- sin argumento entrega sólo el núcleo no negociable, seguido de
+  `global-state.md` cuando el repo está activado (`repoIsActivated`);
 - con modo explícito entrega una advertencia incremental breve y sólo el pack
   especializado, sin repetir el núcleo ya leído;
 - con change id entrega la misma advertencia, infiere el pack u overlay desde el
-  status y añade el change completo, incluidos criterios, tareas y Log;
+  status (ninguno para `discarded`) y añade el change completo, incluidos
+  criterios, tareas y Log;
 - no intenta adivinar specs relacionadas: conserva los enlaces explícitos del
   change, sin heurística ni IA.
 
-La composición especializada es explícita:
+La composición especializada es explícita: cada modo compone un solo pack
+(`MODE_CONTEXT`, `src/commands/context.mjs`) y cada status uno o ninguno
+(`STATUS_CONTEXT`):
 
-- `spec`: autoría + delegación + readiness;
-- `implement`: implementación + delegación + handoff (la regla TDD efectiva
-  llega por la cabecera de política; el detalle de autoría/readiness pertenece
-  a `spec`);
-- `review`: revisión independiente + handoff (el reviewer es hoja: no recibe la
-  guía general de delegación);
-- `release`, `close` y `discarded`: su pack u overlay propio.
+- `spec`: autoría (`spec.md`); lo carga también un change en `draft`;
+- `implement`: implementación (`implement.md`; la regla TDD efectiva llega por
+  la cabecera de política); lo cargan `approved` e `in-progress`;
+- `review`: revisión independiente (`review.md`); lo carga `in-review`;
+- `release`: su pack propio;
+- `done`: el overlay `close`;
+- `discarded`: ningún overlay, porque el core ya dice que es terminal.
 
-La doctrina transversal de delegación (cuándo delegar, dimensionado del
-delegado, un dueño por superficie, la definición de `selection of work`) tiene
-una sola sede: el core. La regla de sede única rige en las dos direcciones —el
-core no duplica al overlay y el overlay amplía o especifica lo puntual de su
-etapa sin repetir ni contradecir al core—. `delegation.md` conserva solo lo que
-no tiene otra sede: los disparadores por etapa, la guía de no sobre-fragmentar
-y el único campo del prompt que el esqueleto no lleva —la línea base esperada
-para un rol que escribe—; los demás campos son placeholders del propio
-esqueleto, así que enumerarlos aquí era repetirlos. Las obligaciones de evidencia viven en
-`implement.md` (sección `## Evidence obligations`) para el
-implementador/corrector y en `review.md` para el revisor, servidas cada una al
-pack que las consume. La obligación sobre prosa entregable cubre documentación,
-comentarios de código y de test y notas del Log; una corrección de un hallazgo
-sobre prosa acota la frase a lo ejecutado o la borra, y el informe del
-implementador o corrector lista las frases con cuantificador universal que
-añadió o reescribió con el comando que ejecutó su borde. El prompt de revisión
-lleva esa lista, junto a las decisiones no especificadas, como puntos de
-escrutinio.
+El status elige el pack y nada más lo condiciona: el tipo del change no retira
+ni añade fragmentos. La única composición condicional es la de
+`global-state.md`, que depende del repo y no del modo ni del change: sólo la
+captura del núcleo de un repo activado la añade tras el core.
 
-El status elige el pack, pero **el tipo puede retirar un fragmento** que su
-configuración vuelve inaplicable. `readiness` es hoy el único condicionado así
-(`fragmentsForType`, `src/commands/context.mjs`): su contenido presupone
-`## Specification` y `## Plan`, de modo que un tipo sin `specification` activa
-recibía reglas que su documento no puede satisfacer y que `check` después
-rechaza — la cabecera de política y el cuerpo compuesto se contradecían dentro
-de la misma captura. Tampoco se compone para un tipo cuyo `tdd` efectivo está
-apagado: no debe ninguna de esas obligaciones, y su cabecera lo dice con
-`tdd=off`. La condición se deriva de las stages activas del tipo en
-`config.yml` y del resolutor único `effectiveTdd` (`src/check.mjs`), nunca de
-una lista de nombres de tipo: la lista envejece en cuanto la configuración
-cambia. `spec` y `delegation` siguen
-componiéndose para todos los tipos, y la invocación de modo desnudo no resuelve
-ningún tipo, así que el filtro no la alcanza.
+La doctrina de delegación tiene una sola sede: el core, y ningún pack compone
+un fragmento de delegación aparte. «Protect the orchestrator's context» fija
+qué se delega, un solo nivel de delegación, un dueño por superficie de
+escritura, la definición de `selection of work` y el dimensionado del delegado;
+la sección `## Delegation` fija cuándo compensa delegar, la guía de no
+sobre-fragmentar, el contrato de todo prompt sin esqueleto generado —por qué se
+delega, objetivo y frontera, ficheros que posee, la línea base que verifica
+primero un rol que escribe, el comando que verifica su resultado, el formato
+de vuelta y la prohibición de delegar más— y el triaje de lo que queda antes de
+entregar trabajo al humano, que manda lo que cae fuera del objetivo o la
+frontera a `changeledger finding <id>`. La regla de sede única rige en las dos
+direcciones —el core no duplica al overlay y el overlay amplía o especifica lo
+puntual de su etapa sin repetir ni contradecir al core—. Las obligaciones de
+evidencia viven en `implement.md` (sección `## Evidence obligations`), que todo
+prompt a un implementador declara, y en `review.md` el estándar de evidencia
+que el prompt de revisión añade a la cápsula del revisor, servidas cada una al
+pack que las consume. El prompt de revisión toma las decisiones que el
+implementador reporta como no especificadas como puntos de escrutinio, no como
+cerradas.
 
 La delegación portable separa el contrato del orquestador del de sus hojas:
 `changeledger agent-prompt <role>` entrega un esqueleto para cada rol de
-`AGENT_ROLES` (`src/commands/agent-context.mjs`) —`investigation`,
-`implementation`, `review` y `graduation-review`—, y el delegado
-identificado carga únicamente `changeledger agent-context <role> [change-id]`.
-Las cápsulas delimitan su responsabilidad y autoridad; todas salvo
-`implementation` son de solo lectura y ninguna recibe comandos de lifecycle.
-Cada esqueleto declara que su `agent-context` reemplaza la carga predeterminada
+`AGENT_ROLES` (`src/commands/agent-context.mjs`), que hoy es sólo `review`, y el
+delegado identificado carga únicamente `changeledger agent-context review
+<change-id>`, que exige el id y un change en `in-review`. Cualquier otra
+delegación sigue el contrato de prompt de `## Delegation` sin esqueleto
+generado. La cápsula delimita su responsabilidad y autoridad: es de solo
+lectura —no modifica ficheros, Git ni el ledger, no registra el veredicto y no
+delega— y no recibe comandos de lifecycle.
+El esqueleto declara que su `agent-context` reemplaza la carga predeterminada
 del bootstrap para esa tarea delegada; el bootstrap general no expone roles ni
 detalles de delegación. La cápsula lleva la misma línea **Effective policy**
-(`buildAgentContext`,
-`src/commands/agent-context.mjs`), y la de implementación condiciona a ella su
-red-green (`tdd=on`): con change seleccionado publica el `tdd` efectivo del tipo
-de ese change; sin él —sólo `investigation` admite omitir el id— publica el
-global. A diferencia del modo por id de `context`, la línea incluye `tdd`
-también para tipos sin `specification`.
+(`buildAgentContext`, `src/commands/agent-context.mjs`), resuelta para el
+change seleccionado.
 
 Cada composición de modo o id incluye una cabecera determinista **Effective
 policy** derivada de `.changeledger/config.yml` con defaults resueltos
 (`transversalPolicy`, `src/commands/context.mjs`; entre otros, idioma y `tdd`; en
-modo por id además `review_required` y stages del tipo), de modo que el agente
+modo por id además la rama y el tipo del change), de modo que el agente
 no lee el config crudo. El core y los modos publican el `tdd` global; el modo
-por id publica el `tdd` efectivo del tipo del change y lo omite cuando el tipo
-no activa `specification`, porque `readiness`, el único fragmento que define la
-obligación, no se compone para él. El core lleva la línea transversal mínima. En
+por id publica el `tdd` efectivo del change —el de su frontmatter si lo declara,
+si no el global (`effectiveTdd`, `src/check.mjs`)— y lo omite para un `epic`,
+que nunca se implementa. El core lleva la línea transversal mínima. En
 modo por id, cada dependencia local de `depends_on` se resume como
 `#id — título — status` sin incorporar su cuerpo; las referencias externas se
 conservan como referencias sin resolución local. `related_to` se presenta en
@@ -119,7 +117,9 @@ resuelve título y estado locales sin convertir la relación en dependencia.
 Toda composición base (sin el change seleccionado, cuya longitud pertenece al
 trabajo) tiene su presupuesto en la única tabla ejecutable
 `templates/contract/budgets.yml`; los tests la cargan directamente y `context` la
-lee para publicar el techo que se aplica. Los contextos posteriores amplían el
+lee para publicar el techo que se aplica. La captura del núcleo de un repo
+activado publica la suma de los techos `base.core` y `overlays.global-state`.
+Los contextos posteriores amplían el
 core y fallan cerrado por instrucción si el agente aún no lo leyó completo.
 
 **Un umbral por dimensión, y todo umbral falla.** Cada entrada declara dos
@@ -150,8 +150,9 @@ presupuestos**: el techo operativo de líneas del core y el del bloque `## Commi
 del core dejaron de ser literales en un test y son entradas declaradas, la segunda
 bajo un grupo `blocks`. El corte del bootstrap no es un techo sino un límite de
 transporte, y por eso vive aparte, en `src/contract.mjs`; lo único que se afirma
-entre ambos es que el corte no es menor que el techo de líneas del core, de modo
-que una captura legal no puede truncarse.
+entre ambos es que el corte no es menor que el techo de líneas del core más el
+del overlay `global-state`, de modo que una captura legal, de un repo activado
+o no, no puede truncarse.
 
 **El techo de `lines` no se fija a mano: se deriva del de `tokens`.** Es
 `tokens ÷ 10` en toda entrada, redondeado hacia abajo. Los tokens son la dimensión
@@ -165,24 +166,25 @@ De ahí que **el suelo de densidad sea normativo**: si un pack cae por debajo de
 tokens por línea, es el techo de líneas el que muerde primero, y eso es la señal de
 subir el corte a propósito en vez de descubrir un truncamiento en un repo consumidor.
 
-Cada techo de tokens es un **número redondo elegido como límite**, no derivado de
-lo que el contenido mide hoy ni compartido por clase: core 3000, spec 3000,
-implement 2800, review 1500, release 1000, cápsulas 800, overlay `done` 1250,
-overlay `discarded` 250 y el bloque `core-commits` 1000. Y **un techo sólo puede
+Cada techo de tokens es un **número fijo elegido como límite** de su propia
+entrada, no reajustado a lo que el contenido mida en cada momento ni compartido
+por clase: core 3000, spec 2030, implement 1610, review 820, release 440, la
+delegación (`agent`) 390, overlay `done` 1030, overlay `global-state` 160 y el
+bloque `core-commits` 350. Y **un techo sólo puede
 bajar**: subirlo es una decisión del humano registrada en un change, visible como
-una edición del pin de valores de `test/context.test.mjs`, que es su única
-sede. Derivar un techo de la medida del momento obliga a reeditarlo cada vez que
+una edición del pin de valores `PINNED_CEILINGS` de `test/context.test.mjs`, que
+es su única sede. Derivar un techo de la medida del momento obliga a reeditarlo cada vez que
 el contenido respira, que es como un techo deja de significar nada. Desde
 `20260730-002908` **ningún techo está en andamio** — el último (spec, 3450
 provisional) salió con el refactor del pack de autoría a 2403 medidos bajo su
 techo decidido — y el barrido de forma exige que ninguna entrada
 declare la marca `scaffold`. La doctrina para una excepción futura sigue en pie: un
-valor que excede su clase se marca en el propio fichero como andamio temporal con su
+valor provisional por encima del techo decidido se marca en el propio fichero como andamio temporal con su
 condición de salida nombrada, y quien lo haga retargetea deliberadamente ese barrido,
 que existe para que un techo provisional no vuelva a leerse como decisión tomada.
 
-El techo de las cápsulas de delegación cubre **las dos** clases, los esqueletos de
-prompt y las cápsulas de contexto. Cubrir sólo una dejaba un techo que no podía fallar
+El techo de la delegación (`agent`) cubre **las dos** clases, el esqueleto de
+prompt y la cápsula de contexto del rol `review`. Cubrir sólo una dejaba un techo que no podía fallar
 para la mitad de lo que declaraba acotar.
 
 **Que el contenido de hoy quepa y que el techo siga valiendo lo decidido son dos
@@ -203,7 +205,8 @@ texto sin salto de línea final termina igualmente en una línea real.
 **Un techo no es un objetivo.** Ninguna prosa normativa se retira para caber en
 un presupuesto: una regla sale de un fragmento sólo cuando su nueva sede está
 nombrada y un grep de la obligación misma —no de palabras parecidas— la encuentra
-allí. Si el contenido correcto no cabe, el trabajo se detiene y decide el humano.
+allí. Si el contenido correcto no cabe, el trabajo se detiene y decide el humano. Y
+el margen bajo un techo nunca es permiso para gastarlo.
 Nació de una retirada real: un objetivo estricto empujó a borrar tres reglas, una
 de ellas sin dueño en ningún otro fragmento.
 
@@ -212,14 +215,14 @@ un comando exacto y acotado, y declara la captura válida sólo si su última l�
 contiene END. Esa condición positiva sustituyó a la prohibición previa de pedir
 previews, resúmenes o límites voluntarios de líneas, bytes o tokens — una
 negación que el consumidor no podía verificar y que se incumplía en la práctica.
-Si falta END, se repite con la capacidad que la propia línea BEGIN publica. El
-core posee el resto: toda captura de contexto se lee completa en una pasada
-—core, modo y change id por igual— y una vista parcial nunca es contexto
-operativo válido.
+Si falta END, se repite con la capacidad que la propia línea BEGIN publica. La
+captura incremental posee el resto: toda captura de modo o change id abre con
+el aviso de que amplía el core ya leído y de que se lee completa en una pasada
+hasta su línea END, y una vista parcial nunca es contexto operativo válido.
 
 El core está organizado para enrutar antes de cargar. Clasificar la intención de
 cada mensaje humano es obligatorio y gratuito; cargar un contexto no lo es.
-Nunca se carga uno especulativamente ni se recarga uno que ya se tiene: sólo una
+Nunca se carga uno especulativamente: sólo una
 transición real de tarea o lifecycle solicita el modo o change id especializado
 que corresponda.
 
@@ -229,24 +232,24 @@ Se intentó con un `rev:<hash>` y un flag `--have`, y se retiró: el único mome
 en que habrían servido es justo después de una compactación, que es exactamente
 cuando el `rev` retenido se ha perdido con el resto de la captura. Su caso útil
 era vacío y solo aportaban superficie de CLI, prosa de contrato y tests. La
-regla que sí resuelve el problema no cuesta código: mientras el core completo
-siga en la conversación activa no se recarga, y si se perdió, se recaptura
-entero.
+regla que sí resuelve el problema no cuesta código: tras una compactación, el
+bootstrap ordena recapturar el core entero.
 
 **Tamaño y ocupación publicados en la propia salida.** La línea BEGIN de toda
 composición cierra su descriptor con el tamaño real, contando la propia BEGIN y
 la END, en la convención de líneas emitidas: `changeledger context … | wc -l`
 devuelve `N`, `head -<N>` conserva la línea END como última y `head -<N-1>` la
-pierde. Una composición acotada publica además cuánto ocupa de su techo en las
+pierde. Una composición acotada publica además cuánto ocupa de su techo en
 la dimensión que el consumidor necesita —`lines:<N>/<límite>`—, así que el agente
 ve el margen de transporte que le queda sin ejecutar la suite. **No publica
 tokens**: la cifra la aplican los tests y publicarla obligaría a todo repo
 consumidor a instalar el tokenizador para leer un número que no usa. Un contexto
 por change id incrusta un documento de tamaño arbitrario y no está acotado:
 publica su conteo solo y no inventa un techo, aunque reutilice los fragmentos de
-un modo. Un límite fijo no puede cumplir eso, porque solo el
-core está acotado por `budgets.yml`; los packs de modo varían y el contexto por
-change id incrusta el documento completo, sin cota. Publicar el número deja
+un modo. Un límite fijo no puede cumplir eso, porque
+cada pack tiene su propio techo en `budgets.yml`, el núcleo de un repo activado
+suma el de `global-state`, y el contexto por change id incrusta el documento
+completo, sin cota. Publicar el número deja
 construir un `head` determinista para cualquier contexto sin conocer su tamaño
 de antemano, y el consumidor canónico lo usa con el `N` exacto, así que lee
 hasta EOF y nunca trunca.
@@ -259,20 +262,22 @@ tests, y el propio `lines:<N>` no crea escenario de pipe cerrado: el consumidor
 que pasa el `N` exacto agota la salida.
 
 Un fragmento tampoco mantiene a mano una copia de algo que el producto genera.
-La tabla de los nueve tipos de evento del Log vivía duplicada en `implement.md`
-y hoy la imprime `log --help`, generada desde `LOG_EVENT_DEFINITIONS` con su
+La tabla de tipos de evento del Log vivía duplicada en `implement.md` y hoy la
+imprime `log --help` —los diez tipos, `[finding]` incluido—, generada desde `LOG_EVENT_DEFINITIONS` con su
 propia comprobación fail-closed; la aserción del contrato lee esa salida
 generada, así que la superficie a la que se manda al agente es la que está bajo
 test. Y ningún test nuevo fija una frase literal de un fragmento: se vigila la
 obligación, nunca su redacción, porque un pin literal le cobra un retarget a
 toda reescritura posterior aunque no mueva ninguna obligación.
 
-La regresión contractual se protege en tres niveles, ninguno un pin de hash:
-una matriz semántica exige cada regla, comando, ejemplo y antipatrón en su
-output propietario y rechaza packs ajenos; guards de obligación por grep
-comprueban que una frase retirada no reaparece y que cada obligación viva se
-encuentra en la sede de su fragmento dueño; y los presupuestos de
-`budgets.yml` acotan tokens y líneas de toda composición base. El nivel de
+La regresión contractual se protege sólo con cuatro clases de test sobre la
+prosa de `templates/contract/` (`AGENTS.md`), ninguna un pin de hash: los
+presupuestos de `budgets.yml`, que acotan tokens y líneas de toda composición
+base; la composición estructural —qué pack compone qué fragmento sin cargar
+packs ajenos, encabezados propios, filas de tabla, centinelas—; barridos que
+mantienen retirada una frase retirada; y un conjunto pequeño y curado de guards
+de concepto con patrones tolerantes a la redacción, que encuentran cada
+obligación viva en la sede de su fragmento dueño. El nivel de
 pins SHA-256 sobre los fragmentos —snapshot normalizado por fragmento más la
 obligación de reclasificar cada regla afectada como preservada, reemplazada o
 retirada antes de actualizar el snapshot— se retiró (decisión de 2026-07-29,
@@ -357,7 +362,7 @@ vez de degradar en silencio. Y ordena re-ejecutarlo como primera acción de la
 primera respuesta tras cualquier compactación, sin depender de ningún estado
 retenido.
 
-La regla general de captura completa del núcleo (§ arriba) no la deroga esto: lo
+La regla general de captura completa (§ arriba) no la deroga esto: lo
 que el bootstrap prescribe es un comando acotado y verificable, no la libertad
 del consumidor para elegir su propio recorte. El bootstrap no contiene reglas de lifecycle,
 delegación ni reconciliación de divergencias: esas políticas pertenecen al
