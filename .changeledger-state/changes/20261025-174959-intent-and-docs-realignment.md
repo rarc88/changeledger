@@ -266,3 +266,4 @@ queda registrado como hallazgo (CR5).
 - **2026-10-25T18:00:33Z** `[status]` draft → approved (human via conversation)
 - **2026-10-25T18:00:37Z** `[status]` approved → in-progress
 - **2026-10-25T18:00:37Z** `[branch]` set: change/20261025-174959 (auto)
+- **2026-10-25T18:02:03Z** `[finding]` unrecordedTransitions en src/usage-analysis.mjs cuenta la línea [validation] accepted (merged <sha>) como transición sin registro de uso, así que la pista gap de analyze sobrecuenta en un ledger activado; la condición que lo corrige es filtrar outcome !== 'accepted' junto al tipo. Fuera de esta frontera por decisión del Request.
