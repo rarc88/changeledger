@@ -24,3 +24,6 @@ obligatorias de nube, autenticación o proveedores. Esas capacidades pueden vivi
 en integraciones opcionales, pero el flujo canónico permanece determinista,
 local-first, explícito y agnóstico al agente.
 
+`INTENT.md` recoge estos mismos filtros y no-goals, en su sección «Filtros de
+evolución del producto», para quien lee el repositorio; esta spec sigue siendo
+donde vive la verdad persistente.
