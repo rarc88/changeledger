@@ -276,7 +276,8 @@ export function serializeLogEvent(event) {
   } else if (type === 'finding') {
     if (event.outcome === 'promoted') payload = `${event.n} promoted #${event.target}`;
     else if (event.outcome === 'dropped') payload = `${event.n} dropped: ${event.reason}`;
-    // An open text shaped like a resolution would read back as one.
+    // An open text shaped like a resolution would read back as a resolution
+    // or as nothing, never as the text it was.
     else if (
       event.outcome === 'open' &&
       parseFindingPayload(String(event.text ?? ''))?.outcome === 'open'

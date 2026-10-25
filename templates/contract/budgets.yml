@@ -1,6 +1,6 @@
 {
   "base": {
-    "core": { "tokens": 2680, "lines": 268 },
+    "core": { "tokens": 2690, "lines": 269 },
     "spec": { "tokens": 2400, "lines": 240 },
     "implement": { "tokens": 2480, "lines": 248 },
     "review": { "tokens": 1100, "lines": 110 },

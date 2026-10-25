@@ -994,8 +994,8 @@ program
       '  changeledger finding <id> <n> promote <change-id>   link finding F<n> to the change it became',
       '  changeledger finding <id> <n> drop "<reason>"       close finding F<n> with a reason',
       '',
-      "<n> is the finding's ordinal in that change's Log (F1, F2, ...). promote writes",
-      'one Log line and creates no change: create it first through the authorized flow.',
+      "<n> is the finding's ordinal in that change's Log (F1, F2, ...). promote only",
+      'appends to this Log and creates no change: create it first through the authorized flow.',
       'List the open findings with `changeledger list --pending findings`.',
     ].join('\n'),
   )
