@@ -351,9 +351,10 @@ abajo son literales.
   - **Verify:** `node --test test/cli-bin.test.mjs`
   - **Criteria:** CR14
   - **Resolved:** `2026-10-25T13:33:39Z`
-- [ ] Suite completa, lint y `check` antes de pedir la revisión
+- [x] Suite completa, lint y `check` antes de pedir la revisión
   - **Support:**
   - **Verify:** `pnpm verify`
+  - **Resolved:** `2026-10-25T13:33:55Z`
 
 ## Log
 - **2026-10-24T20:26:59Z** `[version]` 0.19.0
