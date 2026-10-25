@@ -262,7 +262,8 @@ function reworkSince(events) {
 
 // Log transitions (`[status]`, `[review]`, `[validation]` and the creation
 // stamped in `created`) that left no usage record with their change and
-// instant, sorted by instant.
+// instant, sorted by instant. The `[validation] accepted (merged <sha>)` stamp
+// is not a transition the collector snapshots, so it never counts.
 function unrecordedTransitions(docs, records) {
   const recorded = new Set(records.map((r) => `${r.record.change}\u0000${r.record.at}`));
   const instants = [];
@@ -272,6 +273,7 @@ function unrecordedTransitions(docs, records) {
       ...(isIsoUtc(created) ? [String(created)] : []),
       ...logEvents(doc)
         .filter((e) => ['status', 'review', 'validation'].includes(e.type))
+        .filter((e) => e.outcome !== 'accepted')
         .map((e) => e.at),
     ];
     for (const at of ats) if (!recorded.has(`${id}\u0000${at}`)) instants.push(at);
