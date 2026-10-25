@@ -326,10 +326,11 @@ abajo son literales.
   - **Verify:** `node --test test/agent.test.mjs test/cli-bin.test.mjs`
   - **Criteria:** CR4, CR5, CR6, CR7
   - **Resolved:** `2026-10-25T13:33:35Z`
-- [ ] `openFindings` sobre todos los changes y `list --pending findings` con sus filas, filtros, ayuda y error
+- [x] `openFindings` sobre todos los changes y `list --pending findings` con sus filas, filtros, ayuda y error
   - **Target:** `src/commands/agent.mjs`, `bin/changeledger.mjs`, `test/agent.test.mjs`, `test/cli-bin.test.mjs`
   - **Verify:** `node --test test/agent.test.mjs test/cli-bin.test.mjs`
   - **Criteria:** CR8, CR9
+  - **Resolved:** `2026-10-25T13:33:36Z`
 - [ ] Nada bloquea y `analyze` no cuenta: tests de archivo, entrega directa y análisis con hallazgos
   - **Target:** `test/agent.test.mjs`, `test/usage-analysis.test.mjs`
   - **Verify:** `node --test test/agent.test.mjs test/usage-analysis.test.mjs`
