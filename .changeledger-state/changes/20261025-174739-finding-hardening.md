@@ -213,10 +213,11 @@ construyen con el helper de CR4.
   - **Verify:** `node --test test/check.test.mjs test/lifecycle.test.mjs`
   - **Criteria:** CR1
   - **Resolved:** `2026-10-25T19:49:31Z`
-- [ ] `findingsInLog` en `src/lifecycle.mjs` con las resoluciones descartadas; `check` las reporta en documentos vivos
+- [x] `findingsInLog` en `src/lifecycle.mjs` con las resoluciones descartadas; `check` las reporta en documentos vivos
   - **Target:** `src/lifecycle.mjs`, `src/check.mjs`, `src/commands/agent.mjs`, `test/lifecycle.test.mjs`, `test/check.test.mjs`
   - **Verify:** `node --test test/check.test.mjs test/lifecycle.test.mjs test/agent.test.mjs`
   - **Criteria:** CR2
+  - **Resolved:** `2026-10-25T19:49:32Z`
 - [ ] Verbo delante en el comando `finding`, ayuda, README y tests reescritos
   - **Target:** `bin/changeledger.mjs`, `src/commands/agent.mjs`, `README.md`, `test/cli-bin.test.mjs`, `test/agent.test.mjs`, `test/contract.test.mjs`
   - **Verify:** `node --test test/cli-bin.test.mjs test/agent.test.mjs test/contract.test.mjs`
