@@ -1,8 +1,8 @@
 ---
 title: Filtros de decisión y no-goals de producto
-updated: 2026-06-28T01:05:07Z
+updated: 2026-10-25T23:13:44Z
 tags: [product, principles, architecture]
-graduated_from: ["20260627-205034"]
+graduated_from: ["20260627-205034", "20261023-181733"]
 ---
 
 # Filtros de decisión y no-goals de producto
