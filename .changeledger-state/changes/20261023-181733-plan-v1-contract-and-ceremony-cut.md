@@ -2,7 +2,7 @@
 id: "20261023-181733"
 title: "Plan v1.0: recortar el contrato y el ceremonial a comprensión, riesgo y reanudabilidad"
 type: epic
-status: in-progress
+status: done
 created: 2026-10-23T18:17:33Z
 depends_on: []
 branch: epic/20261023-181733
@@ -188,3 +188,4 @@ hijos el modelo que construye.
 - **2026-10-25T23:02:25Z** `[status]` approved → in-progress
 - **2026-10-25T23:02:25Z** `[branch]` set: epic/20261023-181733 (auto)
 - **2026-10-25T23:04:40Z** `[note]` Objetivo corregido a lo medido (decisión 1 de 20261025-193447, aprobada por el humano). Meta del §5 → medida al cerrar: contrato en disco 3.590 → 6.009 palabras; ficheros 9 → 9; core.md 960 → 1.722; core + implement 1.460 → 2.729; cápsulas 2 → 2; tipos 2 → 2; suite 36.000 → 52.304 LOC (la poda independiente quedó fuera por la decisión 1 del §11). Las obligaciones del §4 del plan se conservan todas; el hueco frente al §5 es prosa normativa que el plan no pesó, no obligaciones sobrantes.
+- **2026-10-25T23:13:23Z** `[status]` in-progress → done
