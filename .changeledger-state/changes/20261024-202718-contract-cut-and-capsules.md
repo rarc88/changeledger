@@ -2,10 +2,11 @@
 id: "20261024-202718"
 title: "El contrato baja a diez fragmentos y dos cápsulas: fuera §2.2, el aislamiento de correcciones y graduation-review; el estado global sale del core y nada fuera de .changeledger/ cita al ledger"
 type: change
-status: approved
+status: in-progress
 created: 2026-10-24T20:27:18Z
 depends_on:
   - "20261024-202659"
+branch: change/20261024-202718
 related_to:
   - "20261020-130304"
   - "20261023-181753"
@@ -347,3 +348,5 @@ que sobreviven; ningún pin literal nuevo.
 ## Log
 - **2026-10-24T20:27:18Z** `[version]` 0.19.0
 - **2026-10-25T16:12:04Z** `[status]` draft → approved (human via conversation)
+- **2026-10-25T16:12:08Z** `[status]` approved → in-progress
+- **2026-10-25T16:12:08Z** `[branch]` set: change/20261024-202718 (auto)
