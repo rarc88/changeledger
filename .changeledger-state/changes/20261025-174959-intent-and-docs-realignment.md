@@ -2,7 +2,7 @@
 id: "20261025-174959"
 title: "INTENT.md y docs describen el flujo que el contrato sirve: sin validación humana, sin bloqueo, sin correcciones aisladas; el acta de julio se retira"
 type: change
-status: in-review
+status: in-progress
 created: 2026-10-25T17:49:59Z
 depends_on: []
 branch: change/20261025-174959
@@ -275,3 +275,4 @@ queda registrado como hallazgo (CR5).
 - **2026-10-25T18:10:08Z** `[note]` Selección entregada: INTENT.md secciones 3–10 y reglas generales reescritas por el orquestador en el vocabulario del contrato; test/intent.test.mjs con cinco guards tolerantes (cuatro rojos contra el INTENT.md de origin/dev; «discarded es terminal» ya era verdad); docs/usage-capture.md corregido con respaldo de código línea a línea; docs/workflow-hardening.md borrado (2.195 líneas, sin referencias). CR5 enmendado: el sello de aceptación se escribe en las dos disposiciones, no sólo en un ledger activado. Residuales: la cadena de la pista rework en usage-analysis.mjs sigue diciendo «after a failed review or validation»; apply no toma instantánea en un lote vacío y el doc sólo nombra el dry-run.
 - **2026-10-25T18:10:09Z** `[status]` in-progress → in-review
 - **2026-10-25T18:10:14Z** `[note]` Mandato de revisión: auditoría completa del rango 2f481a54..HEAD (un commit) contra CR1–CR8.
+- **2026-10-25T18:19:26Z** `[review]` in-review → in-progress: Ronda 1: CR3 — los guards 1, 2 y 3 de test/intent.test.mjs se satisfacen sin su obligación (los encabezados sin punto cruzan al [^.]* y la frase del fail de revisión satisface al guard de la entrega devuelta); corrección: [^.\n] y anclar el guard 3 en «entreg». Menores en la misma ronda: usage-capture describe done → in-progress sólo como rechazo humano cuando la clave no distingue al actor; INTENT.md dice que la re-revisión inspecciona todo lo entregado (es bajo el mandato declarado), que graduación y archivo se deshacen por su documentación (el archivo borra la rama local y eso no se deshace) y que el marcador va siempre en el asunto (con dos changes va en el cuerpo); la retrospectiva es tras el cierre; el hijo sí registra --skip. Clase: enumeración incompleta dentro de la estrategia verificada.
