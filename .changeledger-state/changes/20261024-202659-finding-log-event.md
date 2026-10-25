@@ -316,10 +316,11 @@ abajo son literales.
   - **Verify:** `node --test test/lifecycle.test.mjs`
   - **Criteria:** CR1
   - **Resolved:** `2026-10-25T13:33:34Z`
-- [ ] Escritor en `LOG_EVENT_PRODUCERS` y mensaje de `check` con el décimo tipo
+- [x] Escritor en `LOG_EVENT_PRODUCERS` y mensaje de `check` con el décimo tipo
   - **Target:** `bin/changeledger.mjs`, `test/cli-bin.test.mjs`, `test/check.test.mjs`
   - **Verify:** `node --test test/cli-bin.test.mjs test/check.test.mjs test/contract.test.mjs`
   - **Criteria:** CR2, CR3
+  - **Resolved:** `2026-10-25T13:33:35Z`
 - [ ] Mutaciones `recordFinding` y `resolveFinding` junto a `logMutation`, con sus rechazos, y el comando `finding` en la CLI
   - **Target:** `src/commands/agent.mjs`, `bin/changeledger.mjs`, `test/agent.test.mjs`, `test/cli-bin.test.mjs`
   - **Verify:** `node --test test/agent.test.mjs test/cli-bin.test.mjs`
