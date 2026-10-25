@@ -502,3 +502,4 @@ Los mensajes de error son literales.
 - **2026-10-25T16:12:04Z** `[status]` draft → approved (human via conversation)
 - **2026-10-25T16:12:08Z** `[status]` approved → in-progress
 - **2026-10-25T16:12:08Z** `[branch]` set: change/20261024-202718 (auto)
+- **2026-10-25T16:14:20Z** `[note]` Specification y Plan escritos en in-progress con el código delante (dev b1bc5493). Decisiones no fijadas por el Request: global-state.md se compone en el pack core cuando loadRepo devuelve estado, con entrada overlays.global-state en budgets.yml y la línea BEGIN sumando ambos techos; un change discarded compone core y documento sin overlay; el script del hook vive en hooks/no-ledger-refs.sh, acepta --cached o un rango, y CI lo corre sólo en pull_request contra origin/dev...HEAD; los ejemplos de ayuda con id pasan a <id>; la cápsula de revisión conserva la evidencia por criterio y pierde el recorrido de «every CRn».
