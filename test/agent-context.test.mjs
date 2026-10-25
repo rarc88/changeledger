@@ -268,7 +268,7 @@ test('144327 CR8: delegated capsules expose no orchestrator mutation surface and
     /changeledger (status|task|log|review|graduate|archive|unarchive)/,
     'review exposes orchestrator mutation commands',
   );
-  assert.doesNotMatch(base, /# Economical Delegation|Do not over-shard/);
+  assert.doesNotMatch(base, /# Economical Delegation|over-shard/i);
   assert.match(base, /read-only/i);
 });
 

@@ -37,9 +37,8 @@ context: delegate both by default and inline only trivially small work.
 
 Every delegation is one level deep: a subagent never delegates further. One owner per write
 surface; concurrent subagents must not share files. A review is delegated from the skeleton
-`changeledger agent-prompt review`; any other prompt states what the delegation prompt
-contract of `changeledger context implement` lists. A subagent returns findings or a diff
-receipt, not narrative.
+`changeledger agent-prompt review`; any other prompt states what Delegation below lists. A
+subagent returns findings or a diff receipt, not narrative.
 
 A **selection of work** is the unit delegated: related tasks travel together to one delegate,
 independent ones go alone or in parallel. It becomes a **resolved selection** when its own
@@ -49,6 +48,30 @@ Size the delegate to the work: cheapest tier and low effort for mechanical looku
 mid tier for bounded reasoning over one surface; top tier and high effort for deep analysis,
 ambiguity, cross-cutting design and adversarial review; mid tier when unsure. An undersized
 hard task is paid for twice.
+
+## Delegation
+
+Delegate only when the gain exceeds the coordination cost, across a real boundary:
+investigation as independent questions, implementation across disjoint write sets with
+obvious integration, verification only when it catches risk without repeating the
+implementer's work. Never over-shard: no subagent per file, line or tiny edit; one small
+change across many files is one scoped delegate, a batch edit or a verified script. If you
+cannot state why the work is independent, what it returns and how you integrate it, keep it
+in the main thread.
+
+A prompt states why it is delegated, its objective and frontier, the files it owns, for a
+writing role the baseline it verifies first, the command that verifies its result, the
+return format, and that it must not delegate further.
+
+Before handing completed or stopped work to the human, triage what remains:
+
+- necessary to the change's purpose: its Specification, Plan and Log;
+- an operational step: execute or record it in the current flow;
+- outside the approved objective or frontier: `changeledger finding <id>`, which the human
+  promotes;
+- too vague to record: mention it, create no file.
+
+Never mix independent concerns into active work or hold up a ready delivery.
 
 ## Invariants
 
@@ -98,36 +121,29 @@ context owns that classification.
 
 ## Commits
 
-A change branch carries four commit classes and no others. **Draft**: one per drafted change
-document, committed on its own — never several drafts in one commit. **Baseline**: exactly
-one, the approved change document, before any code. **Implementation**: one per resolved
-selection of work — its code, tests, ticked boxes and Log entries — committed once its local
-gate passes, without waiting for the rest, so their number per change is not fixed. A
-correction after a review `fail` or a human rejection is one more resolved selection,
-committed before the change returns to `in-review`. **Handoff**: mandatory whenever work
-stops on an impediment or a session ends with uncommitted state; record why it was needed.
+A change branch carries only these four classes:
+
+| Class | How many | When | Carries |
+|---|---|---|---|
+| Draft | one per change document | drafted, alone | the document |
+| Baseline | exactly one | before any code | the approved document |
+| Implementation | one per resolved selection | its local gate passed; a correction after a review `fail` or a human rejection is one more resolved selection, committed before returning to `in-review` | code, tests, ticks, Log |
+| Handoff | mandatory | on an impediment or a session ending uncommitted | that state and why |
 
 Every selection is committed before the review is delegated, so the reviewer inspects a
-closed `baseline..HEAD` and the deliverable cannot change between the report and history.
+closed `baseline..HEAD`. A unit earns a commit only if it will be reverted, referenced
+or implemented independently: never a Plan task alone or a lifecycle transition, which rides
+the next real commit.
 
-Granularity follows one test: whether the unit will be reverted, referenced or implemented
-independently. A change document and a resolved selection pass it; a single Plan task and a
-lifecycle transition do not — a transition travels inside the next real commit, since the Log
-already records it.
+Subjects are `type(scope): description [#<id>]`; several changes use the body line
+`ChangeLedger: [#A] [#B]` instead, never a comma list. Only merge commits, `chore(release)`
+and a `ChangeLedger: none — <reason>` body are exempt. `changeledger commit [--id <id>]`
+resolves the single `in-progress` change without `--id` and fails, committing nothing, if
+that is ambiguous or the subject is not conventional. Run `changeledger check --commits`
+before requesting review.
 
-Subjects follow `type(scope): description [#<id>]` with the real id and conventional type. One
-change keeps its marker at the end of the subject; two or more keep the subject clean and use
-one canonical body line, `ChangeLedger: [#A] [#B]` — never a comma list in one bracket. Ledger
-meta-commits (status, review, log, archive) carry markers like any other; only merge commits,
-`chore(release)` prep and a `ChangeLedger: none — <reason>` body are exempt.
-`changeledger commit -m "<type>(<scope>): <desc>" [--id <id>]` composes and creates it,
-resolving the single `in-progress` change when `--id` is omitted and failing without
-committing if that is ambiguous or the subject is not conventional. Run `changeledger check
---commits [<base>]` before requesting review.
-
-A combined commit is legitimate only when several changes share the same files. Record in the
-Log what was combined and why, naming every change that shares the surface. Plan tasks are
-never a reason: each resolved selection is committed on its own.
+Combine changes in one commit only when they share files, logging what was combined, why,
+and every change sharing those files; Plan tasks are never a reason.
 
 ## Lifecycle
 

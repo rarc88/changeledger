@@ -2606,3 +2606,31 @@ test('the day after the contract cut: from a fresh repo to review delegation and
   assert.match(activated.out.split('\n')[0], new RegExp(`lines:\\d+/${summed.lines} =====$`));
   assertWithinBudget('activated context', activated.out, summed);
 });
+
+// The day after delegation folded into core and the commit classes became a table:
+// a fresh repo reads both in its core capture, and the authoring and implementing
+// packs carry no separate delegation fragment and fit their ceilings.
+test('the day after the delegation fold: core carries delegation and the commit table', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
+  initGitFixture(root, { args: ['-b', 'main'] });
+  assert.equal(runIn(root, env, 'init').code, 0);
+
+  const core = runIn(root, env, 'context');
+  assert.equal(core.code, 0, core.err);
+  assert.match(core.out, /\n## Delegation\n/);
+  const commits = core.out.slice(core.out.indexOf('\n## Commits\n'));
+  assert.match(commits.slice(0, commits.indexOf('\n## ', 1)), /^\| Draft \|/m);
+
+  for (const [mode, budget] of [
+    ['spec', contextBudgets.base.spec],
+    ['implement', contextBudgets.base.implement],
+  ]) {
+    const { code, out, err } = runIn(root, env, 'context', mode);
+    assert.equal(code, 0, err);
+    assert.doesNotMatch(out, /Economical Delegation/, `context ${mode} composes delegation`);
+    assertWithinBudget(`context ${mode}`, out, budget);
+  }
+});

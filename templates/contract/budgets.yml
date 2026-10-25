@@ -1,8 +1,8 @@
 {
   "base": {
-    "core": { "tokens": 2380, "lines": 238 },
-    "spec": { "tokens": 2380, "lines": 238 },
-    "implement": { "tokens": 1960, "lines": 196 },
+    "core": { "tokens": 3000, "lines": 300 },
+    "spec": { "tokens": 2030, "lines": 203 },
+    "implement": { "tokens": 1610, "lines": 161 },
     "review": { "tokens": 820, "lines": 82 },
     "release": { "tokens": 440, "lines": 44 }
   },
@@ -12,6 +12,6 @@
     "global-state": { "tokens": 160, "lines": 16 }
   },
   "blocks": {
-    "core-commits": { "tokens": 510, "lines": 51 }
+    "core-commits": { "tokens": 350, "lines": 35 }
   }
 }
