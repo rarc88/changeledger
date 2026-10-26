@@ -76,7 +76,87 @@ el test endurecido denuncie, aunque hoy no sea alcanzable.
 
 ## Specification
 
+### Proposal
+
+**La derivación se invierte: en vez de reconocer scrollers, excluye el frente.**
+El patrón `VIEW_SCROLLER` enumeraba a mano las familias de nombres que sabía
+reconocer, así que cualquier scroller con otro nombre —los dos paneles de
+Projects— se descartaba **en silencio**. El silencio es el defecto: un test que
+no ve algo y no se queja no es una guarda. La derivación pasa a recoger todo
+selector cuya regla declare desbordamiento vertical y a excluir solo lo que vive
+**delante** del overlay: el propio `.detail` y el lightbox de diagramas.
+
+**Lo que no sepa normalizar, lo denuncia.** Hoy los catorce scrollers
+verticales son clases simples, con o sin selector de atributo. Si alguien
+introduce una forma distinta —un descendente, una clase compuesta— el test
+falla nombrándola, en vez de saltársela. Descartado ampliar el patrón con más
+familias de nombres: es la misma lista a mano con otra cara, y vuelve a fallar
+en silencio con el siguiente nombre que nadie previó.
+
+**El scanner desciende a las at-rules.** `topLevelRules` registra una regla solo
+cuando su llave de cierre devuelve la profundidad a cero, de modo que nada
+dentro de un `@media` se examina. Pasa a registrar también las reglas anidadas
+en un bloque `@media` o `@supports`.
+
+**La lista de bloqueo se completa con lo que la derivación encuentre, sin
+juzgar si en la práctica scrollea.** Medido sobre la hoja actual: doce
+scrollers verticales detrás del overlay y ocho en la lista. Faltan
+`.projects-list`, `.project-editor`, `.ledger-source` y
+`.config-migration-yaml`. Los dos últimos probablemente no lleguen a desbordar
+hoy —un `<pre>` sin `max-height` y un panel que solo aparece migrando el
+esquema—, pero declaran desbordamiento vertical y la derivación no puede saber
+que no lo usarán. Razonar caso por caso sobre lo que «no scrollea en la
+práctica» es exactamente lo que dejó pasar dos defectos en
+`#20261026-134323`: se bloquean los doce.
+
+### CR1 — La derivación examina las reglas dentro de las at-rules
+
+- **Given** una hoja con una regla que declara desbordamiento vertical dentro de un bloque `@media`
+- **When** el test deriva su conjunto de scrollers
+- **Then** esa regla aparece en el conjunto
+- **And** sobre la hoja actual el conjunto incluye los catorce selectores que declaran `overflow` u `overflow-y` en `auto` o `scroll`
+
+### CR2 — La derivación reconoce `scroll`, no solo `auto`
+
+- **Given** una regla que declara `overflow: scroll` u `overflow-y: scroll`
+- **When** el test deriva su conjunto de scrollers
+- **Then** esa regla aparece en el conjunto, igual que si declarara `auto`
+
+### CR3 — Ningún scroller vertical se descarta en silencio
+
+- **Given** un selector con desbordamiento vertical cuya forma el test no sabe normalizar a una clase simple
+- **When** el test se ejecuta
+- **Then** falla nombrando ese selector, en vez de omitirlo del conjunto
+- **And** sobre la hoja actual no hay ninguno, así que el test pasa por cumplirse la regla y no por no mirar
+
+### CR4 — Todo lo que scrollea detrás del overlay está bloqueado
+
+- **Given** la hoja de estilos actual
+- **When** se comparan los scrollers verticales de detrás del overlay con la lista de `.detail-open`
+- **Then** los doce están en la lista, incluidos `.projects-list`, `.project-editor`, `.ledger-source` y `.config-migration-yaml`
+- **And** `.detail` y `.diagram-canvas` quedan fuera del conjunto por vivir delante del overlay, no por una excepción que los nombre uno a uno en la comparación
+
+### CR5 — El invariante sigue en pie en el viewer
+
+- **Given** el viewer en ejecución con un board más alto que la ventana
+- **When** se abre el detalle de un change y se recorren las vistas que tienen disparador
+- **Then** la única barra de scroll vertical sigue siendo la de `#detail`
+- **And** al cerrarlo, el board recupera el `scrollTop` que tenía
+
 ## Plan
+
+- [ ] Endurecer la derivación: descender a las at-rules, aceptar `scroll` y denunciar lo que no sepa normalizar
+  - **Target:** `test/viewer-metadata.test.mjs`
+  - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
+  - **Criteria:** CR1, CR2, CR3
+- [ ] Completar la lista de bloqueo con los cuatro selectores que faltan
+  - **Target:** `src/viewer/public/styles.css`
+  - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
+  - **Criteria:** CR4
+- [ ] Comprobar el invariante en el viewer en ejecución y anotar las cifras en el Log
+  - **Support:** el layout computado no lo cubre la suite; se mide con el navegador
+- [ ] Pasar la puerta local completa
+  - **Support:** `pnpm verify`
 
 ## Log
 - **2026-10-26T16:58:39Z** `[version]` 1.0.0
