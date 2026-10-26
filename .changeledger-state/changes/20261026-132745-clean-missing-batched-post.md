@@ -98,6 +98,63 @@ Queda fuera:
   registrada no es un directorio utilizable», que sondea el directorio, mientras
   `viewer.md` y la limpieza sondean `<path>/.changeledger/config.yml`.
 
+## Specification
+
+### CR1 — Un conjunto por encima del tope se trocea y se elimina entero
+- **Given** 600 candidatas ausentes cuyas rutas hacen que un solo cuerpo `{confirm, candidates}` supere el presupuesto de troceo del cliente
+- **When** se confirma `Clean missing` y todos los lotes responden `200`
+- **Then** el cliente emite más de una petición y ningún cuerpo enviado supera ese presupuesto
+- **And** el cuerpo agregado que recibe la UI declara `removed: 600` y `skipped: 0`
+
+### CR2 — El presupuesto del cliente no puede superar al del servidor
+- **Given** la constante de presupuesto del cliente y `MAX_BODY` de `src/viewer/server/router.mjs`
+- **When** se comparan
+- **Then** el presupuesto del cliente es menor o igual que `MAX_BODY`
+
+### CR3 — Un conjunto que cabe sigue emitiendo una sola petición
+- **Given** 3 candidatas ausentes
+- **When** se confirma `Clean missing`
+- **Then** se emite exactamente una petición
+
+### CR4 — Un lote que falla no se presenta como limpieza completa
+- **Given** 600 candidatas y un servidor que responde `200` al primer lote y `500 {"error":"unable to update project registry"}` al segundo
+- **When** termina la operación
+- **Then** la UI refresca el listado antes de informar del fallo
+- **And** el mensaje de error nombra cuántas entradas se eliminaron antes de parar
+
+### CR5 — El endpoint acepta la limpieza en lotes sucesivos
+- **Given** un registro con `alpha` vivo y las ausentes `gone-1` y `gone-2`
+- **When** se hacen dos POST autenticados a `/api/projects/clean-missing`, el primero con la candidata `gone-1` y el segundo con `gone-2`
+- **Then** cada respuesta declara `removed: 1` y el registro final conserva solo `alpha`
+
+## Plan
+
+- [ ] Extraer el presupuesto de troceo como constante del cliente y la función
+  que parte las candidatas en lotes que quepan en él
+  - **Target:** `src/viewer/public/api.js`
+  - **Verify:** `node --test test/viewer-metadata.test.mjs`
+  - **Criteria:** CR1, CR2, CR3
+- [ ] Emitir una petición por lote y agregar `removedIds`, `removed` y `skipped`
+  en un único cuerpo para la UI, informando del fallo tras refrescar
+  - **Target:** `src/viewer/public/app.js`
+  - **Verify:** `node --test test/viewer-metadata.test.mjs`
+  - **Criteria:** CR1, CR3, CR4
+- [ ] Escribir los criterios como tests
+  - **Target:** `test/viewer-metadata.test.mjs`
+  - **Verify:** `node --test test/viewer-metadata.test.mjs`
+  - **Criteria:** CR1, CR2, CR3, CR4
+- [ ] Cubrir la limpieza en lotes sucesivos contra el servidor real
+  - **Target:** `test/view.test.mjs`
+  - **Verify:** `node --test test/view.test.mjs`
+  - **Criteria:** CR5
+- [ ] Reconciliar en `viewer.md` el párrafo que describe la limpieza como una
+  única mutación
+  - **Target:** `.changeledger/specs/viewer.md`
+  - **Verify:** `node bin/changeledger.mjs check`
+  - **Support:**
+- [ ] Ejecutar el gate local completo
+  - **Support:** `pnpm test`
+
 ## Log
 - **2026-10-26T13:27:45Z** `[version]` 1.0.1-dev
 - **2026-10-26T13:29:35Z** `[status]` draft → approved (human via conversation)
