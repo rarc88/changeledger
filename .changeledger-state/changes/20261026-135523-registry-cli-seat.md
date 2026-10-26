@@ -5,6 +5,7 @@ type: change
 status: done
 created: 2026-10-26T13:55:23Z
 depends_on: []
+accepted_at: 2026-10-26T14:27:59Z
 reviewed: true
 branch: change/20261026-135523
 related_to: ["20260815-133442", "20261026-132745", "20261023-181453"]
@@ -194,3 +195,4 @@ Queda fuera:
 - **2026-10-26T14:18:07Z** `[note]` Reabierto para cerrar el alcance original: la revisión dejó sin resolver que `--dry-run` sin `--clean-missing` se ignore en silencio, y el humano decide que falle con un error claro.
 - **2026-10-26T14:23:17Z** `[status]` in-progress → in-review
 - **2026-10-26T14:29:36Z** `[review]` in-review → done (delegated subagent, clean context)
+- **2026-10-26T14:29:54Z** `[validation]` accepted (merged 1dc7c23)
