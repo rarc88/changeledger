@@ -2787,6 +2787,70 @@ test('134323 CR3: the mobile block hands the scroll back to the page', () => {
   assert.match(mobileBody, /overflow:\s*visible/);
 });
 
+// Top-level rules only: the scanner records a rule when its closing brace
+// brings the depth back to zero, so the contents of `@media` blocks never
+// surface as rules of their own.
+function topLevelRules(css) {
+  const rules = [];
+  const source = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  let depth = 0;
+  let start = 0;
+  let selector = '';
+  for (let i = 0; i < source.length; i += 1) {
+    if (source[i] === '{') {
+      if (depth === 0) {
+        selector = source.slice(start, i).trim();
+        start = i + 1;
+      }
+      depth += 1;
+    } else if (source[i] === '}') {
+      depth -= 1;
+      if (depth === 0) {
+        if (!selector.startsWith('@')) rules.push({ selector, body: source.slice(start, i) });
+        start = i + 1;
+      }
+    }
+  }
+  return rules;
+}
+
+const VIEW_SCROLLER =
+  /^(\.(?:board|graph|[a-z-]+-view|ledger-content|ledger-[a-z]+-panel))(\[[^\]]*\])?$/;
+
+// The obligation behind CR4, derived from the stylesheet instead of listed:
+// anything behind the overlay that scrolls paints a bar beside the detail's,
+// so it must be in the lock. Listing it by hand is what let `.graph` ship a
+// second bar — it was made elastic and never added to the lock.
+test('134323 CR4: every scroll container behind the overlay is in the detail-open lock', () => {
+  const css = fs.readFileSync(new URL('../src/viewer/public/styles.css', import.meta.url), 'utf8');
+  const rules = topLevelRules(css);
+  const selectorsOf = (rule) => rule.selector.split(',').map((one) => one.trim());
+
+  const locked = new Set(
+    rules
+      .filter(
+        (rule) => /\.detail-open\s/.test(rule.selector) && /overflow:\s*hidden/.test(rule.body),
+      )
+      .flatMap(selectorsOf)
+      .map((one) => one.replace(/^\.detail-open\s+/, '').replace(/\[[^\]]*\]$/, '')),
+  );
+  const scrollers = new Set(
+    rules
+      .filter((rule) => /overflow(?:-y)?:\s*auto/.test(rule.body))
+      .flatMap(selectorsOf)
+      .filter((one) => VIEW_SCROLLER.test(one))
+      .map((one) => one.replace(VIEW_SCROLLER, '$1')),
+  );
+
+  assert.ok(scrollers.size >= 7, `expected the views to scroll, found ${[...scrollers]}`);
+  for (const scroller of scrollers) {
+    assert.ok(
+      locked.has(scroller),
+      `${scroller} scrolls but is not locked while the detail is open`,
+    );
+  }
+});
+
 // `.detail-open` locked the document, but every view is a scroll container of
 // its own and survived the lock, so the board kept a second vertical bar
 // beside the detail's (134323 CR4).
