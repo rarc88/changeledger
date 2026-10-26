@@ -5,6 +5,7 @@ type: change
 status: done
 created: 2026-10-26T16:58:39Z
 depends_on: []
+archived: true
 reviewed: true
 branch: change/20261026-165839
 related_to: ["20261026-134323"]
@@ -253,3 +254,4 @@ práctica» es exactamente lo que dejó pasar dos defectos en
 - **2026-10-26T18:13:34Z** `[finding]` La barra invertida solo escapa dentro de cadenas, asi que un identificador con comilla, llave o parentesis escapados hace lanzar al scanner. Es CSS valido aunque rarisimo; antes daba resultados erroneos en silencio y ahora falla ruidosamente, que es mejor pero no correcto. Con un escape fuera de bloque el selector puede quedar deformado, siempre de forma benigna o ruidosa, nunca perdiendo la regla.
 - **2026-10-26T18:28:31Z** `[finding]` Test no determinista ajeno a este change, detectado en su CI: cli-bin CR2 (dos escrituras concurrentes del CLI) fallo en el job de node 24 con ambos procesos en codigo 0, mientras el job de node 26 del mismo commit paso y en local pasa 5 de 5. El test lanza dos procesos con Promise.all y da por hecho que se solapan, pero nada los sincroniza: si uno completa su lectura-modificacion-escritura antes de que el otro cargue el estado, no hay conflicto de compare-and-swap y ambos salen en 0, que es exactamente la firma observada. En un runner cargado el solapamiento no esta garantizado. El fichero es test/cli-bin.test.mjs, que este change no toca; viene de 20261026-135523.
 - **2026-10-26T18:42:31Z** `[finding]` 6 promoted #20261026-184128
+- **2026-10-26T19:58:51Z** `[archive]` archived
