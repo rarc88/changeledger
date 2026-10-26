@@ -187,10 +187,11 @@ al texto en vez de pincharlo.
 
 ## Plan
 
-- [ ] Derivar el anclaje de los fixtures desde `REFERENCE` y reapuntar los guards a la nueva formulación, dejándolos en rojo
+- [x] Derivar el anclaje de los fixtures desde `REFERENCE` y reapuntar los guards a la nueva formulación, dejándolos en rojo
   - **Target:** `test/contract.test.mjs`, `test/register.test.mjs`
   - **Verify:** `node --test test/contract.test.mjs test/register.test.mjs`
   - **Criteria:** CR1, CR2, CR5, CR7
+  - **Resolved:** `2026-10-26T21:42:26Z`
 - [ ] Reescribir `REFERENCE` con la exención en primera posición y la obligación condicionada
   - **Target:** `src/contract.mjs`
   - **Verify:** `node --test test/contract.test.mjs test/register.test.mjs`
