@@ -128,3 +128,4 @@ desechable en vez del del usuario.
 - **2026-10-26T12:34:45Z** `[status]` draft → approved (human via conversation)
 - **2026-10-26T12:35:19Z** `[status]` approved → in-progress
 - **2026-10-26T12:35:19Z** `[branch]` set: change/20261023-181453 (auto)
+- **2026-10-26T12:41:37Z** `[note]` CR4 pasa a comparar el conjunto de claves del registro real antes y después, en vez de buscar la entrada `cr4`: una entrada dejada por una ejecución roja anterior haría fallar esa búsqueda para siempre, y lo que importa es que el registro no gane nada.
