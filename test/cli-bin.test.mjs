@@ -1729,11 +1729,12 @@ test('20260808-141944 CR6: status warns on stderr when the checkout differs from
 // `mutateState`, reached only once its revision is already loaded — until the
 // first writer has moved the ref. The second one therefore arrives with a
 // revision that is certainly stale, with no dependency on the scheduler.
-function writePausingGitShim(dir, { readyFile, goFile, passthroughPath }) {
+function writePausingGitShim(dir, { readyFile, goFile }) {
   fs.mkdirSync(dir, { recursive: true });
   const shim = path.join(dir, 'git');
-  // The shim pauses the first state-ref update only, and restores the original
-  // PATH before exec so it never resolves to itself.
+  // The shim pauses the first state-ref update only, and restores the caller's
+  // own PATH — passed in the environment, never interpolated into the script —
+  // before exec, so it never resolves to itself.
   fs.writeFileSync(
     shim,
     `#!/bin/sh
@@ -1741,7 +1742,7 @@ if [ "$1" = "update-ref" ] && [ "$2" = ${JSON.stringify(STATE_REF)} ] && [ ! -e 
   : > ${JSON.stringify(readyFile)}
   while [ ! -e ${JSON.stringify(goFile)} ]; do sleep 0.02; done
 fi
-PATH=${JSON.stringify(passthroughPath)}
+PATH="$CHANGELEDGER_TEST_PATH"
 export PATH
 exec git "$@"
 `,
@@ -1769,47 +1770,64 @@ async function settledWithin(promise, failure) {
   return outcome;
 }
 
-test('two CLI writes race for the state ref — the stale one is refused with the actionable message', async () => {
+// The gate is staged by a POSIX sh shim, as the other PATH-shim tests here
+// are: on win32 an extensionless `git` script is never executed, so no race is
+// staged. What it proves is OS-independent and stays pinned elsewhere.
+test('two CLI writes race for the state ref — the stale one is refused with the actionable message', {
+  skip: process.platform === 'win32' && 'the gate is staged by a POSIX sh shim',
+}, async () => {
   const { root, env } = activatedCliRepo();
   const gate = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-gate-'));
   const readyFile = path.join(gate, 'at-the-gate');
   const goFile = path.join(gate, 'go');
   const shimDir = path.join(gate, 'bin');
-  writePausingGitShim(shimDir, { readyFile, goFile, passthroughPath: env.PATH });
+  writePausingGitShim(shimDir, { readyFile, goFile });
 
-  const held = new Promise((resolve) => {
-    const child = spawn('node', [bin, 'log', 'only-ref', 'note B'], {
-      cwd: root,
-      env: { ...env, PATH: `${shimDir}${path.delimiter}${env.PATH}` },
-    });
-    let stderr = '';
-    child.stderr.on('data', (chunk) => {
-      stderr += chunk;
-    });
-    child.on('close', (code) => resolve({ code, stderr }));
+  const child = spawn('node', [bin, 'log', 'only-ref', 'note B'], {
+    cwd: root,
+    env: {
+      ...env,
+      PATH: `${shimDir}${path.delimiter}${env.PATH}`,
+      CHANGELEDGER_TEST_PATH: env.PATH,
+    },
   });
+  let stderr = '';
+  child.stderr.on('data', (chunk) => {
+    stderr += chunk;
+  });
+  const held = new Promise((resolve) => child.on('close', (code) => resolve({ code, stderr })));
 
-  await waitForGate(readyFile, 'the second writer never reached the state ref update');
+  try {
+    await waitForGate(readyFile, 'the second writer never reached the state ref update');
 
-  const winner = runIn(root, env, 'log', 'only-ref', 'note A');
-  assert.equal(winner.code, 0, winner.err);
+    const winner = runIn(root, env, 'log', 'only-ref', 'note A');
+    assert.equal(winner.code, 0, winner.err);
 
-  fs.writeFileSync(goFile, 'go');
-  const refused = await settledWithin(
-    held,
-    'the second writer never finished after the gate opened',
-  );
+    fs.writeFileSync(goFile, 'go');
+    const refused = await settledWithin(
+      held,
+      'the second writer never finished after the gate opened',
+    );
 
-  assert.equal(refused.code, 1, refused.stderr);
-  assert.match(refused.stderr, /state changed since load — re-run the command/);
-  assert.doesNotMatch(refused.stderr, /state ref moved/);
+    assert.equal(refused.code, 1, refused.stderr);
+    assert.match(refused.stderr, /state changed since load — re-run the command/);
+    assert.doesNotMatch(refused.stderr, /state ref moved/);
 
-  // No partial write: the surviving snapshot has exactly one of the two
-  // notes, never both, never neither.
-  const listed = runIn(root, env, 'show', 'only-ref', '--json').out;
-  const noteACount = (listed.match(/note A/g) ?? []).length;
-  const noteBCount = (listed.match(/note B/g) ?? []).length;
-  assert.equal(noteACount + noteBCount, 1);
+    // No partial write: the surviving snapshot has exactly one of the two
+    // notes, never both, never neither.
+    const listed = runIn(root, env, 'show', 'only-ref', '--json').out;
+    const noteACount = (listed.match(/note A/g) ?? []).length;
+    const noteBCount = (listed.match(/note B/g) ?? []).length;
+    assert.equal(noteACount + noteBCount, 1);
+  } finally {
+    // A failed assertion must fail the run, never hang it: whatever happened,
+    // open the gate so the waiting shim can finish, and reap the child. The
+    // file write is what releases it — killing the CLI alone would orphan the
+    // shell still spinning on the gate.
+    fs.writeFileSync(goFile, 'go');
+    child.kill();
+    await Promise.race([held, delay(GATE_TIMEOUT_MS, null, { ref: false })]);
+  }
 });
 
 // 20261002-181346 CR7 — `init` declares an empty `git.release_branch` next to
