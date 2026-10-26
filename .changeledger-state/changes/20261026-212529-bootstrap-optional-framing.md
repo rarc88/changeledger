@@ -7,6 +7,7 @@ created: 2026-10-26T21:25:29Z
 depends_on: []
 related_to:
   - "20260720-212659"
+  - "20260629-155349"
   - "20260726-124834"
   - "20260701-213931"
   - "20260711-103803"
@@ -129,4 +130,3 @@ el contenido de `templates/contract/` y sus presupuestos; el comportamiento de
 ## Plan
 
 ## Log
-- **2026-10-26T21:25:29Z** `[version]` 1.0.0
