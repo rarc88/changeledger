@@ -169,6 +169,7 @@ body {
   padding: 18px;
   flex: 1 1 auto;
   min-height: 0;
+  overflow: auto;
   box-sizing: border-box;
 }
 .projects-shell {
@@ -371,9 +372,8 @@ body {
   cursor: wait;
 }
 @media (max-width: 900px) {
-  .projects-view {
-    height: auto;
-  }
+  /* The panels hand their scroll to the view, which owns one of its own; the
+     view's height comes from the flex model, not from a declaration here. */
   .projects-shell {
     grid-template-columns: 1fr;
     height: auto;
@@ -1452,6 +1452,8 @@ body {
 /* Graph */
 .graph {
   padding: 24px;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: auto;
 }
 .graph svg {

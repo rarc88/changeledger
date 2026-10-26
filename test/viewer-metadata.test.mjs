@@ -2753,10 +2753,25 @@ test('134323 CR2: the body owns the height and no rule subtracts a header variab
   assert.doesNotMatch(app, /--header-height/);
   assert.doesNotMatch(app, /ResizeObserver/);
 
-  for (const view of ['.table-view', '.metrics-view', '.global-view', '.projects-view']) {
+  // A locked body clips whatever its elastic item cannot show, so every view
+  // owns a scroller of its own — either directly, or by handing it to inner
+  // panels behind `overflow: hidden`. `.projects-view` was the hole: it was
+  // given the elastic sizing and no overflow, and the pre-existing 900px block
+  // takes the scroll off its inner panels, so between 681px and 900px nothing
+  // scrolled and the content was unreachable.
+  for (const view of [
+    '.board',
+    '.table-view',
+    '.graph',
+    '.metrics-view',
+    '.global-view',
+    '.projects-view',
+    '.ledger-view',
+  ]) {
     const rule = css.match(new RegExp(`\\${view}\\s*\\{([^}]*)\\}`, 's'))?.[1] ?? '';
     assert.match(rule, /flex:\s*1\s+1\s+auto/, view);
     assert.match(rule, /min-height:\s*0/, view);
+    assert.match(rule, /overflow:\s*(?:auto|hidden)/, view);
   }
 });
 
