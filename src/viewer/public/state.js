@@ -1,6 +1,6 @@
 // Tombstone visibility: archived and discarded changes are hidden by default and
-// each revealed by its own toggle. Shared by every view (board/table via
-// isVisible, and the graph) so no view can diverge on the rule.
+// each revealed by its own toggle. Shared by every view, which reach it through
+// isVisible, so no view can diverge on the rule.
 export const passesTombstones = (c, f) =>
   (f.showArchived || !c.archived) && (f.showDiscarded || c.status !== 'discarded');
 

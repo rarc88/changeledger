@@ -42,101 +42,6 @@ export function sortSpecsByUpdated(specs) {
   return [...specs].sort((a, b) => time(b) - time(a));
 }
 
-export function graphSvg(changes) {
-  if (!changes.length) {
-    return html`<p class="empty">No changes match the current filters.</p>`;
-  }
-
-  const byId = new Map(changes.map((c) => [String(c.id), c]));
-  const depthCache = new Map();
-  const depth = (id, seen = new Set()) => {
-    if (depthCache.has(id)) return depthCache.get(id);
-    if (seen.has(id)) return 0;
-    const nextSeen = new Set(seen);
-    nextSeen.add(id);
-    const c = byId.get(String(id));
-    const deps = (c?.depends_on || []).filter((d) => byId.has(String(d)));
-    const d = deps.length ? 1 + Math.max(...deps.map((x) => depth(String(x), nextSeen))) : 0;
-    depthCache.set(id, d);
-    return d;
-  };
-
-  const layers = {};
-  for (const c of changes) {
-    const d = depth(String(c.id));
-    layers[d] ||= [];
-    layers[d].push(c);
-  }
-
-  const COL = 230;
-  const ROW = 78;
-  const W = 180;
-  const H = 52;
-  const pos = new Map();
-  for (const [d, items] of Object.entries(layers)) {
-    items.forEach((c, i) => {
-      pos.set(String(c.id), { x: +d * COL + 30, y: i * ROW + 30 });
-    });
-  }
-
-  const width = (Math.max(...Object.keys(layers).map(Number)) + 1) * COL + 60;
-  const height = Math.max(...Object.values(layers).map((l) => l.length)) * ROW + 60;
-
-  const edges = changes
-    .flatMap((c) =>
-      (c.depends_on || [])
-        .filter((d) => pos.has(String(d)))
-        .map((d) => ({ from: pos.get(String(d)), to: pos.get(String(c.id)) })),
-    )
-    .map((e) => {
-      const x1 = e.from.x + W;
-      const y1 = e.from.y + H / 2;
-      const x2 = e.to.x;
-      const y2 = e.to.y + H / 2;
-      const mx = (x1 + x2) / 2;
-      return svg`<path class="edge" d=${`M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`} />`;
-    });
-
-  const relationKeys = new Set();
-  const relationEdges = changes.flatMap((change) =>
-    (change.related_to || []).flatMap((raw) => {
-      const related = String(raw);
-      if (!pos.has(related)) return [];
-      const key = [String(change.id), related].sort().join('::');
-      if (relationKeys.has(key)) return [];
-      relationKeys.add(key);
-      const from = pos.get(String(change.id));
-      const to = pos.get(related);
-      return svg`<line
-        class="relation-edge"
-        x1=${from.x + W / 2}
-        y1=${from.y + H / 2}
-        x2=${to.x + W / 2}
-        y2=${to.y + H / 2}
-      />`;
-    }),
-  );
-
-  const nodes = changes.map((c) => {
-    const p = pos.get(String(c.id));
-    return svg`<g class="node" data-id=${c.id} transform=${`translate(${p.x},${p.y})`}>
-        <rect width=${W} height=${H} stroke=${`var(--${cssIdent(c.type)})`}></rect>
-        <text class="nid" x="10" y="18">#${c.id} · ${c.status}</text>
-        <text x="10" y="36">${clip(c.title, 24)}</text>
-      </g>`;
-  });
-
-  return html`
-    <svg viewBox=${`0 0 ${width} ${height}`} height=${height}>
-      <defs>
-        <marker id="arrow" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
-          <path d="M0,0 L7,3 L0,6 Z" fill="var(--muted)"></path>
-        </marker>
-      </defs>
-      ${edges}${relationEdges}${nodes}
-    </svg>`;
-}
-
 export function specsListHtml(specs, fmtDateTime) {
   if (!specs.length) {
     return html`<p class="empty">No specs yet. Truth graduates here as changes complete.</p>`;
@@ -202,7 +107,7 @@ function barRows(items, label, value, fmt = (v) => v) {
 
 // Hand-rolled SVG bar chart for throughput: one bar per day, a date label and
 // the numeric count both drawn as text so the value is visible without a
-// tooltip (no charting dependency — same precedent as `graphSvg`).
+// tooltip (no charting dependency).
 function throughputSvg(tp) {
   if (!tp.length) return html`<p class="empty">No closed changes yet.</p>`;
 

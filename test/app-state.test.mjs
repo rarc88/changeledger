@@ -275,9 +275,22 @@ test('231428: setView updates currentView and clears globalMode', async () => {
   const { state, setView, toggleGlobalMode } = await freshState();
   toggleGlobalMode();
   assert.equal(state.globalMode, true);
-  setView('graph');
-  assert.equal(state.currentView, 'graph');
+  setView('metrics');
+  assert.equal(state.currentView, 'metrics');
   assert.equal(state.globalMode, false);
+});
+
+// A viewer that stored `graph` before the view was retired must land on Board
+// instead of on a view that no longer exists (145217 CR2).
+test('145217 CR2: a stored view the viewer no longer offers restores as board', async () => {
+  const { VIEWER_STATE_KEY, restoreViewerState, state } = await freshState();
+  const storage = memoryStorage({
+    [VIEWER_STATE_KEY]: JSON.stringify({ version: 1, currentView: 'graph', projects: {} }),
+  });
+
+  restoreViewerState(storage);
+
+  assert.equal(state.currentView, 'board');
 });
 
 test('231428: toggleGlobalMode flips and returns new value', async () => {
@@ -400,7 +413,7 @@ test('111219 CR4: missing selected project falls back and rewrites snapshot', as
     [mod.VIEWER_STATE_KEY]: JSON.stringify({
       version: 1,
       currentProject: 'gone',
-      currentView: 'graph',
+      currentView: 'metrics',
       projects: {},
     }),
   });

@@ -82,15 +82,13 @@ const {
   rejectionPanel,
   specBody,
 } = await import('../src/viewer/public/view-parts.js');
-const { graphSvg, metricsHtml, specsListHtml } = await import(
-  '../src/viewer/public/view-renderers.js'
-);
+const { metricsHtml, specsListHtml } = await import('../src/viewer/public/view-renderers.js');
 
 const viewerShell = () => {
   const root = document.createElement('div');
   root.innerHTML = `<input id="search"><button id="toggle-global"></button><select id="project"></select>
     <span id="lang"></span><div id="type-filter"></div><div id="owner-filter"></div><div id="status-filter"></div>
-    ${['board', 'table', 'graph', 'ledger', 'metrics', 'projects']
+    ${['board', 'table', 'ledger', 'metrics', 'projects']
       .map((name) => `<button id="view-${name}"></button><section id="${name}"></section>`)
       .join('')}
     <section id="global"></section>`;
@@ -849,24 +847,24 @@ test('111218 CR3/CR6/CR7/CR9: project view wires select, reload, save, repair an
 test('111219 CR1/CR2: restored state hydrates search, active view and global mode', () => {
   const root = document.createElement('div');
   root.innerHTML = `<input id="search"><button id="toggle-global"></button>
-    ${['board', 'table', 'graph', 'ledger', 'metrics', 'projects']
+    ${['board', 'table', 'ledger', 'metrics', 'projects']
       .map((name) => `<button id="view-${name}"></button><section id="${name}"></section>`)
       .join('')}
     <section id="global"></section>`;
   appState.filters.text = 'authentication';
-  appState.currentView = 'graph';
+  appState.currentView = 'metrics';
   appState.globalMode = false;
   syncViewerShell(root, false);
   assert.equal(root.querySelector('#search').value, 'authentication');
-  assert.ok(root.querySelector('#view-graph').classList.contains('active'));
-  assert.ok(!root.querySelector('#graph').classList.contains('hidden'));
+  assert.ok(root.querySelector('#view-metrics').classList.contains('active'));
+  assert.ok(!root.querySelector('#metrics').classList.contains('hidden'));
   assert.ok(root.querySelector('#board').classList.contains('hidden'));
 
   appState.globalMode = true;
   syncViewerShell(root, false);
   assert.ok(root.querySelector('#toggle-global').classList.contains('active'));
   assert.ok(!root.querySelector('#global').classList.contains('hidden'));
-  assert.ok(root.querySelector('#graph').classList.contains('hidden'));
+  assert.ok(root.querySelector('#metrics').classList.contains('hidden'));
 
   appState.globalMode = false;
   appState.currentView = 'ledger';
@@ -935,7 +933,7 @@ test('111219 CR1/CR6: bootstrap restores shell synchronously and tolerates block
   const shell = () => {
     const root = document.createElement('div');
     root.innerHTML = `<input id="search"><button id="toggle-global"></button>
-      ${['board', 'table', 'graph', 'ledger', 'metrics', 'projects']
+      ${['board', 'table', 'ledger', 'metrics', 'projects']
         .map((name) => `<button id="view-${name}"></button><section id="${name}"></section>`)
         .join('')}
       <section id="global"></section>`;
@@ -965,7 +963,7 @@ test('111219 CR1/CR6: bootstrap restores shell synchronously and tolerates block
 test('111219 CR4: no live project replaces a restored view with the visible empty state', () => {
   const root = document.createElement('div');
   root.innerHTML = `<input id="search"><button id="toggle-global"></button>
-    ${['board', 'table', 'graph', 'ledger', 'metrics', 'projects']
+    ${['board', 'table', 'ledger', 'metrics', 'projects']
       .map((name) => `<button id="view-${name}"></button><section id="${name}"></section>`)
       .join('')}
     <section id="global"></section>`;
@@ -994,7 +992,7 @@ test('20261007-135148 CR1: every project view shows the empty state when no repo
   appState.repo = null;
   appState.currentProject = null;
   try {
-    for (const view of ['board', 'table', 'graph', 'ledger', 'metrics']) {
+    for (const view of ['board', 'table', 'ledger', 'metrics']) {
       activateView(view, { historyMode: null });
       await new Promise((resolve) => setTimeout(resolve, 0));
       const container = fixture.querySelector(`#${view}`);
@@ -1037,7 +1035,7 @@ test('20261007-135148 CR2: the projects view still shows its own empty state wit
   }
 });
 
-const LOAD_ERROR_VIEWS = ['board', 'table', 'graph', 'ledger', 'metrics'];
+const LOAD_ERROR_VIEWS = ['board', 'table', 'ledger', 'metrics'];
 const NO_PROJECTS_TEXT = 'No projects registered. Run changeledger init in a repo.';
 
 async function withFailedLoadFixture(run) {
@@ -1101,7 +1099,7 @@ const recoveredPayloadText = () =>
     }),
   });
 
-test('20261007-172305 CR1: a failed project load shows its error in board, table, graph, ledger and metrics', async () => {
+test('20261007-172305 CR1: a failed project load shows its error in board, table, ledger and metrics', async () => {
   await withFailedLoadFixture(async (fixture, tick) => {
     assert.equal(await load(failingLoad), false);
     for (const view of LOAD_ERROR_VIEWS) {
@@ -1180,7 +1178,7 @@ test('20261007-172305 F1: a failed load of the selected project is not covered b
     await selectViewerProject('beta', { loadProject: () => load(failingLoad) });
     try {
       setTextFilter('anything');
-      for (const view of ['board', 'table', 'graph', 'ledger', 'metrics', 'board']) {
+      for (const view of ['board', 'table', 'ledger', 'metrics', 'board']) {
         activateView(view, { historyMode: null });
         await tick();
         const shown = fixture.querySelector(`#${view}`).textContent;
@@ -2486,14 +2484,14 @@ test('210508 CR6 / 125850 CR2: discarded is hidden by default and gets an opt-in
     'done',
     'discarded',
   ]);
-  // The graph uses passesTombstones directly (shared with isVisible) so it can't
-  // diverge: discarded is hidden by default there too, shown only with the toggle.
-  assert.equal(passesTombstones(c, f), false, 'graph hides discarded by default');
-  assert.equal(passesTombstones(c, { ...f, showDiscarded: true }), true, 'graph shows with toggle');
+  // passesTombstones is the rule itself, which isVisible composes, so no view
+  // can diverge: discarded is hidden by default, shown only with the toggle.
+  assert.equal(passesTombstones(c, f), false, 'discarded hidden by default');
+  assert.equal(passesTombstones(c, { ...f, showDiscarded: true }), true, 'shown with the toggle');
   assert.equal(
     passesTombstones({ ...baseChange(), archived: true }, f),
     false,
-    'graph hides archived',
+    'archived hidden by default',
   );
 });
 
@@ -2528,7 +2526,7 @@ test('105206 CR1/CR2/CR3: type and owner sets combine inclusively without a sent
   );
 });
 
-test('141643 CR3: pending graduation combines with every visible-change filter but not Graph', () => {
+test('141643 CR3: pending graduation combines with every visible-change filter but not the tombstone rule', () => {
   const filters = {
     text: 'needle',
     types: new Set(['feature']),
@@ -2556,7 +2554,7 @@ test('141643 CR3: pending graduation combines with every visible-change filter b
   assert.equal(
     passesTombstones({ ...matching, pending_graduation: false }, filters),
     true,
-    'Graph keeps its tombstone-only filter semantics',
+    'the tombstone rule stays independent of pending graduation',
   );
 });
 
@@ -2762,7 +2760,6 @@ test('134323 CR2: the body owns the height and no rule subtracts a header variab
   for (const view of [
     '.board',
     '.table-view',
-    '.graph',
     '.metrics-view',
     '.global-view',
     '.projects-view',
@@ -2815,11 +2812,11 @@ function topLevelRules(css) {
 }
 
 const VIEW_SCROLLER =
-  /^(\.(?:board|graph|[a-z-]+-view|ledger-content|ledger-[a-z]+-panel))(\[[^\]]*\])?$/;
+  /^(\.(?:board|[a-z-]+-view|ledger-content|ledger-[a-z]+-panel))(\[[^\]]*\])?$/;
 
 // The obligation behind CR4, derived from the stylesheet instead of listed:
 // anything behind the overlay that scrolls paints a bar beside the detail's,
-// so it must be in the lock. Listing it by hand is what let `.graph` ship a
+// so it must be in the lock. Listing it by hand is what let a view ship a
 // second bar — it was made elastic and never added to the lock.
 test('134323 CR4: every scroll container behind the overlay is in the detail-open lock', () => {
   const css = fs.readFileSync(new URL('../src/viewer/public/styles.css', import.meta.url), 'utf8');
@@ -3038,84 +3035,57 @@ test('111457 request: structured graduation history resolves a change for naviga
   assert.equal(opened, undefined);
 });
 
-test('222619 CR1: graph empty state does not render invalid dimensions', () => {
-  const host = parse(graphSvg([]));
-  assert.equal(host.querySelector('.empty')?.textContent, 'No changes match the current filters.');
-  assert.equal(host.querySelector('svg'), null);
-  assert.doesNotMatch(host.innerHTML, /Infinity|NaN/);
-});
-
-test('222619 CR2: graph with changes keeps finite svg dimensions and nodes', () => {
-  const host = parse(
-    graphSvg([
-      baseChange(),
-      {
-        ...baseChange(),
-        id: '20260613-120001',
-        title: 'dependent',
-        depends_on: ['20260613-120000'],
-      },
-    ]),
+// The Graph view was retired as a product decision: it was maintained, tested
+// and documented without being used. What it left behind — a tab, a section, a
+// renderer, a block of node/edge CSS — is gone, and nothing that served the
+// other views went with it (145217 CR1, CR3).
+test('145217 CR1/CR3: the viewer offers five views and keeps no graph surface', async () => {
+  const html = fs.readFileSync(new URL('../src/viewer/public/index.html', import.meta.url), 'utf8');
+  const css = fs.readFileSync(new URL('../src/viewer/public/styles.css', import.meta.url), 'utf8');
+  const app = fs.readFileSync(new URL('../src/viewer/public/app.js', import.meta.url), 'utf8');
+  const appState = fs.readFileSync(
+    new URL('../src/viewer/public/app-state.js', import.meta.url),
+    'utf8',
   );
-  const svg = host.querySelector('svg');
-  assert.ok(svg, 'graph renders an svg');
-  assert.doesNotMatch(svg.getAttribute('viewBox'), /Infinity|NaN/);
-  assert.doesNotMatch(svg.getAttribute('height'), /Infinity|NaN/);
-  assert.equal(host.querySelectorAll('.node').length, 2);
-  assert.equal(host.querySelectorAll('.edge').length, 1);
-});
-
-test('105456 CR5: graph renders deduplicated dashed undirected relation edges', () => {
-  const host = parse(
-    graphSvg([
-      { ...baseChange(), id: 'A', title: 'A', related_to: ['B'] },
-      { ...baseChange(), id: 'B', title: 'B', related_to: ['A'] },
-    ]),
+  const renderers = fs.readFileSync(
+    new URL('../src/viewer/public/view-renderers.js', import.meta.url),
+    'utf8',
   );
-  assert.equal(host.querySelectorAll('.relation-edge').length, 1);
-  assert.equal(host.querySelectorAll('.edge').length, 0);
-});
 
-const nodeX = (host, id) => {
-  const transform = host.querySelector(`.node[data-id="${id}"]`)?.getAttribute('transform') ?? '';
-  const match = transform.match(/translate\((\d+),/);
-  return match ? Number(match[1]) : Number.NaN;
-};
-
-test('162104 CR1: graph shared dependencies do not collapse depth', () => {
-  const changes = [
-    { ...baseChange(), id: 'A', title: 'A' },
-    { ...baseChange(), id: 'B', title: 'B', depends_on: ['A'] },
-    { ...baseChange(), id: 'C', title: 'C', depends_on: ['A'] },
-    { ...baseChange(), id: 'D', title: 'D', depends_on: ['B', 'C'] },
-  ];
-  const host = parse(graphSvg(changes));
-  assert.ok(nodeX(host, 'D') > nodeX(host, 'B'));
-  assert.ok(nodeX(host, 'D') > nodeX(host, 'C'));
-  assert.equal(host.querySelectorAll('.edge').length, 4);
-});
-
-test('162104 CR2: graph with a real cycle stays finite', () => {
-  const host = parse(
-    graphSvg([
-      { ...baseChange(), id: 'A', title: 'A', depends_on: ['B'] },
-      { ...baseChange(), id: 'B', title: 'B', depends_on: ['A'] },
-    ]),
+  const views = ['board', 'table', 'ledger', 'metrics', 'projects'];
+  for (const view of views) {
+    assert.match(html, new RegExp(`id="view-${view}"`), view);
+    assert.match(html, new RegExp(`<section id="${view}"|<main id="${view}"`), view);
+  }
+  assert.doesNotMatch(html, /view-graph|id="graph"/);
+  assert.match(app, new RegExp(`const VIEWS = \\[${views.map((v) => `'${v}'`).join(', ')}\\]`));
+  assert.match(
+    appState,
+    new RegExp(`VALID_VIEWS = new Set\\(\\[${views.map((v) => `'${v}'`).join(', ')}\\]\\)`),
   );
-  const svg = host.querySelector('svg');
-  assert.ok(svg, 'graph renders an svg');
-  assert.doesNotMatch(svg.getAttribute('viewBox'), /Infinity|NaN/);
-  assert.equal(host.querySelectorAll('.node').length, 2);
-});
 
-test('162104 CR3: simple graph still places dependents after dependencies', () => {
-  const host = parse(
-    graphSvg([
-      { ...baseChange(), id: 'A', title: 'A' },
-      { ...baseChange(), id: 'B', title: 'B', depends_on: ['A'] },
-    ]),
-  );
-  assert.ok(nodeX(host, 'B') > nodeX(host, 'A'));
+  assert.doesNotMatch(renderers, /graphSvg/);
+  assert.doesNotMatch(app, /graphSvg|renderGraph|view-graph/);
+  for (const rule of [
+    '.graph',
+    '.node rect',
+    '.node text',
+    '.node .nid',
+    '.edge',
+    '.relation-edge',
+  ]) {
+    assert.doesNotMatch(
+      css,
+      new RegExp(`\\n${rule.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*[,{]`),
+      rule,
+    );
+  }
+
+  // Mermaid draws the diagrams inside change and spec bodies; the graph drew
+  // its own SVG by hand, so retiring it must not take Mermaid with it.
+  assert.match(html, /mermaid\.min\.js/);
+  const { createDiagramLightbox } = await import('../src/viewer/public/app.js');
+  assert.equal(typeof createDiagramLightbox, 'function');
 });
 
 // 20260711-155721 — metricsHtml: KPI cards, hand-rolled throughput SVG,
