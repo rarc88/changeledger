@@ -171,8 +171,9 @@ Alternativas descartadas:
 - [x] Comprobar que el test es discriminante: verde repetido con barrera, rojo sin ella
   - **Support:** `node --test test/cli-bin.test.mjs`
   - **Resolved:** `2026-10-26T18:49:08Z`
-- [ ] Pasar la puerta local completa
+- [x] Pasar la puerta local completa
   - **Support:** `pnpm verify`
+  - **Resolved:** `2026-10-26T18:53:09Z`
 
 ## Log
 - **2026-10-26T18:41:28Z** `[version]` 1.0.0
