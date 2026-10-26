@@ -195,3 +195,4 @@ libre y el botón mide su contenido.
 - **2026-10-26T13:47:31Z** `[status]` approved → in-progress
 - **2026-10-26T13:47:31Z** `[branch]` set: change/20261026-134323 (auto)
 - **2026-10-26T13:58:41Z** `[note]` CR1 medido a 1920px: 7 carriles de 256px, borde derecho en 1893 (1920 menos padding y barra); antes 5 carriles de 297px dejaban 347px vacios. A 1024px los carriles caen al suelo de 190px y el board desborda en horizontal, como pedia 20260703-220013.
+- **2026-10-26T13:58:41Z** `[note]` CR2 medido con la barra superior en una fila (1280px, 55px) y en dos (1024px y 1101px, 94,5px fraccionarios: el caso que rompia): scrollHeight igual a clientHeight en los tres, la pagina no scrollea.
