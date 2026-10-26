@@ -86,8 +86,9 @@ decir cuáles son: quien lee el diagrama no tiene el código delante.
   - **Verify:** `changeledger check`
   - **Criteria:** CR1, CR2
   - **Resolved:** `2026-10-26T17:23:15Z`
-- [ ] Pasar la puerta local completa
+- [x] Pasar la puerta local completa
   - **Support:** `pnpm verify`
+  - **Resolved:** `2026-10-26T17:27:14Z`
 
 ## Log
 - **2026-10-26T16:59:18Z** `[version]` 1.0.0
