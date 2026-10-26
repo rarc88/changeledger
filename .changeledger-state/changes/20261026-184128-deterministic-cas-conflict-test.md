@@ -5,6 +5,7 @@ type: change
 status: done
 created: 2026-10-26T18:41:28Z
 depends_on: []
+reviewed: true
 branch: change/20261026-184128
 related_to: ["20260808-151643", "20260615-222620", "20261026-165839"]
 owner: raruiz-hiberuscom
@@ -187,3 +188,4 @@ Alternativas descartadas:
 - **2026-10-26T19:11:23Z** `[note]` Correccion de la ronda 1. Anadido el skip en win32, siguiendo la convencion de edit.test.mjs y cutover.test.mjs, porque publish.yml corre la matriz completa con windows-latest. Y un finally que escribe goFile y mata al hijo en todo camino de salida: el escenario del revisor pasa de colgarse indefinidamente a terminar en 21s con la asercion de CR3 y sin procesos huerfanos. Comprobado que el test sigue discriminando: sin la espera del shim falla con actual: 0, expected: 1.
 - **2026-10-26T19:11:24Z** `[status]` in-progress → in-review
 - **2026-10-26T19:22:19Z** `[review]` in-review → done (delegated subagent, clean context)
+- **2026-10-26T19:22:53Z** `[graduation]` skipped: El change solo reescribe un test: el comportamiento del CAS y su presentacion en la CLI no cambian, y las specs que los describen siguen siendo ciertas tal cual.
