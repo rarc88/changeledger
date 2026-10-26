@@ -203,3 +203,4 @@ libre y el botón mide su contenido.
 - **2026-10-26T13:58:51Z** `[note]` CR5 medido a 1920px en un change done: campo de razon 691px y boton 157px, frente a los 169px y 669px de antes; grid de dos pistas.
 - **2026-10-26T13:58:52Z** `[note]` Decision no especificada en el documento: el bloqueo del fondo se hace con overflow hidden sobre los scrollers de la vista, no ocultando su barra, porque se midio que el motor conserva el scrollTop al alternar hidden y auto. Residuo no tocado, fuera de frontera: .reopen-controls en styles.css es CSS muerto desde que se retiro el comando reopen.
 - **2026-10-26T14:03:13Z** `[status]` in-progress → in-review
+- **2026-10-26T14:03:53Z** `[note]` changeledger commit sin --id resolvio el unico change in-progress, que era 20261026-135523 de otra sesion, y estampo ese id en el commit; se corrigio con git commit --amend al id correcto y changeledger check --commits quedo en verde.
