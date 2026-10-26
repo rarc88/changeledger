@@ -2,7 +2,7 @@
 id: "20261026-134323"
 title: El board desaprovecha la pantalla y el viewer arrastra dos scrolls
 type: change
-status: in-review
+status: in-progress
 created: 2026-10-26T13:43:23Z
 depends_on: []
 branch: change/20261026-134323
@@ -209,3 +209,4 @@ libre y el botón mide su contenido.
 - **2026-10-26T14:15:58Z** `[note]` Decision: el min-height de .ledger-view en el bloque movil, que restaba --header-height, se retira sin sustituto en vez de reintroducir una variable; por debajo de 680px la vista puede quedar mas corta que la pantalla y el fondo lo pone el body.
 - **2026-10-26T14:15:59Z** `[note]` El test 134323 CR2 pasa a exigir a las siete vistas flex, min-height y overflow propio: la regresion fue dar a una de ellas el dimensionado elastico sin scroller.
 - **2026-10-26T14:16:06Z** `[status]` in-progress → in-review
+- **2026-10-26T14:28:30Z** `[review]` in-review → in-progress: CR4 roto en Graph: .graph recibio flex 1 1 auto y min-height 0 en la correccion anterior, lo que lo convirtio en contenedor de scroll, pero no se anadio a la lista de bloqueo de .detail-open; medido a 1920 con el detalle abierto pinta su barra (gutter 15px) junto a la del detalle (13px). Misma clase de agujero que la ronda anterior. Ademas .ledger-content sigue scrolleando bajo el overlay en la categoria Specs (15px junto a 13px), que CR4 tampoco admite.
