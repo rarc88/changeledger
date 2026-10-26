@@ -135,3 +135,4 @@ el contenido de `templates/contract/` y sus presupuestos; el comportamiento de
 - **2026-10-26T21:27:11Z** `[status]` draft → approved (human via conversation)
 - **2026-10-26T21:28:04Z** `[status]` approved → in-progress
 - **2026-10-26T21:28:04Z** `[branch]` set: change/20261026-212529 (auto)
+- **2026-10-26T21:28:09Z** `[branch]` set: change/20261026-212529
