@@ -2721,9 +2721,9 @@ test('141643 CR6: mobile board restores natural stacked lanes without internal o
 // The lane width used to be arithmetic — a divisor of six baked into both the
 // board and the column — while the lane count comes from `statuses` and the
 // active filters. The grid track owns the width now, so any lane count fills
-// the viewport and the 190px floor still buys the horizontal scroll that
-// 20260703-220013 asked for (134323 CR1).
-test('134323 CR1: the lane takes its width from the grid track and declares none of its own', () => {
+// the viewport and the 190px floor still buys the horizontal scroll the board
+// was given when its overflow was first fixed.
+test('the lane takes its width from the grid track and declares none of its own', () => {
   const css = fs.readFileSync(new URL('../src/viewer/public/styles.css', import.meta.url), 'utf8');
   const columnRule = css.match(/\.column\s*\{([^}]*)\}/s)?.[1] ?? '';
 
@@ -2736,9 +2736,8 @@ test('134323 CR1: the lane takes its width from the grid track and declares none
 
 // One height model: the body is the flex column, the visible view is its
 // elastic item. The subtraction of a JS-synchronised header height overflowed
-// the document by the rounding error and painted a second scrollbar
-// (134323 CR2).
-test('134323 CR2: the body owns the height and no rule subtracts a header variable', () => {
+// the document by the rounding error and painted a second scrollbar.
+test('the body owns the height and no rule subtracts a header variable', () => {
   const css = fs.readFileSync(new URL('../src/viewer/public/styles.css', import.meta.url), 'utf8');
   const app = fs.readFileSync(new URL('../src/viewer/public/app.js', import.meta.url), 'utf8');
   const bodyRule = css.match(/(?<!,)\nbody\s*\{([^}]*)\}/s)?.[1] ?? '';
@@ -2773,8 +2772,8 @@ test('134323 CR2: the body owns the height and no rule subtracts a header variab
 });
 
 // Below 680px the lanes stack and the page is the scroller on purpose, so the
-// desktop lock has to be lifted there (134323 CR3).
-test('134323 CR3: the mobile block hands the scroll back to the page', () => {
+// desktop lock has to be lifted there.
+test('the mobile block hands the scroll back to the page', () => {
   const css = fs.readFileSync(new URL('../src/viewer/public/styles.css', import.meta.url), 'utf8');
   const responsive = css.slice(css.indexOf('/* Responsive: stack on narrow viewports (mobile) */'));
   const mobileBody =
@@ -2814,11 +2813,11 @@ function topLevelRules(css) {
 const VIEW_SCROLLER =
   /^(\.(?:board|[a-z-]+-view|ledger-content|ledger-[a-z]+-panel))(\[[^\]]*\])?$/;
 
-// The obligation behind CR4, derived from the stylesheet instead of listed:
-// anything behind the overlay that scrolls paints a bar beside the detail's,
-// so it must be in the lock. Listing it by hand is what let a view ship a
-// second bar — it was made elastic and never added to the lock.
-test('134323 CR4: every scroll container behind the overlay is in the detail-open lock', () => {
+// The obligation, derived from the stylesheet instead of listed: anything
+// behind the overlay that scrolls paints a bar beside the detail's, so it must
+// be in the lock. Listing it by hand is what let a view ship a second bar —
+// it was made elastic and never added to the lock.
+test('every scroll container behind the overlay is in the detail-open lock', () => {
   const css = fs.readFileSync(new URL('../src/viewer/public/styles.css', import.meta.url), 'utf8');
   const rules = topLevelRules(css);
   const selectorsOf = (rule) => rule.selector.split(',').map((one) => one.trim());
@@ -2850,8 +2849,8 @@ test('134323 CR4: every scroll container behind the overlay is in the detail-ope
 
 // `.detail-open` locked the document, but every view is a scroll container of
 // its own and survived the lock, so the board kept a second vertical bar
-// beside the detail's (134323 CR4).
-test('134323 CR4: an open detail silences the scrollers behind it', () => {
+// beside the detail's.
+test('an open detail silences the scrollers behind it', () => {
   const css = fs.readFileSync(new URL('../src/viewer/public/styles.css', import.meta.url), 'utf8');
   const detailRule = css.match(/\n\.detail\s*\{([^}]*)\}/s)?.[1] ?? '';
   const lockRule = css.match(/\.detail-open\s+\.board[^{]*\{([^}]*)\}/s)?.[1] ?? '';
@@ -2863,10 +2862,10 @@ test('134323 CR4: an open detail silences the scrollers behind it', () => {
   }
 });
 
-// CR23 took the Accept control out of the verdict panel and left the third
-// grid track behind: the reason field collapsed into the `auto` track at
-// 169px and the button stretched across the `1fr` at 669px (134323 CR5).
-test('134323 CR5: the verdict row declares one track per control it renders', () => {
+// Retiring the Accept control from the verdict panel left its third grid track
+// behind: the reason field collapsed into the `auto` track at 169px and the
+// button stretched across the `1fr` at 669px.
+test('the verdict row declares one track per control it renders', () => {
   const css = fs.readFileSync(new URL('../src/viewer/public/styles.css', import.meta.url), 'utf8');
   const rule = css.match(/\.validation-controls\s*\{([^}]*)\}/s)?.[1] ?? '';
   const tracks = rule.match(/grid-template-columns:\s*([^;]+);/)?.[1] ?? '';
