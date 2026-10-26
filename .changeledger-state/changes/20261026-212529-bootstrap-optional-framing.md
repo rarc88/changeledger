@@ -2,7 +2,7 @@
 id: "20261026-212529"
 title: Reescribir el bloque bootstrap para que la opcionalidad se lea primero
 type: change
-status: in-review
+status: in-progress
 created: 2026-10-26T21:25:29Z
 depends_on: []
 branch: change/20261026-212529
@@ -225,3 +225,5 @@ al texto en vez de pincharlo.
 - **2026-10-26T21:42:41Z** `[note]` El bloque pierde un bullet (5 → 4): el de ausencia sube al párrafo de cabecera. La frontera no fijaba conteo y referenceBullets lo deriva del parseo
 - **2026-10-26T21:42:46Z** `[note]` BOOTSTRAP_VERSION se queda en 4: check compara el payload, así que un bloque v4 reformulado ya sale outdated y register lo reescribe. Los repos consumidores en una versión anterior verán ese error hasta actualizar y re-registrar; por eso release_impact: minor
 - **2026-10-26T21:42:46Z** `[status]` in-progress → in-review
+- **2026-10-26T21:55:22Z** `[version]` 1.0.0 → 1.1.0
+- **2026-10-26T21:55:22Z** `[review]` in-review → in-progress: El guard de CR2 no comprueba que la condición gobierne la obligación: un bloque que diga «Installed or not, running it is mandatory … run exactly this where it is installed» pasa los 67 tests. Reproducido de forma independiente
