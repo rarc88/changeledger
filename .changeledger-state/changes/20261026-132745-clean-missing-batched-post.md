@@ -5,6 +5,7 @@ type: change
 status: done
 created: 2026-10-26T13:27:45Z
 depends_on: []
+accepted_at: 2026-10-26T13:54:13Z
 reviewed: true
 branch: change/20261026-132745
 related_to: ["20260815-133442", "20261023-181453"]
@@ -174,3 +175,4 @@ Queda fuera:
 - **2026-10-26T13:49:01Z** `[note]` CR1 y CR4 decían 600 candidatas y los tests usan 1.000, porque 600 sintéticas caben en 64 KiB. Corregidos los criterios para que declaren lo medido; la revisión verificó los tests con 1.000.
 - **2026-10-26T13:49:09Z** `[review]` in-review → done (delegated subagent, clean context)
 - **2026-10-26T13:49:20Z** `[graduation]` spec: `viewer.md`
+- **2026-10-26T13:54:57Z** `[validation]` accepted (merged 31f769e)
