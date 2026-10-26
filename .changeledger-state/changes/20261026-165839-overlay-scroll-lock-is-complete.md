@@ -186,10 +186,11 @@ práctica» es exactamente lo que dejó pasar dos defectos en
 - [x] Comprobar el invariante en el viewer en ejecución y anotar las cifras en el Log
   - **Support:** el layout computado no lo cubre la suite; se mide con el navegador
   - **Resolved:** `2026-10-26T17:06:28Z`
-- [ ] Reescribir el scanner para que lleve el cuerpo de cada regla por su propio nivel y corte el selector en `;`
+- [x] Reescribir el scanner para que lleve el cuerpo de cada regla por su propio nivel y corte el selector en `;`
   - **Target:** `test/viewer-metadata.test.mjs`
   - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
   - **Criteria:** CR6, CR7
+  - **Resolved:** `2026-10-26T17:52:26Z`
 - [x] Sustituir el prefijo de exclusión por la lista exacta de lo que va delante
   - **Target:** `test/viewer-metadata.test.mjs`
   - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
