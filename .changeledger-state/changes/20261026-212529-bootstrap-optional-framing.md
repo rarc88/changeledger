@@ -13,6 +13,7 @@ related_to:
   - "20260701-213931"
   - "20260711-103803"
   - "20261020-130304"
+release_impact: minor
 owner: Roberto Ruiz
 ---
 
