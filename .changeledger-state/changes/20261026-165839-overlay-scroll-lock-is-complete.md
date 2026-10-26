@@ -183,10 +183,11 @@ práctica» es exactamente lo que dejó pasar dos defectos en
   - **Target:** `test/viewer-metadata.test.mjs`
   - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
   - **Criteria:** CR6, CR7
-- [ ] Sustituir el prefijo de exclusión por la lista exacta de lo que va delante
+- [x] Sustituir el prefijo de exclusión por la lista exacta de lo que va delante
   - **Target:** `test/viewer-metadata.test.mjs`
   - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
   - **Criteria:** CR8
+  - **Resolved:** `2026-10-26T17:37:59Z`
 - [x] Pasar la puerta local completa
   - **Support:** `pnpm verify`
   - **Resolved:** `2026-10-26T17:09:13Z`
