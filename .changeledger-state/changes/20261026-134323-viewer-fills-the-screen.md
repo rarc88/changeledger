@@ -2,7 +2,7 @@
 id: "20261026-134323"
 title: El board desaprovecha la pantalla y el viewer arrastra dos scrolls
 type: change
-status: in-progress
+status: in-review
 created: 2026-10-26T13:43:23Z
 depends_on: []
 branch: change/20261026-134323
@@ -202,3 +202,4 @@ libre y el botón mide su contenido.
 - **2026-10-26T13:58:50Z** `[note]` CR4 medido con el board a 12606px de alto: con el detalle abierto el unico contenedor con scroll vertical es #detail, en panel lateral y en modal flotante a tamano full; el scrollTop del board (1500 y 2000) se conserva antes, durante y despues de cerrarlo.
 - **2026-10-26T13:58:51Z** `[note]` CR5 medido a 1920px en un change done: campo de razon 691px y boton 157px, frente a los 169px y 669px de antes; grid de dos pistas.
 - **2026-10-26T13:58:52Z** `[note]` Decision no especificada en el documento: el bloqueo del fondo se hace con overflow hidden sobre los scrollers de la vista, no ocultando su barra, porque se midio que el motor conserva el scrollTop al alternar hidden y auto. Residuo no tocado, fuera de frontera: .reopen-controls en styles.css es CSS muerto desde que se retiro el comando reopen.
+- **2026-10-26T14:03:13Z** `[status]` in-progress → in-review
