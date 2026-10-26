@@ -144,6 +144,26 @@ práctica» es exactamente lo que dejó pasar dos defectos en
 - **Then** la única barra de scroll vertical sigue siendo la de `#detail`
 - **And** al cerrarlo, el board recupera el `scrollTop` que tenía
 
+### CR6 — Una at-rule de sentencia no se traga la regla siguiente
+
+- **Given** una hoja con `@import url("x");` o `@layer base;` seguido de una regla que declara desbordamiento vertical
+- **When** el test deriva su conjunto de scrollers
+- **Then** esa regla aparece en el conjunto, en vez de absorberse en el selector de la at-rule y perderse
+
+### CR7 — Una regla con anidamiento conserva sus propias declaraciones
+
+- **Given** una regla que declara desbordamiento vertical y contiene además una regla anidada
+- **When** el test deriva su conjunto de scrollers
+- **Then** la regla externa aparece en el conjunto por su propia declaración
+- **And** la regla anidada se examina por separado, sin heredar ni destruir el cuerpo de la externa
+
+### CR8 — Lo que vive delante del overlay se excluye por lista, no por prefijo
+
+- **Given** un selector con desbordamiento vertical cuyo nombre empieza por `detail` o `diagram-` pero que no es ni el detalle ni el lightbox
+- **When** el test compara los scrollers con la lista de bloqueo
+- **Then** ese selector se exige bloqueado, en vez de excluirse por parecerse de nombre a los que van delante
+- **And** la exclusión nombra exactamente los dos que hoy van delante, `.detail` y `.diagram-canvas`, de modo que añadir un tercero es un acto deliberado y no un efecto del prefijo
+
 ## Plan
 
 - [x] Endurecer la derivación: descender a las at-rules, aceptar `scroll` y denunciar lo que no sepa normalizar
@@ -159,6 +179,14 @@ práctica» es exactamente lo que dejó pasar dos defectos en
 - [x] Comprobar el invariante en el viewer en ejecución y anotar las cifras en el Log
   - **Support:** el layout computado no lo cubre la suite; se mide con el navegador
   - **Resolved:** `2026-10-26T17:06:28Z`
+- [ ] Reescribir el scanner para que lleve el cuerpo de cada regla por su propio nivel y corte el selector en `;`
+  - **Target:** `test/viewer-metadata.test.mjs`
+  - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
+  - **Criteria:** CR6, CR7
+- [ ] Sustituir el prefijo de exclusión por la lista exacta de lo que va delante
+  - **Target:** `test/viewer-metadata.test.mjs`
+  - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
+  - **Criteria:** CR8
 - [x] Pasar la puerta local completa
   - **Support:** `pnpm verify`
   - **Resolved:** `2026-10-26T17:09:13Z`
