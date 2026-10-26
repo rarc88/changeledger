@@ -108,10 +108,11 @@ Queda fuera:
   - **Verify:** `node --test test/quality-gate.test.mjs`
   - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-10-26T14:51:45Z`
-- [ ] Escribir los criterios como tests
+- [x] Escribir los criterios como tests
   - **Target:** `test/quality-gate.test.mjs`
   - **Verify:** `node --test test/quality-gate.test.mjs`
   - **Criteria:** CR1, CR2, CR3
+  - **Resolved:** `2026-10-26T14:51:46Z`
 - [ ] Comprobar a mano que `pnpm lint` pasa con el worktree presente, y dejar la
   evidencia en el Log
   - **Support:** verify: `pnpm lint` con `.claude/worktrees/viewer-layout` presente
