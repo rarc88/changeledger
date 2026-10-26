@@ -177,10 +177,11 @@ pasajes y es verdad persistente: quedarse falsa es peor que no existir.
   - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
   - **Criteria:** CR3
   - **Resolved:** `2026-10-26T15:08:05Z`
-- [ ] Corregir el comentario de `state.js` que nombra al grafo
+- [x] Corregir el comentario de `state.js` que nombra al grafo
   - **Target:** `src/viewer/public/state.js`
   - **Verify:** `pnpm lint`
   - **Criteria:** CR3
+  - **Resolved:** `2026-10-26T15:08:12Z`
 - [ ] Corregir los seis pasajes de `viewer.md`
   - **Target:** `spec:viewer`
   - **Verify:** `changeledger check`
