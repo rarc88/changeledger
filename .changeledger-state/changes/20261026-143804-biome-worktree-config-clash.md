@@ -113,9 +113,10 @@ Queda fuera:
   - **Verify:** `node --test test/quality-gate.test.mjs`
   - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-10-26T14:51:46Z`
-- [ ] Comprobar a mano que `pnpm lint` pasa con el worktree presente, y dejar la
+- [x] Comprobar a mano que `pnpm lint` pasa con el worktree presente, y dejar la
   evidencia en el Log
   - **Support:** verify: `pnpm lint` con `.claude/worktrees/viewer-layout` presente
+  - **Resolved:** `2026-10-26T14:51:46Z`
 - [ ] Ejecutar el gate local completo
   - **Support:** `pnpm verify`
 
