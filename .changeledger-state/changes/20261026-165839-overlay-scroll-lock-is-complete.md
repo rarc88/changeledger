@@ -2,7 +2,7 @@
 id: "20261026-165839"
 title: El bloqueo de scroll del detalle no ve todo lo que puede scrollear
 type: change
-status: done
+status: in-progress
 created: 2026-10-26T16:58:39Z
 depends_on: []
 reviewed: true
@@ -178,3 +178,4 @@ práctica» es exactamente lo que dejó pasar dos defectos en
 - **2026-10-26T17:21:14Z** `[finding]` IN_FRONT excluye por prefijo (.detail, .diagram-), asi que un panel futuro que se llamara .detail-algo y viviera detras del overlay quedaria excluido en silencio. Las trece clases actuales con ese prefijo son todas parte del detalle o del lightbox, verificado; es riesgo de convencion de nombres, no defecto.
 - **2026-10-26T17:21:21Z** `[note]` La revision senalo que el conjunto locked no filtraba por overflow hidden y que .detail-open suelto entraba en el. Comprobado: el filtro si exige overflow hidden en el cuerpo, y el conjunto sale con los doce selectores exactos, sin .detail-open. La observacion no se registra como finding.
 - **2026-10-26T17:21:47Z** `[graduation]` spec: `viewer.md`
+- **2026-10-26T17:35:30Z** `[status]` done → in-progress (agent)
