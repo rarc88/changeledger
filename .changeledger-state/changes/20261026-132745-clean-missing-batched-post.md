@@ -2,7 +2,7 @@
 id: "20261026-132745"
 title: La limpieza de proyectos ausentes falla justo cuando más se necesita
 type: change
-status: draft
+status: approved
 created: 2026-10-26T13:27:45Z
 depends_on: []
 related_to: ["20260815-133442", "20261023-181453"]
@@ -99,3 +99,4 @@ Queda fuera:
 
 ## Log
 - **2026-10-26T13:27:45Z** `[version]` 1.0.1-dev
+- **2026-10-26T13:29:35Z** `[status]` draft → approved (human via conversation)
