@@ -180,3 +180,4 @@ práctica» es exactamente lo que dejó pasar dos defectos en
 - **2026-10-26T17:21:47Z** `[graduation]` spec: `viewer.md`
 - **2026-10-26T17:35:30Z** `[status]` done → in-progress (agent)
 - **2026-10-26T17:35:37Z** `[finding]` 1 dropped: absorbido en este mismo change: la frontera aprobada ya cubre el scanner de reglas
+- **2026-10-26T17:35:38Z** `[finding]` 2 dropped: absorbido en este mismo change: la frontera aprobada ya cubre el patron de scrollers
