@@ -2,7 +2,7 @@
 id: "20261026-165839"
 title: El bloqueo de scroll del detalle no ve todo lo que puede scrollear
 type: change
-status: in-review
+status: done
 created: 2026-10-26T16:58:39Z
 depends_on: []
 branch: change/20261026-165839
@@ -172,3 +172,4 @@ práctica» es exactamente lo que dejó pasar dos defectos en
 - **2026-10-26T17:06:22Z** `[note]` El bloque de bloqueo se movio al final de la hoja: .config-migration-yaml se declara en la linea 1976, despues de donde estaba, y biome marcaba especificidad descendente. La cascada no dependia del orden, pero la hoja ahora cumple la regla del linter.
 - **2026-10-26T17:06:28Z** `[note]` CR5 medido a 1440x900 en el proyecto backend-laravel: board 17825 sobre 834 con scrollTop 1200, table 5375 sobre 845 con scrollTop 600, y ledger-content con scrollTop 500. En los tres, con el detalle abierto la unica barra vertical es la de #detail, y el scrollTop se conserva al cerrar.
 - **2026-10-26T17:09:14Z** `[status]` in-progress → in-review
+- **2026-10-26T17:21:06Z** `[review]` in-review → done (delegated subagent, clean context)
