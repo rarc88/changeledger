@@ -5111,3 +5111,108 @@ test('141643 CR3: Status menu toggles and clears pending graduation without losi
     fixture.remove();
   }
 });
+
+// --- Cleaning a registry too dirty to clean in one body -------------------
+//
+// The router caps a POST body and answers 413 before the request reaches the
+// domain, so `Clean missing` used to clean nothing once the registry held more
+// missing projects than fit in one body — it failed exactly when it was
+// needed. The client now splits the candidates into bodies that fit.
+
+const { CLEAN_MISSING_BODY_BUDGET } = await import('../src/viewer/public/api.js');
+const { MAX_BODY } = await import('../src/viewer/server/router.mjs');
+
+const missingCandidates = (count) =>
+  Array.from({ length: count }, (_, index) => ({
+    id: `gone-${index}`,
+    path: `/private/var/folders/th/26svz8w90_j16z8r3kc2sdt40000gn/T/changeledger-seats-${index}`,
+  }));
+
+const cleanupHarness = (candidates, respond) => {
+  const root = document.createElement('div');
+  root.innerHTML = '<p class="project-clean-error" hidden></p>';
+  const sent = [];
+  const order = [];
+  return {
+    root,
+    sent,
+    order,
+    run: (receipt = {}) =>
+      cleanMissingProjectsFromView(root, candidates, {
+        confirm: async () => true,
+        request: async (confirm, batch) => {
+          assert.equal(confirm, true, 'a batch travelled without its confirmation');
+          sent.push(batch);
+          return respond(sent.length, batch);
+        },
+        refresh: async () => {
+          order.push('refresh');
+          return true;
+        },
+        reload: async () => true,
+        onCleaned: async (body) => {
+          order.push('cleaned');
+          Object.assign(receipt, body);
+        },
+      }),
+  };
+};
+
+const okBatch = (_call, batch) => ({
+  ok: true,
+  json: async () => ({
+    removedIds: batch.map((item) => item.id),
+    removed: batch.length,
+    skipped: 0,
+  }),
+});
+
+test('a cleanup wider than one body is split into bodies that fit', async () => {
+  const candidates = missingCandidates(1000);
+  const harness = cleanupHarness(candidates, okBatch);
+  const receipt = {};
+  assert.equal(await harness.run(receipt), true);
+
+  assert.ok(harness.sent.length > 1, 'the cleanup travelled in a single body');
+  for (const batch of harness.sent) {
+    const size = JSON.stringify({ confirm: true, candidates: batch }).length;
+    assert.ok(size <= MAX_BODY, `a body of ${size} bytes exceeds the router cap ${MAX_BODY}`);
+  }
+  assert.equal(harness.sent.flat().length, 1000);
+  assert.equal(receipt.removed, 1000);
+  assert.equal(receipt.skipped, 0);
+  assert.equal(receipt.removedIds.length, 1000);
+});
+
+test('the client body budget never exceeds the router cap', () => {
+  assert.ok(
+    CLEAN_MISSING_BODY_BUDGET <= MAX_BODY,
+    `budget ${CLEAN_MISSING_BODY_BUDGET} exceeds the router cap ${MAX_BODY}`,
+  );
+});
+
+test('a cleanup that fits still travels in one request', async () => {
+  const candidates = missingCandidates(3);
+  const harness = cleanupHarness(candidates, okBatch);
+  assert.equal(await harness.run(), true);
+  assert.equal(harness.sent.length, 1);
+  assert.deepEqual(harness.sent[0], candidates);
+});
+
+test('a failed batch refreshes first and reports what was already removed', async () => {
+  const candidates = missingCandidates(1000);
+  const harness = cleanupHarness(candidates, (call, batch) =>
+    call === 1
+      ? okBatch(call, batch)
+      : { ok: false, json: async () => ({ error: 'unable to update project registry' }) },
+  );
+  const receipt = {};
+  await harness.run(receipt);
+
+  assert.equal(harness.order[0], 'refresh', 'the panel was not refreshed before reporting');
+  const error = harness.root.querySelector('.project-clean-error');
+  assert.equal(error.hidden, false);
+  assert.match(error.textContent, /unable to update project registry/);
+  assert.match(error.textContent, new RegExp(`${harness.sent[0].length} of 1000`));
+  assert.equal(receipt.removed, harness.sent[0].length);
+});
