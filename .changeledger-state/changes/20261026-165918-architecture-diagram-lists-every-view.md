@@ -2,7 +2,7 @@
 id: "20261026-165918"
 title: El diagrama de arquitectura enumera cuatro vistas y hay cinco
 type: change
-status: in-review
+status: done
 created: 2026-10-26T16:59:18Z
 depends_on: []
 branch: change/20261026-165918
@@ -96,3 +96,4 @@ decir cuáles son: quien lee el diagrama no tiene el código delante.
 - **2026-10-26T17:22:09Z** `[status]` approved → in-progress
 - **2026-10-26T17:22:09Z** `[branch]` set: change/20261026-165918 (auto)
 - **2026-10-26T17:27:28Z** `[status]` in-progress → in-review
+- **2026-10-26T17:31:40Z** `[review]` in-review → done (delegated subagent, clean context)
