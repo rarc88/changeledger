@@ -197,10 +197,11 @@ al texto en vez de pincharlo.
   - **Verify:** `node --test test/contract.test.mjs test/register.test.mjs`
   - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-10-26T21:42:27Z`
-- [ ] Cubrir que el bloque `v4` anterior se reporta como desactualizado y se reescribe sin cambiar de versión
+- [x] Cubrir que el bloque `v4` anterior se reporta como desactualizado y se reescribe sin cambiar de versión
   - **Target:** `test/contract.test.mjs`
   - **Verify:** `node --test test/contract.test.mjs`
   - **Criteria:** CR4
+  - **Resolved:** `2026-10-26T21:42:28Z`
 - [ ] Re-registrar el `AGENTS.md` de este repositorio
   - **Target:** `AGENTS.md`
   - **Verify:** `changeledger check`
