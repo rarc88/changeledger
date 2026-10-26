@@ -179,10 +179,11 @@ libre y el botón mide su contenido.
   - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
   - **Criteria:** CR4
   - **Resolved:** `2026-10-26T13:55:33Z`
-- [ ] La fila de veredicto declara dos pistas
+- [x] La fila de veredicto declara dos pistas
   - **Target:** `src/viewer/public/styles.css`
   - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
   - **Criteria:** CR5
+  - **Resolved:** `2026-10-26T13:55:34Z`
 - [ ] Medir las cinco CR en el viewer en ejecución y anotar las cifras en el Log
   - **Support:** el layout computado no lo cubre la suite; se mide con el navegador contra `changeledger view .`
 - [ ] Pasar la puerta local completa
