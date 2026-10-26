@@ -197,3 +197,4 @@ pasajes y es verdad persistente: quedarse falsa es peor que no existir.
 - **2026-10-26T14:57:49Z** `[status]` draft → approved (human via conversation)
 - **2026-10-26T14:58:21Z** `[status]` approved → in-progress
 - **2026-10-26T14:58:21Z** `[branch]` set: change/20261026-145217 (auto)
+- **2026-10-26T15:10:43Z** `[note]` CR1 y CR2 medidos en el viewer en ejecucion: la barra ofrece cinco pestanas (board, table, ledger, metrics, projects), no existen #view-graph ni #graph, y arrancar con el estado guardado en graph y la URL ?view=graph aterriza en Board; el snapshot se reescribe a board.
