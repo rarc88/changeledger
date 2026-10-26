@@ -2,7 +2,7 @@
 id: "20261026-145217"
 title: La vista Graph ocupa sitio sin ganárselo
 type: change
-status: done
+status: in-progress
 created: 2026-10-26T14:52:17Z
 depends_on: ["20261026-134323"]
 branch: change/20261026-145217
@@ -204,3 +204,4 @@ pasajes y es verdad persistente: quedarse falsa es peor que no existir.
 - **2026-10-26T15:13:54Z** `[status]` in-progress → in-review
 - **2026-10-26T15:24:50Z** `[review]` in-review → done (delegated subagent, clean context)
 - **2026-10-26T15:24:54Z** `[finding]` La spec architecture.md sigue nombrando la vista en la linea 43 de su diagrama mermaid: SRV --> UI[visor: board / table / graph / Ledger / metrics]. Este change la volvio falsa al retirar la vista, pero la frontera aprobada acota la correccion de specs a viewer.md, asi que ampliarla es decision humana. El resto del ledger quedo barrido: ninguna otra spec, doc de proyecto ni fragmento de contrato nombra la vista.
+- **2026-10-26T15:44:18Z** `[status]` done → in-progress (agent)
