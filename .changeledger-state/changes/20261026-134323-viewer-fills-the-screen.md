@@ -2,7 +2,7 @@
 id: "20261026-134323"
 title: El board desaprovecha la pantalla y el viewer arrastra dos scrolls
 type: change
-status: in-review
+status: done
 created: 2026-10-26T13:43:23Z
 depends_on: []
 branch: change/20261026-134323
@@ -215,3 +215,4 @@ libre y el botón mide su contenido.
 - **2026-10-26T14:34:08Z** `[status]` in-progress → in-review
 - **2026-10-26T14:48:16Z** `[finding]` Agujero latente de la misma clase que las dos rondas fallidas: .projects-list y .project-editor declaran overflow-y auto propio y no estan en la lista de bloqueo de .detail-open. Hoy no es alcanzable porque la vista Projects no tiene disparador de detalle y activateView llama a closeDetail al cambiar de pestana, verificado en src/viewer/public/app.js:2187. Si Projects llega a abrir un detalle, pintara una segunda barra.
 - **2026-10-26T14:48:17Z** `[finding]` El test 134323 CR4 deriva sus dos conjuntos de la hoja de estilos pero tiene puntos ciegos: su scanner ignora el contenido de los bloques @media, su regex VIEW_SCROLLER no reconoce .projects-list ni .project-editor, y solo detecta overflow auto, no overflow scroll. Hoy no hay ningun overflow auto dentro de un @media, pero el defecto de la primera ronda nacio precisamente de un bloque @media.
+- **2026-10-26T14:48:21Z** `[review]` in-review → done (delegated subagent, clean context)
