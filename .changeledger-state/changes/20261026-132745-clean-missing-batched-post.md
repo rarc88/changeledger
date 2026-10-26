@@ -157,8 +157,9 @@ Queda fuera:
   - **Verify:** `node bin/changeledger.mjs check`
   - **Support:**
   - **Resolved:** `2026-10-26T13:35:19Z`
-- [ ] Ejecutar el gate local completo
+- [x] Ejecutar el gate local completo
   - **Support:** `pnpm test`
+  - **Resolved:** `2026-10-26T13:35:19Z`
 
 ## Log
 - **2026-10-26T13:27:45Z** `[version]` 1.0.1-dev
