@@ -5,6 +5,7 @@ type: change
 status: done
 created: 2026-10-26T21:25:29Z
 depends_on: []
+archived: true
 accepted_at: 2026-10-26T23:00:16Z
 reviewed: true
 branch: change/20261026-212529
@@ -276,3 +277,5 @@ al texto en vez de pincharlo.
 - **2026-10-26T22:36:20Z** `[graduation]` spec: `contract-discovery.md`
 - **2026-10-26T23:01:00Z** `[version]` 1.1.0 → 1.1.1-dev
 - **2026-10-26T23:01:00Z** `[validation]` accepted (merged 9d59acf)
+- **2026-10-26T23:40:41Z** `[version]` 1.1.1-dev → 1.2.1-dev
+- **2026-10-26T23:40:41Z** `[archive]` archived
