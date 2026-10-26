@@ -2,7 +2,7 @@
 id: "20261026-184128"
 title: Hacer determinista el test de conflicto CAS de la CLI
 type: change
-status: in-review
+status: done
 created: 2026-10-26T18:41:28Z
 depends_on: []
 branch: change/20261026-184128
@@ -186,3 +186,4 @@ Alternativas descartadas:
 - **2026-10-26T19:06:20Z** `[review]` in-review → in-progress: Dos defectos verificados. 1) Falta el skip en win32: publish.yml corre la matriz completa con windows-latest y un fichero sh sin extension llamado git nunca se ejecuta alli, asi que la puerta no se alcanza y el test falla por timeout; la convencion ya existe en edit.test.mjs, cutover.test.mjs y repo.test.mjs. 2) Ningun camino de salida libera al hijo detenido: si la asercion falla antes de abrir la puerta, el sh sigue girando sobre goFile y la suite se cuelga en vez de fallar, justo en el escenario de runner cargado que este change existe para arreglar.
 - **2026-10-26T19:11:23Z** `[note]` Correccion de la ronda 1. Anadido el skip en win32, siguiendo la convencion de edit.test.mjs y cutover.test.mjs, porque publish.yml corre la matriz completa con windows-latest. Y un finally que escribe goFile y mata al hijo en todo camino de salida: el escenario del revisor pasa de colgarse indefinidamente a terminar en 21s con la asercion de CR3 y sin procesos huerfanos. Comprobado que el test sigue discriminando: sin la espera del shim falla con actual: 0, expected: 1.
 - **2026-10-26T19:11:24Z** `[status]` in-progress → in-review
+- **2026-10-26T19:22:19Z** `[review]` in-review → done (delegated subagent, clean context)
