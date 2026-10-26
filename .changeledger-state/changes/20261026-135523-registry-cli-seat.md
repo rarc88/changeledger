@@ -2,7 +2,7 @@
 id: "20261026-135523"
 title: La limpieza del registro no se alcanza sin el viewer
 type: change
-status: done
+status: in-progress
 created: 2026-10-26T13:55:23Z
 depends_on: []
 reviewed: true
@@ -178,3 +178,4 @@ Queda fuera:
 - **2026-10-26T14:14:52Z** `[note]` Corregido tras el informe de revisión, que lo señaló como residuo no bloqueante: al insertar `probeProject` quedó el comentario del orden del listado encima de la función equivocada. Solo se movió el comentario; sin cambio de comportamiento.
 - **2026-10-26T14:15:00Z** `[review]` in-review → done (delegated subagent, clean context)
 - **2026-10-26T14:15:10Z** `[graduation]` spec: `architecture.md`
+- **2026-10-26T14:18:01Z** `[status]` done → in-progress (agent)
