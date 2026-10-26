@@ -5,6 +5,7 @@ type: change
 status: done
 created: 2026-10-26T21:25:29Z
 depends_on: []
+accepted_at: 2026-10-26T23:00:16Z
 reviewed: true
 branch: change/20261026-212529
 related_to:
@@ -273,3 +274,5 @@ al texto en vez de pincharlo.
 - **2026-10-26T22:29:52Z** `[status]` in-progress → in-review
 - **2026-10-26T22:35:12Z** `[review]` in-review → done (delegated subagent, clean context)
 - **2026-10-26T22:36:20Z** `[graduation]` spec: `contract-discovery.md`
+- **2026-10-26T23:01:00Z** `[version]` 1.1.0 → 1.1.1-dev
+- **2026-10-26T23:01:00Z** `[validation]` accepted (merged 9d59acf)
