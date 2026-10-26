@@ -112,11 +112,12 @@ desechable en vez del del usuario.
   - **Verify:** `node --test test/run-tests.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4
   - **Resolved:** `2026-10-26T12:41:34Z`
-- [ ] Crear el home desechable bajo la raíz temporal y pasarlo en el `env` del
+- [x] Crear el home desechable bajo la raíz temporal y pasarlo en el `env` del
   hijo junto a `TMPDIR`
   - **Target:** `scripts/run-tests.mjs`
   - **Verify:** `node --test test/run-tests.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4
+  - **Resolved:** `2026-10-26T12:41:35Z`
 - [ ] Ejecutar la suite completa y comprobar que el registro del usuario no cambia
   - **Support:** `pnpm verify`
 
