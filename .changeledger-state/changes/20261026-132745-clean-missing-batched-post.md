@@ -168,3 +168,4 @@ Queda fuera:
 - **2026-10-26T13:29:49Z** `[branch]` set: change/20261026-132745 (auto)
 - **2026-10-26T13:35:20Z** `[note]` Los tests se escribieron después del código, no antes: se demostró el rojo a posteriori apartando con `git stash` solo `app.js` y `api.js` — sin el arreglo fallan CR1 y CR4, y el presupuesto de CR2 es `undefined`.
 - **2026-10-26T13:35:21Z** `[note]` 600 candidatas sintéticas todavía caben en un cuerpo de 64 KiB porque sus rutas son más cortas que las reales; los tests usan 1.000 para cruzar el tope de verdad.
+- **2026-10-26T13:35:21Z** `[note]` `MAX_BODY` pasa a exportarse en `src/viewer/server/router.mjs` para que un test pueda fijar que el presupuesto del cliente nunca lo supere, en vez de duplicar el número a ciegas.
