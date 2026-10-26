@@ -140,6 +140,26 @@ hace falta, porque `replaceDelimited` ya clasifica como `replaced` cualquier
 interior v4 distinto del publicado y `checkContract` lo reporta. Subirlo sólo
 añadiría una migración a todos los repositorios consumidores sin ganar detección.
 
+CR2 nació pidiendo una prueba que el patrón no puede dar. «Esta frase
+condiciona su obligación» es una propiedad semántica, y dos rondas de revisión
+independiente la rompieron con paráfrasis de una sola cláusula: primero
+«Installed or not, running it is mandatory … run exactly this where it is
+installed», que satisface cualquier comprobación de presencia; después «Where it
+is installed, and equally where it is not, running it is mandatory», que
+satisface además la de orden. Cada arreglo era una enumeración con forma de
+propiedad, y cada uno rechazaba de paso redacciones honestas.
+
+Por eso CR2 se reescribe a lo que un test sobre prosa normativa sí sostiene,
+según la convención del propio repositorio: un concept guard tolerante a la
+redacción más un barrido que mantiene retiradas las reaperturas ya observadas.
+La conditionality plena la verifica la revisión, no el test, y queda dicho aquí
+para que nadie la dé por cubierta. El coste aceptado es que el guard exige la
+palabra `installed` en la frase de la obligación: una redacción que dijera
+`present` o `available` tendría que actualizarlo. Por la misma razón, el guard
+de `212659 CR1` deja de pinchar el orden de palabras de la cláusula obligatoria
+y vuelve a guardar su obligación, que es que la carga se exija antes de
+planificar, investigar, responder o editar.
+
 Los fixtures de `test/contract.test.mjs` y `test/register.test.mjs` mutan el
 primer tramo en negrita del bloque escribiéndolo a mano. Esa literalidad es lo
 que convierte cada reescritura de la prosa en una ronda de retargeting; se
@@ -152,10 +172,11 @@ al texto en vez de pincharlo.
 - **Then** la condición de ausencia aparece en una posición estrictamente anterior
 - **And** esa condición ordena seguir trabajando con normalidad y no emular la herramienta
 
-### CR2 — La obligación queda condicionada al entorno que tiene el CLI
+### CR2 — La obligación nombra el caso instalado y las reaperturas vistas quedan retiradas
 - **Given** el bloque publicado en `REFERENCE`
 - **When** se aísla la frase que contiene `mandatory`
-- **Then** esa misma frase condiciona la obligación a que `changeledger` esté instalado
+- **Then** esa frase nombra el caso instalado con la palabra `installed`
+- **And** el bloque no contiene ninguna de las reaperturas observadas en revisión: `installed or not`, `whether or not … install`, `regardless of … install`, `equally where it is not`, `and where it is not`
 - **And** sigue exigiendo ejecutar el comando antes de planificar, investigar, responder o editar
 
 ### CR3 — El protocolo de validez sobrevive íntegro
