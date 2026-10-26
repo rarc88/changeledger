@@ -7,6 +7,7 @@ import { registerRepo } from '../src/commands/register.mjs';
 import { BOOTSTRAP_VERSION, REFERENCE } from '../src/contract.mjs';
 import { readRegistry } from '../src/registry.mjs';
 import { STATE_REF, writeActivation } from '../src/state-store.mjs';
+import { reflowBootstrap } from './helpers/bootstrap-fixtures.mjs';
 import { initGitFixture } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
@@ -21,31 +22,6 @@ function initializedRepo(agentsBody = '# Project rules\n') {
     'schema_version: 1\nproject_id: "abc1234567"\nproject_name: test\n',
   );
   return dir;
-}
-
-// Rewraps the lead paragraph of the real block at a different width and drops
-// the space after the quote marker, as an editor reflow would.
-function reflowBootstrap(text) {
-  const lines = REFERENCE.split('\n');
-  const end = lines.indexOf('>');
-  const lead = lines.slice(1, end);
-  const words = lead
-    .map((line) => line.replace(/^> ?/, ''))
-    .join(' ')
-    .split(' ');
-  const wrapped = [];
-  let current = '';
-  for (const word of words) {
-    if (current && current.length + word.length + 1 > 58) {
-      wrapped.push(current);
-      current = word;
-    } else {
-      current = current ? `${current} ${word}` : word;
-    }
-  }
-  wrapped.push(current);
-  const rewrapped = wrapped.map((line, i) => (i === 0 ? `>${line}` : `> ${line}`)).join('\n');
-  return text.replace(lead.join('\n'), rewrapped);
 }
 
 function prettierBootstrap(text) {

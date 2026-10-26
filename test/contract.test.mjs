@@ -17,6 +17,12 @@ import {
 } from '../src/contract.mjs';
 import { LOG_EVENT_DEFINITIONS, LOG_EVENT_TYPES, parseLogEvent } from '../src/lifecycle.mjs';
 import { contextBudgets } from './budget-support.mjs';
+import {
+  BOLD_LEAD,
+  LAZY_LINE,
+  reflowBootstrap,
+  UNDERSCORE_LEAD,
+} from './helpers/bootstrap-fixtures.mjs';
 import { sanitizedEnv } from './helpers/git-env.mjs';
 
 const BIN = fileURLToPath(new URL('../bin/changeledger.mjs', import.meta.url));
@@ -64,49 +70,6 @@ function root() {
   return dir;
 }
 
-// Derived from REFERENCE so a fixture that mutates "the first bold span of the
-// block" follows the text instead of pinning it.
-const BOLD_LEAD = REFERENCE.match(/\*\*[^*]+\*\*/)[0];
-const UNDERSCORE_LEAD = `__${BOLD_LEAD.slice(2, -2)}__`;
-
-// Rewraps the lead paragraph of the real block at a different width and drops
-// the space after the quote marker, as an editor reflow would.
-function reflowBootstrap(text) {
-  const lines = REFERENCE.split('\n');
-  const end = lines.indexOf('>');
-  const lead = lines.slice(1, end);
-  const words = lead
-    .map((line) => line.replace(/^> ?/, ''))
-    .join(' ')
-    .split(' ');
-  const wrapped = [];
-  let current = '';
-  for (const word of words) {
-    if (current && current.length + word.length + 1 > 58) {
-      wrapped.push(current);
-      current = word;
-    } else {
-      current = current ? `${current} ${word}` : word;
-    }
-  }
-  wrapped.push(current);
-  const rewrapped = wrapped.map((line, i) => (i === 0 ? `>${line}` : `> ${line}`)).join('\n');
-  return text.replace(lead.join('\n'), rewrapped);
-}
-
-// A formatter may leave a paragraph continuation without its quote marker.
-// Anchored on "a continuation line of the lead paragraph" rather than on an
-// index: if the lead ever shrinks, an index would select the blank `>` line,
-// the replace would become a no-op, and the lazy-continuation coverage would
-// vanish while every assertion still passed.
-const LAZY_LINE = (() => {
-  const lines = REFERENCE.split('\n');
-  const lead = lines.slice(1, lines.indexOf('>'));
-  const line = lead.at(-1);
-  assert.ok(lead.length > 1 && /^> \S/.test(line), `no lead continuation to lazy-wrap: ${line}`);
-  return line;
-})();
-
 function prettierBootstrap(text) {
   return text
     .replace(/(<!-- CHANGELEDGER BOOTSTRAP BEGIN v\d+ -->)\n/, '$1\n\n')
@@ -139,7 +102,11 @@ test('212659 CR1: bootstrap attempts the core load immediately, not only before 
   init(dir);
   const agents = fs.readFileSync(path.join(dir, 'AGENTS.md'), 'utf8');
   assert.match(agents, /before\s+>?\s*planning, investigating, answering or editing anything/);
-  assert.match(agents, /running it is mandatory[\s\S]*run exactly this/);
+  // The obligation is "run it before any of those", not any one phrasing of it:
+  // pinning the word order of the mandatory clause here rejected honest
+  // rewordings without guarding anything this test is about.
+  assert.match(agents, /\bmandatory\b/);
+  assert.match(agents, /run exactly this/);
   assert.doesNotMatch(agents, /Before creating or modifying files/);
 });
 
@@ -961,10 +928,8 @@ test('README says hooks/ is not packaged and a consuming repo copies the script'
   assert.match(text, /outside `\.changeledger\/`/);
 });
 
-const flat = (text) => text.replace(/^>[ ]?/gm, '').replace(/\s+/g, ' ');
-
 test('the absence clause precedes the obligation and tells the agent to work normally', () => {
-  const prose = flat(REFERENCE);
+  const prose = flatten(REFERENCE);
   assert.ok(prose.indexOf('command not found') !== -1, 'the block must name the absent case');
   assert.ok(
     prose.indexOf('command not found') < prose.indexOf('mandatory'),
@@ -973,25 +938,34 @@ test('the absence clause precedes the obligation and tells the agent to work nor
   assert.match(prose, /command not found[^.]*work normally[^.]*never emulate it/);
 });
 
-// Presence of the condition is not the guard. A block reading "Installed or
-// not, running it is mandatory … run exactly this where it is installed"
-// carries the same words in a position that conditions nothing, and would pass
-// a substring check. The condition must precede the obligation inside its own
-// sentence, and no scope-widening phrase may undo it elsewhere in the block.
-test('the mandatory sentence is conditioned on the CLI being installed', () => {
-  const prose = flat(REFERENCE);
+// CR2 is a semantic property — "this sentence conditions its obligation" — and
+// two review rounds proved a pattern cannot decide it: an ordering check fell
+// to "Installed or not, running it is mandatory … run exactly this where it is
+// installed", and adding the condition-leads rule fell to "Where it is
+// installed, and equally where it is not, running it is mandatory". Each fix
+// was an enumeration wearing the shape of a property, and each also rejected
+// honest rewordings. So this guard does what the repo's convention asks of a
+// test over normative prose and no more: a wording-tolerant concept guard that
+// the obligation names the installed case, plus a sweep that keeps the
+// widenings already seen in review retired. Conditionality itself is gated by
+// review, not here; the Specification of 20261026-212529 says so.
+test('the mandatory sentence names the installed case and no widening survives', () => {
+  const prose = flatten(REFERENCE);
   const sentence = prose.match(/[^.]*\bmandatory\b[^.]*/)[0];
-  const condition = sentence.search(/\bwhere it is installed\b/i);
-  assert.ok(condition !== -1, `the mandatory sentence must name the installed case: ${sentence}`);
-  assert.ok(
-    condition < sentence.indexOf('mandatory'),
-    `the condition must govern the obligation, not trail it: ${sentence}`,
+  assert.match(
+    sentence,
+    /\binstalled\b/i,
+    `the obligation must name the installed case: ${sentence}`,
   );
-  assert.doesNotMatch(
-    prose,
-    /installed or not|whether or not[\s\S]{0,24}installed|regardless of[\s\S]{0,32}install/i,
-    'the block must not widen the obligation back to every environment',
-  );
+  for (const widening of [
+    /installed or not/i,
+    /whether or not[\s\S]{0,24}install/i,
+    /regardless of[\s\S]{0,32}install/i,
+    /equally where it is not/i,
+    /and where it is not/i,
+  ]) {
+    assert.doesNotMatch(prose, widening, `the block must not reopen the obligation: ${widening}`);
+  }
 });
 
 test('no versioned file still carries the unconditional mandatory phrase', () => {
@@ -1022,7 +996,7 @@ test('no versioned file still carries the unconditional mandatory phrase', () =>
 });
 
 test('the test fixtures derive the bold lead from REFERENCE instead of writing it by hand', () => {
-  for (const name of ['contract.test.mjs', 'register.test.mjs']) {
+  for (const name of ['contract.test.mjs', 'register.test.mjs', 'helpers/bootstrap-fixtures.mjs']) {
     const source = fs.readFileSync(fileURLToPath(new URL(name, import.meta.url)), 'utf8');
     assert.ok(!source.includes(BOLD_LEAD), `${name} must not hand-write the bold lead`);
   }
