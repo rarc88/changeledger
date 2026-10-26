@@ -1,0 +1,35 @@
+// The quality gate aborted before reading a line of code whenever a git
+// worktree sat under `.claude/worktrees/`: that worktree is a checkout of this
+// same repository, so it carries a copy of this repository's own `biome.json`,
+// and Biome refused to run with a nested root configuration. The fix has two
+// halves — git ignores the path, and Biome's scanner honours that ignore — and
+// either half alone leaves the gate broken, which is what these pin.
+
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { test } from 'node:test';
+import { fileURLToPath } from 'node:url';
+
+const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const read = (name) => fs.readFileSync(path.join(repo, name), 'utf8');
+
+test('Biome honours the repository ignore file', () => {
+  const { vcs } = JSON.parse(read('biome.json'));
+  assert.deepEqual(vcs, { enabled: true, clientKind: 'git', useIgnoreFile: true });
+});
+
+test('git ignores the worktrees the app creates', () => {
+  const ignored = read('.gitignore')
+    .split('\n')
+    .map((line) => line.trim());
+  assert.ok(
+    ignored.includes('.claude/worktrees/'),
+    'without this entry Biome rediscovers the nested configuration',
+  );
+});
+
+test('the analysed paths are unchanged', () => {
+  const { files } = JSON.parse(read('biome.json'));
+  assert.deepEqual(files.includes, ['bin/**', 'src/**', 'test/**', '!src/viewer/public/vendor']);
+});
