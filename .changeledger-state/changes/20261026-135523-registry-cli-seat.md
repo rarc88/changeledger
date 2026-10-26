@@ -129,11 +129,12 @@ Queda fuera:
 
 ## Plan
 
-- [ ] Extraer el sondeo de disponibilidad a `src/registry.mjs` y consumirlo
+- [x] Extraer el sondeo de disponibilidad a `src/registry.mjs` y consumirlo
   desde `src/viewer/domain.mjs`, para que el criterio viva en un solo sitio
   - **Target:** `src/registry.mjs`
   - **Verify:** `node --test test/registry.test.mjs test/view.test.mjs`
   - **Criteria:** CR1, CR2
+  - **Resolved:** `2026-10-26T14:08:32Z`
 - [ ] Dar a `listProjects` un modo tolerante que devuelva el motivo en vez de
   relanzar, sin alterar su comportamiento actual
   - **Target:** `src/registry.mjs`
