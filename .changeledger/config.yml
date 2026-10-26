@@ -8,7 +8,7 @@ schema_version: 7
 # Minimum ChangeLedger CLI version required to work with this repo (SemVer,
 # prereleases included). `init` and `config migrate` set it to the version that
 # wrote this file; an older installed CLI refuses to run until it is updated.
-min_cli_version: 0.19.0
+min_cli_version: 1.0.0
 # Language for generated documentation CONTENT. Structure (headings, keys, enums)
 # is always English. See `changeledger context spec`.
 language: es

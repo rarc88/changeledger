@@ -70,6 +70,17 @@ A ledger fixture that needs a change id or a criterion is built with `criterion(
 `lint-staged` formats only staged JavaScript, JSON and CSS files while preserving
 partial commits; `pnpm verify` remains the complete manual and CI gate.
 
+## Versions between releases
+
+`dev` never carries a published version number: after a release, `package.json`
+moves to the next patch with a `-dev` prerelease tag (`1.0.1-dev` after `1.0.0`),
+so a checkout, `changeledger --version` and the `changeledger context` header say
+which build they are. The release routine replaces it with the exact version that
+`changeledger release plan` computes, records the membership, and raises this
+repository's own `min_cli_version` to that version once it is published. A
+prerelease of the next patch sorts above the published version, so the
+repository's guard admits the checkout.
+
 ## Use a checkout as the global CLI
 
 To exercise local edits through the same `changeledger` command used by installed
