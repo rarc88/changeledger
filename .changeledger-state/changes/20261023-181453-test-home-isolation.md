@@ -5,6 +5,7 @@ type: change
 status: done
 created: 2026-10-23T18:14:53Z
 depends_on: []
+archived: true
 accepted_at: 2026-10-26T13:19:05Z
 reviewed: true
 branch: change/20261023-181453
@@ -136,3 +137,4 @@ desechable en vez del del usuario.
 - **2026-10-26T12:43:41Z** `[review]` in-review → done (delegated subagent, clean context)
 - **2026-10-26T12:45:00Z** `[graduation]` spec: `lifecycle.md`
 - **2026-10-26T13:54:57Z** `[validation]` accepted (merged 4fa9d4c)
+- **2026-10-26T14:32:26Z** `[archive]` archived
