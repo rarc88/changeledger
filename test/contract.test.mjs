@@ -668,21 +668,10 @@ test('CR11: register removes only the literal legacy gitignore line', () => {
   );
 });
 
-test('141119 CR5: refactor activates specification in every versioned artifact', () => {
-  const repoRoot = new URL('../', import.meta.url);
-  for (const file of ['.changeledger/config.yml', 'templates/config.yml']) {
-    assert.match(
-      fs.readFileSync(new URL(file, repoRoot), 'utf8'),
-      / {2}refactor:\n {4}stages: \[request, proposal, specification, plan, log\]\n {4}review_required: true\n/,
-      `${file} must activate specification for the refactor type`,
-    );
-  }
-  // 20260730-002908 retired this test's third assert: it pinned the `refactor` row of
-  // the activation matrix rendered in `templates/contract/spec.md`, and that matrix is
-  // gone — it was a render of `config.yml`, which the fragment itself declares
-  // authoritative. Consistency now rests on the single seat the two asserts above pin:
-  // there is no second copy left to drift from.
-});
+// 20261024-121022 retired `141119 CR5`: it pinned the `refactor` row of the
+// per-type stage matrix in both versioned configs, and the matrix is gone — the
+// configuration declares no `types` and no `stages` (CR11), and the four
+// canonical stages are fixed in code.
 
 // --- 20261020-172221: the epic in the contract ---------------------------
 //
@@ -756,9 +745,11 @@ test('20260728-170429 CR2/CR6: the AGENTS.md budgets paragraph names the tokeniz
   const expectedParagraph =
     'Each entry in `templates/contract/budgets.yml` declares a `tokens` ceiling ' +
     'and a `lines` ceiling: tokens are counted by a pinned reference tokenizer, ' +
-    'not by what a particular model consumes. Neither is derived from what the ' +
-    "content currently measures, and neither is the bootstrap's `head` cut, which " +
-    'is a fixed bound of its own. A ceiling is never a goal: never remove ' +
+    'not by what a particular model consumes. Neither tracks what the content ' +
+    'currently measures: a ceiling moves only by a recorded decision — lowered to ' +
+    'a measured value when a change retires content, never re-derived by the next ' +
+    "measurement — and neither is the bootstrap's `head` cut, which is a fixed " +
+    'bound of its own. A ceiling is never a goal: never remove ' +
     'normative prose to fit one, and headroom under a ceiling is never permission ' +
     'to spend it — every entry into a context is deliberate and optimized. A ' +
     'ceiling may only decrease; raising one is a human decision recorded in a ' +
@@ -810,4 +801,137 @@ test('20261020-130304 CR7: the bootstrap bound is never smaller than the core li
     BOOTSTRAP_CAPTURE_LINES >= ceiling,
     `the bootstrap captures ${BOOTSTRAP_CAPTURE_LINES} lines but core may occupy ${ceiling}`,
   );
+});
+
+// --- 20261024-121022 CR18: README, CONTRIBUTING and the CLI help follow the code ---
+
+const helpOf = (...args) => {
+  const result = spawnSync(process.execPath, [BIN, ...args], {
+    encoding: 'utf8',
+    env: sanitizedEnv(),
+  });
+  assert.equal(result.status, 0, `${args.join(' ')} failed: ${result.stderr}`);
+  return result.stdout.replace(/\s+/g, ' ');
+};
+
+const repoDoc = (name) =>
+  fs.readFileSync(new URL(`../${name}`, import.meta.url), 'utf8').replace(/\s+/g, ' ');
+
+// A retired type named as a type: a `new <type>` example, its backticked enum
+// form, `<name> type`, or the retired review key. Branch names such as
+// `feature/x` and the plain nouns of the README's prose are not types.
+const RETIRED_TYPE_MENTIONS = [
+  /review_required/,
+  /\bnew (feature|bug|quick)\b/,
+  /`(feature|bug|quick)`/,
+  /\b(feature|bug|quick) type/i,
+  /type:? (feature|bug|quick)\b/,
+];
+
+test('20261024-121022 CR18: README and CONTRIBUTING name no retired type', () => {
+  for (const name of ['README.md', 'CONTRIBUTING.md']) {
+    const text = repoDoc(name);
+    for (const pattern of RETIRED_TYPE_MENTIONS) {
+      assert.doesNotMatch(text, pattern, `${name} still names a retired type: ${pattern}`);
+    }
+  }
+});
+
+test('20261024-121022 CR18: README creates a change and describes the 6 → 7 migration', () => {
+  const readme = repoDoc('README.md');
+  assert.match(readme, /changeledger new change /);
+  assert.match(readme, /\b6\b[^.]{0,12}(→|to)[^.]{0,6}\b7\b/);
+  assert.match(readme, /changeledger config migrate/);
+  assert.match(readme, /changeledger fix\b/);
+});
+
+test('20261024-121022 CR18: the CLI help names no retired type and describes the single migration', () => {
+  for (const args of [['--help'], ['new', '--help'], ['list', '--help'], ['search', '--help']]) {
+    const help = helpOf(...args);
+    for (const pattern of RETIRED_TYPE_MENTIONS) {
+      assert.doesNotMatch(help, pattern, `${args.join(' ')} names a retired type: ${pattern}`);
+    }
+    assert.doesNotMatch(help, /\b(feature|bug|quick)\b(?![/-])/, `${args.join(' ')}`);
+  }
+  assert.match(helpOf('fix', '--help'), /retired type[^.]{0,40}`?change`?/i);
+  assert.match(helpOf('fix', '--help'), /Investigation[^.]{0,40}Proposal[^.]{0,60}Request/);
+  assert.match(helpOf('config', 'migrate', '--help'), /schema 6 to 7/);
+});
+
+// 20261024-202659 CR12: a finding outside the frontier is recorded with the
+// `finding` command; the prose proposal it replaced stays retired everywhere.
+test('20261024-202659 CR12: the contract records an out-of-frontier finding instead of proposing it', () => {
+  const contractDir = new URL('../templates/contract/', import.meta.url);
+  const fragments = fs
+    .readdirSync(contractDir, { recursive: true })
+    .filter((name) => String(name).endsWith('.md'))
+    .map((name) => [name, fs.readFileSync(new URL(name, contractDir), 'utf8')]);
+  for (const [name, text] of fragments) {
+    assert.doesNotMatch(text, /propose type, title and reason/i, `${name} still proposes in prose`);
+    assert.doesNotMatch(text, /Create the draft only after explicit authorization/i, name);
+  }
+  const read = (file) => fs.readFileSync(new URL(file, contractDir), 'utf8');
+  // The handoff triage lives in core's Delegation section.
+  assert.match(
+    read('core.md').replace(/\s+/g, ' '),
+    /\boutside\b[^.]{0,60}\b(objective|frontier)\b[^.]{0,80}`changeledger finding <id>`/i,
+  );
+  const core = read('core.md');
+  assert.match(core, /^\| asks what is pending \|[^\n]*--pending findings/m);
+  const discovery = core.slice(core.indexOf('## Operational discovery'));
+  assert.match(discovery, /`changeledger list --pending [^`]*\bfindings\b[^`]*`/);
+});
+
+test('20261024-202659 CR13: README documents the finding command and the findings query', () => {
+  const readme = fs.readFileSync(new URL('../README.md', import.meta.url), 'utf8');
+  assert.ok(readme.includes('changeledger list [--pending graduation|archive|findings]'));
+  const entry = 'changeledger finding <id> "<text>" | promote <n> <id> | drop <n> "<reason>"';
+  const lines = readme.split('\n');
+  const at = lines.findIndex((line) => line.startsWith(entry));
+  assert.notEqual(at, -1, 'README has no finding entry');
+  assert.match(lines.slice(at - 1, at + 1).join('\n'), /finding[^\n]*outside[^\n]*frontier/i);
+});
+
+// README and CONTRIBUTING describe the contract that remains: one delegate
+// capsule (`review`), no correction isolation, and the rule that nothing
+// outside `.changeledger/` cites the ledger, enforced by `no-ledger-refs.sh`.
+// The test names carry no change id or criterion: this file is itself subject
+// to that rule (see hooks/no-ledger-refs.sh).
+const RETIRED_DELEGATION_PHRASES = [
+  /graduation-review/,
+  /agent-prompt investigation/,
+  /agent-context implementation/,
+  /uncommitted until/i,
+  /Correction isolation/i,
+];
+
+test('README and CONTRIBUTING name no retired delegate role nor correction isolation', () => {
+  for (const name of ['README.md', 'CONTRIBUTING.md']) {
+    const text = repoDoc(name);
+    for (const pattern of RETIRED_DELEGATION_PHRASES) {
+      assert.doesNotMatch(text, pattern, `${name} still carries a retired phrase: ${pattern}`);
+    }
+  }
+});
+
+test('CONTRIBUTING documents the no-ledger-refs hook and naming tests by behaviour', () => {
+  const text = repoDoc('CONTRIBUTING.md');
+  assert.match(text, /no-ledger-refs\.sh/);
+  assert.match(text, /\b(?:change id|id of a change)\b[^.]{0,40}`?CRn`?/i);
+  assert.match(text, /name[^.]{0,30}test[^.]{0,40}behaviou?r/i);
+  assert.match(text, /`?Target`?[^.]{0,20}`?Verify`?[^.]{0,60}\[#id\]/);
+});
+
+test('CONTRIBUTING says ledger fixtures are built with the helpers under the exempt test/helpers/', () => {
+  const text = repoDoc('CONTRIBUTING.md').replace(/\s+/g, ' ');
+  assert.match(text, /fixture[^.]{0,80}`?criterion\(n\)`?[^.]{0,40}`?changeId\(date, time\)`?/i);
+  assert.match(text, /`?test\/helpers\/`?[^.]{0,30}\bexempt\b/i);
+});
+
+test('README says hooks/ is not packaged and a consuming repo copies the script', () => {
+  const text = repoDoc('README.md');
+  assert.match(text, /no-ledger-refs\.sh/);
+  assert.match(text, /`?hooks\/`? is not packaged/i);
+  assert.match(text, /copies? the script/i);
+  assert.match(text, /outside `\.changeledger\/`/);
 });

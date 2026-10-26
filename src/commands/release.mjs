@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { withFileLock, writeFileAtomic } from '../atomic-write.mjs';
 import { writeLedgerFiles } from '../change-store.mjs';
+import { DEFAULT_RELEASE_IMPACT } from '../config.mjs';
 import { assertSupportedSchema } from '../config-migration.mjs';
 import { nowUtc } from '../paths.mjs';
 import {
@@ -152,16 +153,17 @@ function latestVersion(releases) {
 
 function effectiveImpact(change, config) {
   const override = change.frontmatter.release_impact;
-  if (override !== undefined) {
-    if (!RELEASE_IMPACTS.includes(override)) {
-      throw new Error(`Change #${change.frontmatter.id} has invalid release_impact "${override}".`);
-    }
-    return override;
+  if (override !== undefined && !RELEASE_IMPACTS.includes(override)) {
+    throw new Error(`Change #${change.frontmatter.id} has invalid release_impact "${override}".`);
   }
-  const impact = config.release?.impacts?.[change.frontmatter.type];
+  // The children carry the impact; counting the epic too would double it, so
+  // not even its own `release_impact` weighs (20261024-121022 CR9).
+  if (change.frontmatter.type === 'epic') return 'none';
+  if (override !== undefined) return override;
+  const impact = config.release?.default_impact ?? DEFAULT_RELEASE_IMPACT;
   if (!RELEASE_IMPACTS.includes(impact)) {
     throw new Error(
-      `Change #${change.frontmatter.id} type "${change.frontmatter.type}" has no valid release impact; configure release.impacts.${change.frontmatter.type} or set release_impact.`,
+      `config "release.default_impact" must be one of: ${RELEASE_IMPACTS.join(', ')}`,
     );
   }
   return impact;

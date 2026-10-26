@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { findChangeledgerDir, loadEffectiveConfig } from '../config.mjs';
-import { getSchemaVersion, SUPPORTED_SCHEMA_VERSION } from '../config-migration.mjs';
+import { getSchemaVersion, outdatedSchemaWarning } from '../config-migration.mjs';
 import {
   ensureReference,
   removeLegacyContract,
@@ -34,12 +34,8 @@ export function registerRepo(cwd = process.cwd(), output = console) {
     throw new Error('config.yml has no project_id. Run `changeledger init` to create one.');
   }
 
-  const schemaVersion = getSchemaVersion(config);
-  if (schemaVersion < SUPPORTED_SCHEMA_VERSION) {
-    output.warn(
-      `warn  .changeledger/config.yml: config schema ${schemaVersion} is outdated; run \`changeledger config migrate --dry-run\``,
-    );
-  }
+  const schemaWarning = outdatedSchemaWarning(getSchemaVersion(config));
+  if (schemaWarning) output.warn(`warn  .changeledger/config.yml: ${schemaWarning}`);
 
   const name = config.project_name || path.basename(repoRoot);
 

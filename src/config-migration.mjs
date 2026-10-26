@@ -1,26 +1,29 @@
 import fs from 'node:fs';
-import path from 'node:path';
 import { isMap, isPair, isScalar, isSeq, parseDocument } from 'yaml';
 import { writeFileAtomic } from './atomic-write.mjs';
 import { repoIsActivated } from './change-store.mjs';
-import { stagesRequiredByReview } from './check.mjs';
+import { DEFAULT_RELEASE_IMPACT } from './config.mjs';
 import { VERSION } from './framing.mjs';
-import { templatesDir } from './paths.mjs';
 import { mutateState, readStateConfigText, readStateRef } from './state-store.mjs';
 
-export const SUPPORTED_SCHEMA_VERSION = 6;
+export const SUPPORTED_SCHEMA_VERSION = 7;
 
-const CANONICAL_STATUSES = ['draft', 'approved', 'in-progress', 'in-review', 'done', 'discarded'];
+// The only schema this release migrates from. The v0 → v6 chain was retired
+// (20261024-121022): ChangeLedger 0.19 is the last release that carries it.
+const MIGRATABLE_SCHEMA_VERSION = 6;
+const RETIRED_STATUSES = ['in-validation', 'blocked'];
 
-const BUILTIN_TYPES = ['feature', 'bug', 'refactor'];
+// What `check` and `register` warn about a schema older than this release
+// writes, or null when it is current: the migrating command when there is one,
+// and otherwise the release that migrates it, in `buildMigration`'s refusal.
+export function outdatedSchemaWarning(schemaVersion) {
+  if (schemaVersion >= SUPPORTED_SCHEMA_VERSION) return null;
+  if (schemaVersion < MIGRATABLE_SCHEMA_VERSION) return tooOldForThisRelease(schemaVersion);
+  return `config schema ${schemaVersion} is outdated; run \`changeledger config migrate\``;
+}
 
-const BUILTIN_IMPACTS = {
-  feature: 'minor',
-  bug: 'patch',
-  audit: 'none',
-  refactor: 'none',
-  chore: 'none',
-};
+const tooOldForThisRelease = (schemaVersion) =>
+  `config schema ${schemaVersion} is older than ${MIGRATABLE_SCHEMA_VERSION}: migrate it with ChangeLedger 0.19 before upgrading`;
 
 export function getSchemaVersion(config) {
   const v = config.schema_version;
@@ -37,12 +40,12 @@ export function assertSupportedSchema(config) {
   return current;
 }
 
-// Returns null when no migration needed; throws on invalid/future schema.
-// Otherwise returns { yaml: string, changes: string[] }.
-// `runningVersion` is the CLI version to declare in `min_cli_version`: an
-// explicit parameter, not an environment override, so unit tests can inject
-// an arbitrary version while every real caller defaults to the actual
-// installed version (`VERSION`, read once from package.json).
+// Returns null when no migration is needed; throws on invalid YAML or on a
+// schema this release cannot migrate. Otherwise returns
+// { yaml, changes, fromVersion }. `runningVersion` is the CLI version to
+// declare in `min_cli_version`: an explicit parameter, not an environment
+// override, so unit tests can inject one while every real caller defaults to
+// the installed version.
 export function buildMigration(originalText, runningVersion = VERSION) {
   let doc;
   try {
@@ -59,55 +62,82 @@ export function buildMigration(originalText, runningVersion = VERSION) {
   if (current === SUPPORTED_SCHEMA_VERSION) {
     return null;
   }
+  if (current < MIGRATABLE_SCHEMA_VERSION) throw new Error(tooOldForThisRelease(current));
 
   const changes = [];
-
-  // schema_version — update in place when the key exists at version >= 1 (keeps
-  // its comment and position); otherwise remove any explicit 0 and prepend so
-  // the key appears first.
-  if (Object.hasOwn(config, 'schema_version') && current >= 1) {
-    doc.set('schema_version', SUPPORTED_SCHEMA_VERSION);
-    changes.push(`updated schema_version: ${current} → ${SUPPORTED_SCHEMA_VERSION}`);
-  } else {
-    if (Object.hasOwn(config, 'schema_version')) {
-      doc.delete('schema_version');
-    }
-    doc.contents.items.unshift(doc.createPair('schema_version', SUPPORTED_SCHEMA_VERSION));
-    changes.push(`added schema_version: ${SUPPORTED_SCHEMA_VERSION}`);
-  }
-
-  if (current < 1) {
-    migrateToV1(doc, config, changes);
-  }
-  if (current < 2) migrateToV2(doc, config, changes);
-  if (current < 3) migrateToV3(doc, config, changes);
-  if (current < 4) migrateToV4(doc, changes);
-  if (current < 5) migrateToV5(doc, changes);
-  if (current < 6) migrateToV6(doc, changes, runningVersion);
-
+  migrateSixToSeven(doc, changes, runningVersion);
   relocateNullValueComments(doc);
 
   // No line wrapping and no flow padding: keeps untouched flow sequences
-  // (statuses, stages) byte-identical to their common written form.
+  // (statuses) byte-identical to their common written form.
   const yaml = doc.toString({ lineWidth: 0, flowCollectionPadding: false });
   return { yaml, changes, fromVersion: current };
 }
 
-// A blank scalar (e.g. `integration_branch:` with nothing after the colon)
-// leaves the parser no explicit end token to anchor from, so a comment that
-// the source wrote before the *next* sibling key gets attached as a trailing
+// 6 → 7: the type matrix, the configurable stages, the per-type impacts and
+// readiness have no reader any more; deleting a key takes the comment that
+// introduces it along. Each change line is reported only for a key that was
+// present. `min_cli_version` declares the CLI that wrote the file, as `init`
+// does.
+function migrateSixToSeven(doc, changes, runningVersion) {
+  doc.set('schema_version', SUPPORTED_SCHEMA_VERSION);
+  changes.push(
+    `updated schema_version: ${MIGRATABLE_SCHEMA_VERSION} → ${SUPPORTED_SCHEMA_VERSION}`,
+  );
+
+  for (const key of ['types', 'stages']) {
+    if (doc.delete(key)) changes.push(`removed ${key}`);
+  }
+
+  const release = doc.get('release', true);
+  if (isMap(release) && release.has('impacts')) {
+    const index = release.items.findIndex((pair) => scalarKey(pair) === 'impacts');
+    if (release.has('default_impact')) {
+      release.items.splice(index, 1);
+    } else {
+      release.items.splice(index, 1, doc.createPair('default_impact', DEFAULT_RELEASE_IMPACT));
+    }
+    changes.push(
+      `replaced release.impacts with release.default_impact: ${release.get('default_impact')}`,
+    );
+  }
+
+  if (doc.delete('readiness')) changes.push('removed readiness');
+
+  const statuses = doc.get('statuses', true);
+  if (isSeq(statuses)) {
+    const isRetired = (node) => RETIRED_STATUSES.includes(String(node.value));
+    const removed = statuses.items.filter(isRetired).map((node) => String(node.value));
+    statuses.items = statuses.items.filter((node) => !isRetired(node));
+    if (removed.length) changes.push(`removed retired statuses: ${removed.join(', ')}`);
+  }
+
+  if (doc.has('min_cli_version')) {
+    doc.set('min_cli_version', runningVersion);
+  } else {
+    const items = doc.contents.items;
+    const schemaIndex = items.findIndex((pair) => scalarKey(pair) === 'schema_version');
+    items.splice(schemaIndex + 1, 0, doc.createPair('min_cli_version', runningVersion));
+  }
+}
+
+function scalarKey(pair) {
+  return isScalar(pair.key) ? pair.key.value : pair.key;
+}
+
+// A blank scalar (e.g. `release_branch:` with nothing after the colon) leaves
+// the parser no explicit end token to anchor from, so a comment that the
+// source wrote before the *next* sibling key gets attached as a trailing
 // `.comment` on that null scalar instead of `commentBefore` on the sibling.
 // `doc.toString()` then renders it at the null scalar's own (deeper) nesting
 // indent rather than the column the source actually used — the re-indent
 // defect this corrects. Reassign it to `commentBefore` on whatever node
 // follows, climbing through enclosing collections when the null scalar is the
 // last item of its own map/seq; with no sibling anywhere above, it is
-// genuinely the document's own trailing comment. Proven correct only for that
-// shape (the one templates/config.yml actually ships, where `git` holds
-// exactly one key): the sibling found while climbing can land at an
-// intermediate nesting level rather than the source's own column when the
-// null scalar is not the last item of its enclosing map. That wider case is a
-// known, unresolved gap.
+// genuinely the document's own trailing comment. The sibling found while
+// climbing can land at an intermediate nesting level rather than the source's
+// own column when the null scalar is not the last item of its enclosing map.
+// That wider case is a known, unresolved gap.
 function relocateNullValueComments(doc) {
   function relocate(scalarNode, chain) {
     for (let level = chain.length - 1; level >= 0; level--) {
@@ -143,246 +173,6 @@ function relocateNullValueComments(doc) {
   }
 
   walk(doc.contents, []);
-}
-
-// 0 → 1: structural additions and managed-comment refresh.
-function migrateToV1(doc, config, changes) {
-  // tdd: true if absent
-  if (!Object.hasOwn(config, 'tdd')) {
-    doc.set('tdd', true);
-    changes.push('added tdd: true');
-  }
-
-  // specs_dir if absent
-  if (!Object.hasOwn(config, 'specs_dir')) {
-    doc.set('specs_dir', '.changeledger/specs');
-    changes.push('added specs_dir: .changeledger/specs');
-  }
-
-  // Canonical statuses — insert missing ones in canonical order
-  const statusesNode = doc.get('statuses', true);
-  if (statusesNode) {
-    const current_statuses = statusesNode.items.map((n) => String(n.value));
-    for (const status of CANONICAL_STATUSES) {
-      if (current_statuses.includes(status)) continue;
-      const insertBefore = findInsertBefore(current_statuses, CANONICAL_STATUSES, status);
-      const newNode = doc.createNode(status);
-      if (insertBefore === -1) {
-        statusesNode.items.push(newNode);
-        current_statuses.push(status);
-      } else {
-        statusesNode.items.splice(insertBefore, 0, newNode);
-        current_statuses.splice(insertBefore, 0, status);
-      }
-      changes.push(`added status: ${status}`);
-    }
-  }
-
-  // review_required: true for built-in types where key is absent
-  const configTypes = config.types ?? {};
-  for (const typeName of BUILTIN_TYPES) {
-    if (!Object.hasOwn(configTypes, typeName)) continue;
-    if (Object.hasOwn(configTypes[typeName], 'review_required')) continue;
-    doc.setIn(['types', typeName, 'review_required'], true);
-    changes.push(`added types.${typeName}.review_required: true`);
-  }
-
-  // release.impacts defaults for built-in types that exist in config.types
-  const currentImpacts = config.release?.impacts ?? {};
-  for (const [type, impact] of Object.entries(BUILTIN_IMPACTS)) {
-    if (!Object.hasOwn(configTypes, type)) continue;
-    if (Object.hasOwn(currentImpacts, type)) continue;
-    doc.setIn(['release', 'impacts', type], impact);
-    changes.push(`added release.impacts.${type}: ${impact}`);
-  }
-
-  // Remove legacy id_digits
-  if (Object.hasOwn(config, 'id_digits')) {
-    doc.delete('id_digits');
-    changes.push('removed legacy id_digits');
-  }
-
-  // Refresh managed comments from the current template, preserving custom comments.
-  const templateComments = loadTemplateComments();
-  const commentChanges = refreshManagedComments(doc, templateComments);
-  changes.push(...commentChanges);
-}
-
-// 1 → 2: additive quick type. Existing custom `quick` definitions and impacts
-// are never touched.
-function migrateToV2(doc, config, changes) {
-  const configTypes = config.types ?? {};
-  if (!Object.hasOwn(configTypes, 'quick')) {
-    const stagesNode = doc.createNode(['request', 'log']);
-    stagesNode.flow = true;
-    doc.setIn(['types', 'quick', 'stages'], stagesNode);
-    changes.push('added types.quick with stages: [request, log]');
-  }
-  const currentImpacts = config.release?.impacts ?? {};
-  if (!Object.hasOwn(currentImpacts, 'quick')) {
-    doc.setIn(['release', 'impacts', 'quick'], 'patch');
-    changes.push('added release.impacts.quick: patch');
-  }
-}
-
-// 2 → 3: expose Git integration without inventing a repository-specific branch.
-// Existing git settings and comments remain byte-for-byte owned by the source doc.
-function migrateToV3(doc, config, changes) {
-  if (!Object.hasOwn(config, 'git')) {
-    setBlankGitSection(doc);
-    changes.push('added git section');
-  }
-}
-
-// 3 → 4: two additive repairs. Readiness runs first because the stage repair
-// returns early on configs it cannot act on, and skipping readiness there would
-// leave exactly the defect this migration exists to fix.
-function migrateToV4(doc, changes) {
-  addReadinessSection(doc, changes);
-  removeStaleReadinessComment(doc, changes);
-  activateReviewableStages(doc, changes);
-}
-
-// 4 → 5: enable deterministic change branch names for repositories that have
-// not already chosen a format. An explicit migration upgrades the historical
-// blank value to the default; configs already at schema 5 or later skip this
-// step, so clearing the value still opts out.
-function migrateToV5(doc, changes) {
-  const current = doc.getIn(['git', 'change_branch_format']);
-  if (current !== undefined && current !== null) return;
-  doc.setIn(['git', 'change_branch_format'], '{type}/{id}');
-  changes.push('added git.change_branch_format: {type}/{id}');
-}
-
-// 5 → 6: always declare the version of the package running this migration,
-// never just fill it in when absent. Updates the value in place when the key
-// already exists (never a duplicate); otherwise inserts it directly after
-// `schema_version`, mirroring the order the template itself ships.
-function migrateToV6(doc, changes, runningVersion) {
-  if (doc.has('min_cli_version')) {
-    const previous = doc.get('min_cli_version');
-    doc.set('min_cli_version', runningVersion);
-    changes.push(`updated min_cli_version: ${previous} → ${runningVersion}`);
-    return;
-  }
-  const pair = templateSection('min_cli_version');
-  pair.value = doc.createNode(runningVersion);
-  const items = doc.contents.items;
-  const schemaIndex = items.findIndex((item) => (item.key?.value ?? item.key) === 'schema_version');
-  items.splice(schemaIndex === -1 ? 0 : schemaIndex + 1, 0, pair);
-  changes.push(`added min_cli_version: ${runningVersion}`);
-}
-
-// `readiness` shipped commented out, so every existing repo — however it is laid
-// out — silently inherited the JavaScript-shaped defaults `check` applies when
-// the key is absent, and could not approve a well-formed change. Publish the
-// block so it becomes visible and editable. A repo that already declares
-// `readiness` keeps it byte for byte: it is the user's key, and `check` owns any
-// diagnostic about its contents.
-function addReadinessSection(doc, changes) {
-  if (doc.has('readiness')) return;
-  const pair = templateSection('readiness');
-  pair.key.spaceBefore = true;
-  doc.contents.items.push(pair);
-  changes.push('added readiness section');
-}
-
-// The one historical form of the commented-out `# readiness:` hint the
-// template shipped before da84722c published a live section (20260726-141122).
-// It never existed in any other wording — a single frozen constant, exactly
-// like the legacy AGENTS.md hashes in contract.mjs. Comparison is a verbatim
-// match on `commentBefore` (the parser's normalized comment text, sans leading
-// `#`): a repo that edited so much as a character owns that divergence, and
-// the migration must never guess which part of it is still "the same" block.
-const OLD_READINESS_COMMENT =
-  ' Optional Definition of Ready path/command hints. When present, tasks that\n' +
-  ' reference CRs should name at least one target and one verification matching\n' +
-  ' these patterns. Patterns can be path globs or literal command snippets.\n' +
-  ' readiness:\n' +
-  '   target_patterns: ["src/**"]\n' +
-  '   verification_patterns: ["test/**", "**/*.test.*", "**/*.spec.*", "pnpm test"]\n';
-
-// Publishing the live section (above) leaves the old template's commented
-// block sitting next to it verbatim — dead prose nobody asked to keep. Retire
-// it, but only the exact text the template itself shipped; any user edit is a
-// divergence and stays untouched, byte for byte.
-function removeStaleReadinessComment(doc, changes) {
-  for (const pair of doc.contents.items) {
-    if (pair.key?.commentBefore !== OLD_READINESS_COMMENT) continue;
-    pair.key.commentBefore = undefined;
-    changes.push('removed stale commented-out readiness block');
-    return;
-  }
-}
-
-// The shipped template is the single source of truth for the published
-// defaults, so a migrated repo cannot drift from what `init` seeds. Fail loudly
-// rather than skip: a migration that silently omitted the section would leave
-// the repo with the defect it was run to remove.
-function templateSection(key) {
-  const text = fs.readFileSync(path.join(templatesDir, 'config.yml'), 'utf8');
-  const pair = parseDocument(text, { merge: false }).contents.items.find(
-    (item) => item.key?.value === key,
-  );
-  if (!pair) throw new Error(`templates/config.yml declares no "${key}" section to migrate from`);
-  return pair;
-}
-
-// A type that demands independent review must activate the stages that
-// make review possible — `specification` holds the criteria and `plan` the tasks
-// that cite them when its effective tdd is on — the coupling `checkConfig`
-// enforces, asked through the same `stagesRequiredByReview`. Additive: only
-// types already declaring `review_required: true` are touched, and only to
-// insert the stages they lack. Reads the live doc, not the pre-migration
-// snapshot, so a `review_required` or `tdd` added by migrateToV1 in the same
-// run is seen here too.
-// A config with no canonical `stages` list is left alone: without it there is no
-// order to insert into, and `check` already reports the missing key.
-function activateReviewableStages(doc, changes) {
-  const canonicalNode = doc.get('stages', true);
-  const typesNode = doc.get('types', true);
-  if (!canonicalNode?.items || !typesNode?.items) return;
-  const canonical = canonicalNode.items.map((n) => String(n.value));
-  const live = doc.toJS();
-
-  for (const pair of typesNode.items) {
-    const typeName = pair.key?.value ?? pair.key;
-    if (doc.getIn(['types', typeName, 'review_required']) !== true) continue;
-    const stagesNode = doc.getIn(['types', typeName, 'stages'], true);
-    if (!stagesNode?.items) continue;
-    const stages = stagesNode.items.map((n) => String(n.value));
-    for (const stage of stagesRequiredByReview(live, typeName)) {
-      if (stages.includes(stage)) continue;
-      // A stage absent from the canonical `stages` list cannot be inserted into
-      // a type: there is no canonical position for it, and `checkConfig` already
-      // emits the accurate "requires active stages" error for this config. Stay
-      // silent here rather than replace that diagnostic with a corrupt insert.
-      if (!canonical.includes(stage)) continue;
-      const insertBefore = findInsertBefore(stages, canonical, stage);
-      const node = doc.createNode(stage);
-      if (insertBefore === -1) {
-        stagesNode.items.push(node);
-        stages.push(stage);
-      } else {
-        stagesNode.items.splice(insertBefore, 0, node);
-        stages.splice(insertBefore, 0, stage);
-      }
-      changes.push(`added stage ${stage} to types.${typeName}.stages`);
-    }
-  }
-}
-
-function setBlankGitSection(doc) {
-  const gitNode = parseDocument('git:\n  integration_branch:\n').get('git', true);
-  doc.set('git', gitNode);
-  const gitPair = doc.contents.items.find(
-    (pair) => pair.key?.value === 'git' || pair.key === 'git',
-  );
-  if (!gitPair) return;
-  if (typeof gitPair.key === 'string') gitPair.key = doc.createNode(gitPair.key);
-  gitPair.key.spaceBefore = true;
-  gitPair.key.commentBefore =
-    ' Git integration: change branches start from and merge into `integration_branch`; types with `integrates_into: release` use `release_branch` instead.';
 }
 
 // Apply migration to the effective config authority (or dry-run). Returns summary string.
@@ -435,58 +225,4 @@ export function applyMigration(
   }
 
   return `${summary}\n\n--- candidate YAML ---\n${result.yaml}`;
-}
-
-// Find the index in currentList where `value` should be inserted, based on
-// canonical order. Returns -1 to append at end.
-function findInsertBefore(currentList, canonicalOrder, value) {
-  const canonIdx = canonicalOrder.indexOf(value);
-  for (let i = canonIdx + 1; i < canonicalOrder.length; i++) {
-    const pos = currentList.indexOf(canonicalOrder[i]);
-    if (pos !== -1) return pos;
-  }
-  return -1;
-}
-
-// Reads the current template and returns a map of top-level key → commentBefore string.
-// Returns an empty map if the template is unreadable (comment refresh is optional).
-function loadTemplateComments() {
-  try {
-    const templateText = fs.readFileSync(path.join(templatesDir, 'config.yml'), 'utf8');
-    const templateDoc = parseDocument(templateText, { merge: false });
-    const comments = new Map();
-    for (const pair of templateDoc.contents.items) {
-      const key = pair.key?.value;
-      const comment = pair.key?.commentBefore;
-      if (key && comment !== undefined) {
-        comments.set(key, comment);
-      }
-    }
-    return comments;
-  } catch {
-    return new Map();
-  }
-}
-
-// Replace managed comments (those defined in the template) on existing keys,
-// preserving comments on custom/unknown keys.
-// doc.set() creates keys as plain strings (not Scalar nodes), so commentBefore
-// cannot be set on them directly. Convert string keys to Scalar nodes first.
-function refreshManagedComments(doc, templateComments) {
-  const changes = [];
-  for (const pair of doc.contents.items) {
-    // Normalise string-primitive keys to Scalar nodes so commentBefore is writable.
-    if (typeof pair.key === 'string') {
-      pair.key = doc.createNode(pair.key);
-    }
-    const key = pair.key?.value;
-    if (!key) continue;
-    if (!templateComments.has(key)) continue; // custom key — preserve its comment
-    const templateComment = templateComments.get(key);
-    const currentComment = pair.key?.commentBefore;
-    if (currentComment === templateComment) continue; // already matches
-    pair.key.commentBefore = templateComment;
-    changes.push(`refreshed comment for ${key}`);
-  }
-  return changes;
 }

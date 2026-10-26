@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 import { createRequire } from 'node:module';
 import path from 'node:path';
-import { Argument, Command, Help, Option } from 'commander';
+import { Argument, Command, Help, InvalidArgumentError, Option } from 'commander';
+import { CANONICAL_STAGES, CHANGE_TYPES } from '../src/change.mjs';
 import { activate } from '../src/commands/activate.mjs';
 import {
   approve,
@@ -12,6 +13,8 @@ import {
   list,
   log,
   owner,
+  recordFinding,
+  resolveFinding,
   review,
   show,
   status,
@@ -26,11 +29,11 @@ import { commit } from '../src/commands/commit.mjs';
 import { context } from '../src/commands/context.mjs';
 import { cutover } from '../src/commands/cutover.mjs';
 import { edit } from '../src/commands/edit.mjs';
-import { FIX_MIGRATION_MODES, fix } from '../src/commands/fix.mjs';
+import { fix } from '../src/commands/fix.mjs';
 import { graduate, scaffoldSpec, skipGraduation } from '../src/commands/graduate.mjs';
 import { importFromRef } from '../src/commands/import.mjs';
 import { init } from '../src/commands/init.mjs';
-import { newChange, newChangeFrom, scaffoldChange } from '../src/commands/new.mjs';
+import { newChange, newChangeFrom, requireType, scaffoldChange } from '../src/commands/new.mjs';
 import { registerRepo } from '../src/commands/register.mjs';
 import { initReleaseHistory, recordRelease, releasePlan } from '../src/commands/release.mjs';
 import { runSearch } from '../src/commands/search.mjs';
@@ -72,11 +75,7 @@ function configuredDomains(cwd = process.cwd()) {
     const changeledgerDir = findChangeledgerDir(cwd);
     if (!changeledgerDir) return null;
     const config = loadEffectiveConfig(path.dirname(changeledgerDir), changeledgerDir);
-    return {
-      types: config.types && typeof config.types === 'object' ? Object.keys(config.types) : [],
-      statuses: Array.isArray(config.statuses) ? config.statuses : [],
-      stages: Array.isArray(config.stages) ? config.stages : [],
-    };
+    return { statuses: Array.isArray(config.statuses) ? config.statuses : [] };
   } catch {
     return null;
   }
@@ -94,14 +93,29 @@ function closedOption(flags, description, choices) {
   return choices?.length ? option.choices(choices) : option;
 }
 
+// Types and stages are fixed in code; statuses are still read from the repo.
 function configuredDomainsHelp() {
-  if (!CONFIGURED_DOMAINS) return [];
   return [
     '',
-    `effective types: ${CONFIGURED_DOMAINS.types.join(', ')}`,
-    `effective statuses: ${CONFIGURED_DOMAINS.statuses.join(', ')}`,
-    `effective stages: ${CONFIGURED_DOMAINS.stages.join(', ')}`,
+    `types: ${CHANGE_TYPES.join(', ')}`,
+    `stages: ${CANONICAL_STAGES.join(', ')}`,
+    ...(CONFIGURED_DOMAINS
+      ? [`effective statuses: ${CONFIGURED_DOMAINS.statuses.join(', ')}`]
+      : []),
   ];
+}
+
+// `new` shows the two types as choices but refuses with the creation seat's
+// own message, so the CLI and `requireType` cannot word it differently.
+function changeTypeArgument() {
+  return new Argument('<type>', 'change or epic').choices(CHANGE_TYPES).argParser((value) => {
+    try {
+      requireType(value);
+    } catch (error) {
+      throw new InvalidArgumentError(error.message);
+    }
+    return value;
+  });
 }
 
 const LOG_EVENT_PRODUCERS = Object.freeze({
@@ -122,8 +136,9 @@ const LOG_EVENT_PRODUCERS = Object.freeze({
   note: ['changeledger log'],
   version: [
     'changeledger new, changeledger apply (creation)',
-    'every command above that appends a Log event, when the Log has no stamp or its last one differs from the installed version (not edit or apply documents)',
+    'every command listed here that appends a Log event, when the Log has no stamp or its last one differs from the installed version (not edit or apply documents)',
   ],
+  finding: ['changeledger finding'],
 });
 
 function logEventGrammarHelp() {
@@ -173,7 +188,7 @@ prompt identifies your role and tells you to run \`agent-context\` instead.
 
   changeledger init | register | new | edit | apply | view | check | fix | context | agent-context
   changeledger commit | status | approve | discard | review | owner
-  changeledger archive | log | task | list | show | search | analyze | graduate | config | release
+  changeledger archive | log | finding | task | list | show | search | analyze | graduate | config | release
   changeledger cutover | activate | import | sync
 
 Run \`changeledger <command> --help\` for that command's syntax, values and examples.`;
@@ -278,13 +293,7 @@ program
 program
   .command('new')
   .description('scaffold a new change')
-  .addArgument(
-    closedArgument(
-      '<type>',
-      'a type key configured in .changeledger/config.yml (types:)',
-      CONFIGURED_DOMAINS?.types,
-    ),
-  )
+  .addArgument(changeTypeArgument())
   .argument('<slug>', 'English filename slug, e.g. self-describing-cli-help')
   .argument('<title...>', 'content title, written in the repo language (config.yml: language)')
   .option('--owner <name>', 'set the initial owner (defaults to the local git identity)')
@@ -300,10 +309,10 @@ program
       'whole with `--from`. An inactive repo still scaffolds into the worktree.',
       '',
       'Examples:',
-      '  changeledger new feature self-describing-cli-help "Self-describing CLI help"',
-      '  changeledger new feature seam "Costura" --print > draft.md',
-      '  changeledger new feature seam "Costura" --from draft.md',
-      '  changeledger new bug leak "Fuga" --parent 20260613-110000',
+      '  changeledger new change self-describing-cli-help "Self-describing CLI help"',
+      '  changeledger new change seam "Costura" --print > draft.md',
+      '  changeledger new change seam "Costura" --from draft.md',
+      '  changeledger new change leak "Fuga" --parent <epic-id>',
     ].join('\n'),
   )
   .action(
@@ -401,44 +410,21 @@ program
 
 program
   .command('fix')
-  .description('repair mechanical, unambiguous format defects (or one change)')
+  .description(
+    'repair mechanical format defects and migrate live documents: a retired type becomes `change`, `## Investigation`/`## Proposal` fold under the Request (or one change)',
+  )
   .argument('[id]')
   .option('--dry-run', 'print the proposed diff without writing')
-  .addOption(
-    new Option(
-      '--graduation-links',
-      'migrate graduation provenance from recognized Logs and legacy spec markers',
-    ).conflicts(['structuredSections', 'planTags']),
-  )
-  .addOption(
-    new Option(
-      '--structured-sections',
-      'migrate resolved/blocked task metadata and recognized legacy Log entries',
-    ).conflicts(['graduationLinks', 'planTags']),
-  )
-  .addOption(
-    new Option(
-      '--plan-tags',
-      'migrate Plan criteria, support and verify children from positional tags',
-    ).conflicts(['graduationLinks', 'structuredSections']),
-  )
   .addHelpText(
     'after',
     [
       '',
       'default repairs: checkbox markers [ x ]/[X], legacy hyphen separators, near-ISO UTC timestamps',
-      `migration modes are mutually exclusive; run exactly one at a time: ${FIX_MIGRATION_MODES.join(', ')}`,
     ].join('\n'),
   )
   .action((id, options) => {
     try {
-      const args = [
-        ...(id ? [id] : []),
-        ...(options.dryRun ? ['--dry-run'] : []),
-        ...(options.graduationLinks ? ['--graduation-links'] : []),
-        ...(options.structuredSections ? ['--structured-sections'] : []),
-        ...(options.planTags ? ['--plan-tags'] : []),
-      ];
+      const args = [...(id ? [id] : []), ...(options.dryRun ? ['--dry-run'] : [])];
       process.exit(fix(args));
     } catch (e) {
       if (e instanceof LedgerConflictError) {
@@ -470,7 +456,7 @@ program
       'repos replace the worktree file atomically and commit nothing.',
       '',
       'Examples:',
-      '  changeledger edit 20260810-180434 --from draft.md',
+      '  changeledger edit <id> --from draft.md',
       '  changeledger edit spec:global-state-scope --from spec.md',
     ].join('\n'),
   )
@@ -560,8 +546,8 @@ program
       '',
       'Examples:',
       '  changeledger commit -m "feat(cli): add helper"',
-      '  changeledger commit -m "feat(cli): add helper" --id 20260711-000001',
-      '  changeledger commit -m "feat(cli): add helper" --id 20260711-000001 --id 20260711-000002',
+      '  changeledger commit -m "feat(cli): add helper" --id <id>',
+      '  changeledger commit -m "feat(cli): add helper" --id <id> --id <id>',
       '  changeledger commit -m "docs(workflow): record the sieve" --no-change "no change covers it"',
     ].join('\n'),
   )
@@ -691,9 +677,9 @@ program
     'after',
     [
       '',
-      'With no argument: prints the mandatory bootstrap core. Always run this first —',
-      'every mode and change id below is incremental and extends the core already read,',
-      'it never replaces it.',
+      'With no argument: prints the mandatory bootstrap core, plus the global-state',
+      'overlay in an activated repo. Always run this first — every mode and change id',
+      'below is incremental and extends the core already read, it never replaces it.',
       '',
       'Explicit modes (pass one literally):',
       '  spec        author or refine a change',
@@ -701,10 +687,10 @@ program
       '  review      independently verify completed work',
       '  release     plan portable delivery metadata',
       '',
-      'Change id (e.g. changeledger context 20260630-225212): loads the pack inferred',
+      'Change id (e.g. changeledger context <id>): loads the pack inferred',
       "from that change's current lifecycle status — you never choose this pack",
-      'yourself. Lifecycle overlays such as close and discarded are inferred the same way',
-      'from the change id; they are not modes you pass explicitly.',
+      'yourself. The close overlay of a done change is inferred the same way from the',
+      'change id; it is not a mode you pass explicitly.',
       '',
       'Examples:',
       '  changeledger context',
@@ -712,7 +698,7 @@ program
       '  changeledger context implement',
       '  changeledger context review',
       '  changeledger context release',
-      '  changeledger context 20260630-225212',
+      '  changeledger context <id>',
     ].join('\n'),
   )
   .action(action((input) => context(input)));
@@ -728,15 +714,8 @@ program
       'Prints a fill-in-the-blanks delegation prompt for the given role. Works',
       'outside a ChangeLedger repo — the skeletons ship inside the package.',
       '',
-      '`graduation-review` is a read-only check of the spec reconciliation drafted',
-      'for a change already `done`, before the first `--into`; it never moves the',
-      'change.',
-      '',
       'Examples:',
-      '  changeledger agent-prompt investigation',
-      '  changeledger agent-prompt implementation',
       '  changeledger agent-prompt review',
-      '  changeledger agent-prompt graduation-review',
     ].join('\n'),
   )
   .action(action((role) => agentPrompt(role)));
@@ -745,10 +724,7 @@ program
   .command('agent-context')
   .description('print a self-contained minimal context for a delegated role')
   .addArgument(closedArgument('<role>', AGENT_ROLES.join(' | '), AGENT_ROLES))
-  .argument(
-    '[change-id]',
-    'optional for investigation; required for implementation, review and graduation-review',
-  )
+  .argument('<change-id>', 'the change in `in-review` the delegate reviews')
   .addHelpText(
     'after',
     [
@@ -757,15 +733,8 @@ program
       'identifies you as that role. This replaces the normal core bootstrap for',
       'the delegated leaf; normal agents still run `changeledger context` first.',
       '',
-      '`graduation-review` requires a change in `done`; it is a read-only check of',
-      'the spec reconciliation before the first `--into`, and never moves the change.',
-      '',
       'Examples:',
-      '  changeledger agent-context investigation',
-      '  changeledger agent-context investigation <id>',
-      '  changeledger agent-context implementation <id>',
       '  changeledger agent-context review <id>',
-      '  changeledger agent-context graduation-review <id>',
     ].join('\n'),
   )
   .action(action((role, changeId) => agentContext(role, changeId)));
@@ -991,6 +960,48 @@ program
   );
 
 program
+  .command('finding')
+  .description("record a finding outside the active change's frontier, or resolve one")
+  .argument('<id>', 'the change whose Log holds the finding')
+  .argument('<parts...>', '"<text>", or promote <n> <change-id>, or drop <n> "<reason>"')
+  .addHelpText(
+    'after',
+    [
+      '',
+      "A finding is something found outside the active change's frontier. It is",
+      'recorded in the Log of the change where it was found, and the human decides',
+      'later whether it becomes a change (promote) or not (drop).',
+      '',
+      'Forms:',
+      '  changeledger finding <id> "<text>"                  record an open finding',
+      '  changeledger finding <id> promote <n> <change-id>   link finding F<n> to the change it became',
+      '  changeledger finding <id> drop <n> "<reason>"       close finding F<n> with a reason',
+      '',
+      "<n> is the finding's ordinal in that change's Log (F1, F2, ...).",
+      'A first word promote or drop followed by an ordinal is a resolution when given',
+      'as separate arguments and is refused when quoted as one text; any other text',
+      'is recorded as an open finding.',
+      'promote only appends to this Log and creates no change: create it first through',
+      'the authorized flow.',
+      'List the open findings with `changeledger list --pending findings`.',
+    ].join('\n'),
+  )
+  .action(
+    action((id, parts) => {
+      if (['promote', 'drop'].includes(parts[0]) && /^\d+$/.test(parts[1] ?? '')) {
+        const [outcome, n, ...rest] = parts;
+        const value = rest.join(' ').trim();
+        resolveFinding(id, n, outcome, value);
+        const result = outcome === 'promote' ? `promoted to #${value}` : 'dropped';
+        console.log(`finding F${n} on #${id} → ${result}`);
+        return;
+      }
+      const { n } = recordFinding(id, parts.join(' ').trim());
+      console.log(`finding F${n} recorded on #${id}`);
+    }),
+  );
+
+program
   .command('task')
   .description('mark a Plan task')
   .argument('<id>')
@@ -1024,17 +1035,11 @@ program
       CONFIGURED_DOMAINS?.statuses,
     ),
   )
-  .addOption(
-    closedOption(
-      '--type <type>',
-      'filter by a type configured in .changeledger/config.yml (types:)',
-      CONFIGURED_DOMAINS?.types,
-    ),
-  )
+  .addOption(closedOption('--type <type>', 'filter by type', CHANGE_TYPES))
   .option('--owner <name>', 'filter by exact owner name; incompatible with --unowned')
   .option('--unowned', 'list changes without an owner; incompatible with --owner')
   .option('--parent <id>', 'list the children of that epic')
-  .option('--pending <kind>', 'filter pending work (graduation|archive)')
+  .option('--pending <kind>', 'filter pending work (graduation|archive|findings)')
   .option('--archived', 'list only archived changes; incompatible with --all')
   .option('--all', 'include archived and non-archived changes; incompatible with --archived')
   .option('--json', 'print JSON')
@@ -1047,10 +1052,11 @@ program
       '  changeledger list --owner "Roberto Ruiz" --status in-review',
       '  changeledger list --unowned',
       '  changeledger list --pending graduation',
-      '  changeledger list --parent 20260613-110000',
+      '  changeledger list --parent <epic-id>',
       '  changeledger list --pending archive',
+      '  changeledger list --pending findings   # open findings, archived changes included',
       '  changeledger list --archived',
-      '  changeledger list --type feature --json',
+      '  changeledger list --type change --json',
     ].join('\n'),
   )
   .action(
@@ -1067,6 +1073,8 @@ program
       });
       if (options.json) {
         console.log(JSON.stringify(items, null, 2));
+      } else if (options.pending === 'findings') {
+        for (const f of items) console.log(`#${f.id} F${f.n}  ${f.text}`);
       } else {
         for (const c of items) console.log(`${String(c.status).padEnd(12)} #${c.id}  ${c.title}`);
       }
@@ -1100,13 +1108,7 @@ program
   .description('deterministic lexical search over changes (incl. archived) and specs')
   .argument('<query...>', 'search terms')
   .option('--limit <n>', 'max results (default 10)')
-  .addOption(
-    closedOption(
-      '--type <type>',
-      'filter by a change type configured in .changeledger/config.yml (types:); excludes specs',
-      CONFIGURED_DOMAINS?.types,
-    ),
-  )
+  .addOption(closedOption('--type <type>', 'filter by change type; excludes specs', CHANGE_TYPES))
   .addOption(
     closedOption(
       '--status <status>',
@@ -1121,7 +1123,7 @@ program
       '',
       'Examples:',
       '  changeledger search wallet',
-      '  changeledger search wallet --type bug --status done',
+      '  changeledger search wallet --type change --status done',
       '  changeledger search "app check" --json',
     ].join('\n'),
   )
@@ -1141,7 +1143,7 @@ program
       '',
       'Examples:',
       '  changeledger analyze',
-      '  changeledger analyze 20261002-140038',
+      '  changeledger analyze <id>',
       '  changeledger analyze --by model',
       '  changeledger analyze --json',
     ].join('\n'),
@@ -1201,7 +1203,7 @@ const configCommand = program
 
 configCommand
   .command('migrate')
-  .description('migrate .changeledger/config.yml to the current schema')
+  .description('migrate .changeledger/config.yml from schema 6 to 7')
   .option('--dry-run', 'show the migration plan and candidate YAML without writing')
   .action(
     action((options) => {

@@ -1545,13 +1545,13 @@ function rawReadonlyTemplate(config) {
   </div>`;
 }
 
+const RELEASE_IMPACTS = ['none', 'patch', 'minor', 'major'];
+const DEFAULT_RELEASE_IMPACT = 'patch';
+
 function formEditorTemplate(config) {
   const cfg = config.config ?? {};
-  const types = cfg.types ?? {};
-  const impacts = cfg.release?.impacts ?? {};
-  const readiness = cfg.readiness ?? {};
   const allStatuses = cfg.statuses ?? [];
-  const stages = cfg.stages ?? [];
+  const defaultImpact = cfg.release?.default_impact ?? DEFAULT_RELEASE_IMPACT;
 
   return html`<form class="config-form config-form-structured" data-config-form>
     <div class="config-label">
@@ -1569,7 +1569,7 @@ function formEditorTemplate(config) {
       </label>
       <label class="config-checkbox">
         <input type="checkbox" name="tdd" ?checked=${cfg.tdd !== false} />
-        TDD mode (require test-grade criteria)
+        TDD mode (test-first implementation)
       </label>
     </fieldset>
 
@@ -1605,51 +1605,15 @@ function formEditorTemplate(config) {
     </fieldset>
 
     <fieldset class="config-group">
-      <legend>Lifecycle stages</legend>
-      <label>Canonical stage order (one per line)
-        <textarea name="stages" rows="6">${stages.join('\n')}</textarea>
+      <legend>Release</legend>
+      <label>Default SemVer impact
+        <select name="default_impact">
+          ${RELEASE_IMPACTS.map(
+            (v) => html`<option value=${v} ?selected=${defaultImpact === v}>${v}</option>`,
+          )}
+        </select>
       </label>
-      <p class="config-note">Stages used by a change type cannot be removed until that type is updated.</p>
-    </fieldset>
-
-    <fieldset class="config-group">
-      <legend>Change types</legend>
-      ${Object.entries(types).map(
-        ([typeName, typeDef]) => html`
-            <fieldset class="config-type-row">
-              <legend>${typeName}</legend>
-              <label>Active stages (one per line)
-                <textarea name=${`stages_${typeName}`} rows="3">${(typeDef?.stages ?? []).join('\n')}</textarea>
-              </label>
-              <label>Review policy
-                <select name=${`review_required_${typeName}`}>
-                  <option value="" ?selected=${!Object.hasOwn(typeDef ?? {}, 'review_required')}>Not configured</option>
-                  <option value="true" ?selected=${typeDef?.review_required === true}>Required</option>
-                  <option value="false" ?selected=${typeDef?.review_required === false}>Not required</option>
-                </select>
-              </label>
-              <label>SemVer impact
-                <select name=${`impact_${typeName}`}>
-                  <option value="" ?selected=${!Object.hasOwn(impacts, typeName)}>Not configured</option>
-                  ${['none', 'patch', 'minor', 'major'].map(
-                    (v) =>
-                      html`<option value=${v} ?selected=${impacts[typeName] === v}>${v}</option>`,
-                  )}
-                </select>
-              </label>
-            </fieldset>
-          `,
-      )}
-    </fieldset>
-
-    <fieldset class="config-group">
-      <legend>Definition of Ready</legend>
-      <label>Target patterns (one per line)
-        <textarea name="target_patterns" rows="3">${(readiness.target_patterns ?? []).join('\n')}</textarea>
-      </label>
-      <label>Verification patterns (one per line)
-        <textarea name="verification_patterns" rows="3">${(readiness.verification_patterns ?? []).join('\n')}</textarea>
-      </label>
+      <p class="config-note">Weight of a completed change without its own <code>release_impact</code>.</p>
     </fieldset>
 
     <fieldset class="config-group config-group-internal">
@@ -1950,54 +1914,10 @@ export function collectFormPatch(formEl, currentConfig) {
 
   const statuses = listFromControl(els.statuses);
   if (els.statuses && !sameList(statuses, currentConfig.statuses ?? [])) patch.statuses = statuses;
-  const stages = listFromControl(els.stages);
-  if (els.stages && !sameList(stages, currentConfig.stages ?? [])) patch.stages = stages;
-
-  // Type fields are tri-state: an empty select means the key is not configured.
-  const types = currentConfig.types ?? {};
-  const existingImpacts = currentConfig.release?.impacts ?? {};
-  const typePatch = {};
-  const impacts = {};
-  for (const typeName of Object.keys(types)) {
-    const currentType = types[typeName] ?? {};
-    const typeStages = listFromControl(els[`stages_${typeName}`]);
-    if (els[`stages_${typeName}`] && !sameList(typeStages, currentType.stages ?? [])) {
-      typePatch[typeName] = { ...(typePatch[typeName] ?? {}), stages: typeStages };
-    }
-
-    const rrEl = els[`review_required_${typeName}`];
-    const currentReview = Object.hasOwn(currentType, 'review_required')
-      ? String(currentType.review_required)
-      : '';
-    if (rrEl && rrEl.value !== currentReview) {
-      typePatch[typeName] = {
-        ...(typePatch[typeName] ?? {}),
-        review_required: rrEl.value === '' ? null : rrEl.value === 'true',
-      };
-    }
-
-    const impactEl = els[`impact_${typeName}`];
-    const currentImpact = Object.hasOwn(existingImpacts, typeName) ? existingImpacts[typeName] : '';
-    if (impactEl && impactEl.value !== currentImpact) {
-      impacts[typeName] = impactEl.value === '' ? null : impactEl.value;
-    }
-  }
-  if (Object.keys(typePatch).length) patch.types = typePatch;
-  if (Object.keys(impacts).length) patch.release = { impacts };
-
-  // readiness patterns
-  if (els.target_patterns !== undefined) {
-    const targetPatterns = listFromControl(els.target_patterns);
-    const verifyPatterns = listFromControl(els.verification_patterns);
-    const currentReadiness = currentConfig.readiness ?? {};
-    if (
-      !sameList(targetPatterns, currentReadiness.target_patterns ?? []) ||
-      !sameList(verifyPatterns, currentReadiness.verification_patterns ?? [])
-    ) {
-      patch.readiness = {
-        target_patterns: targetPatterns,
-        verification_patterns: verifyPatterns,
-      };
+  if (els.default_impact) {
+    const currentImpact = currentConfig.release?.default_impact ?? DEFAULT_RELEASE_IMPACT;
+    if (els.default_impact.value !== currentImpact) {
+      patch.release = { default_impact: els.default_impact.value };
     }
   }
 

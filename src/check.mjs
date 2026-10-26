@@ -6,11 +6,22 @@
 // repository loading and printing.
 
 import { marked } from 'marked';
-import { childrenOpenError, parseChange } from './change.mjs';
+import {
+  CANONICAL_STAGES,
+  CHANGE_TYPES,
+  childrenOpenError,
+  FRONTMATTER,
+  parseChange,
+  parseRequestSections,
+  RETIRED_STAGES,
+  RETIRED_TYPES,
+  stageHeadings,
+  stageSource,
+} from './change.mjs';
 import {
   changeBranchFormat,
+  integratesIntoError,
   integrationBranch,
-  integrationRoleError,
   releaseBranch,
   releaseBranchRequirementError,
   renderChangeBranch,
@@ -19,7 +30,14 @@ import {
 } from './config.mjs';
 import { hasFixableDefects } from './fix.mjs';
 import { mergeRecord } from './git.mjs';
-import { CANONICAL_STATUSES, canTransition, LOG_EVENT_TYPES, parseLogEvent } from './lifecycle.mjs';
+import {
+  CANONICAL_STATUSES,
+  CHANGE_ID_FORM,
+  canTransition,
+  findingsInLog,
+  LOG_EVENT_TYPES,
+  parseLogEvent,
+} from './lifecycle.mjs';
 import { compareVersions, parseVersion, RELEASE_IMPACTS } from './release.mjs';
 import {
   parseUsageRecordName,
@@ -30,36 +48,42 @@ import { minCliVersionDeclarationError } from './version-guard.mjs';
 
 const REQUIRED = ['id', 'title', 'type', 'status', 'created', 'depends_on'];
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
-const ID_FORM = /^\d{8}-\d{6}$/;
-const SEMANTIC_STAGES = new Set(['request', 'investigation', 'proposal', 'specification', 'plan']);
-// Stages a `review_required` type must activate, in canonical order, when its
-// effective tdd is on; with tdd off only `specification` is required.
+const SEMANTIC_STAGES = new Set(['request', 'specification', 'plan']);
+// The stages the `in-review` gate reads, and the ones an epic never carries:
+// its children hold the implementation.
 const REVIEWABLE_STAGES = ['specification', 'plan'];
 
-// Stages that can seed a spec through `graduate --new`: the ones holding
-// persistent truth. `request` is the petition, `plan` is tasks with state
-// markers and `log` is events; none of them is a spec.
-const SEED_STAGES = ['investigation', 'proposal', 'specification'];
+// The defect a declared `type` carries, or null when it is `change` or `epic`.
+// `check` reports it on a live document and `context <id>` refuses with it.
+export function typeError(type) {
+  if (CHANGE_TYPES.includes(type)) return null;
+  // Only a plain string can be a retired type: `hasOwn` would coerce a list
+  // such as `[feature]` to "feature" and send the author to `fix`, which
+  // cannot read that line (20261024-121022 CR2).
+  if (typeof type === 'string' && Object.hasOwn(RETIRED_TYPES, type)) {
+    return `type "${type}" is retired: set type to "change"`;
+  }
+  return `unknown type "${type}"; valid types: ${CHANGE_TYPES.join(', ')}`;
+}
 
-// Effective tdd of a change type: `types.<type>.tdd` when it is a boolean, else
-// the global `tdd`, else on. Single authority — coverage, the review-stage rule,
-// context policy lines and fragment selection all ask here, never re-derive. An
-// undefined `type` resolves the global value.
+// Effective tdd of a change: its own `tdd` frontmatter when it is a boolean,
+// else the global `tdd`, else on. The context policy line asks here rather
+// than re-deriving it; an empty frontmatter resolves the global value.
 export const DEFAULT_TDD = true;
 
-export function effectiveTdd(config, type) {
-  const own = isMapping(config?.types) ? config.types[type]?.tdd : undefined;
-  if (typeof own === 'boolean') return own;
+export function effectiveTdd(config, frontmatter) {
+  if (typeof frontmatter?.tdd === 'boolean') return frontmatter.tdd;
   return typeof config?.tdd === 'boolean' ? config.tdd : DEFAULT_TDD;
 }
 
-// The stages a `review_required` type must activate, given its effective tdd.
-// Single authority for the rule: `checkConfig` reports what is missing and the
-// schema migration inserts it, both asking here. `config` must be the live
-// config, never a stale snapshot.
-export function stagesRequiredByReview(config, type) {
-  return effectiveTdd(config, type) ? REVIEWABLE_STAGES : ['specification'];
-}
+// Configuration keys the 6 → 7 migration removes. A key present in either
+// schema is reported with the command that removes it.
+const RETIRED_CONFIG_KEYS = [
+  ['types', (c) => 'types' in c],
+  ['stages', (c) => 'stages' in c],
+  ['release.impacts', (c) => isMapping(c.release) && 'impacts' in c.release],
+  ['readiness', (c) => 'readiness' in c],
+];
 
 // Frozen history: `archived` is one-way (there is no `unarchive`) and
 // `discarded` is a tombstone the contract forbids reopening, so a diagnostic
@@ -171,9 +195,9 @@ const RETIRED_STATUS_FIXES = {
 
 // `checkConfig` already reports a malformed `git.release_branch`, so it reads
 // here as "nothing to add" rather than as a second error on every change.
-function releaseRequirementError(config, type) {
+function releaseRequirementError(config, frontmatter) {
   try {
-    return releaseBranchRequirementError(config, type);
+    return releaseBranchRequirementError(config, frontmatter);
   } catch {
     return undefined;
   }
@@ -190,23 +214,12 @@ export function checkRepo({ config, changes, specs = [], releases = [], usage = 
   );
 
   const statuses = Array.isArray(config.statuses) ? config.statuses : [];
-  const types = isMapping(config.types) ? config.types : {};
-  const canonical = Array.isArray(config.stages) ? config.stages : [];
 
   // Scope: a single change (fast, post-write check) or the whole repo.
   let scoped = changes;
   if (opts.id) {
     scoped = changes.filter((c) => String(c.frontmatter?.id) === String(opts.id));
     if (!scoped.length) err(null, `no change with id "${opts.id}"`);
-  }
-
-  // Severity projection: the status the subject is judged AS, whatever its
-  // frontmatter still says. `approve` needs it to judge a draft at the severity
-  // of the status it is about to reach (20260729-185200 CR1). It only makes
-  // sense for one named subject — a repo-wide sweep judges every document by its
-  // own status — so an unscoped projection is a caller error, not a no-op.
-  if (opts.asStatus !== undefined && !opts.id) {
-    throw new Error('checkRepo: asStatus projects onto one subject and requires an id');
   }
 
   // Subjects of the per-document loop. The data feed below stays `changes`.
@@ -232,43 +245,58 @@ export function checkRepo({ config, changes, specs = [], releases = [], usage = 
 
     for (const k of REQUIRED) if (!(k in fm)) err(c, `missing frontmatter "${k}"`);
     if (fm.created && !ISO_UTC.test(fm.created)) err(c, `created not ISO 8601 UTC: ${fm.created}`);
-    if (fm.id && !ID_FORM.test(String(fm.id))) err(c, `id not in YYYYMMDD-HHMMSS form: ${fm.id}`);
+    if (fm.id && !CHANGE_ID_FORM.test(String(fm.id)))
+      err(c, `id not in YYYYMMDD-HHMMSS form: ${fm.id}`);
     if (fm.id && c.name && !c.name.startsWith(`${fm.id}-`))
       err(c, `filename does not match id "${fm.id}"`);
-    if (fm.type && !types[fm.type]) {
-      err(c, `unknown type "${fm.type}"; valid types: ${Object.keys(types).join(', ')}`);
+    if (fm.type) {
+      const defect = typeError(fm.type);
+      if (defect) err(c, defect);
     }
     if (RETIRED_STATUS_FIXES[fm.status]) {
       err(c, `status "${fm.status}" is retired: ${RETIRED_STATUS_FIXES[fm.status]}`);
     } else if (fm.status && !statuses.includes(fm.status)) {
       err(c, `unknown status "${fm.status}"; valid statuses: ${statuses.join(', ')}`);
     }
-    // A change of a release type that no declared branch can host is stuck: its
+    // A change integrating into a branch no declaration can host is stuck: its
     // context and its branch cannot load. Terminal changes are history, so
     // retiring `git.release_branch` later never turns them red (20261012-174310).
-    if (statuses.includes(fm.status) && !TERMINAL_STATUSES.includes(fm.status)) {
-      const requirement = releaseRequirementError(config, fm.type);
+    const roleError = integratesIntoError(fm);
+    if (roleError) {
+      err(c, roleError);
+    } else if (statuses.includes(fm.status) && !TERMINAL_STATUSES.includes(fm.status)) {
+      const requirement = releaseRequirementError(config, fm);
       if (requirement) err(c, requirement);
     }
     if ('depends_on' in fm && !Array.isArray(fm.depends_on)) err(c, 'depends_on must be a list');
     if ('related_to' in fm && !Array.isArray(fm.related_to)) err(c, 'related_to must be a list');
     if ('parent' in fm) {
       if (Array.isArray(fm.parent)) err(c, 'parent must be a single change id, not a list');
-      else if (typeof fm.parent !== 'string' || !ID_FORM.test(fm.parent)) {
+      else if (typeof fm.parent !== 'string' || !CHANGE_ID_FORM.test(fm.parent)) {
         err(c, `parent "${fm.parent}" is not a change id`);
       }
     }
     if ('archived' in fm && typeof fm.archived !== 'boolean') err(c, 'archived must be a boolean');
     if ('reviewed' in fm && typeof fm.reviewed !== 'boolean') err(c, 'reviewed must be a boolean');
+    if ('tdd' in fm && typeof fm.tdd !== 'boolean') err(c, 'tdd must be a boolean');
     if ('release_impact' in fm && !RELEASE_IMPACTS.includes(fm.release_impact)) {
       err(c, `release_impact "${fm.release_impact}" must be one of: ${RELEASE_IMPACTS.join(', ')}`);
+    }
+    // An epic always weighs `none` and publishes no `tdd=`: its own value of
+    // either key has no reader, so it is named instead of silently ignored.
+    if (fm.type === 'epic') {
+      if ('release_impact' in fm) {
+        warn(c, 'release_impact on an epic is ignored: its children carry the impact');
+      }
+      if ('tdd' in fm) warn(c, 'tdd on an epic is ignored: it carries no implementation');
     }
 
     const present = (c.stages ?? []).map((s) => s.key);
     for (const s of c.stages ?? []) {
       const k = s.key;
-      if (!canonical.includes(k)) {
-        err(c, `unknown stage "## ${k}"; valid stages: ${canonical.join(', ')}`);
+      if (!CANONICAL_STAGES.includes(k)) {
+        const repair = RETIRED_STAGES.has(k) ? ' — run `changeledger fix`' : '';
+        err(c, `unknown stage "## ${k}"; valid stages: ${CANONICAL_STAGES.join(', ')}${repair}`);
       } else if (s.heading && s.heading !== canonicalHeading(k)) {
         err(c, `stage heading must be canonical: expected "## ${canonicalHeading(k)}"`);
       }
@@ -280,33 +308,30 @@ export function checkRepo({ config, changes, specs = [], releases = [], usage = 
       else seenStages.add(k);
     }
 
-    const known = present.filter((k) => canonical.includes(k));
-    const ordered = [...known].sort((a, b) => canonical.indexOf(a) - canonical.indexOf(b));
+    const known = present.filter((k) => CANONICAL_STAGES.includes(k));
+    const ordered = [...known].sort(
+      (a, b) => CANONICAL_STAGES.indexOf(a) - CANONICAL_STAGES.indexOf(b),
+    );
     if (known.join(',') !== ordered.join(',')) err(c, 'stages are out of canonical order');
 
-    const typeDefinition = isMapping(types[fm.type]) ? types[fm.type] : null;
-    const active = Array.isArray(typeDefinition?.stages) ? typeDefinition.stages : null;
-    if (active) {
-      for (const k of active)
-        if (!present.includes(k)) err(c, `missing active stage "## ${k}" for type ${fm.type}`);
-      // `log` is the lifecycle ledger — allowed on any type once status moves.
-      for (const k of known)
-        if (k !== 'log' && !active.includes(k))
-          err(c, `stage "## ${k}" is not active for type ${fm.type}`);
+    if (fm.type === 'epic') {
+      for (const k of REVIEWABLE_STAGES.filter((s) => present.includes(s)))
+        err(c, `stage "## ${k}" does not belong in an epic: its children carry the work`);
     }
 
     const tasks = c.tasks ?? [];
     checkTasks(c, tasks, err);
     checkCriteria(c, c.criteria ?? [], err);
+    checkCriterionReferences(c, tasks, err);
 
     if (fm.status === 'done' && tasks.some((t) => t.state !== 'done')) {
       const pending = tasks.filter((t) => t.state !== 'done').length;
       err(c, `status is "done" but ${pending} task(s) are not done`);
     }
 
-    checkCoverage(c, fm, active, config, { warn, err, asStatus: opts.asStatus });
     checkDeliveryVerdict(c, fm, err);
     checkLifecycleSequence(c, fm, err);
+    checkFindingResolutions(c, err);
     checkUnclassifiedMentions(c, knownIds, incomingRelations, warn);
   }
 
@@ -507,7 +532,7 @@ function checkParents(changes, ids, err) {
     if (parent === undefined) continue;
     // A malformed value is already reported once as a shape error; reading it
     // as a reference too would charge one defect two diagnostics.
-    if (!ID_FORM.test(parent)) continue;
+    if (!CHANGE_ID_FORM.test(parent)) continue;
     if (parent === id) {
       err(c, `parent cannot reference its own change "${parent}"`);
       continue;
@@ -571,7 +596,7 @@ function checkUnclassifiedMentions(change, knownIds, incomingRelations, warn) {
 // Reuses the scoped validator for a selected change, optionally replacing its
 // in-memory text with a candidate that has not been written yet. Callers gate
 // mutations on errors only; warnings remain informational by contract.
-export function checkSelectedChange(repo, id, candidateText, { asStatus } = {}) {
+export function checkSelectedChange(repo, id, candidateText) {
   let changes = repo.changes;
   if (candidateText !== undefined) {
     const index = changes.findIndex((c) => String(c.frontmatter?.id) === String(id));
@@ -581,7 +606,7 @@ export function checkSelectedChange(repo, id, candidateText, { asStatus } = {}) 
       changes = changes.with(index, candidate);
     }
   }
-  return checkRepo({ ...repo, changes }, { id, asStatus });
+  return checkRepo({ ...repo, changes }, { id });
 }
 
 // Multiset diff of two `check` error lists by (file, message) identity: an
@@ -620,8 +645,8 @@ function errorKey(e) {
   return `${e.file}\u0000${e.message}`;
 }
 
-export function assertSelectedChangeValid(repo, id, candidateText, opts = {}) {
-  const { errors } = checkSelectedChange(repo, id, candidateText, opts);
+export function assertSelectedChangeValid(repo, id, candidateText) {
+  const { errors } = checkSelectedChange(repo, id, candidateText);
   if (!errors.length) return;
   throw new Error(
     `change ${id} failed scoped validation:\n${errors.map((error) => `- ${error.message}`).join('\n')}`,
@@ -630,47 +655,55 @@ export function assertSelectedChangeValid(repo, id, candidateText, opts = {}) {
 
 // Validates one already-resolved file without loading or parsing siblings. This
 // is the write-gate path for operations whose scope is exactly one change.
-// `asStatus` judges the text at a projected status instead of its own, so a
-// transition can falsify its candidate before writing it (20260729-185200 CR1).
-export function assertChangeTextValid(config, name, text, opts = {}) {
+export function assertChangeTextValid(config, name, text) {
   const parsed = parseChange(text);
   const id = parsed.frontmatter.id;
   assertSelectedChangeValid(
     { config, changes: [{ name, text, ...parsed }], specs: [], releases: [] },
     id,
-    undefined,
-    opts,
   );
 }
 
-// Transition-scoped gate for draft → approved only (20260810-213633, real
-// incident: 20260810-181801 approved with every narrative stage blank).
-// Deliberately NOT part of checkRepo/checkCoverage: those judge a draft's
-// coverage gaps as warnings because a draft is still being written, and
-// widening that shared severity path to also flag blank stages would make
-// every skeleton draft fail `check` — never the intent. This is the single
-// extra assertion the `approved` transition itself adds, called from the same
-// seat as `assertChangeTextValid(..., { asStatus: 'approved' })` (`approve` in
-// commands/agent.mjs and the viewer's changeStatus, which route through the
-// same `status()`). Presence of each active stage's heading is already a hard
-// error via that sibling call — this only adds emptiness of the body inside a
-// present heading. `log` is excluded: it is the lifecycle ledger, legitimately
-// empty until the transition itself appends the first entry.
-export function assertStagesNotEmpty(config, text) {
-  const { frontmatter: fm, stages } = parseChange(text);
-  const typeDefinition = isMapping(config?.types?.[fm.type]) ? config.types[fm.type] : null;
-  const active = Array.isArray(typeDefinition?.stages) ? typeDefinition.stages : [];
-  const empty = active
-    .filter((key) => SEMANTIC_STAGES.has(key))
-    .filter((key) => {
-      const stage = stages.find((s) => s.key === key);
-      return stage && !stage.body.trim();
-    })
-    .map((key) => `"## ${canonicalHeading(key)}"`);
-  if (empty.length) {
-    const verb = empty.length > 1 ? 'are' : 'is';
-    throw new Error(`cannot approve: ${empty.join(', ')} ${verb} empty`);
+// The human approves the objective and the frontier, nothing else
+// (20261023-181753): `## Request` must have a body carrying `### Objective` and
+// `### Frontier`, each with a body of its own. Every later stage may still be
+// empty — Specification and Plan are written in `in-progress`. Called from the
+// `approved` seat of `statusMutation`, which `approve` and the viewer share.
+export function assertApprovable(text) {
+  const request = parseChange(text).stages.find((s) => s.key === 'request');
+  if (!request) throw new Error('cannot approve: "## Request" is missing');
+  if (!request.body) throw new Error('cannot approve: "## Request" is empty');
+  // The untrimmed lines, so the reader counts the fences the stage walk saw.
+  const sections = parseRequestSections(stageSource(text, 'request'));
+  const missing = sections.filter((s) => !s.present).map((s) => `"### ${s.name}"`);
+  const empty = sections.filter((s) => s.present && !s.filled).map((s) => `"### ${s.name}"`);
+  const defects = [];
+  if (missing.length) defects.push(listed(missing, 'missing'));
+  if (empty.length) defects.push(listed(empty, 'empty'));
+  if (defects.length) throw new Error(`cannot approve: ${defects.join('; ')}`);
+}
+
+// The implementer's exit gate, at the `in-review` seat of `statusMutation`
+// (20261023-181753 CR5, 20261024-121022): `## Specification` and `## Plan`
+// are present with a body, and the Specification declares at least one
+// `### CRn`. An epic never carries them, and never reaches this seat.
+export function assertReviewable(text) {
+  const { stages, criteria } = parseChange(text);
+  const heading = (key) => `"## ${canonicalHeading(key)}"`;
+  const found = REVIEWABLE_STAGES.map((key) => stages.find((s) => s.key === key));
+  const missing = REVIEWABLE_STAGES.filter((_, i) => !found[i]).map(heading);
+  const empty = found.filter((s) => s && !s.body).map((s) => heading(s.key));
+  const defects = [];
+  if (missing.length) defects.push(listed(missing, 'missing'));
+  if (empty.length) defects.push(listed(empty, 'empty'));
+  if (defects.length) throw new Error(`cannot request review: ${defects.join('; ')}`);
+  if (!criteria.length) {
+    throw new Error('cannot request review: "## Specification" declares no criterion');
   }
+}
+
+function listed(names, state) {
+  return `${names.join(', ')} ${names.length > 1 ? 'are' : 'is'} ${state}`;
 }
 
 function checkReleases(releases, changesById, err) {
@@ -758,6 +791,20 @@ function checkCriteria(c, criteria, err) {
   for (const cr of criteria) {
     if (seen.has(cr)) err(c, `duplicate criterion "${cr}"`);
     else seen.add(cr);
+  }
+}
+
+// A Plan task citing a criterion the Specification does not declare is a broken
+// reference, like an unknown stage: an error whatever the status of a validated
+// change, the draft included (20261023-181753 CR4). `parseChange` reads `### CRn` only from
+// `## Specification`, so a document without that stage declares none and any
+// citation it carries is unknown.
+function checkCriterionReferences(c, tasks, err) {
+  const declared = new Set(c.criteria ?? []);
+  for (const task of tasks) {
+    for (const cr of task.criteria ?? []) {
+      if (!declared.has(cr)) err(c, `Plan task references unknown criterion "${cr}"`);
+    }
   }
 }
 
@@ -912,28 +959,37 @@ function checkDeliveryVerdict(c, fm, err) {
   }
 }
 
+// The lines of the Log stage, each with its 1-based line number in the
+// document: the numbering every `Log line <n>` diagnostic cites. The walk is
+// the stage parser's (`stageHeadings`): it starts after the frontmatter, a `## `
+// line inside a code fence is content, keys compare lowercase and the first
+// Log stage is the Log, so check judges the Log the readers read.
+function logSection(text) {
+  const source = String(text ?? '');
+  const head = source.match(FRONTMATTER)?.[0] ?? '';
+  const offset = head.split('\n').length - 1;
+  const lines = source.slice(head.length).split('\n');
+  const log = stageHeadings(lines).find(({ title }) => title.trim().toLowerCase() === 'log');
+  if (!log) return [];
+  return lines
+    .slice(log.start + 1, log.end)
+    .map((line, i) => ({ number: offset + log.start + i + 2, line }));
+}
+
 // Replays `## Log` lifecycle events from `draft` against the transition graph
 // in lifecycle.mjs. Stops at the first inconsistency to avoid cascading noise.
 // Changes using non-canonical statuses are left alone — the graph cannot
 // reason about states it does not model.
 function checkLifecycleSequence(c, fm, err) {
-  const lines = (c.text ?? '').split('\n');
-  let inLog = false;
   let current = 'draft';
   let events = 0;
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    if (/^##\s/.test(line)) {
-      inLog = /^##\s+Log\s*$/.test(line);
-      continue;
-    }
-    if (!inLog) continue;
+  for (const { number, line } of logSection(c.text)) {
     const event = parseLogEvent(line);
     if (!event) {
       if (/^- /.test(line)) {
         err(
           c,
-          `Log line ${i + 1}: invalid typed event; valid types: ${LOG_EVENT_TYPES.join(', ')}; expected: - **YYYY-MM-DDTHH:MM:SSZ** \`[type]\` payload`,
+          `Log line ${number}: invalid typed event; valid types: ${LOG_EVENT_TYPES.join(', ')}; expected: - **YYYY-MM-DDTHH:MM:SSZ** \`[type]\` payload`,
         );
       }
       continue;
@@ -954,14 +1010,14 @@ function checkLifecycleSequence(c, fm, err) {
       if (!legacyGap) {
         err(
           c,
-          `Log line ${i + 1}: transition "${event.from} → ${event.to}" starts from "${event.from}" but the reconstructed status is "${current}"`,
+          `Log line ${number}: transition "${event.from} → ${event.to}" starts from "${event.from}" but the reconstructed status is "${current}"`,
         );
         return;
       }
       current = event.from;
     }
     if (!canTransition(event.from, event.to) && !LEGACY_EDGES.has(`${event.from}→${event.to}`)) {
-      err(c, `Log line ${i + 1}: invalid lifecycle transition "${event.from} → ${event.to}"`);
+      err(c, `Log line ${number}: invalid lifecycle transition "${event.from} → ${event.to}"`);
       return;
     }
     current = event.to;
@@ -971,151 +1027,21 @@ function checkLifecycleSequence(c, fm, err) {
   }
 }
 
-// Definition-of-Ready coverage: when the type's effective tdd is on, a change whose type
-// activates `## Specification` is checked in draft, approved and in-progress.
-// Draft reports everything as warnings, because a draft is still being written.
-// From `approved` onward every diagnostic here is an error — readiness defects
-// (criterion missing Given/When/Then, reference to an unknown criterion,
-// CR-bearing task without target+verification) and coverage gaps (uncovered
-// criterion, non-support task without a CR) alike: the criterion → task →
-// verification net is what approval commits to, so a hole in it cannot be advice
-// (20260729-185200 CR3/CR4). `asStatus` judges the subject at a status other
-// than the one in its frontmatter, which is how `approve` falsifies a draft
-// before flipping it. Only the Given/When/Then structure is machine-checkable;
-// semantic test-grade quality remains the documenting agent's judgment.
-function checkCoverage(c, fm, active, config, { warn, err, asStatus }) {
-  if (!effectiveTdd(config, fm.type)) return;
-  const judged = asStatus ?? fm.status;
-  if (!['draft', 'approved', 'in-progress'].includes(judged)) return;
-  const report = judged === 'draft' ? warn : err;
-
-  // A type that never activates `specification` can declare no `### CRn`
-  // block, so `c.criteria` is always empty here — every Plan task reference is
-  // by definition unknown. `checkCoverage` used to return before this point,
-  // letting a `(CR99)` on a chore/quick/audit task pass clean (CR4).
-  if (!active?.includes('specification')) {
-    for (const t of c.tasks ?? []) {
-      for (const cr of t.criteria ?? []) {
-        report(c, `Plan task references unknown criterion "${cr}"`);
-      }
-    }
-    return;
+// A finding resolution that resolves nothing — no finding opened before it, or
+// one already resolved — makes the Log lie about what is pending. `finding`
+// and `list` ignore it through the same reader; here it is an error.
+function checkFindingResolutions(c, err) {
+  const section = logSection(c.text);
+  const { rejected } = findingsInLog(section.map(({ line }) => line).join('\n'));
+  for (const { line, n, cause } of rejected) {
+    const at = `Log line ${section[line].number}: finding F${n}`;
+    err(
+      c,
+      cause === 'never recorded'
+        ? `${at} resolved but never recorded`
+        : `${at} already resolved at line ${section[cause.alreadyAt].number}`,
+    );
   }
-
-  const declared = c.criteria ?? [];
-  const declaredSet = new Set(declared);
-  const tasks = c.tasks ?? [];
-  const referenced = new Set(tasks.flatMap((t) => t.criteria ?? []));
-
-  for (const cr of c.criterionBlocks ?? []) {
-    const steps = new Set(cr.steps ?? []);
-    if (!steps.has('Given') || !steps.has('When') || !steps.has('Then')) {
-      report(c, `${cr.id} is not test-grade: missing Given/When/Then`);
-    }
-  }
-
-  for (const t of tasks) {
-    if (!t.criteria?.length) continue;
-    for (const cr of t.criteria) {
-      if (!declaredSet.has(cr)) report(c, `Plan task references unknown criterion "${cr}"`);
-    }
-    if (!namesTargetAndVerification(t, config)) {
-      const hint = readinessHint(config);
-      for (const cr of t.criteria) {
-        report(c, `Plan task for ${cr} must name target and verification (${hint})`);
-      }
-    }
-  }
-
-  for (const cr of declared)
-    if (!referenced.has(cr)) report(c, `${cr} is not covered by any Plan task`);
-
-  for (const t of tasks)
-    if (!t.criteria?.length && !isSupportTask(t)) {
-      const label = t.text.length > 50 ? `${t.text.slice(0, 50)}…` : t.text;
-      report(c, `Plan task "${label}" references no criterion`);
-    }
-}
-
-// A task declaring the `Support` child is intentionally operational (running
-// tests, reading docs, scaffolding) and is exempt from the "references no
-// criterion" warning. Readiness checks already skip tasks with no criteria, so
-// no additional exclusion is needed there.
-function isSupportTask(task) {
-  return task.support !== undefined;
-}
-
-// Each list judges its own field (20260729-203257 CR4). While both were matched
-// against the whole task description, two overlapping lists satisfied each other
-// on the same string and the requirement was vacuous — a task naming only a test
-// file passed as target and as verification at once.
-function namesTargetAndVerification(task, config) {
-  const readiness = readinessConfig(config);
-  return (
-    matchesAnyReadinessPattern(task.target ?? '', readiness.target_patterns) &&
-    matchesAnyReadinessPattern(task.verify ?? '', readiness.verification_patterns)
-  );
-}
-
-function readinessConfig(config) {
-  const readiness = isMapping(config?.readiness) ? config.readiness : null;
-  return {
-    target_patterns:
-      readiness && 'target_patterns' in readiness
-        ? Array.isArray(readiness.target_patterns)
-          ? readiness.target_patterns
-          : []
-        : ['src/**'],
-    verification_patterns:
-      readiness && 'verification_patterns' in readiness
-        ? Array.isArray(readiness.verification_patterns)
-          ? readiness.verification_patterns
-          : []
-        : ['test/**'],
-  };
-}
-
-function readinessHint(config) {
-  const readiness = readinessConfig(config);
-  const source = config?.readiness ? 'configured readiness' : 'default readiness';
-  return `${source}: target_patterns=${formatPatterns(readiness.target_patterns)}, verification_patterns=${formatPatterns(readiness.verification_patterns)}`;
-}
-
-function formatPatterns(patterns) {
-  return `[${patterns.map((p) => JSON.stringify(p)).join(', ')}]`;
-}
-
-function matchesAnyReadinessPattern(text, patterns) {
-  return patterns.some((pattern) => readinessPatternMatches(text, pattern));
-}
-
-function readinessPatternMatches(text, pattern) {
-  if (/[*?]/.test(pattern)) return readinessGlob(pattern).test(text);
-  return text.includes(pattern);
-}
-
-function readinessGlob(pattern) {
-  let out = '';
-  for (let i = 0; i < pattern.length; i++) {
-    const ch = pattern[i];
-    if (ch === '*') {
-      if (pattern[i + 1] === '*') {
-        out += '.*';
-        i++;
-      } else {
-        out += '[^\\s`)]+';
-      }
-    } else if (ch === '?') {
-      out += '[^\\s`)]';
-    } else {
-      out += escapeRegExp(ch);
-    }
-  }
-  return new RegExp(out);
-}
-
-function escapeRegExp(text) {
-  return text.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&');
 }
 
 function checkConfig(config, err) {
@@ -1128,8 +1054,11 @@ function checkConfig(config, err) {
     validChangeBranchFormat = false;
     err(null, error.message);
   }
-  for (const k of ['changes_dir', 'statuses', 'stages', 'types']) {
+  for (const k of ['changes_dir', 'statuses']) {
     if (!(k in c)) err(null, `config missing "${k}"`);
+  }
+  for (const [key, present] of RETIRED_CONFIG_KEYS) {
+    if (present(c)) err(null, `config "${key}" is retired: run \`changeledger config migrate\``);
   }
   const minCliVersionError = minCliVersionDeclarationError(c);
   if (minCliVersionError) err(null, minCliVersionError);
@@ -1143,8 +1072,6 @@ function checkConfig(config, err) {
     else if (isPathEscape(v)) err(null, `config "${k}" escapes the repo root: ${v}`);
   }
   if ('statuses' in c && !Array.isArray(c.statuses)) err(null, 'config "statuses" must be a list');
-  if ('stages' in c && !Array.isArray(c.stages)) err(null, 'config "stages" must be a list');
-  if ('types' in c && !isMapping(c.types)) err(null, 'config "types" must be a mapping');
   if ('git' in c) {
     // A non-mapping `git` is one defect, reported once rather than per branch key.
     const resolvers = isMapping(c.git) ? [integrationBranch, releaseBranch] : [integrationBranch];
@@ -1156,8 +1083,9 @@ function checkConfig(config, err) {
         err(null, error.message);
       }
     }
-    // Equal branches leave a `release` type without its back-merge target and
-    // its start guard, so the pair is checked only once both resolve cleanly.
+    // Equal branches leave a change integrating into the release branch without
+    // its back-merge target and its start guard, so the pair is checked only
+    // once both resolve cleanly.
     const [integration, release] = resolved;
     if (resolved.length === 2 && integration !== undefined && integration === release) {
       err(
@@ -1166,55 +1094,7 @@ function checkConfig(config, err) {
       );
     }
   }
-  if ('readiness' in c) checkReadinessConfig(c.readiness, err);
-  const configuredTypes = isMapping(c.types) ? c.types : {};
-  if ('release' in c) checkReleaseConfig(c.release, configuredTypes, err);
-  const canonical = Array.isArray(c.stages) ? c.stages : [];
-  for (const [type, def] of Object.entries(configuredTypes)) {
-    if (!isMapping(def)) {
-      err(null, `config type "${type}" must be a mapping`);
-      continue;
-    }
-    if (!Array.isArray(def.stages)) {
-      err(null, `config type "${type}": stages must be a list`);
-      continue;
-    }
-    for (const s of def.stages) {
-      if (!canonical.includes(s))
-        err(null, `config type "${type}" references unknown stage "${s}"`);
-    }
-    if (def && 'review_required' in def && typeof def.review_required !== 'boolean')
-      err(null, `config type "${type}": review_required must be a boolean`);
-    if ('tdd' in def && typeof def.tdd !== 'boolean')
-      err(null, `config type "${type}": tdd must be a boolean`);
-    const roleError = integrationRoleError(type, def);
-    if (roleError) err(null, roleError);
-    if ('seed_stage' in def) {
-      if (typeof def.seed_stage !== 'string')
-        err(null, `config type "${type}": seed_stage must be a string`);
-      else if (!def.stages.includes(def.seed_stage))
-        err(null, `config type "${type}": seed_stage "${def.seed_stage}" is not an active stage`);
-      else if (!SEED_STAGES.includes(def.seed_stage))
-        err(
-          null,
-          `config type "${type}": seed_stage "${def.seed_stage}" cannot seed a spec; use one of: ${SEED_STAGES.join(', ')}`,
-        );
-    }
-    // An independent reviewer needs something to verify: criteria live in
-    // `## Specification` (the only stage `parseChange` reads `### CRn` from).
-    // With tdd on, the tasks that cite them live in `## Plan` and coverage binds
-    // them, so both are required; with tdd off no coverage applies and the
-    // criteria alone are the reviewer's contract.
-    if (def.review_required === true) {
-      const missing = stagesRequiredByReview(c, type).filter((s) => !def.stages.includes(s));
-      if (missing.length) {
-        err(
-          null,
-          `config type "${type}": review_required: true requires active stages: ${missing.join(', ')}`,
-        );
-      }
-    }
-  }
+  if ('release' in c) checkReleaseConfig(c.release, err);
   return validChangeBranchFormat;
 }
 
@@ -1222,42 +1102,13 @@ function isMapping(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
-function checkReleaseConfig(release, types, err) {
-  if (!release || typeof release !== 'object' || Array.isArray(release)) {
+function checkReleaseConfig(release, err) {
+  if (!isMapping(release)) {
     err(null, 'config "release" must be a mapping');
     return;
   }
-  if (!release.impacts || typeof release.impacts !== 'object' || Array.isArray(release.impacts)) {
-    err(null, 'config "release.impacts" must be a mapping');
-    return;
-  }
-  for (const [type, impact] of Object.entries(release.impacts)) {
-    if (!(type in types)) err(null, `config release impact references unknown type "${type}"`);
-    if (!RELEASE_IMPACTS.includes(impact)) {
-      err(
-        null,
-        `config release impact "${impact}" for "${type}" must be one of: ${RELEASE_IMPACTS.join(', ')}`,
-      );
-    }
-  }
-}
-
-function checkReadinessConfig(readiness, err) {
-  if (!readiness || typeof readiness !== 'object' || Array.isArray(readiness)) {
-    err(null, 'config "readiness" must be a mapping');
-    return;
-  }
-  for (const key of ['target_patterns', 'verification_patterns']) {
-    if (!(key in readiness)) continue;
-    if (!Array.isArray(readiness[key])) {
-      err(null, `config "readiness.${key}" must be a list`);
-      continue;
-    }
-    for (const pattern of readiness[key]) {
-      if (typeof pattern !== 'string' || pattern.trim() === '') {
-        err(null, `config "readiness.${key}" entries must be non-empty strings`);
-      }
-    }
+  if ('default_impact' in release && !RELEASE_IMPACTS.includes(release.default_impact)) {
+    err(null, `config "release.default_impact" must be one of: ${RELEASE_IMPACTS.join(', ')}`);
   }
 }
 

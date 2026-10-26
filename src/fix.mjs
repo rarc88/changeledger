@@ -12,21 +12,26 @@
 // completely untouched and reported under `manual` — the defect requires
 // judgment (unknown criterion), not a mechanical rewrite.
 //
-// This module is also the converter from the old positional Plan grammar to the
-// tag grammar (`--plan-tags`, 20260729-203257) and therefore the last legal home
-// of positional parsing. Recognition of the task line itself is not its own: it
-// comes from `src/task.mjs`, the single seat (CR6), and is re-exported below so
-// the identity of that seat is assertable.
-import { parseChange } from './change.mjs';
-import { parseLogEvent, serializeLogEvent } from './lifecycle.mjs';
-import { matchLenientTaskLine, matchTaskLine } from './task.mjs';
+// `repairLiveDocument` brings a live document to the two-type, four-stage
+// form (20261024-121022); the command decides which documents are live.
+// Recognition of the task line itself is not this module's own: it comes from
+// `src/task.mjs`, the single seat, and is re-exported below so the identity of
+// that seat is assertable.
+import {
+  CHANGE_TYPES,
+  FRONTMATTER,
+  fenceTracker,
+  parseChange,
+  RETIRED_STAGES,
+  RETIRED_TYPES,
+  stageHeadings,
+} from './change.mjs';
+import { matchLenientTaskLine } from './task.mjs';
+import { parseYaml } from './yaml.mjs';
 
-export { matchLenientTaskLine, matchTaskLine };
+export { matchLenientTaskLine };
 
 const NEAR_ISO = /^(\d{4})-(\d{1,2})-(\d{1,2})[ T](\d{1,2}):(\d{2}):(\d{2})(?:\.\d+)?(Z)?$/;
-const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
-const LEGACY_LOG =
-  /^- (?:\*\*(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)\*\*|(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)) — (.*)$/;
 
 export function computeFixes(text) {
   const criteria = new Set(parseChange(text).criteria ?? []);
@@ -65,206 +70,131 @@ export function hasFixableDefects(text) {
   }
 }
 
-export function migrateStructuredSections(text) {
-  const lines = String(text).split('\n');
-  const output = [];
+// The types and stages retired by 20261024-121022. A live document carrying
+// one is rewritten: the type becomes `change`, keeping a trailing comment, and
+// what the retired type implied (`RETIRED_TYPES`) is written right after it
+// unless the frontmatter already declares that key; a `type:` line this
+// cannot read is left for a manual fix. Each retired stage's body moves under
+// `## Request` as a `###` subsection after the Request's own content, in
+// document order, its own headings one level deeper so the hierarchy survives.
+// An empty retired stage simply disappears. Which documents are live is the
+// caller's question (`frozenReason`): this function never sees frozen history.
+const TYPE_LINE = /^type:[ \t]*(["']?)([^"'\s#]+)\1([ \t]+#.*)?[ \t]*$/;
+
+export function repairLiveDocument(text) {
   const applied = [];
   const manual = [];
-  let section = '';
+  const frontmatter = text.match(FRONTMATTER);
+  if (!frontmatter) return { text, applied, manual, changed: false };
 
-  for (let index = 0; index < lines.length; index++) {
-    const line = lines[index];
-    const heading = line.match(/^##\s+(.+?)\s*$/);
-    if (heading) {
-      section = heading[1].toLowerCase();
-      output.push(line);
-      continue;
-    }
-
-    if (section === 'plan') {
-      const task = matchTaskLine(line);
-      const alreadyStructured = /^ {2}- \*\*(?:Resolved|Blocked):\*\*/.test(lines[index + 1] ?? '');
-      if (task && !alreadyStructured && task.mark !== ' ') {
-        const separator = task.content.lastIndexOf(' — ');
-        const separators = task.content.match(/ — /g)?.length ?? 0;
-        const suffix = separator === -1 ? '' : task.content.slice(separator + 3);
-        const description = separator === -1 ? task.content : task.content.slice(0, separator);
-        if (task.mark === 'x' && ISO_UTC.test(suffix)) {
-          output.push(`- [x] ${description}`, `  - **Resolved:** \`${suffix}\``);
-          applied.push(`line ${index + 1}: migrated resolved task metadata`);
-          continue;
-        }
-        if (task.mark === '!' && separator !== -1 && separators === 1 && suffix.trim()) {
-          output.push(`- [!] ${description}`, `  - **Blocked:** ${suffix}`);
-          applied.push(`line ${index + 1}: migrated blocked task metadata`);
-          continue;
-        }
-        manual.push(`line ${index + 1}: ambiguous legacy task metadata`);
-      }
-    }
-
-    if (section === 'log' && /^- /.test(line)) {
-      if (parseLogEvent(line)) {
-        output.push(line);
-        continue;
-      }
-      const legacy = line.match(LEGACY_LOG);
-      if (legacy) {
-        output.push(serializeLogEvent(parseLegacyLogEvent(legacy[1] ?? legacy[2], legacy[3])));
-        applied.push(`line ${index + 1}: migrated typed Log event`);
-        continue;
-      }
-      manual.push(`line ${index + 1}: untyped Log entry has no migratable timestamp`);
-    }
-
-    output.push(line);
-  }
-
-  const migrated = output.join('\n');
-  return { text: migrated, applied, manual, changed: migrated !== text };
+  const head = repairType(frontmatter[0], frontmatter[1], applied, manual);
+  const body = foldRetiredStages(text.slice(frontmatter[0].length), applied, manual);
+  const repaired = `${head}${body}`;
+  return { text: repaired, applied, manual, changed: repaired !== text };
 }
 
-// Converter from the old positional Plan grammar to the tag grammar
-// (20260729-203257 CR5). Deterministic and idempotent: it only ever moves a
-// trailing marker or a single `verify:` clause out of the description and into a
-// child, so a document already in the tag grammar comes out byte-identical.
-//
-// The positional literals below are the LEGAL residue of the old grammar — this
-// function's whole subject matter — and exist nowhere else in `src/`.
-const FINAL_CR_GROUP = /\(([^)]*\bCR\d+[^)]*)\)\s*$/;
-const FINAL_SUPPORT = /\s*\(support\)\s*$/;
-const VERIFY_CLAUSE = 'verify:';
-
-export function migratePlanTags(text) {
-  const lines = String(text).split('\n');
-  const output = [];
-  const applied = [];
-  const manual = [];
-  let inPlan = false;
-
-  for (let index = 0; index < lines.length; index++) {
-    const line = lines[index];
-    if (/^##\s+/.test(line)) {
-      inPlan = /^##\s+Plan\s*$/.test(line);
-      output.push(line);
-      continue;
+function repairType(head, yaml, applied, manual) {
+  const lines = head.split('\n');
+  const at = lines.findIndex((line) => /^type:/.test(line));
+  const line = at === -1 ? null : lines[at].match(TYPE_LINE);
+  if (!line) {
+    const declared = declaredType(yaml);
+    if ((at !== -1 || declared !== undefined) && !CHANGE_TYPES.includes(declared)) {
+      const shown = at === -1 ? '' : ` "${lines[at]}"`;
+      manual.push(`cannot read the type line${shown}: set type to "change" by hand`);
     }
-    const task = inPlan ? matchTaskLine(line) : null;
-    if (!task) {
-      output.push(line);
-      continue;
-    }
-
-    const converted = convertLegacyTask(task.content, index + 1);
-    manual.push(...converted.manual);
-    if (!converted.children.length) {
-      output.push(line);
-      continue;
-    }
-    output.push(`- [${task.mark}] ${converted.description}`, ...converted.children);
-    applied.push(`line ${index + 1}: migrated Plan task tags`);
+    return head;
   }
-
-  const migrated = output.join('\n');
-  return { text: migrated, applied, manual, changed: migrated !== text };
+  const type = line[2];
+  if (!Object.hasOwn(RETIRED_TYPES, type)) return head;
+  applied.push(`type ${type} → change`);
+  const implied = Object.entries(RETIRED_TYPES[type])
+    .filter(([key]) => !lines.some((other) => other.startsWith(`${key}:`)))
+    .map(([key, value]) => {
+      applied.push(`${key}: ${value} (from ${type})`);
+      return `${key}: ${value}`;
+    });
+  lines.splice(at, 1, `type: change${line[3] ?? ''}`, ...implied);
+  return lines.join('\n');
 }
 
-function convertLegacyTask(content, lineNo) {
-  const manual = [];
-  const children = [];
-  let description = content.trim();
-
-  const group = description.match(FINAL_CR_GROUP);
-  const criteria = group ? (group[1].match(/CR\d+/g) ?? []) : [];
-  if (group) description = description.slice(0, group.index).trim();
-
-  const support = FINAL_SUPPORT.test(description);
-  if (support) description = description.replace(FINAL_SUPPORT, '').trim();
-
-  // Exactly one clause is unambiguous. Zero leaves nothing to move; several leave
-  // no deterministic tail. Both cases keep the description intact and say so.
-  const occurrences = description.split(VERIFY_CLAUSE).length - 1;
-  let verify = '';
-  if (occurrences === 1) {
-    const at = description.indexOf(VERIFY_CLAUSE);
-    verify = description.slice(at + VERIFY_CLAUSE.length).trim();
-    if (verify)
-      description = description
-        .slice(0, at)
-        .replace(/[;,]?\s*$/, '')
-        .trim();
+function declaredType(yaml) {
+  try {
+    return parseYaml(yaml)?.type;
+  } catch {
+    return undefined;
   }
-  if (!verify) {
-    manual.push(
-      occurrences <= 1
-        ? `line ${lineNo}: no verify: clause to migrate — add **Verify:** by hand`
-        : `line ${lineNo}: ${occurrences} verify: clauses — add **Verify:** by hand`,
-    );
-  }
-
-  // A description reduced to nothing would stop being a task line: refuse.
-  if (!description) {
-    manual.push(`line ${lineNo}: migrating would leave the task without a description`);
-    return { description: content.trim(), children: [], manual };
-  }
-
-  if (verify) children.push(`  - **Verify:** ${verify}`);
-  if (criteria.length) children.push(`  - **Criteria:** ${criteria.join(', ')}`);
-  if (support) children.push('  - **Support:**');
-  return { description, children, manual };
 }
 
-function parseLegacyLogEvent(at, message) {
-  for (const [type, prefix, from] of [
-    ['status', 'status: ', null],
-    ['review', 'review → ', 'in-review'],
-    ['validation', 'validation → ', 'in-validation'],
-  ]) {
-    if (!message.startsWith(prefix)) continue;
-    const payload =
-      type === 'status'
-        ? message.slice(prefix.length)
-        : `${from} → ${message.slice(prefix.length)}`;
-    const transition = payload.match(/^([a-z-]+) → ([a-z-]+)(?: \(([^)]*)\))?(?:: ([\s\S]+))?$/);
-    if (transition) {
-      const event = { at, type, from: transition[1], to: transition[2] };
-      if (transition[3]) event.detail = transition[3];
-      if (transition[4]) event.reason = transition[4];
-      return event;
+function foldRetiredStages(body, applied, manual) {
+  const segments = splitSegments(body);
+  const retired = segments.filter((segment) => RETIRED_STAGES.has(segment.key));
+  if (!retired.length) return body;
+  const request = segments.find((segment) => segment.key === 'request');
+  if (!request) {
+    for (const segment of retired) {
+      manual.push(`## ${RETIRED_STAGES.get(segment.key)} has no ## Request to move under`);
     }
+    return body;
   }
 
-  if (message === 'owner cleared') return { at, type: 'owner', owner: null };
-  const owner = message.match(/^owner → (.+?)( \(auto\))?$/);
-  if (owner) {
-    return {
-      at,
-      type: 'owner',
-      owner: owner[1],
-      ...(owner[2] ? { automatic: true } : {}),
-    };
+  const moved = [];
+  for (const segment of retired) {
+    const name = RETIRED_STAGES.get(segment.key);
+    const content = trimBlankLines(segment.lines);
+    if (!content.length) {
+      applied.push(`removed empty ## ${name}`);
+      continue;
+    }
+    moved.push('', `### ${name}`, '', ...demoteHeadings(content));
+    applied.push(`## ${name} → ### ${name} under ## Request`);
   }
-  const graduated = message.match(/^graduado a spec `([^`]+)`(?: \((.*)\))?$/i);
-  if (graduated) {
-    return {
-      at,
-      type: 'graduation',
-      outcome: 'spec',
-      spec: graduated[1],
-      ...(graduated[2] ? { detail: graduated[2] } : {}),
-    };
+  if (moved.length) {
+    const own = trimTrailingBlankLines(request.lines);
+    let tail = request.lines.slice(own.length);
+    const last = segments.filter((segment) => !retired.includes(segment)).at(-1) === request;
+    if (!tail.length && !last) tail = [''];
+    request.lines = [...own, ...moved, ...tail];
   }
-  const skipped = message.match(/^graduation skipped(?:: ([\s\S]+))?$/);
-  if (skipped) {
-    return {
-      at,
-      type: 'graduation',
-      outcome: 'skipped',
-      ...(skipped[1] ? { reason: skipped[1] } : {}),
-    };
-  }
-  if (message === 'archived') return { at, type: 'archive' };
-  return { at, type: 'note', message };
+  return segments
+    .filter((segment) => !retired.includes(segment))
+    .flatMap((segment) =>
+      segment.heading === null ? segment.lines : [segment.heading, ...segment.lines],
+    )
+    .join('\n');
+}
+
+// Splits a body at its `## ` headings outside code fences; joining the
+// segments back reproduces the body byte for byte.
+function splitSegments(body) {
+  const lines = body.split('\n');
+  const headings = stageHeadings(lines);
+  return [
+    { key: null, heading: null, lines: lines.slice(0, headings[0]?.start ?? lines.length) },
+    ...headings.map(({ start, end, title }) => ({
+      key: title.toLowerCase(),
+      heading: lines[start],
+      lines: lines.slice(start + 1, end),
+    })),
+  ];
+}
+
+function demoteHeadings(lines) {
+  const isFenced = fenceTracker();
+  return lines.map((line) => (!isFenced(line) && /^#{3,5}\s/.test(line) ? `#${line}` : line));
+}
+
+function trimTrailingBlankLines(lines) {
+  let end = lines.length;
+  while (end > 0 && !lines[end - 1].trim()) end -= 1;
+  return lines.slice(0, end);
+}
+
+function trimBlankLines(lines) {
+  const kept = trimTrailingBlankLines(lines);
+  let start = 0;
+  while (start < kept.length && !kept[start].trim()) start += 1;
+  return kept.slice(start);
 }
 
 function fixTaskLine(rawLine, declaredCR, lineNo) {

@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { effectiveTdd } from '../check.mjs';
+import { repoIsActivated } from '../change-store.mjs';
+import { effectiveTdd, typeError } from '../check.mjs';
 import {
   changeIntegrationBranch,
   findChangeledgerDir,
@@ -16,9 +17,9 @@ import { loadRepo, resolveChangeInRepo } from '../repo.mjs';
 const END_DELIMITER = endSentinel('CONTEXT');
 const MODES = ['implement', 'review', 'spec', 'release'];
 const MODE_CONTEXT = {
-  implement: ['implement', 'delegation', 'handoff'],
-  review: ['review', 'handoff'],
-  spec: ['spec', 'delegation', 'readiness'],
+  implement: ['implement'],
+  review: ['review'],
+  spec: ['spec'],
   release: ['release'],
 };
 const STATUS_CONTEXT = {
@@ -27,7 +28,8 @@ const STATUS_CONTEXT = {
   'in-progress': { mode: 'implement', fragments: MODE_CONTEXT.implement },
   'in-review': { mode: 'review', fragments: MODE_CONTEXT.review },
   done: { mode: 'close', fragments: ['close'] },
-  discarded: { mode: 'discarded', fragments: ['discarded'] },
+  // A tombstone loads no overlay: core already says it is terminal.
+  discarded: { mode: 'discarded', fragments: [] },
 };
 const INCREMENTAL_NOTICE = `This incremental context extends the complete core context already read.
 Read it complete in one pass, to its END line; a partial view is invalid.`;
@@ -40,11 +42,14 @@ function fragment(name) {
 // number the quality gate enforces and cannot drift from it.
 let budgetCache;
 
-function packBudget(mode) {
+function packBudget(mode, { globalState = false } = {}) {
   budgetCache ??= JSON.parse(
     fs.readFileSync(path.join(contractTemplatesDir, 'budgets.yml'), 'utf8'),
   );
-  return budgetCache.base[mode];
+  const base = budgetCache.base[mode];
+  if (!globalState) return base;
+  const overlay = budgetCache.overlays['global-state'];
+  return { tokens: base.tokens + overlay.tokens, lines: base.lines + overlay.lines };
 }
 
 // A capture publishes how many lines it occupies of its ceiling, and nothing
@@ -87,8 +92,8 @@ export function emittedLines(text) {
 
 // Resolved defaults so an agent never reads `.changeledger/config.yml` raw to
 // discover the repo's effective policy. Keep these aligned with the shipped
-// template config and the Definition of Ready contract; the tdd default lives
-// with its single resolver, `effectiveTdd` in `check.mjs`.
+// template config; the tdd default lives with its single resolver,
+// `effectiveTdd` in `check.mjs`.
 const DEFAULT_LANGUAGE = 'en';
 
 function effectiveLanguage(config) {
@@ -98,88 +103,55 @@ function effectiveLanguage(config) {
 // The transversal policy line every composition anchors on: effective language
 // and tdd with defaults already resolved. The integration branch appears only
 // when declared — absence means the repo keeps branch auto-detection.
-// `type` resolves the tdd of a selected change's type (`types.<type>.tdd`
-// overrides the global value) and its integration branch (`integrates_into:
-// release` publishes `git.release_branch`, and an undeclared one fails rather
-// than publishing the repo's); without it the global values are published.
+// `frontmatter` is the selected change's: its own `tdd` overrides the global
+// value, and its `integrates_into: release` publishes `git.release_branch` as
+// its integration branch (an undeclared one fails rather than publishing the
+// repo's); without it the global values are published. An epic publishes no
+// `tdd=`: it is never implemented, so there is no test to write first.
 // A change integrating into a branch other than a declared
 // `git.integration_branch` also publishes that branch as `back_merge_branch`,
 // where its integrated result must be brought too (20261002-181428).
-// Every composition also publishes `release_types`, the types that integrate
-// into `git.release_branch`, while that branch is declared: the only state in
-// which a change of those types can be loaded (20261002-181428 CR7).
-// Called with `includeTdd: false` for a change-id capture whose type never
-// activates `specification`: `readiness.md` (the only fragment that defines
-// the obligation) is not composed for it, so publishing `tdd=on` would hand it
-// an obligation with no definition in the same capture (CR5). A type with
-// `specification` and tdd off publishes `tdd=off`: the absence of the
-// obligation, which needs no definition.
-export function transversalPolicy(config, { includeTdd = true, type = undefined } = {}) {
-  const tdd = includeTdd ? ` — tdd=${effectiveTdd(config, type) ? 'on' : 'off'}` : '';
-  const base = `Effective policy: language=${effectiveLanguage(config)}${tdd}${releaseTypes(config)}`;
-  const branch = changeIntegrationBranch(config, type);
+// Every composition also publishes `release_branch` while it is declared: the
+// only state in which a change integrating into it can be loaded. A malformed
+// value publishes nothing and is `check`'s to report, so it never breaks the
+// bootstrap capture every session loads first.
+export function transversalPolicy(config, frontmatter = {}) {
+  const tdd =
+    frontmatter.type === 'epic' ? '' : ` — tdd=${effectiveTdd(config, frontmatter) ? 'on' : 'off'}`;
+  const release = publishableReleaseBranch(config);
+  const releasePart = release === undefined ? '' : ` — release_branch=${release}`;
+  const base = `Effective policy: language=${effectiveLanguage(config)}${tdd}${releasePart}`;
+  const branch = changeIntegrationBranch(config, frontmatter);
   if (!branch) return base;
   const repoBranch = integrationBranch(config);
   const backMerge = repoBranch && repoBranch !== branch ? ` — back_merge_branch=${repoBranch}` : '';
   return `${base} — integration_branch=${branch}${backMerge}`;
 }
 
-// Key order of `config.types` as JavaScript enumerates it: integer-like names
-// first, then insertion order. The release branch is read only when some type
-// integrates into it, so a repo without release types never depends on that key.
-function releaseTypes(config) {
-  const types = config?.types;
-  if (types === null || typeof types !== 'object') return '';
-  const names = Object.keys(types).filter((name) => types[name]?.integrates_into === 'release');
-  if (names.length === 0 || releaseBranch(config) === undefined) return '';
-  return ` — release_types=${names.join(',')}`;
-}
-
-// A change's `type` selects which stages the capture composes and which
-// obligations (tdd, review) apply. An undecidable type — not declared in
-// `config.types`, absent from the change's own frontmatter, or declaring
-// `stages` as something other than a list — is exactly the class of defect
-// this repo aborts on rather than silently degrading: `context` must never
-// publish an empty `Active stages(...)=` line or omit `readiness` without
-// saying why (CR1). Single seat consumed by both callers below.
-function assertKnownType(config, type) {
-  if (type === undefined) throw new Error('missing frontmatter "type"');
-  const typeConfig = config?.types?.[type];
-  if (!typeConfig) throw new Error(`unknown type "${type}"`);
-  if (!Array.isArray(typeConfig.stages)) {
-    throw new Error(`config type "${type}": stages must be a list`);
+function publishableReleaseBranch(config) {
+  try {
+    return releaseBranch(config);
+  } catch {
+    return undefined;
   }
-  return typeConfig;
 }
 
-// Type-specific policy for change-id contexts: adds review requirement and the
-// active stages the type actually uses, so the agent does not infer them.
-function changePolicyBlock(config, change) {
-  const { type } = change;
-  const typeConfig = assertKnownType(config, type);
-  const reviewRequired = typeConfig.review_required === true ? 'yes' : 'no';
-  const hasSpecification = typeConfig.stages.includes('specification');
-  const changeBranch = renderChangeBranch(config, change);
+// A change's `type` selects which obligations its capture publishes. A type
+// other than `change` or `epic`, or none at all, is exactly the class of
+// defect this repo aborts on rather than silently degrading (CR1).
+function assertKnownType(type) {
+  if (type === undefined) throw new Error('missing frontmatter "type"');
+  const defect = typeError(type);
+  if (defect) throw new Error(defect);
+}
+
+// Policy for change-id contexts: the transversal line resolved for this
+// change, its branch, and its type, so the agent does not infer them.
+function changePolicyBlock(config, frontmatter) {
+  assertKnownType(frontmatter.type);
+  const changeBranch = renderChangeBranch(config, frontmatter);
   const branch = changeBranch ? ` — change_branch=${changeBranch}` : '';
-  const lines = [
-    `${transversalPolicy(config, { includeTdd: hasSpecification, type })}${branch} — review_required(${type})=${reviewRequired}`,
-    `Active stages(${type})=${typeConfig.stages.join(', ')}`,
-  ];
-  return lines.join('\n');
-}
-
-// `readiness` (`# Definition of Ready`) presupposes the change carries a
-// `specification` stage: it requires every behavioral requirement to be a `CRn`
-// and every Plan task to cite one. A type that never activates that stage
-// cannot satisfy it — `check` rejects the stage outright — so composing the
-// fragment would contradict the `Active stages(<type>)=` line of the same
-// capture. A type whose effective tdd is off (`tdd=off` in its policy line) owes
-// none of it either. Derived from the configured stages and the tdd resolver,
-// never from a list of type names.
-function fragmentsForType(fragments, config, type) {
-  const { stages } = assertKnownType(config, type);
-  if (stages.includes('specification') && effectiveTdd(config, type)) return fragments;
-  return fragments.filter((name) => name !== 'readiness');
+  return `${transversalPolicy(config, frontmatter)}${branch} — type=${frontmatter.type}`;
 }
 
 // One line per local dependency (id, title, status); external `project:id`
@@ -243,6 +215,7 @@ function composeResult(mode, fragments, options = {}) {
     policy = undefined,
     dependencies = undefined,
     relations = undefined,
+    budget = packBudget(mode),
   } = options;
   const body = [];
   if (incremental) body.push(INCREMENTAL_NOTICE);
@@ -255,7 +228,7 @@ function composeResult(mode, fragments, options = {}) {
   // deterministic `head -<N>` and see the occupancy of its ceiling.
   // A change-id capture embeds a document of any size, so no ceiling applies to
   // it even though it reuses a mode's fragments: it publishes its count alone.
-  return frameSections(mode, changeId, body, changeId ? undefined : packBudget(mode));
+  return frameSections(mode, changeId, body, changeId ? undefined : budget);
 }
 
 function requireRepo(cwd) {
@@ -309,9 +282,13 @@ function composeInput(input, cwd, changeledgerDir) {
   if (!input || MODES.includes(input)) {
     const config = loadEffectiveConfig(path.dirname(changeledgerDir), changeledgerDir);
     if (!input) {
-      return composeResult('core', ['core'], {
+      // The global-state semantics apply to the repo, not to a mode: only an
+      // activated repo loads them, after core and under the two summed ceilings.
+      const globalState = repoIsActivated(path.dirname(changeledgerDir));
+      return composeResult('core', globalState ? ['core', 'global-state'] : ['core'], {
         incremental: false,
         policy: transversalPolicy(config),
+        budget: packBudget('core', { globalState }),
       });
     }
     return composeResult(input, MODE_CONTEXT[input], { policy: transversalPolicy(config) });
@@ -330,13 +307,13 @@ function composeInput(input, cwd, changeledgerDir) {
   }
 
   const { text, frontmatter } = resolved;
-  const { id, status, type, depends_on: dependsOn, related_to: relatedTo } = frontmatter;
+  const { id, status, depends_on: dependsOn, related_to: relatedTo } = frontmatter;
   const selected = STATUS_CONTEXT[status];
   if (!selected) throw new Error(`No context mapping for change status "${status}"`);
-  return composeResult(selected.mode, fragmentsForType(selected.fragments, repo.config, type), {
+  return composeResult(selected.mode, selected.fragments, {
     changeText: text,
     changeId: id,
-    policy: changePolicyBlock(repo.config, { id, type }),
+    policy: changePolicyBlock(repo.config, frontmatter),
     dependencies: dependencyBlock(dependsOn, repo),
     relations: relatedBlock(id, relatedTo, repo),
   });

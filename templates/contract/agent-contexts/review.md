@@ -10,16 +10,17 @@ verdict, and do not delegate any part of the work.
 
 Your prompt declares the mandate of this review — a spot check of the named diff,
 the surface the change governs, or a full audit. Under a full audit, and by
-default whenever the prompt declares no mandate, inspect the selected change,
-every `CRn`, every Plan task, tests, the actual diff and absence of TODO/FIXME,
-dead code or unrelated residue, and confirm tasks are true rather than merely
-checked off and that implementation did not drift from the authorized document.
-Under a narrower mandate the declared scope is the inspection: check it with that
-same rigour and report whatever you notice outside it without expanding the
-inspection.
+default whenever the prompt declares no mandate, verify the behaviour the
+Specification declares against the actual diff and the tests that prove it;
+confirm every Plan task is true rather than merely checked off; look for
+TODO/FIXME, dead code and unrelated residue; and confirm the implementation did
+not drift from the approved objective and frontier. Do not look for criterion
+ids in code or tests: the change carries that trace. Under a narrower mandate
+the declared scope is the inspection: check it with the same rigour and report
+whatever you notice outside it without expanding the inspection.
 
-Deep security, SAST and lint belong to dedicated tools. You may run them
-read-only and report their evidence; ChangeLedger does not reimplement them.
+Deep security, SAST and lint belong to dedicated tools; you may run them
+read-only and report their evidence.
 
 Return per-criterion PASS/FAIL evidence and one recommended outcome: `pass`,
 or `fail` with a reason. Say for each defect whether it is fixable inside the

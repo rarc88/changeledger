@@ -8,29 +8,45 @@ import { mutateFileAtomic } from '../atomic-write.mjs';
 import { assertChildrenResolved, parseChange } from '../change.mjs';
 import { mutateLedgerFile, repoIsActivated, writeLedgerFiles } from '../change-store.mjs';
 import {
+  assertApprovable,
   assertChangeTextValid,
-  assertStagesNotEmpty,
+  assertReviewable,
   introducedErrors,
   recordedBranch,
 } from '../check.mjs';
 import {
   changeIntegrationBranch,
+  DEFAULT_SPECS_DIR,
   findChangeledgerDir,
   integrationBranch,
   renderChangeBranch,
+  resolveRepoPath,
 } from '../config.mjs';
 import { assertSupportedSchema } from '../config-migration.mjs';
 import {
+  attributedCommitsIn,
+  branchWorktree,
+  capturedRun,
+  changedPathsInRange,
   currentBranch,
+  defaultBaseBranch,
   checkoutBranch as defaultCheckoutBranch,
   defaultRun as defaultGitRun,
   ownerHandle as defaultOwnerHandle,
   deleteMergedBranch,
+  gitPrefix,
+  gitTopLevel,
   isAncestor,
   mergeBases,
   refExists,
+  uncommittedPaths,
 } from '../git.mjs';
-import { assertTransition, parseLogEvent } from '../lifecycle.mjs';
+import {
+  assertTransition,
+  findingsInLog,
+  LOG_EVENT_DEFINITIONS,
+  parseLogEvent,
+} from '../lifecycle.mjs';
 import { nowUtc } from '../paths.mjs';
 import { assertNotShipped } from '../release.mjs';
 import { loadRepo, resolveChange, resolveChangeInRepo } from '../repo.mjs';
@@ -107,11 +123,11 @@ function assertImplementationBranch(config, change, repoRoot, gitRun) {
     );
   }
 
-  // The base follows the role of the change's type (`integrates_into`), so a
-  // release type descends from `git.release_branch` (20261002-181346). An
-  // absent base fails here too, before git can read its full ref through a ref
-  // such as `refs/tags/refs/heads/<name>`.
-  const baseline = changeIntegrationBranch(config, change.type);
+  // The base follows the change's role (`integrates_into`), so a release
+  // change descends from `git.release_branch` (20261002-181346). An absent
+  // base fails here too, before git can read its full ref through a ref such
+  // as `refs/tags/refs/heads/<name>`.
+  const baseline = changeIntegrationBranch(config, change);
   if (
     baseline &&
     !(
@@ -186,9 +202,10 @@ function integrationCopies(integration, expected, repoRoot, gitRun) {
 // names the command that owns it, so a caller that is not a human — `apply`'s
 // batch included — is told where the move actually belongs. `done` is not one
 // of them: it means "delivered, pending human acceptance", which the agent
-// owns — through `review pass` for a review_required type, and through this
-// command for any other. Which of the two applies depends on the origin, which
-// no pre-text guard can read: `statusMutation` refuses the `in-review` one.
+// owns — through `review pass` for a change whose branch touches code, and
+// through this command for any other. Which of the two applies depends on the
+// origin and on git, which no pre-text guard can read: `statusMutation`
+// refuses the `in-review` one and the code-touching one.
 export function assertStatusDestinationAllowed(config, newStatus, actor) {
   if (newStatus === 'discarded') {
     throw new Error(
@@ -229,7 +246,7 @@ export function statusMutation(
   {
     ownerHandle = defaultOwnerHandle,
     checkoutBranch = defaultCheckoutBranch,
-    gitRun = defaultGitRun,
+    gitRun = capturedRun,
   } = {},
 ) {
   return (text) => {
@@ -246,7 +263,7 @@ export function statusMutation(
     // pass` walks it — so the narrowing lives here, where the origin is known,
     // and covers every caller of this transform: the CLI, the viewer and
     // `apply`'s batch alike. Without it an agent delivers its own
-    // review_required work unreviewed and `check` sees nothing wrong
+    // code-touching work unreviewed and `check` sees nothing wrong
     // (20261018-131621 CR27).
     // An epic delivers when its children do. Checked before the transition so a
     // refusal leaves the document byte-for-byte unchanged, and read through
@@ -264,12 +281,17 @@ export function statusMutation(
       );
     }
     // Validate the move before any in-memory mutation, so an illegal transition
-    // leaves the file byte-for-byte unchanged. The review gate reads review_required
-    // from the change's type.
-    assertTransition(fm.status, newStatus, {
-      type: fm.type,
-      reviewRequired: Boolean(config.types?.[fm.type]?.review_required),
-    });
+    // leaves the file byte-for-byte unchanged. A change reaches `done` from
+    // `in-progress` only once git shows its branch touches nothing outside the
+    // ledger (20261024-121022); an epic is never implemented and asks git
+    // nothing.
+    const kind = changeKind(fm);
+    let touchesCode;
+    if (kind === 'change' && fm.status === 'in-progress' && newStatus === 'done') {
+      assertTouchesOnlyLedger(config, fm, repoRoot, gitRun);
+      touchesCode = false;
+    }
+    assertTransition(fm.status, newStatus, { kind, touchesCode });
 
     // Enforceability guard (20260808-141944): the `branch` field is set once
     // and never rewritten (20260805-052741), so a later move to another branch
@@ -291,24 +313,20 @@ export function statusMutation(
     if (fm.status === 'approved' && newStatus === 'in-progress') {
       assertImplementationBranch(config, fm, repoRoot, gitRun);
     }
-    // Entering review asserts a reviewable candidate exists (20260722-124656 CR3).
-    // Validate the document as it still stands, before the status flip: readiness
-    // defects are errors only while the change is pre-review, so checking the
-    // post-flip text would silently exempt the very candidate under judgment.
-    if (newStatus === 'in-review') assertChangeTextValid(config, name, text);
-    // Leaving draft asserts a ready candidate exists (20260729-185200 CR1). Same
-    // shape as the in-review gate — validate the pre-flip text — but the severity
-    // has to be projected: a draft's readiness and coverage diagnostics are
-    // warnings precisely because it is a draft, so judging the text as it stands
-    // would exempt every defect the approval is supposed to catch. `approved` is
-    // reachable only from `draft`, so this is the single seat for the gate.
+    // Entering review asserts a reviewable candidate exists: the implementer's
+    // Specification and Plan, written in `in-progress` (20261023-181753 CR5).
+    // Their own refusal comes first, so an empty Specification is named as
+    // such instead of as the Plan's references to it.
+    if (newStatus === 'in-review') {
+      assertReviewable(text);
+      assertChangeTextValid(config, name, text);
+    }
+    // Leaving draft asserts what the human approves exists: the objective and
+    // the frontier (20261023-181753). `approved` is reachable only from
+    // `draft`, so this is the single seat for the gate.
     if (newStatus === 'approved') {
-      assertChangeTextValid(config, name, text, { asStatus: 'approved' });
-      // Emptiness of an active stage's body is a defect coverage checks alone
-      // cannot see — an empty Specification declares no criteria, so nothing
-      // references an unknown one and nothing goes uncovered (real incident:
-      // 20260810-181801). Transition-scoped on purpose; see assertStagesNotEmpty.
-      assertStagesNotEmpty(config, text);
+      assertChangeTextValid(config, name, text);
+      assertApprovable(text);
     }
     text = setStatus(text, newStatus);
     // The return from `done` is the only record a rejection leaves, and only a
@@ -376,6 +394,98 @@ export function statusMutation(
   };
 }
 
+const changeKind = (fm) => (fm.type === 'epic' ? 'epic' : 'change');
+
+// Throws unless git shows that the change touches only the ledger:
+// `changes_dir`, `specs_dir` and `.changeledger/`. Two reads answer it: the
+// range the branch introduced over its integration branch
+// (`changedPathsInRange`), and the uncommitted paths of the worktree that has
+// the branch checked out, wherever it is (`branchWorktree`, `uncommittedPaths`).
+// Every doubt — no branch, a branch git does not have, the change's own commits
+// already merged (the range left says nothing about what they carried), a
+// failing git — refuses with its cause, because the direct route skips the
+// independent review and a question git cannot answer must not read as
+// "no code".
+function assertTouchesOnlyLedger(config, fm, repoRoot, gitRun) {
+  const verdictRoute = 'move it to in-review and record a verdict';
+  const undecided = (cause) =>
+    new Error(`cannot decide whether change ${fm.id} touches code: ${cause} — ${verdictRoute}`);
+  const touching = (where, paths, route) => {
+    const count = `${paths.length} ${paths.length === 1 ? 'path' : 'paths'}`;
+    return new Error(
+      `change ${fm.id} touches code outside the ledger${where} (${count}, e.g. ${paths[0]}): ${route}`,
+    );
+  };
+  const head = fm.branch ?? renderChangeBranch(config, fm);
+  if (!head) throw undecided('no branch recorded for it');
+  let ledger;
+  let committed;
+  let uncommitted;
+  try {
+    const base = changeIntegrationBranch(config, fm) ?? detectedBaseBranch(repoRoot, gitRun);
+    if (head === base) throw new Error(`branch "${head}" is the integration branch`);
+    ledger = ledgerPrefixes(config, repoRoot, gitRun);
+    const outsideLedger = (entry) => !ledger.some((prefix) => entry.startsWith(prefix));
+    committed = changedPathsInRange(repoRoot, base, head, gitRun).filter(outsideLedger);
+    if (committed.length === 0) {
+      // The change's own commits, not ancestry: a branch with no commits of
+      // its own is an ancestor of the integration branch too, and in the
+      // activated layout that is a ledger-only change. Unmarked merged
+      // history stays a residual the range alone judges.
+      if (attributedCommitsIn(repoRoot, base, fm.id, gitRun).length > 0) {
+        throw new Error(`its commits are already merged into "${base}"`);
+      }
+      // Uncommitted work is the change's only in the worktree holding its
+      // branch, which need not be this checkout; checked out nowhere, the
+      // branch has none.
+      const worktree = branchWorktree(repoRoot, head, gitRun);
+      uncommitted = worktree ? uncommittedPaths(worktree, gitRun).filter(outsideLedger) : [];
+    }
+  } catch (error) {
+    throw undecided(error.message);
+  }
+  if (committed.length > 0) throw touching('', committed, verdictRoute);
+  if (uncommitted.length > 0) {
+    throw touching(' in uncommitted paths', uncommitted, `commit them, ${verdictRoute}`);
+  }
+}
+
+// Without a declared `git.integration_branch` the base is the one
+// `check --commits` detects; its own refusal names a flag of that command, so
+// it is restated here.
+function detectedBaseBranch(repoRoot, gitRun) {
+  try {
+    return defaultBaseBranch(repoRoot, gitRun);
+  } catch {
+    throw new Error(
+      'git.integration_branch is not declared and no default branch (origin/HEAD, main or master) exists',
+    );
+  }
+}
+
+// The ledger directories as git reports paths: relative to its top-level and
+// slash-separated, each ending in `/` so a sibling sharing the name as a string
+// prefix (`specs-old/` beside `specs/`) is not taken for it. The configured
+// dirs pass the containment guard and are normalised in the filesystem's own
+// coordinates; only the repo root's prefix comes from git (`gitPrefix`), so
+// Windows separators never meet git's.
+function ledgerPrefixes(config, repoRoot, gitRun) {
+  const prefix = gitPrefix(fs.realpathSync(repoRoot), gitTopLevel(repoRoot, gitRun), gitRun);
+  const dirs = [
+    ['changes_dir', config.changes_dir],
+    ['specs_dir', config.specs_dir ?? DEFAULT_SPECS_DIR],
+    ['ledger', '.changeledger'],
+  ];
+  return dirs.map(([field, configured]) => {
+    const relative = path
+      .relative(repoRoot, resolveRepoPath(repoRoot, configured, field))
+      .split(path.sep)
+      .join('/');
+    if (relative === '') throw new Error(`${field} "${configured}" resolves to the repo root`);
+    return `${prefix}${relative}/`;
+  });
+}
+
 // The usage snapshot's view of one written Log transition (20261001-155612).
 function transitionEvent(fm, event, from, to, at) {
   return { change: String(fm.id), event, from, to, at };
@@ -388,7 +498,7 @@ export function status(
   {
     ownerHandle = defaultOwnerHandle,
     checkoutBranch = defaultCheckoutBranch,
-    gitRun = defaultGitRun,
+    gitRun = capturedRun,
     actor = 'human',
     channel = 'viewer',
     reason,
@@ -447,16 +557,13 @@ export function review(id, verdict, { reason } = {}, cwd = process.cwd(), { usag
       // assertTransition is the single lifecycle authority, even though both
       // in-review edges are legal today (the graph's two in-review
       // destinations mirror review()'s two verdicts by design).
-      const opts = {
-        type: fm.type,
-        reviewRequired: Boolean(config.types?.[fm.type]?.review_required),
-      };
+      const opts = { kind: changeKind(fm) };
 
       const at = nowUtc();
       let to;
       if (verdict === 'pass') {
         // `review pass` is the second write seat for `done`, and the only one a
-        // review_required type can reach: `statusMutation`'s guard never runs
+        // code-touching change can reach: `statusMutation`'s guard never runs
         // for it. The scoped validation below cannot stand in — it judges a
         // one-change repo, where a parent has no visible children
         // (20261020-172221 D1).
@@ -546,7 +653,7 @@ export function discard(id, reason, cwd = process.cwd(), { usage } = {}) {
   if (!reason) {
     throw new Error('discard requires a reason — changeledger discard <id> "<reason>"');
   }
-  const { config, repo, target, repoRoot } = locate(cwd, id);
+  const { repo, target, repoRoot } = locate(cwd, id);
   const events = [];
   mutateLedgerFile(
     repo,
@@ -554,10 +661,7 @@ export function discard(id, reason, cwd = process.cwd(), { usage } = {}) {
     (text) => {
       const fm = parseChange(text).frontmatter;
       // Validate before any mutation so an illegal discard leaves the file untouched.
-      assertTransition(fm.status, 'discarded', {
-        type: fm.type,
-        reviewRequired: Boolean(config.types?.[fm.type]?.review_required),
-      });
+      assertTransition(fm.status, 'discarded', { kind: changeKind(fm) });
       text = setStatus(text, 'discarded');
       const at = nowUtc();
       text = appendLogEvent(text, {
@@ -576,7 +680,7 @@ export function discard(id, reason, cwd = process.cwd(), { usage } = {}) {
   return target.file;
 }
 
-// Everything the branch deletion needs, resolved inside one try: a type whose
+// Everything the branch deletion needs, resolved inside one try: a change whose
 // `integrates_into` names a retired `git.release_branch` makes
 // `changeIntegrationBranch` throw, and that must never cost an archive that has
 // already landed. Terminal changes are history (20261012-174310).
@@ -594,7 +698,7 @@ function pruneChangeBranch(repoRoot, config, change, gitRun) {
     return deleteMergedBranch(
       repoRoot,
       recordedBranch(change),
-      changeIntegrationBranch(config, change.frontmatter?.type),
+      changeIntegrationBranch(config, change.frontmatter),
       renderChangeBranch(config, change.frontmatter ?? {}),
       gitRun ?? defaultGitRun,
     );
@@ -719,6 +823,95 @@ export function log(id, message, cwd = process.cwd()) {
   return target.file;
 }
 
+const logBodyOf = (c) => c.stages.find((s) => s.key === 'log')?.body ?? '';
+
+// Text transform of `finding <id> "<text>"` — see `statusMutation` for why it
+// is a seat.
+export function recordFindingMutation(text) {
+  if (String(text ?? '').trim() === '') throw new Error('finding text must not be empty');
+  if (LOG_EVENT_DEFINITIONS.finding.parse(text)?.outcome !== 'open') {
+    throw new Error(
+      `finding text "${text}" reads as a resolution; resolve a finding with changeledger finding <id> promote|drop <n>`,
+    );
+  }
+  const verbFirst = /^(?:promote|drop)\s+(\d+)(?:\s|$)/.exec(text);
+  if (verbFirst) {
+    throw new Error(
+      `finding text "${text}" reads as a resolution: run it without quotes to resolve F${verbFirst[1]}, or start the text with another word`,
+    );
+  }
+  return (current) =>
+    appendLogEvent(current, { at: nowUtc(), type: 'finding', outcome: 'open', text });
+}
+
+// Text transform of `finding <id> promote|drop <n>` over the change `id`.
+// `assertTarget` resolves a promotion's target in the ledger the write lands in.
+export function resolveFindingMutation(id, n, outcome, value, assertTarget = () => {}) {
+  if (!/^[1-9]\d*$/.test(String(n))) {
+    throw new Error(`finding ordinal must be a positive integer (got "${n}")`);
+  }
+  const ordinal = Number(n);
+  if (outcome !== 'promote' && outcome !== 'drop') {
+    throw new Error(`Unknown finding resolution "${outcome}" (use promote|drop)`);
+  }
+  if (String(value ?? '').trim() === '') {
+    throw new Error(
+      outcome === 'drop'
+        ? 'drop requires a reason'
+        : 'promote requires the id of the change it becomes',
+    );
+  }
+  return (current) => {
+    const finding = findingsInLog(logBodyOf(parseChange(current))).findings[ordinal - 1];
+    if (!finding) throw new Error(`change #${id} has no finding F${ordinal}`);
+    const { resolution } = finding;
+    if (resolution?.outcome === 'promoted') {
+      throw new Error(`finding F${ordinal} of #${id} is already promoted to #${resolution.target}`);
+    }
+    if (resolution?.outcome === 'dropped') {
+      throw new Error(`finding F${ordinal} of #${id} is already dropped`);
+    }
+    const at = nowUtc();
+    if (outcome === 'drop') {
+      return appendLogEvent(current, {
+        at,
+        type: 'finding',
+        outcome: 'dropped',
+        n: ordinal,
+        reason: value,
+      });
+    }
+    if (String(value) === String(id)) {
+      throw new Error(`finding F${ordinal} cannot be promoted to its own change #${id}`);
+    }
+    assertTarget(value);
+    return appendLogEvent(current, {
+      at,
+      type: 'finding',
+      outcome: 'promoted',
+      n: ordinal,
+      target: value,
+    });
+  };
+}
+
+export function recordFinding(id, text, cwd = process.cwd()) {
+  const mutate = recordFindingMutation(text);
+  const { repo, target } = locate(cwd, id);
+  const after = mutateLedgerFile(repo, target, mutate, { message: `finding: ${id}` });
+  return { file: target.file, n: findingsInLog(logBodyOf(parseChange(after))).findings.length };
+}
+
+export function resolveFinding(id, n, outcome, value, cwd = process.cwd()) {
+  const { repo, target, repoRoot } = locate(cwd, id);
+  const assertTarget = (targetId) =>
+    repo.state ? resolveChangeInRepo(repo, targetId) : resolveChange(repoRoot, targetId);
+  mutateLedgerFile(repo, target, resolveFindingMutation(id, n, outcome, value, assertTarget), {
+    message: `finding: ${id}`,
+  });
+  return target.file;
+}
+
 // Text transform of `task` — see `statusMutation` for why it is a seat.
 export function taskMutation(action, n, reason) {
   return (text) => {
@@ -766,6 +959,19 @@ function assertTaskCandidateClean(repo, id, text, subject) {
   );
 }
 
+const PENDING_KINDS = ['graduation', 'archive', 'findings'];
+
+// The open findings of `changes` as rows, ordered by origin id then ordinal.
+export function openFindings(changes) {
+  return [...changes]
+    .sort((a, b) => String(a.frontmatter.id).localeCompare(String(b.frontmatter.id)))
+    .flatMap((c) =>
+      findingsInLog(logBodyOf(c))
+        .findings.filter((f) => !f.resolution)
+        .map((f) => ({ id: c.frontmatter.id, n: f.n, text: f.text, at: f.at })),
+    );
+}
+
 export function list(
   {
     status: byStatus,
@@ -781,8 +987,8 @@ export function list(
 ) {
   assertOwnerFilter({ owner: byOwner, unowned });
   if (archived && all) throw new Error('--archived and --all are mutually exclusive');
-  if (pending && !['graduation', 'archive'].includes(pending)) {
-    throw new Error(`Invalid --pending "${pending}". Valid: graduation, archive`);
+  if (pending && !PENDING_KINDS.includes(pending)) {
+    throw new Error(`Invalid --pending "${pending}". Valid: ${PENDING_KINDS.join(', ')}`);
   }
 
   let candidates = loadRepo(cwd).changes;
@@ -790,29 +996,36 @@ export function list(
     candidates = selectArchivableGraduated(candidates, { owner: byOwner, unowned });
   }
 
-  return candidates
-    .filter((c) => {
-      const fm = c.frontmatter;
-      if (!all && archived !== (fm.archived === true)) return false;
-      if (byStatus && fm.status !== byStatus) return false;
-      if (byType && fm.type !== byType) return false;
-      if (byOwner !== undefined && fm.owner !== byOwner) return false;
-      if (unowned && fm.owner != null) return false;
-      if (byParent !== undefined && String(fm.parent ?? '') !== String(byParent)) return false;
-      if (pending === 'graduation' && !isPendingGraduation(c)) return false;
-      return true;
-    })
-    .map((c) => ({
-      id: c.frontmatter.id,
-      title: c.frontmatter.title,
-      type: c.frontmatter.type,
-      status: c.frontmatter.status,
-      owner: c.frontmatter.owner ?? null,
-      branch: c.frontmatter.branch ?? null,
-      archived: c.frontmatter.archived === true,
-      parent: c.frontmatter.parent ?? null,
-      progress: c.progress,
-    }));
+  // Findings live in closed changes too, so `--pending findings` sees archived
+  // origins without --all (20261024-202659).
+  const visible = (fm) => {
+    if (archived) return fm.archived === true;
+    return all || pending === 'findings' || fm.archived !== true;
+  };
+  const selected = candidates.filter((c) => {
+    const fm = c.frontmatter;
+    if (!visible(fm)) return false;
+    if (byStatus && fm.status !== byStatus) return false;
+    if (byType && fm.type !== byType) return false;
+    if (byOwner !== undefined && fm.owner !== byOwner) return false;
+    if (unowned && fm.owner != null) return false;
+    if (byParent !== undefined && String(fm.parent ?? '') !== String(byParent)) return false;
+    if (pending === 'graduation' && !isPendingGraduation(c)) return false;
+    return true;
+  });
+  if (pending === 'findings') return openFindings(selected);
+
+  return selected.map((c) => ({
+    id: c.frontmatter.id,
+    title: c.frontmatter.title,
+    type: c.frontmatter.type,
+    status: c.frontmatter.status,
+    owner: c.frontmatter.owner ?? null,
+    branch: c.frontmatter.branch ?? null,
+    archived: c.frontmatter.archived === true,
+    parent: c.frontmatter.parent ?? null,
+    progress: c.progress,
+  }));
 }
 
 export function show(id, cwd = process.cwd()) {

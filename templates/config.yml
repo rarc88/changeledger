@@ -1,9 +1,9 @@
 # ChangeLedger — repo configuration
-# Repo specifics: documentation language, change types and active stages per type.
+# Repo specifics: documentation language, test-first policy, release impact and Git integration.
 
 # Schema version — used to detect and migrate outdated configurations.
 # Run `changeledger config migrate --dry-run` to inspect available migrations.
-schema_version: 6
+schema_version: 7
 
 # Minimum ChangeLedger CLI version required to work with this repo (SemVer,
 # prereleases included). `init` and `config migrate` set it to the version that
@@ -14,40 +14,23 @@ min_cli_version:
 # is always English. See `changeledger context spec`.
 language: en
 
-# Definition of Ready policy. When true (default), changes are documented
-# test-grade and implemented via TDD; `changeledger check` warns on criteria ↔ task
-# coverage gaps. Set false for exploratory repos. A type's own `tdd` overrides
-# this value for its changes. See `changeledger context spec`.
+# Test-first policy. When true (default), the implementer writes each
+# criterion's failing test before the code that makes it pass. Set false for
+# exploratory repos. A change may declare `tdd: false` in its frontmatter when
+# it delivers no behaviour a test can exercise, and its Log says why. See
+# `changeledger context implement`.
 tdd: true
 
-# Default SemVer impact for a completed change. A change may override its type
-# with `release_impact: none|patch|minor|major` in frontmatter.
+# Default SemVer impact for a completed change: none, patch, minor or major.
+# A change overrides it with `release_impact` in its frontmatter; an epic
+# always weighs `none`, because its children carry the impact.
 release:
-  impacts:
-    feature: minor
-    bug: patch
-    hotfix: patch
-    audit: none
-    refactor: none
-    chore: none
-    quick: patch
-    documentation: none
-    # The children carry the impact; counting the parent too would double it.
-    epic: none
-
-# Definition of Ready path/command hints. Tasks that reference CRs must name at
-# least one target and one verification matching these patterns; a warning in
-# `draft`, an error from `approved` onward. Patterns can be path globs or literal
-# command snippets. Adapt them to this repo's own layout — for example
-# `target_patterns: ["lib/**"]` and `verification_patterns: ["verify:"]`.
-readiness:
-  target_patterns: ["src/**"]
-  verification_patterns: ["test/**"]
+  default_impact: patch
 
 changes_dir: .changeledger/changes
 specs_dir: .changeledger/specs
 
-# Git integration: change branches start from and merge into `integration_branch`; types with `integrates_into: release` use `release_branch` instead.
+# Git integration: change branches start from and merge into `integration_branch`; a change with `integrates_into: release` in its frontmatter uses `release_branch` instead.
 # `change_branch_format` may use `{type}` and exactly one `{id}`; use null or remove it to opt out.
 git:
   integration_branch:
@@ -56,59 +39,3 @@ git:
 
 # Valid lifecycle statuses (order = progress)
 statuses: [draft, approved, in-progress, in-review, done, discarded]
-
-# Canonical stages (## headings in the change body)
-stages: [request, investigation, proposal, specification, plan, log]
-
-# Active stages per type. The viewer shows only these.
-# `review_required: true` makes the change pass through `in-review` (an
-# independent subagent review) before it is delivered to `done`. See
-# `changeledger context implement` and `changeledger context review`.
-types:
-  feature:
-    stages: [request, investigation, proposal, specification, plan, log]
-    review_required: true
-  bug:
-    stages: [request, investigation, specification, plan, log]
-    review_required: true
-  # A fix to released code: it starts from and integrates into
-  # `git.release_branch`, which must differ from `git.integration_branch`.
-  # Declare that branch before drafting one: until then
-  # `new` refuses to create a change of this type, `check` reports an open one,
-  # and `context <id>` and `agent-context` refuse to load it.
-  hotfix:
-    stages: [request, investigation, specification, plan, log]
-    review_required: true
-    integrates_into: release
-  audit:
-    stages: [request, investigation, log]
-  refactor:
-    stages: [request, proposal, specification, plan, log]
-    review_required: true
-  chore:
-    stages: [request, plan]
-  # Small, reversible, single-concern work with no persistent-truth or public
-  # surface impact. If scope grows mid-execution, discard and recreate under
-  # the correct type — see `changeledger context spec`.
-  quick:
-    stages: [request, log]
-  # Persistent truth about a topic, checked against what the code does; it
-  # changes no application code. With `tdd: false` it is reviewed on its
-  # criteria alone, without a Plan — see `changeledger context spec`.
-  # `seed_stage` names the stage `graduate --new` seeds the spec from: one of
-  # investigation, proposal or specification, active in this type (default:
-  # specification, else proposal).
-  documentation:
-    stages: [request, investigation, specification, log]
-    review_required: true
-    tdd: false
-    seed_stage: investigation
-  # The grouping parent of a multi-change effort: children declare `parent:
-  # <its id>`. It is approved on objective and frontier and never enumerates
-  # its children — they are created as the work discovers them. It carries no
-  # implementation of its own, which is why it activates neither
-  # `specification` nor `plan` and requires no review: its children are the
-  # work, and they are each reviewed. See `changeledger context spec`.
-  epic:
-    stages: [request, proposal, log]
-    tdd: false

@@ -5,9 +5,10 @@ import {
   findChangeledgerDir,
   integrationBranch,
   loadEffectiveConfig,
+  releaseBranch,
   renderChangeBranch,
 } from '../config.mjs';
-import { getSchemaVersion, SUPPORTED_SCHEMA_VERSION } from '../config-migration.mjs';
+import { getSchemaVersion, outdatedSchemaWarning } from '../config-migration.mjs';
 import { checkContract } from '../contract.mjs';
 import { VERSION } from '../framing.mjs';
 import { checkoutBranch, defaultBaseBranch, lintCommitRange } from '../git.mjs';
@@ -18,10 +19,6 @@ import { STATE_ROOT, unknownCollectionsMessage } from '../state-store.mjs';
 // `discarded` are listed: a custom terminal-like status such as `cancelled`
 // still decides.
 const TERMINAL_STATUSES = ['done', 'discarded'];
-
-function hasReleaseType(config) {
-  return Object.values(config?.types ?? {}).some((t) => t?.integrates_into === 'release');
-}
 
 // Non-terminal changes whose branch is the checked out one: the recorded
 // `branch`, or, while none is recorded, the one `git.change_branch_format`
@@ -37,26 +34,28 @@ function changesOnBranch(repo, branch) {
 // integration branch of the change on the current branch, else the declared
 // `git.integration_branch`, else the auto-detected default branch. Outside a
 // ChangeLedger repo the lint still works on plain git. A malformed declared
-// value fails fast in `integrationBranch`. The ledger is read only when some
-// type declares `integrates_into: release`. Without one, and with valid roles,
-// a change's base is `git.integration_branch` and reading the ledger would not
-// change the answer; `changeledger check` reports an invalid role as a config
-// error, but this lint does not detect it when no type integrates into release.
+// value fails fast in `integrationBranch`. The ledger is read only when the
+// repo declares `git.release_branch`, and the bases are compared only when a
+// change on the branch declares `integrates_into: release`. Otherwise, with
+// valid roles, every base is `git.integration_branch`; `changeledger check`
+// reports an invalid role, or a release change in a repo without a release
+// branch, but this lint does not detect either then.
 function defaultCommitsBase(cwd) {
   const changeledgerDir = findChangeledgerDir(cwd);
   if (!changeledgerDir) return defaultBaseBranch(cwd);
   const config = loadEffectiveConfig(path.dirname(changeledgerDir), changeledgerDir);
   const fallback = () => integrationBranch(config) ?? defaultBaseBranch(cwd);
-  if (!hasReleaseType(config)) return fallback();
+  if (releaseBranch(config) === undefined) return fallback();
 
   const branch = checkoutBranch(cwd);
   if (!branch) return fallback();
   const repo = loadRepo(cwd);
-  const decided = changesOnBranch(repo, branch).map((c) => ({
+  const onBranch = changesOnBranch(repo, branch);
+  if (!onBranch.some((c) => c.frontmatter.integrates_into === 'release')) return fallback();
+  const decided = onBranch.map((c) => ({
     id: c.frontmatter.id,
-    base: changeIntegrationBranch(repo.config, c.frontmatter.type) ?? fallback(),
+    base: changeIntegrationBranch(repo.config, c.frontmatter) ?? fallback(),
   }));
-  if (decided.length === 0) return fallback();
   const bases = new Set(decided.map((d) => d.base));
   if (bases.size > 1) {
     const listed = decided.map((d) => `#${d.id} (integrates into ${d.base})`);
@@ -132,12 +131,9 @@ export function check(args = [], cwd = process.cwd(), output = console) {
   const { errors, warnings, validated, notValidated } = checkRepo(repo, { id });
 
   // Schema version detection — warn without mutating.
-  const schemaVersion = getSchemaVersion(repo.config);
-  if (!id && schemaVersion < SUPPORTED_SCHEMA_VERSION) {
-    warnings.push({
-      file: '.changeledger/config.yml',
-      message: `config schema ${schemaVersion} is outdated; run \`changeledger config migrate --dry-run\``,
-    });
+  const schemaWarning = outdatedSchemaWarning(getSchemaVersion(repo.config));
+  if (!id && schemaWarning) {
+    warnings.push({ file: '.changeledger/config.yml', message: schemaWarning });
   }
 
   // Collections this CLI does not know are not validated (20261002-161641);

@@ -1,13 +1,12 @@
 # Closing Accepted Work
 
-This change is delivered. Resolve persistent truth before archiving. Run
+This change is delivered: resolve persistent truth before archiving. Run
 `changeledger context <id>` once it reaches `done` even if the base context was loaded
-earlier; this lifecycle-specific close overlay is not part of the base context.
-Changes describe a journey; `.changeledger/specs/*.md` describe the current
-capability, architecture or domain truth that code reflects.
+earlier; this close overlay is not part of the base context. Changes describe a journey;
+`.changeledger/specs/*.md` describe the current capability, architecture or domain truth
+that code reflects.
 
-Specs have no lifecycle or `status`. They use minimal frontmatter and free
-Markdown:
+Specs have no lifecycle or `status`. They use minimal frontmatter and free Markdown:
 
 ```yaml
 ---
@@ -29,65 +28,51 @@ First decide whether accepted work changed persistent truth:
   do not archive until every affected spec is linked.
 - Use `--skip` only when no persistent truth changed.
 - A change with a `parent` never links a spec: its epic reconciles once at
-  closure, instead of every child reconciling the same spec over and over. The
-  child still records its own decision, with `--skip`.
+  closure, and the child records its own decision with `--skip`.
 
-In a type with `review_required`, when closure creates, corrects or extends specs,
-delegate `graduation-review` once the reconciliation is drafted and before the
-first `--into`. On findings, correct the draft and delegate again to a fresh reviewer;
-record the outcome with `changeledger log <id>`. `--skip` needs no such review.
+No delegate reviews the reconciliation: the human reviews it when merging the change's
+branch.
 
 CR identifiers and headings are local traceability for a change; they must not
-remain as structure in specs. Rewrite their substance as concise durable truth.
-Both `--into` and `changeledger check` reject CR headings outside code fences.
+remain as structure in specs. Rewrite their substance as concise durable truth;
+both `--into` and `changeledger check` reject CR headings outside code fences.
 
-The two outcomes — spec reconciliation or `--skip` — are exclusive. Every
-graduation command requires an explicit mode; a positional slug without one is
-an error, so words such as `skip` or `skip-*` can never silently become specs.
+The two outcomes — spec reconciliation or `--skip` — are exclusive. Every graduation
+command requires an explicit mode; a positional slug without one is an error, so words
+such as `skip` or `skip-*` can never silently become specs.
 
 For a new spec, follow this ordered recipe — `--new` alone does not finish it:
 
-1. `changeledger graduate <id> <spec-slug> --new` creates a seed from the stage
-   the change's type declares as `seed_stage`, else from its Specification or,
-   lacking one, its Proposal, but leaves graduation pending; it does not set
-   `reviewed: true`.
+1. `changeledger graduate <id> <spec-slug> --new` creates a seed from the
+   change's Specification or, lacking one, its Request, but leaves graduation
+   pending; it does not set `reviewed: true`.
 2. Rewrite the seed as concise durable current truth and remove the explicit
    scaffold marker.
 3. `changeledger graduate <id> <spec-slug> --into` finalizes it; `--into`
    refuses an unrefined marked scaffold and sets `reviewed: true`.
 
-Alternatives and multi-spec reconciliation:
+For an existing spec affected by the change, reconcile its body first, then run
+`changeledger graduate <id> <spec-slug> --into`: it refreshes `updated`, records the
+link, leaves the body alone and sets `reviewed: true`.
+`changeledger graduate <id> --skip [reason]` records that no persistent truth changed
+and sets `reviewed: true`.
 
-- For an existing spec affected by the change, reconcile its body first, then run
-  `changeledger graduate <id> <spec-slug> --into`. It refreshes `updated`, records
-  the link, does not overwrite the body and sets `reviewed: true`.
-- `changeledger graduate <id> --skip [reason]` records that no persistent truth
-  changed and sets `reviewed: true`.
-- `changeledger list --pending graduation` lists accepted changes whose decision is
-  unresolved.
+`reviewed: true` means the persistent-truth question was settled, not necessarily that
+a spec was created, and it does not end a multi-spec reconciliation before every
+affected spec is linked. `--into` records the link in both directions — the change Log
+carries `graduado a spec` and the spec appends the change id to `graduated_from` — and
+`changeledger check` requires both sides to agree.
 
-`reviewed: true` means the persistent-truth question was settled, not necessarily
-that a spec was created. It is not permission to stop a multi-spec reconciliation
-before every affected spec is linked. `--into` records the same link in both
-directions: the change Log carries `graduado a spec`, and the target spec appends
-the change id to `graduated_from`. `changeledger check` requires both sides to
-agree. Repositories with legacy prose markers migrate them with
-`changeledger fix --graduation-links`, previewable with `--dry-run`.
+After `--into` or `--skip`, create one final closure commit that coalesces any pending
+`in-review → done` ledger updates with the graduation decision and durable spec edit.
+If no lifecycle state is pending, the graduation or skip itself is the closure evidence.
 
-After `--into` or `--skip`, create one final closure commit that coalesces any
-pending `in-review → done` ledger updates with the graduation
-decision and durable spec edit. If no lifecycle state is pending, the graduation
-or skip itself remains the meaningful closure evidence.
-
-Operational inspection and visibility:
-
-`changeledger list`, `show` and `archive`; each `--help` prints its filters.
-Three rules those filters do not carry: every id from `list --pending graduation`
-is resolved individually with `--new`, `--into` or `--skip`, because graduation
-is never a bulk mutation; `archive --graduated` without a filter stays
-repository-wide and deletes no branches; and `archive <id>` deletes that
-change's own local branch once it is merged into the integration branch, which
-editing `archived: false` does not undo.
+`changeledger list`, `show` and `archive` print their filters with `--help`. Three rules
+those filters do not carry: every id from `list --pending graduation` is resolved
+individually with `--new`, `--into` or `--skip`, because graduation is never a bulk
+mutation; `archive --graduated` without a filter stays repository-wide and deletes no
+branches; and `archive <id>` deletes that change's own local branch once it is merged
+into the integration branch, which editing `archived: false` does not undo.
 
 Use Mermaid where it communicates persistent relationships better than prose.
 After closure, share a brief retrospective: what went well and what caused friction.

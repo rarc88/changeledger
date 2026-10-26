@@ -10,7 +10,9 @@ import { status, task } from '../src/commands/agent.mjs';
 import { buildMigration } from '../src/config-migration.mjs';
 import { LOG_EVENT_DEFINITIONS } from '../src/lifecycle.mjs';
 import { STATE_REF, writeActivation } from '../src/state-store.mjs';
+import { assertWithinBudget, contextBudgets } from './budget-support.mjs';
 import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
+import { changeId } from './helpers/ledger-fixtures.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
 const bin = path.resolve(
@@ -110,7 +112,7 @@ function doneRepo() {
   // Explicit owner: a spawned CLI takes no injected identity resolver, and since
   // 20260726-124836 `new` defaults to the host's git identity, which would make
   // the owner-filter assertions depend on who runs the suite.
-  assert.equal(runIn(root, env, 'new', 'chore', 'x', 'X', '--owner', 'Roberto Ruiz').code, 0);
+  assert.equal(runIn(root, env, 'new', 'change', 'x', 'X', '--owner', 'Roberto Ruiz').code, 0);
   const item = JSON.parse(runIn(root, env, 'list', '--json').out)[0];
   const changeFile = fs
     .readdirSync(path.join(root, '.changeledger', 'changes'))
@@ -139,7 +141,7 @@ function activatedCliRepo() {
   initGitFixture(root);
 
   const changeDoc = (id, title) =>
-    `---\nid: "${id}"\ntitle: ${title}\ntype: feature\nstatus: draft\ncreated: 2026-08-08T00:00:00Z\ndepends_on: []\n---\n\n## Request\n\nHi.\n`;
+    `---\nid: "${id}"\ntitle: ${title}\ntype: change\nstatus: draft\ncreated: 2026-08-08T00:00:00Z\ndepends_on: []\n---\n\n## Request\n\nHi.\n`;
 
   fs.writeFileSync(
     path.join(root, '.changeledger', 'changes', 'only-worktree.md'),
@@ -167,7 +169,7 @@ function activatedMigrationCliRepo({ marker = 'statuses: [\n', stateConfig } = {
   const configFile = path.join(root, '.changeledger', 'config.yml');
   const initialized = fs.readFileSync(configFile, 'utf8');
   const authority =
-    stateConfig ?? initialized.replace(/^schema_version: \d+$/m, 'schema_version: 1');
+    stateConfig ?? initialized.replace(/^schema_version: \d+$/m, 'schema_version: 6');
   fs.writeFileSync(configFile, marker);
   initGitFixture(root);
   const tree = buildTree(root, {
@@ -213,18 +215,10 @@ test('131649 CR8: graduate help contains only mutation modes and points to list'
   assert.match(out, /changeledger list --pending graduation/);
 });
 
-test('111457 CR5/CR6: fix help exposes the scoped graduation-links migration', () => {
-  const { code, out } = run('fix', '--help');
-  assert.equal(code, 0);
-  assert.match(out, /--graduation-links/);
-  assert.match(out, /--structured-sections/);
-  assert.match(out, /--dry-run/);
-});
-
 test('20260824-134716 CR2: static CLI domains are complete in help and invalid-value errors', () => {
   for (const [command, values] of [
-    ['agent-prompt', 'investigation | implementation | review | graduation-review'],
-    ['agent-context', 'investigation | implementation | review | graduation-review'],
+    ['agent-prompt', 'review'],
+    ['agent-context', 'review'],
     ['review', 'pass|fail'],
     ['task', 'done|block'],
   ]) {
@@ -259,67 +253,13 @@ test('20261018-131621 CR18: init hands out the six statuses and check never name
   assert.doesNotMatch(check.out + check.err, /in-validation|blocked/);
 });
 
-test('20260824-134716 CR2: repo-configured domains appear in help and invalid errors', () => {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
-  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
-  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
-  assert.equal(runIn(root, env, 'init').code, 0);
-  const configFile = path.join(root, '.changeledger', 'config.yml');
-  fs.writeFileSync(
-    configFile,
-    fs
-      .readFileSync(configFile, 'utf8')
-      .replace('types:\n', 'types:\n  custom:\n    stages: [request, log]\n'),
-  );
-  const help = runIn(root, env, 'check', '--help').out;
-  assert.match(
-    help,
-    /effective types: custom, feature, bug, hotfix, audit, refactor, chore, quick/,
-  );
-  assert.match(
-    help,
-    /effective statuses: draft, approved, in-progress, in-review, done, discarded/,
-  );
-  assert.match(
-    help,
-    /effective stages: request, investigation, proposal, specification, plan, log/,
-  );
-  const invalid = runIn(root, env, 'new', 'guess', 'x', 'X', '--owner', 'Test');
-  assert.notEqual(invalid.code, 0);
-  assert.match(
-    invalid.err,
-    /Allowed choices are custom, feature, bug, hotfix, audit, refactor, chore, quick/,
-  );
-});
-
-test('20260824-134716 CR3: every pair of fix migration modes fails before action', () => {
-  const modes = ['--graduation-links', '--structured-sections', '--plan-tags'];
-  for (let left = 0; left < modes.length; left++) {
-    for (let right = left + 1; right < modes.length; right++) {
-      const result = run('fix', modes[left], modes[right]);
-      assert.notEqual(result.code, 0);
-      assert.match(
-        result.err,
-        new RegExp(`option '${modes[left]}' cannot be used with option '${modes[right]}'`),
-      );
-    }
-  }
-});
-
-test('20260824-134716 CR5: fix help names exact default repairs and one-at-a-time migrations', () => {
+test('20260824-134716 CR5: fix help names exact default repairs and no migration mode', () => {
   const out = run('fix', '--help').out;
   assert.match(
     out,
     /default repairs: checkbox markers \[ x \]\/\[X\], legacy hyphen separators, near-ISO UTC timestamps/,
   );
-  assert.match(out, /--graduation-links.*graduation provenance/s);
-  assert.match(
-    out,
-    /--structured-sections.*resolved\/blocked task metadata and recognized\s+legacy Log entries/s,
-  );
-  assert.match(out, /--plan-tags.*criteria, support and verify children/s);
-  assert.match(out, /migration modes are mutually exclusive; run exactly one at a time/);
+  assert.doesNotMatch(out, /--graduation-links|--structured-sections|--plan-tags|migration modes/);
 });
 
 test('20260824-134716 CR7: log help derives the complete grammar without promising arbitrary events', () => {
@@ -400,10 +340,10 @@ test('125139 CR1/CR6: approve is the human decision the CLI transmits', () => {
   assert.equal(runIn(root, env, 'init').code, 0);
   disableChangeBranchFormat(root);
   // Explicit owner: a spawned CLI takes no injected identity resolver.
-  assert.equal(runIn(root, env, 'new', 'chore', 'x', 'X', '--owner', 'Roberto Ruiz').code, 0);
+  // An epic: its short cycle reaches `done` without a review or a branch.
+  assert.equal(runIn(root, env, 'new', 'epic', 'x', 'X', '--owner', 'Roberto Ruiz').code, 0);
   const id = JSON.parse(runIn(root, env, 'list', '--json').out)[0].id;
-  // 20260810-213633: approve refuses a chore whose active stages (request, plan)
-  // are blank — back-fill both minimally before the approval walk below.
+  // approve requires an objective and a frontier (20261023-181753).
   const chFile = path.join(
     root,
     '.changeledger',
@@ -414,14 +354,13 @@ test('125139 CR1/CR6: approve is the human decision the CLI transmits', () => {
     chFile,
     fs
       .readFileSync(chFile, 'utf8')
-      .replace('## Request\n', '## Request\n\nR\n')
-      .replace('## Plan\n', '## Plan\n\n- [ ] do it\n  - **Support:**\n'),
+      .replace('### Objective\n', '### Objective\n\nO\n')
+      .replace('### Frontier\n', '### Frontier\n\nF\n'),
   );
   assert.equal(runIn(root, env, 'status', id, 'approved').code, 1);
   assert.equal(runIn(root, env, 'approve', id).code, 0);
   assert.match(runIn(root, env, 'show', id, '--json').out, /human via conversation/);
   assert.equal(runIn(root, env, 'status', id, 'in-progress').code, 0);
-  assert.equal(runIn(root, env, 'task', id, 'done', '1').code, 0);
   assert.equal(runIn(root, env, 'status', id, 'done').code, 0);
   assert.equal(JSON.parse(runIn(root, env, 'show', id, '--json').out).frontmatter.status, 'done');
 });
@@ -433,7 +372,7 @@ test('125139 CR4/CR6/CR8: decision commands fail closed and explain human author
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
   assert.equal(runIn(root, env, 'init').code, 0);
   // Explicit owner: a spawned CLI takes no injected identity resolver.
-  assert.equal(runIn(root, env, 'new', 'chore', 'x', 'X', '--owner', 'Roberto Ruiz').code, 0);
+  assert.equal(runIn(root, env, 'new', 'change', 'x', 'X', '--owner', 'Roberto Ruiz').code, 0);
   const id = JSON.parse(runIn(root, env, 'list', '--json').out)[0].id;
   const file = path.join(
     root,
@@ -549,7 +488,7 @@ test('225212 CR2: context -h never tells the reader to run context <id> before t
 test('225212 CR3: changeledger new -h documents type domain and slug language', () => {
   const { code, out } = run('new', '-h');
   assert.equal(code, 0);
-  assert.match(out, /\.changeledger\/config\.yml/);
+  assert.match(out, /change or epic/);
   assert.match(out, /English/i);
 });
 
@@ -589,7 +528,7 @@ test('20260805-052741 CR4: changeledger branch <id> <name> sets the branch expli
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
   const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
   assert.equal(runIn(root, env, 'init').code, 0);
-  assert.equal(runIn(root, env, 'new', 'chore', 'x', 'X', '--owner', 'Roberto Ruiz').code, 0);
+  assert.equal(runIn(root, env, 'new', 'change', 'x', 'X', '--owner', 'Roberto Ruiz').code, 0);
   const item = JSON.parse(runIn(root, env, 'list', '--json').out)[0];
   const { code, out } = runIn(root, env, 'branch', item.id, 'hotfix/y');
   assert.equal(code, 0);
@@ -604,7 +543,7 @@ test('20260805-052741 CR5: changeledger branch <id> - clears the branch', () => 
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
   const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
   assert.equal(runIn(root, env, 'init').code, 0);
-  assert.equal(runIn(root, env, 'new', 'chore', 'x', 'X', '--owner', 'Roberto Ruiz').code, 0);
+  assert.equal(runIn(root, env, 'new', 'change', 'x', 'X', '--owner', 'Roberto Ruiz').code, 0);
   const item = JSON.parse(runIn(root, env, 'list', '--json').out)[0];
   assert.equal(runIn(root, env, 'branch', item.id, 'hotfix/y').code, 0);
   assert.equal(runIn(root, env, 'branch', item.id, '-').code, 0);
@@ -660,14 +599,14 @@ test('20261020-172221 CR7: --parent is refused with --from, like --owner, never 
   const draft = path.join(root, 'draft.md');
   fs.writeFileSync(
     draft,
-    runIn(root, env, 'new', 'quick', 'hijo', 'Hijo', '--print', '--owner', 'Roberto Ruiz').out,
+    runIn(root, env, 'new', 'change', 'hijo', 'Hijo', '--print', '--owner', 'Roberto Ruiz').out,
   );
 
   const refused = runIn(
     root,
     env,
     'new',
-    'quick',
+    'change',
     'hijo',
     'Hijo',
     '--from',
@@ -683,7 +622,7 @@ test('20261020-172221 CR7: --parent is refused with --from, like --owner, never 
   );
 
   // The flag is only refused next to `--from`; it still works on its own seat.
-  assert.equal(runIn(root, env, 'new', 'quick', 'hijo', 'Hijo', '--from', draft).code, 0);
+  assert.equal(runIn(root, env, 'new', 'change', 'hijo', 'Hijo', '--from', draft).code, 0);
 });
 
 // The bulk seat deletes no branches, so `--keep-branch` there is a promise it
@@ -708,7 +647,7 @@ test('131649 CR3/CR4/CR6/CR10: list help documents its complete filter domain', 
   assert.match(out, /\.changeledger\/config\.yml/);
   assert.match(out, /--owner/);
   assert.match(out, /--unowned/);
-  assert.match(out, /--pending.*graduation.*archive/is);
+  assert.match(out, /--pending.*graduation.*archive.*findings/is);
   assert.match(out, /--archived/);
   assert.match(out, /--all/);
 });
@@ -723,7 +662,10 @@ test('131649 CR4/CR6/CR8-CR10: CLI rejects removed, conflicting and invalid quer
     ['list', '--pending', 'release'],
   ];
   for (const args of cases) assert.equal(runIn(root, env, ...args).code, 1, args.join(' '));
-  assert.match(runIn(root, env, 'list', '--pending', 'release').err, /graduation.*archive/);
+  assert.match(
+    runIn(root, env, 'list', '--pending', 'release').err,
+    /graduation, archive, findings/,
+  );
 });
 
 test('225212 CR4: changeledger view -h shows explicit syntax for view, view . and a port', () => {
@@ -768,6 +710,20 @@ test('225212 CR6: help matrix — every command and subcommand documents Usage o
   for (const { command, code, out } of commandHelp) {
     assert.equal(code, 0, `${command.join(' ')} -h should exit 0`);
     assert.match(out, /Usage: changeledger/, `${command.join(' ')} -h should show Usage`);
+  }
+});
+
+// A help example that carries a real change id sends the
+// reader to a change that may not exist in their repo, so examples use `<id>`.
+test('no command help carries a literal change id', () => {
+  const commandHelp = registeredCommandHelp();
+  assert.ok(commandHelp.length > 20, 'the help matrix looks truncated');
+  for (const { command, out } of [{ command: [], out: run('--help').out }, ...commandHelp]) {
+    assert.doesNotMatch(
+      out,
+      /\d{8}-\d{6}/,
+      `\`changeledger ${command.join(' ')} -h\` carries a literal change id`,
+    );
   }
 });
 
@@ -826,7 +782,7 @@ test('20260808-171107 CR5: unknown context ids outrank unrelated parse errors wi
   assert.match(context.err, /Unknown context "20990101-000000"/);
   assert.doesNotMatch(context.out, /CHANGELEDGER CONTEXT BEGIN/);
 
-  const agent = runIn(root, env, 'agent-context', 'implementation', '20990101-000000');
+  const agent = runIn(root, env, 'agent-context', 'review', `${'20990101'}-000000`);
   assert.equal(agent.code, 1);
   assert.match(agent.err, /No change with id "20990101-000000"/);
   assert.doesNotMatch(agent.out, /CHANGELEDGER AGENT CONTEXT BEGIN/);
@@ -866,17 +822,15 @@ test('20260808-171107 CR4: CLI and viewer conflict text use one shared literal b
 });
 
 // 20260729-162616 CR1: `context <id>` used to degrade silently on an
-// undecidable type — an empty `Active stages(undefined)=` line, exit 0 — for
-// three distinct causes. The contract requires it to abort naming the cause
-// instead, exactly like `changeledger check` already does for the config-level
-// version of the same defect.
+// undecidable type. It aborts naming the cause instead — an unknown or a
+// missing type — exactly like `changeledger check` reports the same defect.
 function contextRepo() {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
   const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
   assert.equal(runIn(root, env, 'init').code, 0);
-  assert.equal(runIn(root, env, 'new', 'chore', 'x', 'X', '--owner', 'Test').code, 0);
+  assert.equal(runIn(root, env, 'new', 'change', 'x', 'X', '--owner', 'Test').code, 0);
   const item = JSON.parse(runIn(root, env, 'list', '--json').out)[0];
   const changeFile = fs
     .readdirSync(path.join(root, '.changeledger', 'changes'))
@@ -887,64 +841,57 @@ function contextRepo() {
 
 test('162616 CR1: an unknown type aborts naming it instead of an empty stages line', () => {
   const { root, env, id, changeFile, original } = contextRepo();
-  fs.writeFileSync(changeFile, original.replace('type: chore', 'type: bogus'));
+  fs.writeFileSync(changeFile, original.replace('type: change', 'type: bogus'));
 
   const { code, err, out } = runIn(root, env, 'context', id);
   assert.notEqual(code, 0);
-  assert.match(err, /unknown type "bogus"/);
-  assert.doesNotMatch(out, /Active stages\(bogus\)=\s*$/m);
+  assert.match(err, /unknown type "bogus"; valid types: change, epic/);
+  assert.equal(out, '');
 });
 
 test('162616 CR1: a missing frontmatter type aborts naming it', () => {
   const { root, env, id, changeFile, original } = contextRepo();
-  fs.writeFileSync(changeFile, original.replace(/^type: chore\n/m, ''));
+  fs.writeFileSync(changeFile, original.replace(/^type: change\n/m, ''));
 
   const { code, err } = runIn(root, env, 'context', id);
   assert.notEqual(code, 0);
   assert.match(err, /missing frontmatter "type"/);
 });
 
-test('162616 CR1: a type whose config declares stages as a string aborts naming it', () => {
-  const { root, env, id } = contextRepo();
-  const configFile = path.join(root, '.changeledger', 'config.yml');
-  fs.writeFileSync(
-    configFile,
-    fs
-      .readFileSync(configFile, 'utf8')
-      .replace('stages: [request, plan]', 'stages: "request, plan"'),
-  );
-
-  const { code, err } = runIn(root, env, 'context', id);
-  assert.notEqual(code, 0);
-  assert.match(err, /stages must be a list/);
-});
-
-test('162616 CR1: a valid type with valid stages produces the same capture as before', () => {
+test('162616 CR1: a valid type publishes it instead of a stages line', () => {
   const { root, env, id } = contextRepo();
   const { code, out } = runIn(root, env, 'context', id);
   assert.equal(code, 0);
-  assert.match(out, /Active stages\(chore\)=request, plan/);
+  assert.match(out, /— type=change$/m);
+  assert.doesNotMatch(out, /Active stages/);
 });
 
-// 20260729-162616 CR5: `readiness.md` is the only fragment that defines the
-// `tdd` obligation, and it is excluded for a type that never activates
-// `specification` (chore has no such stage in the default template). The
-// policy line must not publish `tdd=` when its definition was never served.
-test('162616 CR5: the policy line omits tdd= for a type without specification', () => {
-  const { root, env, id } = contextRepo();
+// 20260729-162616 CR5: `tdd` obliges writing the failing test from each
+// criterion, and an epic is never implemented (20261024-121022), so it
+// declares no criterion to write it from. The policy line must not publish
+// `tdd=` for it.
+test('162616 CR5: the policy line omits tdd= for an epic', () => {
+  const { root, env, id, changeFile, original } = contextRepo();
+  fs.writeFileSync(
+    changeFile,
+    original
+      .replace('type: change', 'type: epic')
+      .replace('## Specification\n\n', '')
+      .replace('## Plan\n\n', ''),
+  );
   const { code, out } = runIn(root, env, 'context', id);
   assert.equal(code, 0);
   const policyLine = out.split('\n').find((line) => line.startsWith('Effective policy:'));
   assert.doesNotMatch(policyLine, /tdd=/);
 });
 
-test('162616 CR5: a type with specification keeps the tdd= line identical to today', () => {
+test('162616 CR5: a change keeps the tdd= line identical to today', () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
   const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
   assert.equal(runIn(root, env, 'init').code, 0);
-  assert.equal(runIn(root, env, 'new', 'feature', 'x', 'X', '--owner', 'Test').code, 0);
+  assert.equal(runIn(root, env, 'new', 'change', 'x', 'X', '--owner', 'Test').code, 0);
   const item = JSON.parse(runIn(root, env, 'list', '--json').out)[0];
   const { code, out } = runIn(root, env, 'context', item.id);
   assert.equal(code, 0);
@@ -981,7 +928,7 @@ test('235628 CR1/CR5/CR7: release CLI initializes, plans JSON and records', () =
   assert.equal(runIn(root, env, 'init').code, 0);
   assert.equal(runIn(root, env, 'release', 'init', '0.1.0').code, 0);
   // Explicit owner: a spawned CLI takes no injected identity resolver.
-  assert.equal(runIn(root, env, 'new', 'feature', 'x', 'X', '--owner', 'Roberto Ruiz').code, 0);
+  assert.equal(runIn(root, env, 'new', 'change', 'x', 'X', '--owner', 'Roberto Ruiz').code, 0);
   const item = JSON.parse(runIn(root, env, 'list', '--json').out)[0];
   const file = fs
     .readdirSync(path.join(root, '.changeledger', 'changes'))
@@ -992,13 +939,14 @@ test('235628 CR1/CR5/CR7: release CLI initializes, plans JSON and records', () =
   const planned = runIn(root, env, 'release', 'plan', '--json');
   assert.equal(planned.code, 0);
   const plan = JSON.parse(planned.out);
-  assert.equal(plan.nextVersion, '0.2.0');
+  // No `release_impact`: the template's `release.default_impact: patch`.
+  assert.equal(plan.nextVersion, '0.1.1');
   assert.deepEqual(
     plan.changes.map((change) => change.id),
     [item.id],
   );
-  assert.equal(runIn(root, env, 'release', 'record', '0.2.0').code, 0);
-  assert.equal(fs.existsSync(path.join(root, '.changeledger', 'releases', '0.2.0.yml')), true);
+  assert.equal(runIn(root, env, 'release', 'record', '0.1.1').code, 0);
+  assert.equal(fs.existsSync(path.join(root, '.changeledger', 'releases', '0.1.1.yml')), true);
 });
 
 test('151226: bin remains directly executable', { skip: process.platform === 'win32' }, () => {
@@ -1032,12 +980,11 @@ test('review wiring: fail parses the reason and returns the change to in-progres
   assert.equal(runIn(root, env, 'init').code, 0);
   disableChangeBranchFormat(root);
   // Explicit owner: a spawned CLI takes no injected identity resolver.
-  assert.equal(runIn(root, env, 'new', 'feature', 'x', 'X', '--owner', 'Roberto Ruiz').code, 0);
+  assert.equal(runIn(root, env, 'new', 'change', 'x', 'X', '--owner', 'Roberto Ruiz').code, 0);
   const id = JSON.parse(runIn(root, env, 'list', '--json').out)[0].id;
 
-  // 20260810-213633: approve refuses a feature whose active stages are blank;
-  // in-review also needs a test-grade CR and a Plan task naming target and
-  // verification (same shape as 124656 CR3's repaired fixture).
+  // approve requires an objective and a frontier; in-review a Specification
+  // with a criterion and a Plan with a body (20261023-181753).
   const reviewFile = path.join(
     root,
     '.changeledger',
@@ -1048,9 +995,8 @@ test('review wiring: fail parses the reason and returns the change to in-progres
     reviewFile,
     fs
       .readFileSync(reviewFile, 'utf8')
-      .replace('## Request\n', '## Request\n\nR\n')
-      .replace('## Investigation\n', '## Investigation\n\nI\n')
-      .replace('## Proposal\n', '## Proposal\n\nP\n')
+      .replace('### Objective\n', '### Objective\n\nO\n')
+      .replace('### Frontier\n', '### Frontier\n\nF\n')
       .replace(
         '## Specification\n',
         '## Specification\n\n### CR1 — Something\n- **Given** a thing\n- **When** it runs\n- **Then** it holds\n',
@@ -1127,7 +1073,7 @@ test('184354 CLI CR1: init declares min_cli_version as the real installed versio
 
   assert.equal(runIn(root, env, 'init').code, 0);
   const configText = fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8');
-  assert.match(configText, /^schema_version: 6$/m);
+  assert.match(configText, /^schema_version: 7$/m);
   assert.match(
     configText,
     new RegExp(`^min_cli_version: ${pkgVersion.replace(/\./g, '\\.')}$`, 'm'),
@@ -1149,14 +1095,13 @@ test('184354 CLI CR2: config migrate declares min_cli_version as the real instal
   const configFile = path.join(root, '.changeledger', 'config.yml');
   const downgraded = fs
     .readFileSync(configFile, 'utf8')
-    .replace(/^schema_version: 6$/m, 'schema_version: 5')
-    .replace(/\n# Minimum ChangeLedger CLI version[\s\S]*?\nmin_cli_version: .*\n/, '\n');
+    .replace(/^schema_version: 7$/m, 'schema_version: 6')
+    .replace(/^min_cli_version: .*$/m, 'min_cli_version: 0.1.0');
   fs.writeFileSync(configFile, downgraded);
 
-  const { code, out } = runIn(root, env, 'config', 'migrate');
-  assert.equal(code, 0);
-  assert.match(out, /^Config migration 5 → 6$/m);
-  assert.match(out, new RegExp(`added min_cli_version: ${pkgVersion.replace(/\./g, '\\.')}$`, 'm'));
+  const { code, out, err } = runIn(root, env, 'config', 'migrate');
+  assert.equal(code, 0, err);
+  assert.match(out, /^Config migration 6 → 7$/m);
   const migrated = fs.readFileSync(configFile, 'utf8');
   assert.match(migrated, new RegExp(`^min_cli_version: ${pkgVersion.replace(/\./g, '\\.')}$`, 'm'));
 });
@@ -1189,7 +1134,7 @@ function approvedGitRepo() {
   const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
   assert.equal(runIn(root, env, 'init').code, 0);
   disableChangeBranchFormat(root);
-  assert.equal(runIn(root, env, 'new', 'quick', 'x', 'X', '--owner', 'Roberto Ruiz').code, 0);
+  assert.equal(runIn(root, env, 'new', 'change', 'x', 'X', '--owner', 'Roberto Ruiz').code, 0);
   const id = JSON.parse(runIn(root, env, 'list', '--json').out)[0].id;
   const changesDir = path.join(root, '.changeledger', 'changes');
   const changeFile = path.join(changesDir, fs.readdirSync(changesDir)[0]);
@@ -1427,16 +1372,18 @@ test('113219 CLI CR3: config migrate --dry-run shows candidate and exits 0 witho
   const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
   assert.equal(runIn(root, env, 'init').code, 0);
 
-  // Downgrade to schema 0 by removing schema_version
+  // Downgrade to schema 6, the only one a migration starts from
   const configFile = path.join(root, '.changeledger', 'config.yml');
-  const original = fs.readFileSync(configFile, 'utf8').replace(/^schema_version: \d+\n/m, '');
+  const original = fs
+    .readFileSync(configFile, 'utf8')
+    .replace(/^schema_version: 7$/m, 'schema_version: 6');
   fs.writeFileSync(configFile, original);
   const before = fs.readFileSync(configFile, 'utf8');
 
   const { code, out } = runIn(root, env, 'config', 'migrate', '--dry-run');
   assert.equal(code, 0);
-  assert.match(out, /Config migration 0 → 6 \(dry run\)/);
-  assert.match(out, /schema_version: 6/);
+  assert.match(out, /Config migration 6 → 7 \(dry run\)/);
+  assert.match(out, /schema_version: 7/);
   assert.match(out, /change_branch_format: "\{type\}\/\{id\}"/);
   assert.equal(fs.readFileSync(configFile, 'utf8'), before, 'dry-run must not modify file');
 });
@@ -1476,7 +1423,7 @@ test('234920 CR1: active CLI dry-run previews the ref and leaves ref, snapshot, 
   const { code, out, err } = runIn(root, env, 'config', 'migrate', '--dry-run');
 
   assert.equal(code, 0, err);
-  assert.match(out, /^Config migration 1 → 6 \(dry run\)$/m);
+  assert.match(out, /^Config migration 6 → 7 \(dry run\)$/m);
   assert.ok(out.includes(expected.yaml));
   assert.equal(
     execFileSync('git', ['rev-parse', STATE_REF], {
@@ -1491,14 +1438,14 @@ test('234920 CR1: active CLI dry-run previews the ref and leaves ref, snapshot, 
 });
 
 test('234920 CR2: active CLI apply publishes one config migration commit and preserves other state and marker bytes', () => {
-  const marker = 'schema_version: 6\nproject_name: divergent marker\n';
+  const marker = 'schema_version: 7\nproject_name: divergent marker\n';
   const { root, env, configFile, authority, revision } = activatedMigrationCliRepo({ marker });
   const expected = buildMigration(authority).yaml;
 
   const { code, out, err } = runIn(root, env, 'config', 'migrate');
 
   assert.equal(code, 0, err);
-  assert.match(out, /^Config migration 1 → 6$/m);
+  assert.match(out, /^Config migration 6 → 7$/m);
   const tip = execFileSync('git', ['rev-parse', STATE_REF], {
     cwd: root,
     env: sanitizedEnv(),
@@ -1534,7 +1481,7 @@ test('234920 CR2: active CLI apply publishes one config migration commit and pre
 });
 
 test('234920 CR3: active CLI fails closed on an absent ref and an invalid state layout', () => {
-  const current = 'schema_version: 6\n';
+  const current = 'schema_version: 7\n';
 
   const absent = activatedMigrationCliRepo({ marker: current });
   execFileSync('git', ['update-ref', '-d', STATE_REF], { cwd: absent.root, env: sanitizedEnv() });
@@ -1579,10 +1526,11 @@ test('CR6: graduate --into wires through and links an existing spec', () => {
   assert.equal(runIn(root, env, 'init').code, 0);
   disableChangeBranchFormat(root);
   // Explicit owner: a spawned CLI takes no injected identity resolver.
-  assert.equal(runIn(root, env, 'new', 'chore', 'x', 'X', '--owner', 'Roberto Ruiz').code, 0);
+  assert.equal(runIn(root, env, 'new', 'change', 'x', 'X', '--owner', 'Roberto Ruiz').code, 0);
   const id = JSON.parse(runIn(root, env, 'list', '--json').out)[0].id;
-  // 20260810-213633: approve refuses a chore whose active stages (request,
-  // plan) are blank — back-fill both minimally.
+  // approve requires an objective and a frontier; in-review a Specification
+  // with a criterion and a Plan (20261023-181753). Without git, `done` is
+  // reached through the review verdict (20261024-121022).
   const graduateFile = path.join(
     root,
     '.changeledger',
@@ -1593,14 +1541,16 @@ test('CR6: graduate --into wires through and links an existing spec', () => {
     graduateFile,
     fs
       .readFileSync(graduateFile, 'utf8')
-      .replace('## Request\n', '## Request\n\nR\n')
-      .replace('## Plan\n', '## Plan\n\n- [ ] do it\n  - **Support:**\n'),
+      .replace('### Objective\n', '### Objective\n\nO\n')
+      .replace('### Frontier\n', '### Frontier\n\nF\n')
+      .replace('## Specification\n', '## Specification\n\n### CR1 — x\n- **Then** it holds\n')
+      .replace('## Plan\n', '## Plan\n\n- [ ] do it\n  - **Criteria:** CR1\n'),
   );
-  // chore: no review gate, so `status` delivers it to done directly.
   status(id, 'approved', root);
   assert.equal(runIn(root, env, 'status', id, 'in-progress').code, 0);
   task(id, 'done', 1, '', root);
-  assert.equal(runIn(root, env, 'status', id, 'done').code, 0);
+  assert.equal(runIn(root, env, 'status', id, 'in-review').code, 0);
+  assert.equal(runIn(root, env, 'review', id, 'pass').code, 0);
 
   const specFile = path.join(root, '.changeledger', 'specs', 'architecture.md');
   fs.mkdirSync(path.dirname(specFile), { recursive: true });
@@ -1721,18 +1671,19 @@ test('151336 CR4: --no-change and --id are mutually exclusive and create no comm
 test('20260808-141944 CR6: status warns on stderr when the checkout differs from the registered branch', () => {
   const { root, env } = noChangeRepo();
   disableChangeBranchFormat(root);
-  assert.equal(runIn(root, env, 'new', 'feature', 'x', 'X', '--owner', 'Roberto Ruiz').code, 0);
+  assert.equal(runIn(root, env, 'new', 'change', 'x', 'X', '--owner', 'Roberto Ruiz').code, 0);
   const id = JSON.parse(runIn(root, env, 'list', '--json').out)[0].id;
   const changeFile = fs
     .readdirSync(path.join(root, '.changeledger', 'changes'))
     .map((name) => path.join(root, '.changeledger', 'changes', name))
     .find((candidate) => fs.readFileSync(candidate, 'utf8').includes(`id: "${id}"`));
-  // A minimal ready candidate (same shape as 124656 CR3's repaired fixture):
-  // the in-review readiness gate requires a testable CR and a Plan task that
-  // names both target and verification.
+  // A minimal reviewable candidate: approve requires an objective and a
+  // frontier, and the exit to in-review a Specification with a criterion and a
+  // Plan with a body (20261023-181753).
   const ready = fs
     .readFileSync(changeFile, 'utf8')
-    .replace('## Request\n', '## Request\n\nR\n')
+    .replace('### Objective\n', '### Objective\n\nO\n')
+    .replace('### Frontier\n', '### Frontier\n\nF\n')
     .replace('## Investigation\n', '## Investigation\n\nI\n')
     .replace('## Proposal\n', '## Proposal\n\nP\n')
     .replace(
@@ -1807,40 +1758,6 @@ test('CR2: two concurrent CLI writes — exactly one succeeds, the loser gets th
   assert.equal(noteACount + noteBCount, 1);
 });
 
-// 20261002-113320 CR7 — `init` ships the `documentation` type: review without a
-// Plan (its effective tdd is off) and no release impact, valid as generated.
-test('113320 CR7: init declares the documentation type and check stays clean', () => {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
-  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
-  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
-  assert.equal(runIn(root, env, 'init').code, 0);
-  const config = parseYaml(fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8'));
-  assert.deepEqual(config.types.documentation, {
-    stages: ['request', 'investigation', 'specification', 'log'],
-    review_required: true,
-    tdd: false,
-    seed_stage: 'investigation',
-  });
-  assert.equal(config.release.impacts.documentation, 'none');
-  const checked = runIn(root, env, 'check');
-  assert.equal(checked.code, 0, checked.err);
-});
-
-// 20261002-113435 CR4 — the template seeds a `documentation` spec from the
-// Investigation, and the generated config stays valid.
-test('113435 CR4: init sets the documentation seed_stage to investigation and check is clean', () => {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
-  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
-  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
-  assert.equal(runIn(root, env, 'init').code, 0);
-  const config = parseYaml(fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8'));
-  assert.equal(config.types.documentation.seed_stage, 'investigation');
-  const checked = runIn(root, env, 'check');
-  assert.equal(checked.code, 0, checked.err);
-});
-
 // 20261002-181346 CR7 — `init` declares an empty `git.release_branch` next to
 // `git.integration_branch`, and the generated config stays valid.
 test('181346 CR7: init declares an empty git.release_branch beside integration_branch', () => {
@@ -1858,37 +1775,27 @@ test('181346 CR7: init declares an empty git.release_branch beside integration_b
   assert.equal(checked.code, 0, checked.err);
 });
 
-// 20261002-181428 CR1 — `init` ships the `hotfix` type after `bug`: the stages
-// and review of `bug`, integrated into the release branch, with a patch release
-// impact. The generated config, whose `git.release_branch` is still empty, stays
-// valid.
-test('181428 CR1: init declares the hotfix type after bug and check stays clean', () => {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
-  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
-  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
-  assert.equal(runIn(root, env, 'init').code, 0);
-  const config = parseYaml(fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8'));
-  assert.deepEqual(config.types.hotfix, {
-    stages: ['request', 'investigation', 'specification', 'plan', 'log'],
-    review_required: true,
-    integrates_into: 'release',
-  });
-  const types = Object.keys(config.types);
-  assert.equal(types.indexOf('hotfix'), types.indexOf('bug') + 1);
-  assert.equal(config.release.impacts.hotfix, 'patch');
-  assert.equal(config.git.release_branch, null);
-  const checked = runIn(root, env, 'check');
-  assert.equal(checked.code, 0, checked.err);
-});
-
 // 20261012-174310 CR1/CR5-CR7 — the first real use of the shipped `hotfix` type
 // in a fresh repo: `new` refuses while `git.release_branch` is empty, and once
 // the branch is declared the change is created, checks clean and loads.
-const HOTFIX_REQUIREMENT =
-  'type "hotfix" integrates into git.release_branch, which is not declared — set git.release_branch in .changeledger/config.yml, for example "main"';
+const releaseRequirement = (id) =>
+  `change ${id} integrates into git.release_branch, which is not declared — set git.release_branch in .changeledger/config.yml, for example "main"`;
 
-test('174310 CR7: a fresh repo refuses new hotfix until release_branch is declared, then it loads end to end', () => {
+// A composed change that integrates into the release branch (20261024-121022:
+// the role is the change's own `integrates_into`, never its type).
+function releaseDraft(root, env) {
+  const printed = runIn(root, env, 'new', 'change', 'x', 'X', '--print', '--owner', 'Roberto Ruiz');
+  assert.equal(printed.code, 0, printed.err);
+  const text = printed.out.replace(
+    '\nstatus: draft\n',
+    '\nintegrates_into: release\nstatus: draft\n',
+  );
+  const draft = path.join(root, 'draft.md');
+  fs.writeFileSync(draft, text);
+  return { draft, id: text.match(/^id: "([^"]+)"$/m)[1] };
+}
+
+test('174310 CR7: a fresh repo refuses a release change until release_branch is declared, then it loads end to end', () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
@@ -1900,26 +1807,11 @@ test('174310 CR7: a fresh repo refuses new hotfix until release_branch is declar
   assert.equal(fresh.code, 0, fresh.err);
   assert.equal(fresh.out.trim(), '✓ 0 change(s) valid');
 
-  const refused = spawnIn(root, env, 'new', 'hotfix', 'x', 'X', '--owner', 'Roberto Ruiz');
+  const { draft, id } = releaseDraft(root, env);
+  const refused = spawnIn(root, env, 'new', 'change', 'x', 'X', '--from', draft);
   assert.equal(refused.code, 1);
-  assert.equal(refused.err.trim(), `Error: ${HOTFIX_REQUIREMENT}`);
+  assert.ok(refused.err.includes(releaseRequirement(id)), refused.err);
   assert.deepEqual(fs.readdirSync(changesDir), []);
-  const printed = spawnIn(
-    root,
-    env,
-    'new',
-    'hotfix',
-    'y',
-    'Y',
-    '--print',
-    '--owner',
-    'Roberto Ruiz',
-  );
-  assert.equal(printed.code, 1);
-  assert.equal(printed.err.trim(), `Error: ${HOTFIX_REQUIREMENT}`);
-  assert.equal(printed.out, '');
-  assert.equal(runIn(root, env, 'new', 'bug', 'x', 'X', '--owner', 'Roberto Ruiz').code, 0);
-  fs.rmSync(path.join(changesDir, fs.readdirSync(changesDir)[0]));
 
   const configFile = path.join(root, '.changeledger', 'config.yml');
   fs.writeFileSync(
@@ -1928,11 +1820,8 @@ test('174310 CR7: a fresh repo refuses new hotfix until release_branch is declar
       .readFileSync(configFile, 'utf8')
       .replace(/^ {2}release_branch:.*$/m, '  release_branch: main'),
   );
-  const created = runIn(root, env, 'new', 'hotfix', 'x', 'X', '--owner', 'Roberto Ruiz');
+  const created = runIn(root, env, 'new', 'change', 'x', 'X', '--from', draft);
   assert.equal(created.code, 0, created.err);
-  assert.match(created.out, /^Created .*\.changeledger[\\/]changes[\\/]\d{8}-\d{6}-x\.md$/m);
-  const [name] = fs.readdirSync(changesDir);
-  const id = name.slice(0, 15);
 
   const checked = runIn(root, env, 'check');
   assert.equal(checked.code, 0, checked.err);
@@ -1942,14 +1831,14 @@ test('174310 CR7: a fresh repo refuses new hotfix until release_branch is declar
   assert.equal(loaded.code, 0, loaded.err);
   assert.equal(
     policy(loaded.out),
-    `Effective policy: language=en — tdd=on — release_types=hotfix — integration_branch=main — change_branch=hotfix/${id} — review_required(hotfix)=yes`,
+    `Effective policy: language=en — tdd=on — release_branch=main — integration_branch=main — change_branch=change/${id} — type=change`,
   );
   const core = runIn(root, env, 'context');
   assert.equal(core.code, 0, core.err);
-  assert.equal(policy(core.out), 'Effective policy: language=en — tdd=on — release_types=hotfix');
+  assert.equal(policy(core.out), 'Effective policy: language=en — tdd=on — release_branch=main');
 });
 
-test('174310 CR2: check reports a hotfix change that reached a repo without release_branch', () => {
+test('174310 CR2: check reports a release change that reached a repo without release_branch', () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
@@ -1961,7 +1850,8 @@ test('174310 CR2: check reports a hotfix change that reached a repo without rele
     configFile,
     original.replace(/^ {2}release_branch:.*$/m, '  release_branch: main'),
   );
-  assert.equal(runIn(root, env, 'new', 'hotfix', 'x', 'X', '--owner', 'Roberto Ruiz').code, 0);
+  const { draft, id } = releaseDraft(root, env);
+  assert.equal(runIn(root, env, 'new', 'change', 'x', 'X', '--from', draft).code, 0);
   const [name] = fs.readdirSync(path.join(root, '.changeledger', 'changes'));
 
   // The branch is retired after the change exists.
@@ -1969,7 +1859,7 @@ test('174310 CR2: check reports a hotfix change that reached a repo without rele
   const checked = spawnIn(root, env, 'check');
   assert.equal(checked.code, 1);
   assert.ok(
-    checked.err.includes(`  error  ${name}: ${HOTFIX_REQUIREMENT}`),
+    checked.err.includes(`  error  ${name}: ${releaseRequirement(id)}`),
     checked.err + checked.out,
   );
   assert.ok(checked.out.includes('1 error(s), 0 warning(s) — 1 change(s)'), checked.out);
@@ -2111,7 +2001,7 @@ test('174407 CR10: check --help says where the default base comes from', () => {
   );
 });
 
-test('174407 CR1: a hotfix branch lints against the release branch the context publishes', () => {
+test('174407 CR1: a release change branch lints against the release branch the context publishes', () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
   initGitFixture(root, { args: ['-b', 'main'] });
@@ -2127,7 +2017,7 @@ test('174407 CR1: a hotfix branch lints against the release branch the context p
       .replace('  integration_branch:\n', '  integration_branch: dev\n')
       .replace('  release_branch:\n', '  release_branch: main\n'),
   );
-  assert.equal(runIn(root, env, 'new', 'hotfix', 'urgent', 'Urgent', '--owner', 'Test').code, 0);
+  assert.equal(runIn(root, env, 'new', 'change', 'urgent', 'Urgent', '--owner', 'Test').code, 0);
   const id = JSON.parse(runIn(root, env, 'list', '--json').out)[0].id;
   const changeFile = path.join(
     root,
@@ -2135,12 +2025,12 @@ test('174407 CR1: a hotfix branch lints against the release branch the context p
     'changes',
     fs.readdirSync(path.join(root, '.changeledger', 'changes')).find((n) => n.includes(id)),
   );
-  const branch = `hotfix/${id}`;
+  const branch = `change/${id}`;
   fs.writeFileSync(
     changeFile,
     fs
       .readFileSync(changeFile, 'utf8')
-      .replace('status: draft', 'status: in-progress')
+      .replace('status: draft', 'integrates_into: release\nstatus: in-progress')
       .replace('\nrelated_to:', `\nbranch: ${branch}\nrelated_to:`),
   );
   noChangeGit(root, ['add', '-A']);
@@ -2164,107 +2054,6 @@ test('174407 CR1: a hotfix branch lints against the release branch the context p
   assert.equal(runIn(root, env, 'check', '--commits', 'dev').code, 1);
 });
 
-// 20261012-174340 CR9 — first use end to end: migrate a schema 3 config whose
-// effective tdd is off, then check the config against the seed_stage and
-// release_branch rules.
-const SCHEMA3_TDD_OFF = `\
-schema_version: 3
-language: en
-tdd: false
-changes_dir: .changeledger/changes
-specs_dir: .changeledger/specs
-git:
-  integration_branch: dev
-statuses: [draft, approved, in-progress, in-review, in-validation, blocked, done, discarded]
-stages: [request, investigation, proposal, specification, plan, log]
-types:
-  refactor:
-    stages: [request, proposal, log]
-    review_required: true
-  documentation:
-    stages: [request, investigation, specification, log]
-    review_required: true
-    seed_stage: investigation
-release:
-  impacts:
-    refactor: none
-    documentation: none
-project_id: "abc123"
-project_name: myrepo
-`;
-
-test('174340 CR9: migrate, check, then the seed_stage and release_branch rules over the CLI', () => {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
-  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
-  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
-  assert.equal(runIn(root, env, 'init').code, 0);
-  const configFile = path.join(root, '.changeledger', 'config.yml');
-  fs.writeFileSync(configFile, SCHEMA3_TDD_OFF);
-
-  const migrated = runIn(root, env, 'config', 'migrate');
-  assert.equal(migrated.code, 0, migrated.err);
-  assert.ok(!migrated.out.includes('added stage plan'), migrated.out);
-  const migratedText = fs.readFileSync(configFile, 'utf8');
-  assert.match(migratedText, /^ {4}stages: \[request, proposal, specification, log\]$/m);
-  assert.equal(parseYaml(migratedText).types.refactor.stages.includes('plan'), false);
-  const first = runIn(root, env, 'check');
-  assert.equal(first.code, 0, `${first.out}${first.err}`);
-  assert.match(first.out, /0 change\(s\) valid/);
-
-  fs.writeFileSync(
-    configFile,
-    migratedText
-      .replace('seed_stage: investigation', 'seed_stage: log')
-      .replace(
-        /^ {2}integration_branch: dev$/m,
-        '  integration_branch: dev\n  release_branch: dev',
-      ),
-  );
-  const broken = runIn(root, env, 'check');
-  assert.notEqual(broken.code, 0);
-  const lines = `${broken.out}${broken.err}`.split('\n').filter((l) => l.includes('config'));
-  assert.equal(lines.length, 2, lines.join('\n'));
-  assert.ok(
-    lines.some((l) =>
-      l.endsWith(
-        'config type "documentation": seed_stage "log" cannot seed a spec; use one of: investigation, proposal, specification',
-      ),
-    ),
-    lines.join('\n'),
-  );
-  assert.ok(
-    lines.some((l) =>
-      l.endsWith(
-        'config "git.release_branch" must differ from "git.integration_branch" (both are "dev")',
-      ),
-    ),
-    lines.join('\n'),
-  );
-
-  fs.writeFileSync(
-    configFile,
-    fs
-      .readFileSync(configFile, 'utf8')
-      .replace('seed_stage: log', 'seed_stage: investigation')
-      .replace('release_branch: dev', 'release_branch: main'),
-  );
-  const fixed = runIn(root, env, 'check');
-  assert.equal(fixed.code, 0, `${fixed.out}${fixed.err}`);
-});
-
-test('174340 CR2: init declares documentation.seed_stage investigation and check is clean', () => {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
-  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
-  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
-  assert.equal(runIn(root, env, 'init').code, 0);
-  const config = parseYaml(fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8'));
-  assert.equal(config.types.documentation.seed_stage, 'investigation');
-  const checked = runIn(root, env, 'check');
-  assert.equal(checked.code, 0, `${checked.out}${checked.err}`);
-});
-
 // 20261018-131621 — the retired statuses take their commands and flags with
 // them: `review fail` is classless, and `validation`/`reopen` are gone.
 
@@ -2277,7 +2066,7 @@ function readyDraftRepo() {
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
   assert.equal(runIn(root, env, 'init').code, 0);
   disableChangeBranchFormat(root);
-  assert.equal(runIn(root, env, 'new', 'feature', 'x', 'X', '--owner', 'Roberto Ruiz').code, 0);
+  assert.equal(runIn(root, env, 'new', 'change', 'x', 'X', '--owner', 'Roberto Ruiz').code, 0);
   const id = JSON.parse(runIn(root, env, 'list', '--json').out)[0].id;
   const file = path.join(
     root,
@@ -2289,9 +2078,8 @@ function readyDraftRepo() {
     file,
     fs
       .readFileSync(file, 'utf8')
-      .replace('## Request\n', '## Request\n\nR\n')
-      .replace('## Investigation\n', '## Investigation\n\nI\n')
-      .replace('## Proposal\n', '## Proposal\n\nP\n')
+      .replace('### Objective\n', '### Objective\n\nO\n')
+      .replace('### Frontier\n', '### Frontier\n\nF\n')
       .replace(
         '## Specification\n',
         '## Specification\n\n### CR1 — C\n- **Given** a\n- **When** b\n- **Then** c\n',
@@ -2382,4 +2170,467 @@ test('20261018-131621 CR17: validation and reopen are no longer commands', () =>
   assert.equal(help.code, 0);
   assert.doesNotMatch(help.out, /\bvalidation\b/);
   assert.doesNotMatch(help.out, /\breopen\b/);
+});
+
+// --- 20261024-121022: two types and the seeded Request ----------------------
+
+function initializedRepo() {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
+  assert.equal(runIn(root, env, 'init').code, 0);
+  return { root, env };
+}
+
+const headings = (text) => text.split('\n').filter((line) => /^#{2,3} /.test(line));
+
+test('20261024-121022 CR1: new refuses a retired type naming the two valid ones', () => {
+  const { root, env } = initializedRepo();
+  for (const type of ['feature', 'quick', 'spike']) {
+    const result = runIn(root, env, 'new', type, 'x', 't', '--print', '--owner', 'Test');
+    assert.notEqual(result.code, 0, type);
+    assert.ok(
+      result.err.includes(`Unknown type "${type}". Valid: change, epic`),
+      `${type}: ${result.err}`,
+    );
+    assert.equal(result.out, '', type);
+  }
+});
+
+test('20261024-121022 CR1: new, list and search name change and epic as the only types', () => {
+  const { root, env } = initializedRepo();
+  const help = runIn(root, env, 'new', '--help');
+  assert.equal(help.code, 0);
+  assert.match(help.out, /choices: "change",\s+"epic"\)/);
+  for (const command of ['list', 'search']) {
+    const commandHelp = runIn(root, env, command, '--help').out;
+    assert.match(commandHelp, /--type <type>[\s\S]*choices: "change",\s+"epic"\)/, command);
+    const args = command === 'search' ? ['search', 'x'] : ['list'];
+    for (const type of ['change', 'epic']) {
+      assert.equal(runIn(root, env, ...args, '--type', type).code, 0, `${command} ${type}`);
+    }
+    const refused = runIn(root, env, ...args, '--type', 'feature');
+    assert.notEqual(refused.code, 0, command);
+    assert.match(refused.err, /Allowed choices are change, epic\./, command);
+  }
+});
+
+test('20261024-121022 CR1: check help names the fixed types and stages', () => {
+  const { root, env } = initializedRepo();
+  const help = runIn(root, env, 'check', '--help').out;
+  assert.match(help, /^types: change, epic$/m);
+  assert.match(help, /^stages: request, specification, plan, log$/m);
+  assert.match(
+    help,
+    /^effective statuses: draft, approved, in-progress, in-review, done, discarded$/m,
+  );
+  assert.doesNotMatch(help, /effective types|effective stages/);
+});
+
+test('20261024-121022 CR4: new change --print seeds the objective and the frontier', () => {
+  const { root, env } = initializedRepo();
+  const result = runIn(root, env, 'new', 'change', 'x', 't', '--print', '--owner', 'Test');
+  assert.equal(result.code, 0, result.err);
+  assert.deepEqual(headings(result.out), [
+    '## Request',
+    '### Objective',
+    '### Frontier',
+    '## Specification',
+    '## Plan',
+    '## Log',
+  ]);
+});
+
+test('20261024-121022 CR4: new epic --print seeds the Request and the Log only', () => {
+  const { root, env } = initializedRepo();
+  const result = runIn(root, env, 'new', 'epic', 'x', 't', '--print', '--owner', 'Test');
+  assert.equal(result.code, 0, result.err);
+  assert.deepEqual(headings(result.out), ['## Request', '### Objective', '### Frontier', '## Log']);
+});
+
+test('20261024-121022 CR4: the written scaffold is the printed one, and approve names the empty sections', () => {
+  const { root, env } = initializedRepo();
+  const printed = runIn(root, env, 'new', 'change', 'x', 't', '--print', '--owner', 'Test');
+  assert.equal(printed.code, 0, printed.err);
+  const written = runIn(root, env, 'new', 'change', 'x', 't', '--owner', 'Test');
+  assert.equal(written.code, 0, written.err);
+  const file = written.out
+    .trim()
+    .split('\n')
+    .at(-1)
+    .replace(/^Created\s+/, '');
+  const text = fs.readFileSync(path.isAbsolute(file) ? file : path.join(root, file), 'utf8');
+  const body = (doc) => doc.slice(doc.indexOf('\n## Request'));
+  assert.equal(body(text).replace(/\n## Log\n[\s\S]*$/, '\n## Log\n'), body(printed.out));
+  const id = text.match(/^id: "([^"]+)"$/m)[1];
+  const approve = runIn(root, env, 'approve', id);
+  assert.notEqual(approve.code, 0);
+  assert.match(approve.err, /cannot approve: "### Objective", "### Frontier" are empty/);
+});
+
+test('20261024-202659 CR2: log --help prints finding with its only writer', () => {
+  const { code, out } = run('log', '--help');
+  assert.equal(code, 0);
+  assert.ok(
+    out.includes(
+      [
+        '  finding',
+        '    Payload: <text>',
+        '    Or: <n> promoted #<id>',
+        '    Or: <n> dropped: <reason>',
+        '    Written by:',
+        '      changeledger finding',
+      ].join('\n'),
+    ),
+    out,
+  );
+});
+
+function findingCliRepo() {
+  const { root, env, id, changeFile } = doneRepo();
+  assert.equal(runIn(root, env, 'new', 'change', 'y', 'Y', '--owner', 'Ana').code, 0);
+  const other = JSON.parse(runIn(root, env, 'list', '--json').out).find((c) => c.id !== id).id;
+  return { root, env, x: id, y: other, changeFile };
+}
+
+const lastLogLine = (file) => fs.readFileSync(file, 'utf8').trimEnd().split('\n').at(-1);
+
+test('20261024-202659 CR4-CR7: the finding command records, promotes and drops through the CLI', () => {
+  const { root, env, x, y, changeFile } = findingCliRepo();
+  const first = runIn(root, env, 'finding', x, 'el ejemplo de ayuda cita un id');
+  assert.equal(first.code, 0, first.err);
+  assert.equal(first.out, `finding F1 recorded on #${x}\n`);
+  assert.match(lastLogLine(changeFile), /`\[finding\]` el ejemplo de ayuda cita un id$/);
+  assert.equal(runIn(root, env, 'finding', x, 'segundo').out, `finding F2 recorded on #${x}\n`);
+
+  const promoted = runIn(root, env, 'finding', x, 'promote', '2', y);
+  assert.equal(promoted.code, 0, promoted.err);
+  assert.equal(promoted.out, `finding F2 on #${x} → promoted to #${y}\n`);
+  assert.match(lastLogLine(changeFile), new RegExp(`\`\\[finding\\]\` 2 promoted #${y}$`));
+
+  const dropped = runIn(root, env, 'finding', x, 'drop', '1', 'ya no aplica');
+  assert.equal(dropped.code, 0, dropped.err);
+  assert.equal(dropped.out, `finding F1 on #${x} → dropped\n`);
+  assert.match(lastLogLine(changeFile), /`\[finding\]` 1 dropped: ya no aplica$/);
+
+  const before = fs.readFileSync(changeFile, 'utf8');
+  const resolutionText = `2 promoted #${changeId('20260101', '000000')}`;
+  for (const [args, message] of [
+    [[x, ''], 'finding text must not be empty'],
+    [
+      [x, resolutionText],
+      `finding text "${resolutionText}" reads as a resolution; resolve a finding with changeledger finding <id> promote|drop <n>`,
+    ],
+    [[x, 'promote', '0', y], 'finding ordinal must be a positive integer (got "0")'],
+    [[x, 'promote', '3', y], `change #${x} has no finding F3`],
+    [[x, 'promote', '2'], 'promote requires the id of the change it becomes'],
+    [[x, 'drop', '1'], 'drop requires a reason'],
+    [[x, 'drop', '1', ''], 'drop requires a reason'],
+  ]) {
+    const result = runIn(root, env, 'finding', ...args);
+    assert.equal(result.code, 1, args.join(' '));
+    assert.equal(result.err, `Error: ${message}\n`, args.join(' '));
+  }
+  assert.equal(fs.readFileSync(changeFile, 'utf8'), before);
+});
+
+test('20261024-202659 CR4: finding --help names both forms and what a finding is', () => {
+  const { code, out } = run('finding', '--help');
+  assert.equal(code, 0);
+  assert.match(out, /outside the active change's frontier/);
+  assert.match(out, /changeledger finding <id> "<text>"/);
+  assert.match(out, /changeledger finding <id> promote <n> <change-id>/);
+  assert.match(out, /changeledger finding <id> drop <n> "<reason>"/);
+  assert.match(
+    out.replace(/\s+/g, ' '),
+    /\bpromote\b[^.]{0,20}\bdrop\b[^.]{0,40}\bordinal\b[^.]{0,60}\bresolution\b[^.]*\bopen finding\b/i,
+  );
+  assert.match(
+    out.replace(/\s+/g, ' '),
+    /\bseparate arguments\b[^.]{0,40}\brefused\b[^.]{0,20}\bquoted\b/i,
+  );
+});
+
+test('the finding command reads a resolution only when the verb comes first and an ordinal follows', () => {
+  const { root, env, x, y, changeFile } = findingCliRepo();
+  const recorded = (args, n, text) => {
+    const result = runIn(root, env, 'finding', x, ...args);
+    assert.equal(result.code, 0, result.err);
+    assert.equal(result.out, `finding F${n} recorded on #${x}\n`, args.join(' '));
+    assert.ok(lastLogLine(changeFile).endsWith(`\`[finding]\` ${text}`), lastLogLine(changeFile));
+  };
+  recorded(['3 drop tables'], 1, '3 drop tables');
+  recorded(['3', 'drop', 'tables'], 2, '3 drop tables');
+  recorded(['promote', 'abc', y], 3, `promote abc ${y}`);
+  recorded(['drop', 'the', 'cache'], 4, 'drop the cache');
+
+  const dropped = runIn(root, env, 'finding', x, 'drop', '2', 'cache');
+  assert.equal(dropped.code, 0, dropped.err);
+  assert.equal(dropped.out, `finding F2 on #${x} → dropped\n`);
+  assert.ok(lastLogLine(changeFile).endsWith('`[finding]` 2 dropped: cache'));
+});
+
+test('the finding command refuses a quoted text that reads as a resolution and records any other', () => {
+  const { root, env, x, y, changeFile } = findingCliRepo();
+  const before = fs.readFileSync(changeFile, 'utf8');
+  for (const [text, n] of [
+    ['drop 5 cache', '5'],
+    [`promote 4 ${y}`, '4'],
+  ]) {
+    const result = runIn(root, env, 'finding', x, text);
+    assert.equal(result.code, 1, text);
+    assert.equal(
+      result.err,
+      `Error: finding text "${text}" reads as a resolution: run it without quotes to resolve F${n}, or start the text with another word\n`,
+    );
+  }
+  assert.equal(fs.readFileSync(changeFile, 'utf8'), before);
+
+  const recorded = runIn(root, env, 'finding', x, 'drop the cache');
+  assert.equal(recorded.code, 0, recorded.err);
+  assert.equal(recorded.out, `finding F1 recorded on #${x}\n`);
+  assert.ok(lastLogLine(changeFile).endsWith('`[finding]` drop the cache'));
+});
+
+test('20261024-202659 CR8: list --pending findings prints the open findings of the whole ledger', () => {
+  const { root, env, x, y, changeFile } = findingCliRepo();
+  assert.equal(runIn(root, env, 'finding', x, 'falta la vista').code, 0);
+  assert.equal(runIn(root, env, 'finding', x, 'sobra un test').code, 0);
+  assert.equal(runIn(root, env, 'finding', x, 'drop', '2', 'no aplica').code, 0);
+  fs.writeFileSync(
+    changeFile,
+    fs.readFileSync(changeFile, 'utf8').replace('status: done', 'status: done\narchived: true'),
+  );
+  assert.equal(runIn(root, env, 'finding', y, 'otro hallazgo').code, 0);
+
+  const text = runIn(root, env, 'list', '--pending', 'findings');
+  assert.equal(text.code, 0, text.err);
+  assert.equal(text.out, `#${x} F1  falta la vista\n#${y} F1  otro hallazgo\n`);
+  const rows = JSON.parse(runIn(root, env, 'list', '--pending', 'findings', '--json').out);
+  assert.deepEqual(
+    rows.map(({ id, n, text: t }) => ({ id, n, text: t })),
+    [
+      { id: x, n: 1, text: 'falta la vista' },
+      { id: y, n: 1, text: 'otro hallazgo' },
+    ],
+  );
+  for (const row of rows) assert.match(row.at, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
+  assert.equal(
+    runIn(root, env, 'list', '--pending', 'findings', '--archived').out,
+    `#${x} F1  falta la vista\n`,
+  );
+  assert.equal(
+    runIn(root, env, 'list', '--pending', 'findings', '--owner', 'Roberto Ruiz').out,
+    `#${x} F1  falta la vista\n`,
+  );
+  assert.equal(runIn(root, env, 'list', '--pending', 'findings', '--all').out, text.out);
+});
+
+test('20261024-202659 CR9: an invalid --pending names the three kinds, and the help documents findings', () => {
+  const { root, env } = doneRepo();
+  const invalid = runIn(root, env, 'list', '--pending', 'release');
+  assert.equal(invalid.code, 1);
+  assert.equal(
+    invalid.err,
+    'Error: Invalid --pending "release". Valid: graduation, archive, findings\n',
+  );
+  const help = run('list', '--help').out;
+  assert.match(help, /filter pending work \(graduation\|archive\|findings\)/);
+  assert.match(help, /changeledger list --pending findings/);
+});
+
+test('20261024-202659 CR14: the day after, a finding is recorded, listed and promoted', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
+  assert.equal(runIn(root, env, 'init').code, 0);
+  assert.equal(runIn(root, env, 'new', 'change', 'x', 'X', '--owner', 'Ana').code, 0);
+  const x = JSON.parse(runIn(root, env, 'list', '--json').out)[0].id;
+  assert.equal(runIn(root, env, 'new', 'change', 'y', 'Y', '--owner', 'Ana').code, 0);
+  const y = JSON.parse(runIn(root, env, 'list', '--json').out).find((c) => c.id !== x).id;
+
+  assert.equal(runIn(root, env, 'finding', x, 'falta la vista').code, 0);
+  assert.equal(runIn(root, env, 'list', '--pending', 'findings').out, `#${x} F1  falta la vista\n`);
+  const promoted = runIn(root, env, 'finding', x, 'promote', '1', y);
+  assert.equal(promoted.code, 0, promoted.err);
+  assert.equal(runIn(root, env, 'list', '--pending', 'findings').out, '');
+  assert.equal(JSON.parse(runIn(root, env, 'list', '--all', '--json').out).length, 2);
+
+  const shown = JSON.parse(runIn(root, env, 'show', x, '--json').out);
+  const logBody = shown.stages.find((s) => s.key === 'log').body;
+  assert.deepEqual(
+    logBody
+      .split('\n')
+      .filter((line) => line.includes('`[finding]`'))
+      .map((line) => line.replace(/^- \*\*\S+\*\* /, '')),
+    ['`[finding]` falta la vista', `\`[finding]\` 1 promoted #${y}`],
+  );
+  const check = runIn(root, env, 'check');
+  assert.equal(check.code, 0, check.out + check.err);
+});
+
+// The day after the finding hardening, walked through the real binary: the
+// verb-first resolutions leave nothing pending and `check` green, and a
+// resolution appended by hand that names no finding turns `check` red at its line.
+test('the day after: verb-first resolutions pass check and a hand-written orphan resolution fails it', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
+  assert.equal(runIn(root, env, 'init').code, 0);
+  assert.equal(runIn(root, env, 'new', 'change', 'x', 'X', '--owner', 'Ana').code, 0);
+  const x = JSON.parse(runIn(root, env, 'list', '--json').out)[0].id;
+  assert.equal(runIn(root, env, 'new', 'change', 'y', 'Y', '--owner', 'Ana').code, 0);
+  const y = JSON.parse(runIn(root, env, 'list', '--json').out).find((c) => c.id !== x).id;
+
+  for (const args of [
+    ['falta la vista'],
+    ['promote', '1', y],
+    ['otra cosa'],
+    ['drop', '2', 'no aplica'],
+  ]) {
+    const result = runIn(root, env, 'finding', x, ...args);
+    assert.equal(result.code, 0, `${args.join(' ')}: ${result.err}`);
+  }
+  assert.equal(runIn(root, env, 'list', '--pending', 'findings').out, '');
+  const green = runIn(root, env, 'check');
+  assert.equal(green.code, 0, green.out + green.err);
+
+  const changes = path.join(root, '.changeledger', 'changes');
+  const file = path.join(
+    changes,
+    fs.readdirSync(changes).find((name) => name.startsWith(x)),
+  );
+  const orphan = '- **2026-10-25T12:00:00Z** `[finding]` 7 dropped: nada';
+  fs.writeFileSync(file, `${fs.readFileSync(file, 'utf8').trimEnd()}\n${orphan}\n`);
+  const line = fs.readFileSync(file, 'utf8').split('\n').indexOf(orphan) + 1;
+  const red = runIn(root, env, 'check');
+  assert.equal(red.code, 1, red.out + red.err);
+  assert.ok(
+    (red.out + red.err).includes(`Log line ${line}: finding F7 resolved but never recorded`),
+    red.out + red.err,
+  );
+});
+
+// The day after the contract cut, walked end to end through the real binary: a
+// fresh repo reads core and implement inside their ceilings and free of every
+// retired rule, delegates a review through the one skeleton and capsule left,
+// has a criterion id in code rejected at commit time, and loads the global-state
+// overlay only once it is activated.
+test('the day after the contract cut: from a fresh repo to review delegation and activation', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
+  initGitFixture(root, { args: ['-b', 'main'] });
+  assert.equal(runIn(root, env, 'init').code, 0);
+
+  const retired = [
+    /quantif/i,
+    /copy its checklist|\bDo not copy\b/i,
+    /figures, line numbers/i,
+    /Mutate one thing|restore it by editing/i,
+    /once; do not reload|never reload one already held/i,
+    /Correction isolation|uncommitted correction|kept uncommitted|left uncommitted|confirmation review|confirms it/i,
+    /graduation-review/,
+  ];
+  for (const [args, budget] of [
+    [[], contextBudgets.base.core],
+    [['implement'], contextBudgets.base.implement],
+  ]) {
+    const { code, out, err } = runIn(root, env, 'context', ...args);
+    assert.equal(code, 0, err);
+    assertWithinBudget(`context ${args.join(' ')}`.trim(), out, budget);
+    const flat = out.replace(/\s+/g, ' ');
+    for (const pattern of retired) assert.doesNotMatch(flat, pattern);
+    assert.ok(!out.includes('# Global State'), 'an inactive repo loaded the global-state overlay');
+  }
+
+  const prompt = runIn(root, env, 'agent-prompt', 'review');
+  assert.equal(prompt.code, 0, prompt.err);
+  assert.match(prompt.out, /^===== CHANGELEDGER AGENT PROMPT BEGIN — role: review/);
+  assert.match(prompt.out, /\{\{mandate\}\}/);
+
+  const created = runIn(root, env, 'new', 'change', 'day-after', 'Day after', '--owner', 'Test');
+  assert.equal(created.code, 0, created.err);
+  const { id } = JSON.parse(runIn(root, env, 'list', '--json').out)[0];
+  const changes = path.join(root, '.changeledger', 'changes');
+  const file = path.join(
+    changes,
+    fs.readdirSync(changes).find((name) => name.startsWith(id)),
+  );
+  fs.writeFileSync(
+    file,
+    fs.readFileSync(file, 'utf8').replace('status: draft', 'status: in-review'),
+  );
+  const capsule = runIn(root, env, 'agent-context', 'review', id);
+  assert.equal(capsule.code, 0, capsule.err);
+  assert.match(capsule.out, new RegExp(`role: review — change: #${id}`));
+  assert.doesNotMatch(capsule.out, /every `CRn`/);
+
+  const git = (...args) =>
+    execFileSync('git', args, { cwd: root, env: sanitizedEnv(), encoding: 'utf8' });
+  git('add', '-A');
+  git('commit', '-q', '-m', 'chore: seed the ledger');
+  const hook = fileURLToPath(new URL('../hooks/no-ledger-refs.sh', import.meta.url));
+  const stageAndCheck = (name, text) => {
+    fs.mkdirSync(path.dirname(path.join(root, name)), { recursive: true });
+    fs.writeFileSync(path.join(root, name), text);
+    git('add', name);
+    return spawnSync('sh', [hook, '--cached'], { cwd: root, env, encoding: 'utf8' });
+  };
+  const clean = stageAndCheck('src/clean.mjs', '// the parser keeps blank lines\n');
+  assert.equal(clean.status, 0, clean.stdout + clean.stderr);
+  git('commit', '-q', '-m', 'feat: clean line');
+  const criterion = `CR${2}`;
+  const dirty = stageAndCheck('src/dirty.mjs', `// see ${criterion}\n`);
+  assert.equal(dirty.status, 1, dirty.stdout + dirty.stderr);
+  assert.match(
+    dirty.stdout,
+    new RegExp(`^src/dirty\\.mjs:1: ledger reference outside \\.changeledger/: ${criterion}$`, 'm'),
+  );
+  git('rm', '-q', '--cached', 'src/dirty.mjs');
+  fs.rmSync(path.join(root, 'src', 'dirty.mjs'));
+
+  const cutover = runIn(root, env, 'cutover');
+  assert.equal(cutover.code, 0, cutover.err);
+  const activated = runIn(root, env, 'context');
+  assert.equal(activated.code, 0, activated.err);
+  assert.match(activated.out, /\n# Global State\n/);
+  const summed = {
+    tokens: contextBudgets.base.core.tokens + contextBudgets.overlays['global-state'].tokens,
+    lines: contextBudgets.base.core.lines + contextBudgets.overlays['global-state'].lines,
+  };
+  assert.match(activated.out.split('\n')[0], new RegExp(`lines:\\d+/${summed.lines} =====$`));
+  assertWithinBudget('activated context', activated.out, summed);
+});
+
+// The day after delegation folded into core and the commit classes became a table:
+// a fresh repo reads both in its core capture, and the authoring and implementing
+// packs carry no separate delegation fragment and fit their ceilings.
+test('the day after the delegation fold: core carries delegation and the commit table', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
+  initGitFixture(root, { args: ['-b', 'main'] });
+  assert.equal(runIn(root, env, 'init').code, 0);
+
+  const core = runIn(root, env, 'context');
+  assert.equal(core.code, 0, core.err);
+  assert.match(core.out, /\n## Delegation\n/);
+  const commits = core.out.slice(core.out.indexOf('\n## Commits\n'));
+  assert.match(commits.slice(0, commits.indexOf('\n## ', 1)), /^\| Draft \|/m);
+
+  for (const [mode, budget] of [
+    ['spec', contextBudgets.base.spec],
+    ['implement', contextBudgets.base.implement],
+  ]) {
+    const { code, out, err } = runIn(root, env, 'context', mode);
+    assert.equal(code, 0, err);
+    assert.doesNotMatch(out, /Economical Delegation/, `context ${mode} composes delegation`);
+    assertWithinBudget(`context ${mode}`, out, budget);
+  }
 });

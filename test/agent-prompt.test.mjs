@@ -11,7 +11,7 @@ import { contractTemplatesDir } from '../src/paths.mjs';
 
 const execFileAsync = promisify(execFile);
 const bin = path.resolve('bin/changeledger.mjs');
-const ROLES = ['investigation', 'implementation', 'review', 'graduation-review'];
+const ROLES = ['review'];
 
 // npm ships as the `npm.cmd` shim on Windows; execFile does not resolve
 // shims through PATH the way a shell would, so the command must be
@@ -63,7 +63,7 @@ test('CR2: an unknown role fails with a non-zero exit listing the valid roles', 
     execFileAsync(process.execPath, [bin, 'agent-prompt', 'scaffolding']),
     (err) => {
       assert.notEqual(err.code, 0);
-      assert.match(err.stderr, /investigation, implementation, review, graduation-review/);
+      assert.match(err.stderr, /Allowed choices are review\./);
       return true;
     },
   );
@@ -101,8 +101,8 @@ test('CR3: every skeleton materializes the full delegation contract', () => {
     assert.match(body, /Return to the orchestrator/, `${role} missing return contract`);
   }
 
-  // Every read-only role forbids any write, by effect — no tool names.
-  for (const role of ['investigation', 'review', 'graduation-review']) {
+  // The review role forbids any write, by effect — no tool names.
+  for (const role of ROLES) {
     const body = prose(role);
     assert.match(body, /do not modify any file/i, `${role} must forbid file writes`);
     assert.match(body, /do not change Git state/i, `${role} must forbid git writes`);
@@ -117,21 +117,6 @@ test('CR3: every skeleton materializes the full delegation contract', () => {
       `${role} must not name harness tools`,
     );
   }
-
-  // Implementation bounds writes and reserves the ledger to the orchestrator.
-  // Tolerant concept matches since 20260730-002730: each obligation, never its sentence.
-  const impl = prose('implementation');
-  assert.match(
-    impl,
-    /\b(modify|edit|touch)\b[^.]{0,20}\bonly\b[^.]{0,30}\b(ownership|owned|assigned)\b/i,
-  );
-  assert.match(impl, /do not\b[^.]{0,20}\b(revert|overwrite)\b[^.]{0,35}\b(anyone|others?)\b/i);
-  assert.match(impl, /\breport\b[^.]{0,30}\binstead of\b[^.]{0,30}\b(resolving|fixing)\b/i);
-  assert.match(impl, /Do not mutate the ledger/i);
-  // 20260711-160446: a baseline that fails to resolve is a stop, not a
-  // recovery-from-memory or another-base fallback.
-  assert.match(impl, /\bdoes not\b[^.]{0,15}\bresolve\b[^.]{0,90}\bstop and report\b/i);
-  assert.match(impl, /never reconstruct.*from memory.*never continue from another base/i);
 });
 
 // 20260730-165310 CR1: the review skeleton must say WHAT is reviewed. Without a
@@ -174,13 +159,6 @@ test('165310 CR1: the review skeleton bounds the inspection to the declared mand
   }
 });
 
-// 20261002-152555 CR3: the spec diff lives in the state journal on an activated
-// repo and in the worktree on an inactive one, so the skeleton leaves its source
-// as a placeholder — structural, pinned literally like the CR3 loop's fields.
-test('152555 CR3: the graduation-review skeleton leaves the spec diff source as a placeholder', () => {
-  assert.match(prose('graduation-review'), /\{\{spec_diff_source\}\}/);
-});
-
 test('CR4: each role loads available context without inventing a change', () => {
   for (const role of ROLES) {
     assert.match(
@@ -193,8 +171,6 @@ test('CR4: each role loads available context without inventing a change', () => 
       new RegExp(`changeledger agent-context ${role}`),
       `${role} must load its delegated capsule`,
     );
-  }
-  for (const role of ['implementation', 'review', 'graduation-review']) {
     assert.match(
       prose(role),
       new RegExp(`changeledger agent-context ${role} \\{\\{change_id\\}\\}`),
@@ -203,13 +179,21 @@ test('CR4: each role loads available context without inventing a change', () => 
   }
   // Review references the checklist from its capsule instead of duplicating it.
   assert.match(prose('review'), /checklist that agent-context gives you/i);
-  // Investigation admits there may be no change id yet.
-  const inv = prose('investigation');
-  assert.match(inv, /\bno change\b[^.]{0,25}\bwork\b[^.]{0,30}\bwithout a change id\b/i);
-  assert.match(inv, /\boptional id\b[^.]{0,25}\bempty\b[^.]{0,15}\bomit\b/i);
-  // graduation-review inspects persistent truth and never moves the change.
-  assert.match(prose('graduation-review'), /never moves the change|do not .{0,20}move the change/i);
 });
+
+for (const retired of ['investigation', 'implementation', 'graduation-review']) {
+  test(`the retired role "${retired}" has no skeleton and fails`, async () => {
+    assert.throws(
+      () => buildAgentPrompt(retired),
+      new RegExp(`^Error: Unknown role "${retired}" — valid roles: review$`),
+    );
+    await assert.rejects(execFileAsync(process.execPath, [bin, 'agent-prompt', retired]), (err) => {
+      assert.equal(err.code, 1);
+      assert.match(err.stderr, /Allowed choices are review\./);
+      return true;
+    });
+  });
+}
 
 test('CR1: npm command selection picks the Windows shim only on win32', () => {
   assert.equal(npmCommand('win32'), 'npm.cmd');

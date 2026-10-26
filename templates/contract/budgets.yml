@@ -1,17 +1,17 @@
 {
   "base": {
     "core": { "tokens": 3000, "lines": 300 },
-    "spec": { "tokens": 3000, "lines": 300 },
-    "implement": { "tokens": 2800, "lines": 280 },
-    "review": { "tokens": 1500, "lines": 150 },
-    "release": { "tokens": 1000, "lines": 100 }
+    "spec": { "tokens": 2030, "lines": 203 },
+    "implement": { "tokens": 1610, "lines": 161 },
+    "review": { "tokens": 820, "lines": 82 },
+    "release": { "tokens": 440, "lines": 44 }
   },
-  "agent": { "tokens": 800, "lines": 80 },
+  "agent": { "tokens": 390, "lines": 39 },
   "overlays": {
-    "done": { "tokens": 1250, "lines": 125 },
-    "discarded": { "tokens": 250, "lines": 25 }
+    "done": { "tokens": 1030, "lines": 103 },
+    "global-state": { "tokens": 160, "lines": 16 }
   },
   "blocks": {
-    "core-commits": { "tokens": 1000, "lines": 100 }
+    "core-commits": { "tokens": 350, "lines": 35 }
   }
 }

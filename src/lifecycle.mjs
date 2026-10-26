@@ -16,8 +16,9 @@ export const CANONICAL_STATUSES = [
 
 // from → set of allowed next states. Forward progress plus the review gate;
 // regressions, skips and self-loops are absent and therefore rejected.
-// `in-review` is optional by type: a `review_required` type delivers through
-// it, any other delivers straight from in-progress. `done` means "delivered,
+// `in-review` is the route of a change whose branch touches code; one that
+// touches only the ledger, and an epic, deliver straight from in-progress
+// (`assertTransition` decides between them). `done` means "delivered,
 // pending human acceptance" — review may instead route back to in-progress,
 // and so may `done` while the change is not yet published in a release.
 // `discarded` is a terminal tombstone reachable only before delivery.
@@ -40,26 +41,33 @@ export function canTransition(from, to) {
 // repo with custom statuses keeps the prior enum-only behavior, since this graph
 // cannot reason about states it does not model.
 //
-// The review gate, symmetric on both sides: a `review_required` type cannot
-// deliver straight from in-progress, and a type without it cannot enter review
-// at all — it activates neither `specification` nor `plan`, so a reviewer would
-// have no criterion and no task to inspect. `opts.reviewRequired` comes from the
-// change's type in config.yml.
-export function assertTransition(from, to, { type, reviewRequired = false } = {}) {
+// The review gate (20261024-121022). `kind` is `change` or `epic`. An epic
+// groups work and is never implemented, so it never enters review and delivers
+// straight from in-progress. A change always may enter review; it delivers
+// straight from in-progress only when the caller has established, from git,
+// that its branch touches nothing outside the ledger (`touchesCode: false`).
+// Code, or an undecided answer, keeps it on the reviewed route.
+const CHANGE_KINDS = ['change', 'epic'];
+
+export function assertTransition(from, to, { kind = 'change', touchesCode } = {}) {
+  if (!CHANGE_KINDS.includes(kind)) {
+    throw new Error(`unknown change kind "${kind}"; valid kinds: ${CHANGE_KINDS.join(', ')}`);
+  }
   if (!canonical.has(from) || !canonical.has(to)) return;
   if (from === to) throw new Error(`change is already "${to}"`);
   if (!canTransition(from, to)) {
     throw new Error(`invalid lifecycle transition: ${from} → ${to}`);
   }
-  if (reviewRequired && from === 'in-progress' && to === 'done') {
-    const subject = type ? `${type} changes` : 'changes';
-    throw new Error(`${subject} must be reviewed before delivery — move to in-review first`);
+  if (from !== 'in-progress') return;
+  if (kind === 'epic' && to === 'in-review') {
+    throw new Error('epic changes do not enter review — move to done instead');
   }
-  if (!reviewRequired && from === 'in-progress' && to === 'in-review') {
-    if (!type) {
-      throw new Error('cannot decide review entry: the change declares no type');
-    }
-    throw new Error(`${type} changes do not require review — move to done instead`);
+  if (kind === 'change' && to === 'done' && touchesCode !== false) {
+    throw new Error(
+      touchesCode === true
+        ? 'change touches code outside the ledger: move it to in-review and record a verdict'
+        : 'cannot decide whether the change touches code — move it to in-review and record a verdict',
+    );
   }
 }
 
@@ -120,6 +128,38 @@ function parseVersionPayload(payload) {
   const parts = payload.split(' → ');
   if (parts.length > 2 || !parts.every(isValidCliVersion)) return null;
   return parts.length === 2 ? { previous: parts[0], version: parts[1] } : { version: parts[0] };
+}
+
+// The form of a change id (`YYYYMMDD-HHMMSS`), declared once: `check` reads it
+// for the id, `parent` and the children link, the `finding` grammar for the
+// promoted arm.
+export const CHANGE_ID_FORM = /^\d{8}-\d{6}$/;
+
+// The ordinal names the n-th open finding of the same Log, so it is derived
+// from position and never written on the open line itself. A text shaped like
+// a resolution is not an open finding: it parses as one arm or as nothing.
+const FINDING_PROMOTED = /^(\d+) promoted #(.*)$/;
+const FINDING_DROPPED = /^(\d+) dropped:(?: (.*))?$/;
+
+function parseFindingOrdinal(digits) {
+  const n = Number(digits);
+  return Number.isSafeInteger(n) && n > 0 ? n : null;
+}
+
+function parseFindingPayload(payload) {
+  const promoted = payload.match(FINDING_PROMOTED);
+  if (promoted) {
+    const n = parseFindingOrdinal(promoted[1]);
+    return n && CHANGE_ID_FORM.test(promoted[2])
+      ? { outcome: 'promoted', n, target: promoted[2] }
+      : null;
+  }
+  const dropped = payload.match(FINDING_DROPPED);
+  if (dropped) {
+    const n = parseFindingOrdinal(dropped[1]);
+    return n && dropped[2] ? { outcome: 'dropped', n, reason: dropped[2] } : null;
+  }
+  return payload ? { outcome: 'open', text: payload } : null;
 }
 
 export const LOG_EVENT_DEFINITIONS = Object.freeze({
@@ -184,7 +224,44 @@ export const LOG_EVENT_DEFINITIONS = Object.freeze({
     transition: false,
     parse: parseVersionPayload,
   }),
+  finding: Object.freeze({
+    form: '<text> | <n> promoted #<id> | <n> dropped: <reason>',
+    canonicalPayload: 'the help example cites a stale id',
+    transition: false,
+    parse: parseFindingPayload,
+  }),
 });
+
+// The findings of one Log in order: an open line takes the next ordinal, and a
+// later resolution naming an open ordinal resolves it. The ordinal is never
+// written on the open line, so it is derived here. A resolution that names no
+// finding opened before it, or one already resolved, resolves nothing: it is
+// returned in `rejected` with its 0-based line in `logBody` and its cause, so
+// `check` reports what `finding` and `list` ignore.
+export function findingsInLog(logBody) {
+  const findings = [];
+  const resolvedAt = [];
+  const rejected = [];
+  const lines = logBody.split('\n');
+  for (let line = 0; line < lines.length; line++) {
+    const event = parseLogEvent(lines[line]);
+    if (event?.type !== 'finding') continue;
+    if (event.outcome === 'open') {
+      findings.push({ n: findings.length + 1, text: event.text, at: event.at, resolution: null });
+      continue;
+    }
+    const finding = findings[event.n - 1];
+    if (!finding) {
+      rejected.push({ line, n: event.n, cause: 'never recorded' });
+    } else if (finding.resolution) {
+      rejected.push({ line, n: event.n, cause: { alreadyAt: resolvedAt[event.n - 1] } });
+    } else {
+      finding.resolution = event;
+      resolvedAt[event.n - 1] = line;
+    }
+  }
+  return { findings, rejected };
+}
 
 export const LOG_EVENT_TYPES = Object.keys(LOG_EVENT_DEFINITIONS);
 export const LOG_EVENT_PAYLOAD_FORMS = Object.freeze(
@@ -231,6 +308,17 @@ export function serializeLogEvent(event) {
     payload = 'archived';
   } else if (type === 'version') {
     payload = event.previous ? `${event.previous} → ${event.version}` : event.version;
+  } else if (type === 'finding') {
+    if (event.outcome === 'promoted') payload = `${event.n} promoted #${event.target}`;
+    else if (event.outcome === 'dropped') payload = `${event.n} dropped: ${event.reason}`;
+    // An open text shaped like a resolution would read back as a resolution
+    // or as nothing, never as the text it was.
+    else if (
+      event.outcome === 'open' &&
+      parseFindingPayload(String(event.text ?? ''))?.outcome === 'open'
+    ) {
+      payload = event.text;
+    }
   } else if (type === 'note') {
     // The rendered line already prepends the literal `` `[note]` `` tag
     // (below); a caller-supplied message that repeats it verbatim at the very

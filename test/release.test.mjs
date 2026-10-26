@@ -31,7 +31,7 @@ function fixture() {
 function writeChange(root, id, options = {}) {
   const {
     status = 'done',
-    type = 'feature',
+    type = 'change',
     impact,
     archived = false,
     title = `Change ${id}`,
@@ -126,12 +126,12 @@ test('161652 CR3: release writes reject a future schema before creating history'
     const configFile = path.join(root, '.changeledger', 'config.yml');
     fs.writeFileSync(
       configFile,
-      fs.readFileSync(configFile, 'utf8').replace(/^schema_version: \d+$/m, 'schema_version: 7'),
+      fs.readFileSync(configFile, 'utf8').replace(/^schema_version: \d+$/m, 'schema_version: 8'),
     );
     const releasesDir = path.join(root, '.changeledger', 'releases');
     assert.throws(
       () => record(root),
-      /^Error: config schema 7 is newer than supported schema 6; update ChangeLedger before writing$/,
+      /^Error: config schema 8 is newer than supported schema 7; update ChangeLedger before writing$/,
       name,
     );
     assert.equal(fs.existsSync(releasesDir), false, name);
@@ -142,8 +142,8 @@ test('CR2/CR3: plan includes unreleased done changes and resolves overrides', ()
   const root = fixture();
   writeChange(root, '20260624-000001');
   initReleaseHistory('0.1.0', root, '2026-06-24T01:00:00Z');
-  writeChange(root, '20260624-000002', { type: 'bug', archived: true });
-  writeChange(root, '20260624-000003', { type: 'refactor', impact: 'major' });
+  writeChange(root, '20260624-000002', { archived: true });
+  writeChange(root, '20260624-000003', { impact: 'major' });
   writeChange(root, '20260624-000004', { status: 'in-progress' });
 
   const plan = releasePlan(root);
@@ -159,16 +159,21 @@ test('CR2/CR3: plan includes unreleased done changes and resolves overrides', ()
   assert.equal(plan.nextVersion, '1.0.0');
 });
 
-test('CR3: plan rejects a type without a default or override', () => {
+test('CR3: plan rejects an invalid default impact', () => {
   const root = fixture();
   initReleaseHistory('0.1.0', root);
   writeChange(root, '20260624-000001');
   const configFile = path.join(root, '.changeledger', 'config.yml');
   fs.writeFileSync(
     configFile,
-    fs.readFileSync(configFile, 'utf8').replace('    feature: minor\n', ''),
+    fs
+      .readFileSync(configFile, 'utf8')
+      .replace(/^ {2}default_impact: .*$/m, '  default_impact: big'),
   );
-  assert.throws(() => releasePlan(root), /has no valid release impact/);
+  assert.throws(
+    () => releasePlan(root),
+    /^Error: config "release\.default_impact" must be one of: none, patch, minor, major$/,
+  );
 });
 
 test('CR4: stable SemVer bumping resets lower components, including 0.x major', () => {
@@ -181,7 +186,7 @@ test('CR4: stable SemVer bumping resets lower components, including 0.x major', 
 test('CR5/CR6: plan is read-only and none-only work is a successful no-op', () => {
   const root = fixture();
   initReleaseHistory('0.1.0', root);
-  writeChange(root, '20260624-000001', { type: 'chore' });
+  writeChange(root, '20260624-000001', { type: 'epic' });
   const before = fs.readdirSync(path.join(root, '.changeledger', 'releases'));
   const plan = releasePlan(root);
   assert.equal(plan.releasable, false);
@@ -195,7 +200,7 @@ test('CR7/CR8: record is exact and atomic without touching stack manifests', () 
   const packageFile = path.join(root, 'package.json');
   fs.writeFileSync(packageFile, '{"version":"9.9.9"}\n');
   initReleaseHistory('0.1.0', root);
-  writeChange(root, '20260624-000001', { type: 'bug' });
+  writeChange(root, '20260624-000001');
 
   assert.throws(() => recordRelease('0.3.0', root), /calculated 0.1.1/);
   assert.equal(fs.existsSync(path.join(root, '.changeledger', 'releases', '0.3.0.yml')), false);
@@ -231,14 +236,16 @@ test('CR9: check validates release impact and manifest consistency', () => {
   assert.ok(messages.some((message) => /contains duplicate change/.test(message)));
 });
 
-test('CR9: invalid configured impacts identify config file and exact value', () => {
+test('CR9: an invalid default impact identifies the config file and the key', () => {
   const root = fixture();
   const repo = loadRepo(root);
-  repo.config.release.impacts.feature = 'banana';
-  const error = checkRepo(repo).errors.find((item) => /release impact/.test(item.message));
+  repo.config.release.default_impact = 'banana';
+  const error = checkRepo(repo).errors.find((item) => /default_impact/.test(item.message));
   assert.equal(error.file, '.changeledger/config.yml');
-  assert.match(error.message, /"banana"/);
-  assert.match(error.message, /"feature"/);
+  assert.equal(
+    error.message,
+    'config "release.default_impact" must be one of: none, patch, minor, major',
+  );
 });
 
 test('CR9: check rejects repeated baselines and non-done released changes', () => {
@@ -435,4 +442,55 @@ test('20261018-131621 CR21: release membership is read from the ledger, not the 
   );
   assert.equal(stateRefTip(root), before);
   assert.equal(fs.existsSync(path.join(root, '.changeledger', 'releases')), false);
+});
+
+// --- 20261024-121022: one default impact, one override per change ----------
+
+function setDefaultImpact(root, impact) {
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  const text = fs.readFileSync(configFile, 'utf8');
+  fs.writeFileSync(
+    configFile,
+    impact === undefined
+      ? text.replace(/^release:\n {2}default_impact: .*\n/m, '')
+      : text.replace(/^ {2}default_impact: .*$/m, `  default_impact: ${impact}`),
+  );
+}
+
+test('20261024-121022 CR9: the default impact weighs a change, its override wins, and an epic weighs none', () => {
+  const root = fixture();
+  initReleaseHistory('0.1.0', root);
+  setDefaultImpact(root, 'minor');
+  writeChange(root, '20260624-000001');
+  writeChange(root, '20260624-000002', { impact: 'patch' });
+  writeChange(root, '20260624-000003', { type: 'epic' });
+  // An epic's own `release_impact` does not count either: its children carry
+  // the impact, so an override there would double it.
+  writeChange(root, '20260624-000004', { type: 'epic', impact: 'major' });
+
+  const plan = releasePlan(root);
+  assert.deepEqual(
+    plan.changes.map((change) => [change.id, change.releaseImpact]),
+    [
+      ['20260624-000001', 'minor'],
+      ['20260624-000002', 'patch'],
+      ['20260624-000003', 'none'],
+      ['20260624-000004', 'none'],
+    ],
+  );
+  assert.equal(plan.nextVersion, '0.2.0');
+});
+
+test('20261024-121022 CR9: without release.default_impact a change weighs patch', () => {
+  const root = fixture();
+  initReleaseHistory('0.1.0', root);
+  setDefaultImpact(root, undefined);
+  assert.equal(loadRepo(root).config.release, undefined);
+  writeChange(root, '20260624-000001');
+  const plan = releasePlan(root);
+  assert.deepEqual(
+    plan.changes.map((change) => change.releaseImpact),
+    ['patch'],
+  );
+  assert.equal(plan.nextVersion, '0.1.1');
 });

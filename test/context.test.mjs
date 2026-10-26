@@ -6,6 +6,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
+import { checkRepo } from '../src/check.mjs';
 import { AGENT_ROLES, buildAgentContext } from '../src/commands/agent-context.mjs';
 import {
   buildContext,
@@ -116,7 +117,7 @@ function addChange(root, status, id = '20260627-120000') {
   const text = `---
 id: "${id}"
 title: Context fixture
-type: feature
+type: change
 status: ${status}
 created: 2026-06-27T12:00:00Z
 depends_on: []
@@ -126,11 +127,11 @@ depends_on: []
 
 Need exact context.
 
-## Investigation
+### Investigation
 
 Current evidence.
 
-## Proposal
+### Proposal
 
 Chosen behavior.
 
@@ -158,7 +159,15 @@ Chosen behavior.
 
 function writeRawChange(
   root,
-  { id, status, type = 'feature', dependsOn = [], relatedTo = [], title = 'Dep target' },
+  {
+    id,
+    status,
+    type = 'change',
+    dependsOn = [],
+    relatedTo = [],
+    title = 'Dep target',
+    integratesInto,
+  },
 ) {
   const deps = dependsOn.length ? `[ ${dependsOn.map((d) => `"${d}"`).join(', ')} ]` : '[]';
   const related = relatedTo.length ? `[ ${relatedTo.map((d) => `"${d}"`).join(', ')} ]` : '[]';
@@ -170,7 +179,7 @@ status: ${status}
 created: 2026-06-27T12:00:00Z
 depends_on: ${deps}
 related_to: ${related}
----
+${integratesInto ? `integrates_into: ${integratesInto}\n` : ''}---
 
 ## Request
 
@@ -206,7 +215,7 @@ function writeFillerChange(root, id, filler) {
     '---',
     `id: "${id}"`,
     'title: Line count fixture',
-    'type: feature',
+    'type: change',
     'status: draft',
     'created: 2026-07-26T13:07:27Z',
     'depends_on: []',
@@ -216,12 +225,12 @@ function writeFillerChange(root, id, filler) {
     '',
     'Need an exact line count.',
     '',
-    '## Investigation',
+    '### Investigation',
     '',
     'Current evidence.',
     ...Array.from({ length: filler }, (_, index) => `Filler line ${index + 1}.`),
     '',
-    '## Proposal',
+    '### Proposal',
     '',
     'Chosen behavior.',
     '',
@@ -283,8 +292,9 @@ test('213942 CR1-CR4: core teaches operational discovery without embedding or mu
   const second = buildContext(undefined, root);
 
   assert.match(first, /`changeledger list --status approved`/);
-  assert.match(first, /`changeledger list --pending graduation`/);
-  assert.match(first, /`changeledger list --pending archive`/);
+  for (const kind of ['graduation', 'archive', 'findings']) {
+    assert.match(first, new RegExp(`\`changeledger list --pending [^\`]*\\b${kind}\\b[^\`]*\``));
+  }
   assert.doesNotMatch(first, /`changeledger graduate --pending`/);
   assert.doesNotMatch(first, /`changeledger archive --graduated --dry-run`/);
   assert.match(first, /before (scanning|searching) files/i);
@@ -299,7 +309,7 @@ test('213942 CR1-CR4: core teaches operational discovery without embedding or mu
 // 20260730-002730 retired `234939 CR1-CR10`: its 22 phrase invariants and the
 // kept/moved/seat lists over `delegation.md` and `core.md` were the pins the
 // decision removes. What survives is the structural half — a status that resumes
-// composes the implement pack and no readiness pack — plus the core budget.
+// composes the implement pack and not the authoring pack — plus the core budget.
 test('234939 structural remnant: a resumed status composes implement, within budget', () => {
   const root = repo();
   const doneId = addChange(root, 'done', '20260629-230002');
@@ -319,9 +329,10 @@ test('234939 structural remnant: a resumed status composes implement, within bud
     assert.match(resumed, /mode: implement/);
     assert.match(resumed, /# Implementing an Approved Change/);
     // 225213 CR5: the effective TDD rule rides the policy header + implement
-    // pack; the full Definition of Ready authoring detail is spec-owned only.
+    // pack; the authoring detail is spec-owned only (20261023-181753 retired the
+    // Definition of Ready this assert used to exclude).
     assert.match(resumed, /Effective policy:.*tdd=(on|off)/);
-    assert.doesNotMatch(resumed, /# Definition of Ready/);
+    assert.doesNotMatch(resumed, /# Authoring a Change/);
   }
   assertWithinBudget('core', core, contextBudgets.base.core);
 });
@@ -344,25 +355,27 @@ test('234939 structural remnant: pack composition and owned headings', () => {
     discarded: buildContext(discardedId, root),
     release: buildContext('release', root),
     close: buildContext(doneId, root),
+    activatedCore: buildContext(undefined, activatedContextFixture().root),
   };
   for (const output of Object.values(outputs)) {
     assert.doesNotMatch(output, /\.changeledger\/AGENTS\.md/);
     assert.doesNotMatch(output, /changeledger register/);
   }
-  for (const mode of ['spec', 'implement']) {
-    assert.match(outputs[mode], /# Economical Delegation/);
+  // The delegation doctrine is a section of core, so no pack composes a
+  // separate delegation fragment.
+  for (const [context, output] of Object.entries(outputs)) {
+    assert.doesNotMatch(output, /# Economical Delegation/, `${context} composes a delegation pack`);
   }
-  // 225213 CR4: review no longer carries the general delegation guide.
-  assert.doesNotMatch(outputs.review, /# Economical Delegation/);
-  assert.match(outputs.implement, /# Handoff Triage/);
-  assert.match(outputs.review, /# Handoff Triage/);
 
+  // A discarded change composes no overlay, and only an activated repo's core
+  // capture carries the global-state overlay.
   const ownedHeadings = {
     core: ['# ChangeLedger — Core Contract'],
-    spec: ['# Authoring a Change', '# Economical Delegation', '# Definition of Ready'],
-    implement: ['# Implementing an Approved Change', '# Economical Delegation', '# Handoff Triage'],
-    review: ['# Independent Review', '# Handoff Triage'],
-    discarded: ['# Discarded — Terminal'],
+    activatedCore: ['# ChangeLedger — Core Contract', '# Global State'],
+    spec: ['# Authoring a Change'],
+    implement: ['# Implementing an Approved Change'],
+    review: ['# Independent Review'],
+    discarded: [],
     release: ['# Portable Release Planning'],
     close: ['# Closing Accepted Work'],
   };
@@ -473,7 +486,7 @@ function activatedContextFixture({ broken = false, malformedId } = {}) {
     '.changeledger-state/changes/context-fixture.md': `---
 id: "${refId}"
 title: Context fixture
-type: feature
+type: change
 status: draft
 created: 2026-06-27T12:00:00Z
 depends_on: []
@@ -651,7 +664,7 @@ test('20260629-210543 CR2: every supported status produces incremental change co
     'in-progress': [/mode: implement/, /# Implementing an Approved Change/],
     'in-review': [/mode: review/, /# Independent Review/],
     done: [/mode: close/, /# Closing Accepted Work/],
-    discarded: [/mode: discarded/, /# Discarded — Terminal/],
+    discarded: [/mode: discarded/],
   };
   const { version } = JSON.parse(
     fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
@@ -716,7 +729,7 @@ test('CR3/CR4: explicit modes work and unknown input has the exact error', () =>
 test('CR8/CR9: lifecycle overlays guard done and discarded', () => {
   const expected = {
     done: [/mode: close/, /Closing Accepted Work/],
-    discarded: [/mode: discarded/, /Discarded — Terminal/],
+    discarded: [/mode: discarded/],
   };
   for (const [index, [status, patterns]] of Object.entries(expected).entries()) {
     const root = repo();
@@ -865,7 +878,7 @@ test('161655 CR4: change context publishes its expected branch and integration b
   const id = writeRawChange(root, {
     id: '20260731-161655',
     status: 'in-progress',
-    type: 'feature',
+    type: 'change',
   });
 
   const output = buildContext(id, root);
@@ -885,7 +898,7 @@ test('161655 CR7: change context omits change_branch when the format is absent o
     const id = writeRawChange(root, {
       id: configured ? '20260731-161656' : '20260731-161657',
       status: 'in-progress',
-      type: 'feature',
+      type: 'change',
     });
 
     const policyLine = buildContext(id, root)
@@ -897,29 +910,43 @@ test('161655 CR7: change context omits change_branch when the format is absent o
 
 // --- 20261002-181346: the policy line publishes the change's own integration branch ---
 
-// `fix` integrates into `git.release_branch`; `feature` declares no role.
-// `releaseBranch: null` leaves the release branch undeclared.
+// `fix` integrates into `git.release_branch` through its own frontmatter
+// (20261024-121022); `feature` declares no role. `releaseBranch: null` leaves
+// the release branch undeclared.
 function releaseTypeRepo({ releaseBranch = 'main' } = {}) {
   const root = repo();
   const file = path.join(root, '.changeledger', 'config.yml');
   const config = parseYaml(fs.readFileSync(file, 'utf8'));
   config.git = { ...config.git, integration_branch: 'dev' };
   if (releaseBranch) config.git.release_branch = releaseBranch;
-  config.types.fix = { ...config.types.bug, integrates_into: 'release' };
   fs.writeFileSync(file, stringifyYaml(config));
-  const fix = writeRawChange(root, { id: '20261002-181401', status: 'in-progress', type: 'fix' });
-  const feature = writeRawChange(root, {
-    id: '20261002-181402',
+  const fix = writeRawChange(root, {
+    id: '20261002-181401',
     status: 'in-progress',
-    type: 'feature',
+    integratesInto: 'release',
   });
+  const feature = writeRawChange(root, { id: '20261002-181402', status: 'in-progress' });
   return { root, fix, feature };
 }
 
 const policyLineOf = (output) =>
   output.split('\n').find((line) => line.startsWith('Effective policy:'));
 
-test('181346 CR6: change and delegate contexts publish the integration branch of the type', () => {
+// The review capsule is the one delegate capture left, and it serves a change in
+// `in-review` only: the fixture's status is moved there before it is built, so the
+// policy line under test is the same change's.
+function reviewCapsule(root, id) {
+  const dir = path.join(root, '.changeledger', 'changes');
+  const name = fs.readdirSync(dir).find((file) => file.startsWith(`${id}-`));
+  const file = path.join(dir, name);
+  fs.writeFileSync(
+    file,
+    fs.readFileSync(file, 'utf8').replace(/^status: .*$/m, 'status: in-review'),
+  );
+  return buildAgentContext('review', id, root);
+}
+
+test('181346 CR6: change and delegate contexts publish the integration branch of the change', () => {
   const { root, fix, feature } = releaseTypeRepo();
   for (const [id, branch] of [
     [fix, 'main'],
@@ -927,7 +954,7 @@ test('181346 CR6: change and delegate contexts publish the integration branch of
   ]) {
     const change = policyLineOf(buildContext(id, root));
     assert.match(change, new RegExp(` — integration_branch=${branch}( |$)`), change);
-    const delegate = policyLineOf(buildAgentContext('implementation', id, root));
+    const delegate = policyLineOf(reviewCapsule(root, id));
     assert.match(delegate, new RegExp(` — integration_branch=${branch}( |$)`), delegate);
   }
 });
@@ -937,42 +964,36 @@ test('181346 CR6: mode contexts keep publishing the repo integration branch', ()
   for (const mode of [undefined, 'implement', 'spec']) {
     assert.match(policyLineOf(buildContext(mode, root)), / — integration_branch=dev$/);
   }
-  assert.match(
-    policyLineOf(buildAgentContext('investigation', undefined, root)),
-    / — integration_branch=dev$/,
-  );
 });
 
-test('181346 CR6: a release type without git.release_branch never publishes the integration branch', () => {
+test('181346 CR6: a release change without git.release_branch never publishes the integration branch', () => {
   const { root, fix, feature } = releaseTypeRepo({ releaseBranch: null });
   const undeclared = (error) =>
-    error.message === 'type "fix" integrates into git.release_branch, which is not declared';
+    error.message ===
+    'change 20261002-181401 integrates into git.release_branch, which is not declared';
   assert.throws(() => buildContext(fix, root), undeclared);
-  assert.throws(() => buildAgentContext('implementation', fix, root), undeclared);
-  // The other types and the mode contexts are unaffected by it.
+  assert.throws(() => reviewCapsule(root, fix), undeclared);
+  // The other changes and the mode contexts are unaffected by it.
   assert.match(policyLineOf(buildContext(feature, root)), / — integration_branch=dev /);
   assert.match(policyLineOf(buildContext('implement', root)), / — integration_branch=dev$/);
 });
 
 // --- 20261002-181428: the policy line names the branch to bring the result back to ---
 
-// `hotfix` integrates into `git.release_branch`; `bug` declares no role. The
-// types are declared here, so the capture is judged on the resolver, not on the
-// template's content. `integrationBranch: null` leaves `git.integration_branch`
-// undeclared.
+// `hotfix` integrates into `git.release_branch`; `bug` declares no role.
+// `integrationBranch: null` leaves `git.integration_branch` undeclared.
 function hotfixRepo({ integrationBranch = 'dev' } = {}) {
   const root = repo();
   const file = path.join(root, '.changeledger', 'config.yml');
   const config = parseYaml(fs.readFileSync(file, 'utf8'));
   config.git = { ...config.git, integration_branch: integrationBranch, release_branch: 'main' };
-  config.types.hotfix = { ...config.types.bug, integrates_into: 'release' };
   fs.writeFileSync(file, stringifyYaml(config));
   const hotfix = writeRawChange(root, {
     id: '20261002-181501',
     status: 'approved',
-    type: 'hotfix',
+    integratesInto: 'release',
   });
-  const bug = writeRawChange(root, { id: '20261002-181502', status: 'approved', type: 'bug' });
+  const bug = writeRawChange(root, { id: '20261002-181502', status: 'approved' });
   return { root, hotfix, bug };
 }
 
@@ -980,34 +1001,28 @@ test('181428 CR2: a change integrating outside git.integration_branch publishes 
   const { root, hotfix, bug } = hotfixRepo();
   for (const policy of [
     policyLineOf(buildContext(hotfix, root)),
-    policyLineOf(buildAgentContext('implementation', hotfix, root)),
+    policyLineOf(reviewCapsule(root, hotfix)),
   ]) {
     assert.match(policy, / — integration_branch=main — back_merge_branch=dev( |$)/, policy);
   }
   for (const policy of [
     policyLineOf(buildContext(bug, root)),
-    policyLineOf(buildAgentContext('implementation', bug, root)),
+    policyLineOf(reviewCapsule(root, bug)),
   ]) {
     assert.match(policy, / — integration_branch=dev( |$)/, policy);
     assert.doesNotMatch(policy, /back_merge_branch=/, policy);
   }
 });
 
-// 20261002-181428 CR7: `release_types=` names the types that integrate into
-// `git.release_branch`, only while that branch is declared. `types` replaces
-// the template's types; `releaseBranch: 'absent'` removes the key.
-function releaseTypesRepo({ releaseBranch = 'main', types } = {}) {
+// 20261002-181428 CR7, since 20261024-121022: `release_branch=` names
+// `git.release_branch` while it is declared, the only state in which a change
+// integrating into it can load. `releaseBranch: 'absent'` removes the key.
+function releaseTypesRepo({ releaseBranch = 'main' } = {}) {
   const root = repo();
   const file = path.join(root, '.changeledger', 'config.yml');
   const config = parseYaml(fs.readFileSync(file, 'utf8'));
   config.git = { ...config.git, integration_branch: 'dev', release_branch: releaseBranch };
   if (releaseBranch === 'absent') delete config.git.release_branch;
-  const bug = config.types.bug;
-  config.types = types ?? {
-    feature: config.types.feature,
-    bug,
-    hotfix: { ...bug, integrates_into: 'release' },
-  };
   fs.writeFileSync(file, stringifyYaml(config));
   return root;
 }
@@ -1016,44 +1031,45 @@ const releaseTypeCaptures = (root, ids = []) => [
   buildContext(undefined, root),
   buildContext('spec', root),
   buildContext('implement', root),
-  buildAgentContext('investigation', undefined, root),
-  ...ids.flatMap((id) => [buildContext(id, root), buildAgentContext('implementation', id, root)]),
+  ...ids.flatMap((id) => [buildContext(id, root), reviewCapsule(root, id)]),
 ];
 
-test('181428 CR7: core, mode, change and delegate contexts publish release_types with a declared release branch', () => {
+test('181428 CR7: core, mode, change and delegate contexts publish release_branch while it is declared', () => {
   const root = releaseTypesRepo();
   const ids = [
-    writeRawChange(root, { id: '20261002-181601', status: 'approved', type: 'hotfix' }),
-    writeRawChange(root, { id: '20261002-181602', status: 'approved', type: 'bug' }),
+    writeRawChange(root, { id: '20261002-181601', status: 'approved', integratesInto: 'release' }),
+    writeRawChange(root, { id: '20261002-181602', status: 'approved' }),
   ];
   for (const capture of releaseTypeCaptures(root, ids)) {
     const policy = policyLineOf(capture);
-    assert.match(policy, / — release_types=hotfix( |$)/, policy);
+    assert.match(policy, / — release_branch=main( |$)/, policy);
+    assert.doesNotMatch(policy, /release_types=/, policy);
   }
-  // Several release types follow the key order of `config.types` as JavaScript
-  // enumerates it: integer-like names first, then insertion order — not sorted.
-  const several = releaseTypesRepo({
-    types: {
-      zfix: { stages: ['request', 'log'], integrates_into: 'release' },
-      bug: { stages: ['request', 'log'] },
-      hotfix: { stages: ['request', 'log'], integrates_into: 'release' },
-      2024: { stages: ['request', 'log'], integrates_into: 'release' },
-    },
-  });
-  assert.match(
-    policyLineOf(buildContext('spec', several)),
-    / — release_types=2024,zfix,hotfix( |$)/,
-  );
 });
 
-test('181428 CR7: no release_types without a declared release branch or a release type', () => {
+// A malformed `git.release_branch` is `check`'s diagnostic; it must not break
+// the bootstrap `context`, which every session runs first.
+test('20261024-121022 CR10: a malformed release branch publishes no release_branch and check reports it', () => {
+  for (const malformed of [5, '  ']) {
+    const root = releaseTypesRepo({ releaseBranch: malformed });
+    for (const capture of releaseTypeCaptures(root)) {
+      assert.doesNotMatch(policyLineOf(capture), /release_branch=/);
+    }
+    const { errors } = checkRepo(loadRepo(root));
+    assert.ok(
+      errors.some((e) => e.message === 'config "git.release_branch" must be a non-empty string'),
+      JSON.stringify(errors),
+    );
+  }
+});
+
+test('181428 CR7: no release_branch without a declared release branch', () => {
   for (const root of [
     releaseTypesRepo({ releaseBranch: null }),
     releaseTypesRepo({ releaseBranch: 'absent' }),
-    releaseTypesRepo({ types: { bug: { stages: ['request', 'log'] } } }),
   ]) {
     for (const capture of releaseTypeCaptures(root)) {
-      assert.doesNotMatch(policyLineOf(capture), /release_types=/, policyLineOf(capture));
+      assert.doesNotMatch(policyLineOf(capture), /release_(branch|types)=/, policyLineOf(capture));
     }
   }
 });
@@ -1063,10 +1079,6 @@ test('181428 CR2: mode contexts and an undeclared git.integration_branch publish
   for (const mode of [undefined, 'implement', 'spec']) {
     assert.doesNotMatch(policyLineOf(buildContext(mode, root)), /back_merge_branch=/);
   }
-  assert.doesNotMatch(
-    policyLineOf(buildAgentContext('investigation', undefined, root)),
-    /back_merge_branch=/,
-  );
   // With no declared integration branch there is no branch to name.
   const undeclared = hotfixRepo({ integrationBranch: null });
   const policy = policyLineOf(buildContext(undeclared.hotfix, undeclared.root));
@@ -1074,33 +1086,19 @@ test('181428 CR2: mode contexts and an undeclared git.integration_branch publish
   assert.doesNotMatch(policy, /back_merge_branch=/, policy);
 });
 
-test('225213 CR2: change-id context shows type-specific effective policy', () => {
+test("225213 CR2: change-id context shows the change's effective policy", () => {
   const root = repo();
   setConfig(root, [[/^language: en$/m, 'language: es']]);
   const id = writeRawChange(root, {
     id: '20260627-140000',
     status: 'in-progress',
-    type: 'feature',
+    type: 'change',
   });
   const output = buildContext(id, root);
   assert.match(output, /Effective policy: language=es/);
   assert.match(output, /tdd=on/);
-  // feature requires review in the fixture config.
-  assert.match(output, /review_required\(feature\)=yes/);
-  // Active stages for the type are resolved, not left for the agent to infer.
-  assert.match(output, /stages\(feature\)=[a-z, ]*specification/);
-});
-
-test('225213 CR2: change-id policy reflects a type without review', () => {
-  const root = repo();
-  const id = writeRawChange(root, {
-    id: '20260627-140001',
-    status: 'in-progress',
-    type: 'audit',
-  });
-  const output = buildContext(id, root);
-  // audit has no review_required in the fixture config → resolved to no.
-  assert.match(output, /review_required\(audit\)=no/);
+  // The type is resolved, not left for the agent to infer (20261024-121022).
+  assert.match(policyLineOf(output), / — type=change$/);
 });
 
 test('225213 CR3: change-id resolves local dependencies without inflating bodies', () => {
@@ -1208,7 +1206,16 @@ test('225213 CR6: status overlays stay within their explicit budget (no change t
   // Overlay base = fragments + delimiters + policy header, empty change body.
   const budgets = contextBudgets.overlays;
   let i = 0;
-  for (const [status, budget] of Object.entries(budgets)) {
+  // Only a lifecycle status composes an overlay into a change-id capture; the
+  // global-state overlay rides the activated core capture and is measured there.
+  const statusOverlays = Object.entries(budgets).filter(([name]) =>
+    CANONICAL_STATUSES.includes(name),
+  );
+  assert.deepEqual(
+    statusOverlays.map(([name]) => name),
+    ['done'],
+  );
+  for (const [status, budget] of statusOverlays) {
     const id = writeRawChange(root, { id: `20260627-16000${i}`, status });
     i += 1;
     // Strip the selected change section to measure the base composition only.
@@ -1223,24 +1230,30 @@ test('225213 CR4/CR5/CR7: review drops general delegation while keeping its rule
   const reviewId = addChange(root, 'in-review', '20260705-120010');
   const review = buildContext('review', root);
   const delegate = buildAgentContext('review', reviewId, root);
-  // Orchestrator review keeps independence, verdict mechanics and handoff. The
-  // three phrase pins over the delegated capsule's prose are retired
-  // (20260730-002730); the pack-composition and command surfaces stay.
+  // Orchestrator review keeps independence and verdict mechanics; the handoff
+  // triage lives in core's Delegation section, which an incremental pack never repeats.
   assert.match(review, /# Independent Review/);
   assert.match(review, /agent-context review <id>/);
   assert.match(review, /changeledger review <id> pass/);
-  assert.match(review, /# Handoff Triage/);
+  assert.doesNotMatch(review, /changeledger finding/);
   assert.match(delegate, /read-only/);
   assert.doesNotMatch(delegate, /changeledger review <id> pass/);
-  // Review no longer carries the general delegation guide the reviewer does not need.
-  assert.doesNotMatch(review, /# Economical Delegation/);
-  assert.doesNotMatch(review, /Do not over-shard/);
-  assert.doesNotMatch(review, /Delegation prompt contract/);
+  // Review carries no delegation guide: the reviewer does not need it.
+  assert.doesNotMatch(review, /^## Delegation$/m);
 
-  // Implement keeps its actionable contract but drops authoring/config detail.
+  // Implement keeps its actionable contract; the triage and the prompt contract
+  // are core's, read before any stage pack, and no stage pack restates them.
   const implement = buildContext('implement', root);
   assert.match(implement, /# Implementing an Approved Change/);
-  assert.match(implement, /# Handoff Triage/);
+  const core = buildContext(undefined, root);
+  assert.match(coreSection(core, '## Delegation'), /`changeledger finding <id>`/);
+  for (const [mode, pack] of [
+    ['implement', implement],
+    ['spec', buildContext('spec', root)],
+    ['review', review],
+  ]) {
+    assert.doesNotMatch(pack, /`changeledger finding <id>`/, `${mode} restates the triage`);
+  }
 });
 
 test('134702/122950 CR1/CR2: the review gate is one ordered recipe owned by implement', () => {
@@ -1261,12 +1274,14 @@ test('134702/122950 CR1/CR2: the review gate is one ordered recipe owned by impl
     // 20260728-164620 inserted step 5, the implementation commit — one per
     // resolved selection since 20260729-111349 — so the reviewer is delegated
     // against a fixed range; every later step shifts by one.
-    /1\..*Plan task.*2\..*formatter.*full gates.*3\..*`changeledger status <id> in-review`.*4\..*Reapply the formatter.*5\..*implementation commit.*6\..*`changeledger context review` once.*7\..*read-only reviewer.*8\..*`changeledger review <id> pass\|fail`.*9\..*formatter again.*affected checks.*`changeledger check`/,
+    /1\..*Plan task.*2\..*formatter.*full gates.*3\..*`changeledger status <id> in-review`.*4\..*Reapply the formatter.*5\..*implementation commit.*6\..*`changeledger context review`.*7\..*read-only reviewer.*8\..*`changeledger review <id> pass\|fail`.*9\..*formatter again.*affected checks.*`changeledger check`/,
   );
   assert.match(implement, /never `log`\+`status`/);
+  // 20261024-121022 retargeted this from the retired `review_required` key: the
+  // change that reaches `done` without review passes the same gate before it.
   assert.match(
     implement,
-    /without `review_required`.*post-transition formatter.*affected-check gate/,
+    /\bsame local gate\b[^.]{0,80}`changeledger status <id> done`.*post-transition formatter.*affected-check gate/,
   );
   assert.match(review, /After recording any verdict.*formatter.*`changeledger check`/);
 
@@ -1373,20 +1388,18 @@ test('144327 CR5: core discovers agent-prompt before a draft exists, within budg
   const root = repo();
   const core = buildContext(undefined, root);
   const norm = core.replace(/\s+/g, ' ');
-  // The pointer's roles are a command's argument set, not prose, so they stay;
-  // 20260730-002730 retired the sentence that introduced them. Since 20261002-152555
-  // CR6 the set is the command's own, so a new role cannot go unannounced.
-  assert.match(norm, /`changeledger agent-prompt <role>`/);
+  // Core names the one skeleton the command still serves and no retired role:
+  // every other delegation states the prompt contract core's Delegation section lists.
+  assert.deepEqual(AGENT_ROLES, ['review']);
   assert.ok(
-    norm.includes(`(${AGENT_ROLES.join(' | ')})`),
-    `core does not announce the agent-prompt roles ${AGENT_ROLES.join(' | ')}`,
+    norm.includes('`changeledger agent-prompt review`'),
+    'core does not point at the review skeleton',
   );
-  // The skeleton bodies are NOT inlined into the core, and the pointer is not
-  // duplicated into the delegation fragment.
+  assert.doesNotMatch(norm, /agent-prompt <role>|\b(investigation|graduation-review) \|/);
+  // The skeleton bodies are NOT inlined into the core, and the pointer has one
+  // seat: the Delegation section does not repeat it.
   assert.doesNotMatch(core, /Delegation skeleton — role:/);
-  const contractDir = new URL('../templates/contract/', import.meta.url);
-  const delegation = fs.readFileSync(new URL('delegation.md', contractDir), 'utf8');
-  assert.doesNotMatch(delegation, /changeledger agent-prompt/);
+  assert.equal(norm.match(/changeledger agent-prompt/g).length, 1);
   // Budget holds at the current values without another emergency adjustment.
   assertWithinBudget('core', core, contextBudgets.base.core);
 });
@@ -1402,34 +1415,28 @@ test('230608 CR1/CR2: core defers exhaustive detail to owning packs', () => {
   assert.doesNotMatch(core, /a new spec is a two-step/);
 });
 
-// 20260711-103756 CR5: the spec context documents the `quick` lane, its
-// eligibility and the discard-and-recreate rule for scope growth.
-test('103756 CR5: spec context documents the quick lane and its eligibility', () => {
-  const root = repo();
-  const spec = buildContext('spec', root).replace(/\s+/g, ' ');
-  // 20260730-002730 retired the two eligibility sentence pins; the lane's name is a
-  // configured enum value, not prose, and the budget is untouched.
-  assert.match(spec, /`quick`/);
-  assertWithinBudget('spec', buildContext('spec', root), contextBudgets.base.spec);
-});
+// 20261024-121022 retired `103756 CR5`: it pinned the `quick` lane, and the type
+// is gone. Small work is a `change` whose review is decided by whether it touches
+// code — guarded by the CR17 tests at the end of this file — and the spec budget
+// stays asserted by `225213 CR6`.
 
 // 20260730-002730 retired `105456 CR8 correction`: all five of its asserts pinned
 // sentences of `spec.md`. The frontmatter keys the rule is about — `depends_on`
 // and `related_to` — are still pinned present by the authoring pack's own
 // composition checks, which are structural.
 
-// 20260726-141120 CR6 — a type without `review_required` can never reach
+// 20260726-141120 CR6, since 20261024-121022 — an epic can never reach
 // `in-review`, so no reachable status composes the review mode. Reachability is
 // derived from the lifecycle graph itself, not hardcoded, so closing or
 // reopening the review entry is what this test observes.
 
-function addQuickChange(root, status, id = '20260726-141120') {
+function addEpicChange(root, status, id = '20260726-141120') {
   fs.writeFileSync(
     path.join(root, '.changeledger', 'changes', `${id}-quick-fixture.md`),
     `---
 id: "${id}"
 title: Quick fixture
-type: quick
+type: epic
 status: ${status}
 created: 2026-07-26T14:11:20Z
 depends_on: []
@@ -1455,7 +1462,7 @@ function reachableWithoutReview() {
     for (const to of CANONICAL_STATUSES) {
       if (seen.has(to) || !canTransition(from, to)) continue;
       try {
-        assertTransition(from, to, { type: 'quick', reviewRequired: false });
+        assertTransition(from, to, { kind: 'epic' });
       } catch {
         continue;
       }
@@ -1466,58 +1473,36 @@ function reachableWithoutReview() {
   return [...seen];
 }
 
-// 20260726-141121 CR2 — `readiness` demands `CRn` blocks under `##
-// Specification` and Plan tasks citing them. A type that never activates the
-// `specification` stage cannot satisfy that, so composing the fragment
-// contradicts the `Active stages(<type>)=` line printed in the same capture.
-test('141121 CR2: draft types without specification compose no readiness fragment', () => {
+// 20260726-141121 CR2/CR3 — the spec pack used to drop `readiness.md` for a type
+// without `specification`. 20261023-181753 retired that fragment, so the filter
+// went with it: every draft type now composes the spec fragment alone, and its
+// stages line still says whether it activates `specification`.
+test('every draft type composes the spec fragment alone', () => {
   const root = repo();
-  const cases = [
-    ['audit', '20260726-141130'],
-    ['chore', '20260726-141131'],
-    ['quick', '20260726-141132'],
-  ];
-  for (const [type, id] of cases) {
+  const expected = ['# Authoring a Change'];
+  for (const [type, id] of [
+    ['change', '20260726-141130'],
+    ['epic', '20260726-141131'],
+  ]) {
     writeRawChange(root, { id, status: 'draft', type });
     const output = buildContext(id, root);
-    assert.doesNotMatch(output, /# Definition of Ready/, `${type} still composes readiness`);
-    assert.match(output, /# Authoring a Change/, `${type} lost the authoring fragment`);
-    assert.match(output, /# Economical Delegation/, `${type} lost the delegation fragment`);
-    const stages = output.split('\n').find((line) => line.startsWith(`Active stages(${type})=`));
-    assert.ok(stages, `${type} is missing its active stages line`);
-    assert.doesNotMatch(stages, /specification/, `${type} unexpectedly activates specification`);
-  }
-});
-
-// 20260726-141121 CR3 — the filter is keyed on the configured stages, so every
-// type that does activate `specification` must keep the spec pack whole, in the
-// same order it had before the fix.
-test('141121 CR3: draft types with specification keep the three spec fragments', () => {
-  const root = repo();
-  const expected = ['# Authoring a Change', '# Economical Delegation', '# Definition of Ready'];
-  const cases = [
-    ['feature', '20260726-141133'],
-    ['bug', '20260726-141134'],
-    ['refactor', '20260726-141135'],
-  ];
-  for (const [type, id] of cases) {
-    writeRawChange(root, { id, status: 'draft', type });
-    const output = buildContext(id, root);
-    const headings = output.split('\n').filter((line) => expected.includes(line));
+    // Every pack heading ahead of the selected change, so a second fragment fails too.
+    const headings = output
+      .split('\n# Selected change')[0]
+      .split('\n')
+      .filter((line) => line.startsWith('# '));
     assert.deepEqual(headings, expected, `${type} composed ${headings.join(', ')}`);
-    const stages = output.split('\n').find((line) => line.startsWith(`Active stages(${type})=`));
-    assert.match(stages, /specification/, `${type} no longer activates specification`);
+    assert.match(policyLineOf(output), new RegExp(` — type=${type}$`));
   }
 });
 
 // 20260726-141121 CR4 — the bare `spec` mode resolves no change and therefore
-// no type, so the type filter must not reach it: it keeps the readiness
-// fragment and stays inside the `base.spec` budget it was measured against.
+// no type: it publishes no stages line and stays inside the `base.spec` budget
+// (20261023-181753 retired the readiness fragment this test also required).
 test('141121 CR4: the bare spec composition resolves no type and holds its budget', () => {
   const root = repo();
   const output = buildContext('spec', root);
   assert.doesNotMatch(output, /Active stages\(/);
-  assert.match(output, /# Definition of Ready/);
   assertWithinBudget('spec', output, contextBudgets.base.spec);
 });
 
@@ -1525,16 +1510,15 @@ test('141121 CR4: the bare spec composition resolves no type and holds its budge
 // keys unowned: no subject was obliged to check them, so an agent starting work
 // in a non-JS repo kept the JS-shaped defaults and could not approve a
 // well-formed change. The duty is now explicit and addressed to the agent.
-// 20260730-002730 retired the two verbatim pins of `141122 CR6`. What survives is
-// its retired-phrase claim (the unowned `Repos tune recognition with` must not come
-// back), the two configuration keys as identifiers rather than prose, and the budget.
-test('002730: the readiness keys are named without the retired phrasing', () => {
+// 20260730-002730 retired the two verbatim pins of `141122 CR6`. 20261023-181753
+// retired the two configuration keys with the Definition of Ready; what survives is
+// the retired-phrase claim (the unowned `Repos tune recognition with` must not come
+// back) and the budget.
+test('002730: the spec pack does not regrow the retired recognition phrasing', () => {
   const root = repo();
   const output = buildContext('spec', root);
   const normalized = output.replace(/\s+/g, ' ');
   assert.doesNotMatch(normalized, /Repos tune recognition with/);
-  assert.match(normalized, /`readiness\.target_patterns`/);
-  assert.match(normalized, /`readiness\.verification_patterns`/);
   assertWithinBudget('spec', output, contextBudgets.base.spec);
 });
 
@@ -1562,17 +1546,15 @@ test('203257 CR7: the spec pack teaches the four task children and no positional
   // 20260730-002730 retired the three sentence pins that stood here. The children,
   // the copyable example and the recursive retired-phrase sweep below are what the
   // criterion keeps; curated entry 12 guards the grammar's obligation tolerantly.
-  assert.match(
-    normalized,
-    /`target_patterns`[^.]{0,60}`Target`[^.]{0,60}`verification_patterns`[^.]{0,40}`Verify`/,
-  );
+  // 20261023-181753 retired the `target_patterns`/`verification_patterns` pin with
+  // the readiness configuration it described.
   // The shared enumeration reaches every depth: the `agent-contexts/` and
   // `agent-prompts/` capsules ship to consuming repos exactly like the top-level
   // fragments, so a top-level-only sweep would leave the retired phrases a seat
   // to survive in.
   const fragments = contractFragmentNames();
   // The sweep's own reach is asserted, not assumed.
-  for (const seat of ['spec.md', 'readiness.md', 'agent-contexts/implementation.md']) {
+  for (const seat of ['spec.md', 'agent-contexts/review.md']) {
     assert.ok(fragments.includes(seat), `the sweep does not reach ${seat}`);
   }
   for (const retired of RETIRED_POSITIONAL_PHRASES) {
@@ -1584,18 +1566,18 @@ test('203257 CR7: the spec pack teaches the four task children and no positional
   assertWithinBudget('spec', output, contextBudgets.base.spec);
 });
 
-test('141120 CR6: a quick change in-progress composes implement, never review', () => {
+test('141120 CR6: an epic in-progress composes implement, never review', () => {
   const root = repo();
-  const id = addQuickChange(root, 'in-progress');
+  const id = addEpicChange(root, 'in-progress');
   assert.match(buildContext(id, root).split('\n')[0], /mode: implement/);
 });
 
-test('141120 CR6: no status reachable by a type without review composes review', () => {
+test('141120 CR6: no status reachable by an epic composes review', () => {
   const reachable = reachableWithoutReview();
-  assert.ok(!reachable.includes('in-review'), 'in-review must be unreachable without review');
+  assert.ok(!reachable.includes('in-review'), 'in-review must be unreachable for an epic');
   for (const status of reachable) {
     const root = repo();
-    const id = addQuickChange(root, status);
+    const id = addEpicChange(root, status);
     assert.doesNotMatch(
       buildContext(id, root).split('\n')[0],
       /mode: review/,
@@ -1717,6 +1699,7 @@ test('194234 CR4: the retired commit-unit copies are absent from every fragment'
 // ordered keyword groups with alternations and bounded gaps — so deleting the
 // obligation still fails while rewording it does not. Whitespace is flattened
 // first: the obligations are wrapped prose and a guard must survive rewrapping.
+// 20261023-181753 retired `readiness.md` and rehomed its two rows into `spec.md`.
 const flattened = (text) => text.replace(/\s+/g, ' ');
 
 const DRAFTING_OBLIGATIONS = [
@@ -1732,13 +1715,6 @@ const DRAFTING_OBLIGATIONS = [
     ],
   ],
   [
-    'a universally quantified criterion covers its domain or narrows',
-    'spec.md',
-    // The gap after the quantifier admits `.` because the obligation's own text
-    // carries an `(e.g. …)` aside; the bound is what keeps it inside one sentence.
-    /\bcriteri\w+\b[^;]{0,60}\b(universal\w*|quantif\w+)\b[^;]{0,90}\b(covers?|spans?)\b[^;]{0,40}\b(whole|domain|entire)\b[^;]{0,60}\bnarrow/i,
-  ],
-  [
     'sets come from the config, never a hand-written list',
     'spec.md',
     /\b(derive|read|take)\w*\b[^.;]{0,25}\bsets?\b[^.;]{0,40}config\.yml[^.;]{0,40}\b(instead|rather|not)\b[^.;]{0,45}\b(enumerat\w+|hand)/i,
@@ -1750,12 +1726,12 @@ const DRAFTING_OBLIGATIONS = [
   ],
   [
     'each external interface declares whether its output is stable',
-    'readiness.md',
+    'spec.md',
     /\bexternal\b[^.;]{0,30}\binterfaces?\b[^.;]{0,90}\bstate\w*\b[^.;]{0,45}\bstable\b/i,
   ],
   [
     'every ask in the Request maps to a criterion or is named as excluded',
-    'readiness.md',
+    'spec.md',
     /\bask\w*\b[^.;]{0,45}## Request[^.;]{0,60}\bcriteri\w+\b[^.;]{0,60}\b(excluded|exclusion|excludes)\b/i,
   ],
 ];
@@ -1794,6 +1770,9 @@ for (const [label, owner, obligation] of DRAFTING_OBLIGATIONS) {
 // directions, the lesson `185200 CR5` records above: an ordered pattern dies on
 // the passive voice, and a reword mutant of each obligation below was run against
 // these patterns before they were kept.
+// The universal-quantifier rows, the correction-isolation rows and the
+// confirmation-review row left with the rules they guarded; the swept retired
+// phrases near the end of this file keep those rules out of every fragment.
 const DELEGATION_OBLIGATIONS = [
   [
     'the review mandate is declared, recorded in the Log, and bounds the inspection',
@@ -1805,130 +1784,6 @@ const DELEGATION_OBLIGATIONS = [
       /\bmandate\b[^.;]{0,80}`?changeledger log`?|`?changeledger log`?[^.;]{0,80}\bmandate\b/i,
       /\bwithin\b[^.;]{0,45}\bmandate\b|\bmandate\b[^.;]{0,45}\bbounds?\b/i,
       /\boutside\b[^.;]{0,60}\bwithout\b[^.;]{0,45}\bexpand|\bwithout\b[^.;]{0,45}\bexpand\w*[^.;]{0,60}\boutside\b/i,
-    ],
-  ],
-  [
-    'deliverable prose — docs, code and test comments, Log notes — executes the edge of a universal quantifier or narrows to what was observed (20261007-135159 CR1)',
-    'implement.md',
-    'implement',
-    [
-      // The gaps are wide because a reword mutant that led with the quantifier and
-      // named the audience last put 105 characters between the two halves and
-      // turned this guard red; `[^.;]` is what still holds the match to one
-      // sentence, and the count is only a second fence.
-      /\b(test comments?|Log notes?)\b[^.;]{0,140}\bquantif\w+|\bquantif\w+[^.;]{0,140}\b(test comments?|Log notes?)\b/i,
-      // 20261007-135159 CR1: the audience named test comments and Log notes only;
-      // docs and code comments join it. Each is its own half, so dropping one
-      // names the one that went.
-      /\b(documentation|docs?)\b[^.;]{0,140}\bquantif\w+|\bquantif\w+[^.;]{0,140}\b(documentation|docs?)\b/i,
-      /\b(code\b[^.;]{0,25}\bcomments?|comments?\b[^.;]{0,20}\bcode)\b[^.;]{0,140}\bquantif\w+|\bquantif\w+[^.;]{0,140}\b(code\b[^.;]{0,25}\bcomments?|comments?\b[^.;]{0,20}\bcode)\b/i,
-      // The edge is executed, and executed BEFORE the sentence exists: the ordering
-      // is the obligation, so it stays inside the same bounded window.
-      /\b(edge|falsif\w+)\b[^.;]{0,100}\b(execut\w+|run|ran)\b[^.;]{0,100}\bbefore\b|\bbefore\b[^.;]{0,100}\b(execut\w+|run|ran)\b[^.;]{0,100}\b(edge|falsif\w+)\b/i,
-      /\bnarrow\w*\b[^.;]{0,60}\b(observed|incident|measured)\b|\b(observed|incident|measured)\b[^.;]{0,60}\bnarrow\w*/i,
-    ],
-  ],
-  [
-    'the examples of universal quantifiers name never and only (20261007-172322 CR1)',
-    'implement.md',
-    'implement',
-    [
-      // Each example is its own half, held to the sentence that names quantifiers.
-      /\bquantif\w+[^.;]{0,80}\bnever\b|\bnever\b[^.;]{0,80}\bquantif\w+/i,
-      /\bquantif\w+[^.;]{0,80}\bonly\b|\bonly\b[^.;]{0,80}\bquantif\w+/i,
-    ],
-  ],
-  // 20261007-135159 CR2/CR3 — what a prose correction does, and what the report
-  // carries. Rows here rather than in the curated `CONCEPT_GUARDS`: the bullet's own
-  // guard lives in this table, and the obligations ride the same bullet.
-  [
-    'a correction of a prose finding narrows or deletes the sentence and never replaces it with another universal claim (20261007-135159 CR2)',
-    'implement.md',
-    'implement',
-    [
-      // Narrow and delete are separate halves, so dropping either one fails its own.
-      /\b(correct\w*|fix\w*)\b[^.;]{0,120}\bnarrow\w*|\bnarrow\w*[^.;]{0,120}\b(correct\w*|fix\w*)\b/i,
-      /\b(correct\w*|fix\w*)\b[^.;]{0,140}\b(delet\w*|remov\w*|drop\w*|strik\w*)|\b(delet\w*|remov\w*|drop\w*|strik\w*)[^.;]{0,140}\b(correct\w*|fix\w*)\b/i,
-      /\b(never|not|without|no)\b[^.;]{0,40}\b(replac\w+|substitut\w+|introduc\w+|add\w*|swap\w*)\b[^.;]{0,60}\b(universal\w*|quantif\w+)|\b(universal\w*|quantif\w+)\b[^.;]{0,40}\b(claims?|assertions?|sentences?)\b[^.;]{0,40}\b(never|not)\b[^.;]{0,20}\b(replac\w+|substitut\w+)/i,
-    ],
-  ],
-  [
-    'the report lists each universally quantified sentence added or rewritten, with the command that executed its edge (20261007-135159 CR3)',
-    'implement.md',
-    'implement',
-    [
-      /\breports?\b[^.;]{0,80}\b(universal\w*|quantif\w+)|\b(universal\w*|quantif\w+)\b[^.;]{0,100}\breports?\b/i,
-      /\bcommands?\b[^.;]{0,60}\b(edge|falsif\w+)\b|\b(edge|falsif\w+)\b[^.;]{0,60}\bcommands?\b/i,
-    ],
-  ],
-  [
-    'confirming a correction requires returning the change to in-review before the fresh reviewer is delegated',
-    'implement.md',
-    'implement',
-    [
-      // Both halves were run against the pre-edit fragment and were red there: the
-      // gate's own `in-review` step is fenced off by the `1.` and `3.` list numbering,
-      // whose periods close the `[^.;]` window before any of these words is reached.
-      /\b(confirm\w*)\b[^.;]{0,90}\bin-review\b|\bin-review\b[^.;]{0,90}\b(confirm\w*)\b/i,
-      // The return PRECEDES the delegation — the ordering is the obligation, so both
-      // directions keep it inside one sentence.
-      /\bin-review\b[^.;]{0,70}\bbefore\b[^.;]{0,60}\b(delegat\w+|reviewer)\b|\b(delegat\w+|reviewer)\b[^.;]{0,70}\bafter\b[^.;]{0,60}\bin-review\b/i,
-    ],
-  ],
-  [
-    'the reviewer treats an unexecuted universal quantifier as a defect, not as style',
-    'review.md',
-    'review',
-    [
-      /\b(universal\w*|quantif\w+)\b[^.;]{0,120}\b(edge|falsif\w+)|\b(edge|falsif\w+)\b[^.;]{0,120}\b(universal\w*|quantif\w+)/i,
-      // Defect and style ride one window on purpose. A first draft split them and
-      // matched the unrelated `fail --retry` line ("fixable defect inside the
-      // authorized contract") instead of this clause: a half that a pre-existing
-      // sentence already satisfies guards nothing.
-      /\bdefect\b[^.;]{0,90}\b(not|never)\b[^.;]{0,40}\bstyle\b|\bstyle\b[^.;]{0,40}\bdefect\b/i,
-    ],
-  ],
-  // 20261007-135159 CR6 — the implement pack's report lists the quantified sentences
-  // it wrote; the review prompt carries that list to the reviewer to scrutinize.
-  [
-    "the review prompt carries the implementer's or corrector's list of universally quantified sentences as scrutiny points (20261007-135159 CR6)",
-    'review.md',
-    'review',
-    [
-      /\b(implement\w*|correct\w*)\b[^.;]{0,120}\b(universal\w*|quantif\w+)|\b(universal\w*|quantif\w+)\b[^.;]{0,120}\b(implement\w*|correct\w*)\b/i,
-      /\b(universal\w*|quantif\w+)\b[^.;]{0,120}\b(scrutin\w*|examin\w*|challeng\w*)|\b(scrutin\w*|examin\w*|challeng\w*)[^.;]{0,120}\b(universal\w*|quantif\w+)/i,
-    ],
-  ],
-  // 20260730-214503 CR2 — the first guard of the new regime `DELEGATION_OBLIGATIONS`
-  // and `CLASSIFICATION_OBLIGATIONS` adopt above (`DRAFTING_OBLIGATIONS` directly
-  // above still asserts the composed spec capture and is untouched): fragment-only
-  // by construction, since there is no seat other than `review.md` for the
-  // orchestrator to read this rule from before it delegates the confirmation
-  // review. Co-traveller proof against `handoff.md` is therefore not required to
-  // show the transport is safe — that is CR1's point — but it was run once anyway:
-  // all four halves below are red against `handoff.md` alone, none of them
-  // borrowing a match from that fragment's unrelated prose.
-  [
-    'a confirmation review fails only for the named defect left open or a regression the correction introduced, with anything latent or adjacent reported as a follow-up for the orchestrator to judge',
-    'review.md',
-    'review',
-    [
-      // Confirm paired with fail, and confirm paired with defect/regression,
-      // rather than one three-token chain: a reword mutant reordered defect and
-      // regression ahead of "confirmation", which a strict confirm-fail-defect
-      // chain does not survive. Anchoring both halves on "confirm" (never on
-      // "fail" alone) is deliberate — `fail --retry "<reason>"` — fixable
-      // defect inside the authorized contract already pairs fail with defect a
-      // few words apart, and a half that drops the confirm anchor would be
-      // satisfied by that unrelated bullet instead of this sentence. `\bfail\w*\b`
-      // rather than `\bfails?\b` so "failure"/"failing" reword the verb freely.
-      /\bconfirm\w*\b[^.;]{0,100}\bfail\w*\b|\bfail\w*\b[^.;]{0,100}\bconfirm\w*\b/i,
-      /\bconfirm\w*\b[^.;]{0,120}\b(defect|regression)\b|\b(defect|regression)\b[^.;]{0,120}\bconfirm\w*\b/i,
-      /\b(latent|adjacent)\b[^.;]{0,60}\bfollow-?ups?\b|\bfollow-?ups?\b[^.;]{0,60}\b(latent|adjacent)\b/i,
-      // Both orders of the closing clause: the shipped sentence reads
-      // follow-up...orchestrator...judge, but "go to the orchestrator as
-      // follow-ups for it to judge" reverses it to orchestrator...follow-up...judge.
-      /\bfollow-?ups?\b[^.;]{0,60}\borchestrator\b[^.;]{0,30}\bjudg\w*\b|\borchestrator\b[^.;]{0,60}\bjudg\w*\b[^.;]{0,60}\bfollow-?ups?\b|\borchestrator\b[^.;]{0,60}\bfollow-?ups?\b[^.;]{0,30}\bjudg\w*\b/i,
     ],
   ],
 ];
@@ -1961,8 +1816,8 @@ for (const [label, owner, mode, patterns] of DELEGATION_OBLIGATIONS) {
 // `124655`, the change that owns the obligation, rather than `165310`.
 //
 // Tolerant concept matches over flattened text, never the sentence. A half that a
-// pre-existing sentence already satisfies guards nothing — the lesson the reviewer
-// quantifier entry above records, whose first draft matched the unrelated
+// pre-existing sentence already satisfies guards nothing — the lesson a retired
+// quantifier row of this table recorded, whose first draft matched the unrelated
 // `fail --retry` line. The co-traveller fragment was where that trap sprang again
 // here: `handoff.md` composes into the review pack, and its "Before handing
 // completed or stopped work to the human, classify friction" line satisfied a first
@@ -2020,46 +1875,10 @@ for (const [label, owner, seat, patterns] of CLASSIFICATION_OBLIGATIONS) {
   });
 }
 
-// 20260730-214504 CR1 — the migration route from pre-existing Plan tasks and
-// legacy task metadata/Log events to the current grammar, named in `spec.md`
-// because that is the capture a consumer already has open when `check` reports
-// the readiness errors those old shapes cause. Fragment-only, following the
-// regime `20260730-214503` established above for `DELEGATION_OBLIGATIONS` and
-// `CLASSIFICATION_OBLIGATIONS`: the fragment's transport into the composed
-// `spec` pack is already proven by the structural-composition test, so no
-// composed half is asserted here. A sibling table rather than a row inside
-// `DELEGATION_OBLIGATIONS` — that table's loop still titles every test
-// `165310: the ${mode} pack …`, and this obligation belongs to a different
-// change; a row there would misattribute a failure to `165310` instead of the
-// change that actually owns it.
-//
-// Tolerant halves, each anchored on a CLI flag token that grep confirms is
-// unique to this sentence in `spec.md` (`--plan-tags`, `--structured-sections`,
-// `--dry-run` appear nowhere else in the fragment), so a delete mutant has
-// nothing coincidental left to match. Each half is written in both directions
-// and was run, before being kept, against a reword mutant (different verbs and
-// clause order, same meaning) and stayed green, and against the fragment with
-// the sentence deleted and went red.
-const MIGRATION_OBLIGATIONS = [
-  [
-    'pre-existing Plan tasks without structured children migrate with `fix --plan-tags`, legacy task metadata or Log events migrate with `fix --structured-sections`, and both are previewable with `--dry-run`',
-    'spec.md',
-    [
-      /\bstructured\b[^.;]{0,30}\bchildren\b[^.;]{0,90}--plan-tags|--plan-tags[^.;]{0,90}\bstructured\b[^.;]{0,30}\bchildren\b/i,
-      /\b(metadata|log)\b[^.;]{0,90}--structured-sections|--structured-sections[^.;]{0,90}\b(metadata|log)\b/i,
-      /\bpreview\w*\b[^.;]{0,40}--dry-run|--dry-run[^.;]{0,40}\bpreview\w*\b/i,
-    ],
-  ],
-];
-
-for (const [label, owner, patterns] of MIGRATION_OBLIGATIONS) {
-  test(`214504 CR1: the spec pack obliges that ${label}`, () => {
-    const fragment = flattened(fs.readFileSync(new URL(owner, contractFragments), 'utf8'));
-    for (const pattern of patterns) {
-      assert.match(fragment, pattern, `${owner} no longer states the obligation: ${pattern}`);
-    }
-  });
-}
+// 20261024-121022 retired `214504 CR1` (`MIGRATION_OBLIGATIONS`): it guarded the
+// sentence naming `fix --plan-tags` and `fix --structured-sections`, and both modes
+// left the CLI with that change (CR15). The retired-flag sweep at the end of this
+// file keeps them out of every fragment.
 
 // Every entry of the budget file, labelled. A new top-level group must widen this
 // list, not slip past it: it is the single place the whole file is enumerated.
@@ -2100,16 +1919,45 @@ function declaredCeilings() {
 // ceiling raised to make a failure go away, which is exactly what a ceiling
 // exists to prevent. This object is the one sede: a new group widens it here,
 // not in a second copy.
+//
+// 20261024-121022 CR17 lowered every entry to what its capture measured after the
+// contract stopped describing the type matrix: the smallest multiple of 50 tokens
+// that leaves at least 25 tokens over the largest measurement (the template
+// fixture and this repo's own capture). `base.spec` measured 2390 and stays at
+// 2400, the one entry under that headroom, because a ceiling may only decrease.
+// 20261024-202659 CR12 lowered `base.core`, `base.implement` and `base.review`
+// again, to the largest measurement (this repo's own capture: 2684, 2477 and
+// 1099) rounded up to the nearest ten, with lines = tokens / 10.
+//
+// The cut to ten fragments lowered every surviving entry, by the same rule: the largest
+// of two measurements — the fixture `repo()` builds and this repo's own activated
+// checkout — rounded up to the nearest ten, lines = tokens / 10. `base.core` is the
+// core capture without the global-state overlay (the activated capture minus that
+// section); `overlays.global-state` is that section, so the activated core capture
+// publishes the sum of both. `overlays.done` excludes the dependency and related
+// blocks, which belong to the change like its text. `agent` covers the review
+// capsule base and the review skeleton, measured on both frames too (this repo's
+// capsule carries the policy line: 385); `overlays.discarded` left with its overlay.
+//
+// Folding the delegation fragment into core and turning the commit classes into a
+// table lowered three entries by the same rule and the same two frames: `base.spec`
+// (this repo's capture: 2027) and `base.implement` (1601) lost the fragment they no
+// longer compose, and `blocks.core-commits` (346) is the table plus its rules.
+// `base.core` is raised by a human decision recorded in the change: the folded core
+// measures 2461 (fixture 2455) against 2380, and the human set it to 3000/300 so the
+// next rule that enters does not block again. Headroom under it is still never permission
+// to spend (AGENTS.md); 300 lines plus the global-state overlay stay under the
+// bootstrap's 400-line cut.
 const PINNED_CEILINGS = {
   'base.core': { tokens: 3000, lines: 300 },
-  'base.spec': { tokens: 3000, lines: 300 },
-  'base.implement': { tokens: 2800, lines: 280 },
-  'base.review': { tokens: 1500, lines: 150 },
-  'base.release': { tokens: 1000, lines: 100 },
-  agent: { tokens: 800, lines: 80 },
-  'overlays.done': { tokens: 1250, lines: 125 },
-  'overlays.discarded': { tokens: 250, lines: 25 },
-  'blocks.core-commits': { tokens: 1000, lines: 100 },
+  'base.spec': { tokens: 2030, lines: 203 },
+  'base.implement': { tokens: 1610, lines: 161 },
+  'base.review': { tokens: 820, lines: 82 },
+  'base.release': { tokens: 440, lines: 44 },
+  agent: { tokens: 390, lines: 39 },
+  'overlays.done': { tokens: 1030, lines: 103 },
+  'overlays.global-state': { tokens: 160, lines: 16 },
+  'blocks.core-commits': { tokens: 350, lines: 35 },
 };
 
 test('195445 CR1: every declared ceiling is pinned by value', () => {
@@ -2337,12 +2185,13 @@ function composedCore() {
   return buildContext(undefined, repo()).replace(/\s+/g, ' ');
 }
 
-test('124835 CR1: core exposes the twelve blocks in the decided order', () => {
+test('core exposes its twelve blocks in the decided order', () => {
   const core = buildContext(undefined, repo());
   const blocks = [
     '# ChangeLedger — Core Contract',
     '## Classify intent before acting',
     "## Protect the orchestrator's context",
+    '## Delegation',
     '## Invariants',
     '## When no change is needed',
     '## Stage exit gates',
@@ -2350,8 +2199,6 @@ test('124835 CR1: core exposes the twelve blocks in the decided order', () => {
     '## Commits',
     '## Lifecycle',
     '## Context modes',
-    // 20260811-151427: the sync obligation joined core as its own decided block.
-    '## Synchronizing the global state',
     '## Operational discovery',
   ];
   const positions = blocks.map((block) => {
@@ -2367,6 +2214,8 @@ test('124835 CR1: core exposes the twelve blocks in the decided order', () => {
   // The two retired headings, and nothing else, leave the fragment.
   assert.doesNotMatch(core, /## Read complete context before acting/);
   assert.doesNotMatch(core, /## Files and delegation/);
+  // The sync semantics left core for the global-state overlay.
+  assert.doesNotMatch(core, /## Synchronizing the global state/);
   assert.equal(core.match(/^## /gm).length, blocks.length - 1);
 });
 
@@ -2386,10 +2235,10 @@ test('124835 CR2/CR3: the intent table routes every observed intent', () => {
     '| asks, explores or wants understanding | answer from the repo: `changeledger search <terms>` before reading code |',
     '| reports a problem or asks for new work | conversation first, then `changeledger context spec` only once the human authorizes documenting it |',
     '| names a change or says "continue" | `changeledger context <id>` |',
-    '| asks what is pending | `changeledger list --status <s>`, `--pending graduation`, `--pending archive` |',
+    '| asks what is pending | `changeledger list --status <s>`, `--pending findings`, `graduation`, `archive` |',
     '| asks to review finished work | `changeledger context review` in a fresh clean context |',
     '| asks to release | `changeledger context release` |',
-    '| requests an edit no change covers | ask the human: `quick` type or operational edit |',
+    '| requests an edit no change covers | ask the human: a `change` with Request and Log, or an operational edit |',
     '| gives a verdict | transmit it with the lifecycle command; never infer one |',
   ]) {
     assert.ok(core.includes(row), `core is missing the intent row ${row}`);
@@ -2468,7 +2317,7 @@ test('124835 CR10: core stops carrying what it no longer governs', () => {
     // Regression guard only: 20260726-124833 already removed both.
     '--have',
     'rev:<hash>',
-    // Tool operation and the delegation prompt contract — delegation.md owns them.
+    // Tool operation and the delegation prompt contract — core's Delegation section owns them.
     // Trimmed by 20260730-002730 to the words that discriminate: `spec.md` legitimately
     // says "Files remain the source of truth and may be edited directly", so the longer
     // literal overlapped live fragment prose. "Files are" is core's retired wording alone.
@@ -2545,6 +2394,14 @@ function commitsBlockLines() {
   if (end === -1) end = lines.length;
   while (end > start && lines[end - 1].trim() === '') end -= 1;
   return lines.slice(start, end);
+}
+
+// One `##` section of a core text, heading included, up to the next `##` heading.
+function coreSection(text, heading) {
+  const start = text.indexOf(`\n${heading}\n`);
+  assert.notEqual(start, -1, `core has no ${heading} section`);
+  const end = text.indexOf('\n## ', start + heading.length + 1);
+  return text.slice(start + 1, end === -1 ? undefined : end);
 }
 
 test('124837 CR1: the attribution judgment is gone from the whole contract', () => {
@@ -2644,6 +2501,12 @@ test('124837 CR7 / 212043 CR2: the core pack line ceiling equals the bootstrap c
   assert.ok(
     headCut >= contextBudgets.base.core.lines,
     `the bootstrap cuts at ${headCut} lines but core may occupy ${contextBudgets.base.core.lines}`,
+  );
+  // An activated repo's core capture also carries the global-state overlay.
+  const activated = contextBudgets.base.core.lines + contextBudgets.overlays['global-state'].lines;
+  assert.ok(
+    headCut >= activated,
+    `the bootstrap cuts at ${headCut} lines but an activated core may occupy ${activated}`,
   );
 });
 
@@ -2784,7 +2647,10 @@ test('170429 CR4: every declared ceiling is met by today content', () => {
       assertWithinBudget(mode, output, budget);
     }
     let index = 0;
-    for (const [status, budget] of Object.entries(contextBudgets.overlays)) {
+    const statusOverlays = Object.entries(contextBudgets.overlays).filter(([name]) =>
+      CANONICAL_STATUSES.includes(name),
+    );
+    for (const [status, budget] of statusOverlays) {
       const id = writeRawChange(root, { id: `20260728-17042${index}`, status });
       index += 1;
       const base = buildContext(id, root).split('\n# Selected change')[0];
@@ -2794,6 +2660,11 @@ test('170429 CR4: every declared ceiling is met by today content', () => {
       'core-commits block',
       commitsBlockLines().join('\n'),
       contextBudgets.blocks['core-commits'],
+    );
+    assertWithinBudget(
+      'global-state overlay',
+      globalStateSection(buildContext(undefined, activatedContextFixture().root)),
+      contextBudgets.overlays['global-state'],
     );
   });
   assert.ok(!sweep.thrown, `a declared ceiling is not met today: ${sweep.thrown?.message}`);
@@ -2917,8 +2788,46 @@ test('164620 CR2: the implementation commit precedes the review delegation', () 
 // retired as pins — curated entry 9 guards the correction obligation tolerantly. The
 // anti-duplication half stays: review.md must not grow a second copy of the class.
 test('164620 CR3: review.md does not duplicate the Correction class declaration', () => {
+  // Core alone declares the commit classes, and none of them is a correction.
   const review = contractFragment('review.md').replace(/\s+/g, ' ');
-  assert.ok(!review.includes('**Correction**'), 'review.md duplicates the class declaration');
+  assert.doesNotMatch(
+    review,
+    /\*\*(Draft|Baseline|Implementation|Handoff|Correction)\*\*/,
+    'review.md declares a commit class',
+  );
+  assert.ok(!composedCore().includes('**Correction**'), 'core declares a Correction class');
+});
+
+// The commit classes are a table, one row per class: a class that loses its row, or a
+// fifth class that gains one, fails here. Cells, not sentences — the one obligation the
+// Implementation row must still carry is the correction committed before `in-review`.
+test('core declares the four commit classes as a table', () => {
+  const block = commitsBlockLines();
+  const header = block.findIndex((line) => /^\|\s*Class\s*\|/.test(line));
+  assert.notEqual(header, -1, 'the Commits block has no class table');
+  assert.deepEqual(
+    block[header]
+      .split('|')
+      .map((cell) => cell.trim())
+      .filter(Boolean),
+    ['Class', 'How many', 'When', 'Carries'],
+  );
+  const rows = [];
+  for (let at = header + 2; at < block.length && block[at].startsWith('|'); at += 1) {
+    rows.push(block[at]);
+  }
+  assert.deepEqual(
+    rows.map((row) => row.split('|')[1].trim()),
+    ['Draft', 'Baseline', 'Implementation', 'Handoff'],
+  );
+  for (const row of rows) {
+    assert.equal(row.split('|').length, 6, `class row is not four cells: ${row}`);
+  }
+  assert.match(
+    rows[2],
+    /\bcorrection\b[^|]{0,80}\b(fail\w*|reject\w*)\b[^|]{0,120}\bbefore\b[^|]{0,60}`in-review`/i,
+    'the Implementation row no longer commits a correction before the return to in-review',
+  );
 });
 
 // 20260730-002730: the mandatory-handoff sentence and its record-why duty are retired
@@ -3092,7 +3001,7 @@ test('111349 CR7: no fragment demands one implementation commit per change', () 
   // The sweep's own reach is asserted, not assumed: a guard that silently stopped
   // covering the seat the defect lived in would pass while proving nothing.
   assert.ok(fragments.length > 1, 'the fragment sweep found nothing to check');
-  for (const seat of ['core.md', 'implement.md', 'agent-contexts/implementation.md']) {
+  for (const seat of ['core.md', 'implement.md', 'agent-contexts/review.md']) {
     assert.ok(fragments.includes(seat), `the sweep does not reach ${seat}`);
   }
   // The broader literal subsumes the exact one CR7 measures; both are listed so the
@@ -3138,11 +3047,8 @@ test('143656 CR4: retired phrases stay retired recursively and the fragment inve
   assert.deepEqual(topLevel, [
     'close.md',
     'core.md',
-    'delegation.md',
-    'discarded.md',
-    'handoff.md',
+    'global-state.md',
     'implement.md',
-    'readiness.md',
     'release.md',
     'review.md',
     'spec.md',
@@ -3150,19 +3056,9 @@ test('143656 CR4: retired phrases stay retired recursively and the fragment inve
 
   // Same guard for the two composed capsule subdirectories.
   const agentContexts = inventory('agent-contexts/');
-  assert.deepEqual(agentContexts, [
-    'graduation-review.md',
-    'implementation.md',
-    'investigation.md',
-    'review.md',
-  ]);
+  assert.deepEqual(agentContexts, ['review.md']);
   const agentPrompts = inventory('agent-prompts/');
-  assert.deepEqual(agentPrompts, [
-    'graduation-review.md',
-    'implementation.md',
-    'investigation.md',
-    'review.md',
-  ]);
+  assert.deepEqual(agentPrompts, ['review.md']);
 
   // The three groups above are asserted complete, not just individually present:
   // without this, a fourth first-path-segment directory drops out of every
@@ -3176,10 +3072,62 @@ test('143656 CR4: retired phrases stay retired recursively and the fragment inve
 // 20260730-002730 retired the inverse-direction pin and the three unit-definition
 // clauses: all four were literal sentences of `core.md`, and the single-seat rule in
 // both directions is curated entry 10, which guards the same obligation tolerantly.
-// What stays is the one-definition-not-two claim, which is anti-duplication.
-test('162015 CR3/CR4: delegation.md points at the unit instead of redefining it', () => {
-  const delegation = contractFragment('delegation.md').replace(/\s+/g, ' ');
-  assert.doesNotMatch(delegation, /A good delegation unit is/);
+// The test that read the separate delegation fragment for a second definition of the
+// unit is retired too: that fragment was folded into core, and its one-definition-not-two
+// claim is held by the single-seat test below, which counts the definition inside core.
+
+// The delegation doctrine lives in core: the depth bound, the write-surface owner, the
+// definition of the unit and the sizing rule are each stated once, so the Delegation
+// section adds to the paragraphs above it instead of repeating them.
+test('core states each delegation rule once', () => {
+  const core = flattened(contractFragment('core.md'));
+  for (const [label, pattern] of [
+    ['the depth bound', /\bone\b[^.;:]{0,10}\blevel\b/gi],
+    ['the write-surface owner', /\bone owner\b[^.;]{0,20}\bsurface\b/gi],
+    ['the definition of the unit', /\*\*selection of work\*\*/gi],
+    ['the sizing rule', /\bsize\b[^.;]{0,20}\bdelegates?\b/gi],
+  ]) {
+    const count = (core.match(pattern) ?? []).length;
+    assert.equal(count, 1, `core states ${label} ${count} times`);
+  }
+});
+
+test('no contract fragment carries the retired Economical Delegation heading', () => {
+  const holders = contractFragmentNames().filter((name) =>
+    contractFragment(name).includes('Economical Delegation'),
+  );
+  assert.deepEqual(holders, [], 'a contract fragment still carries Economical Delegation');
+});
+
+// The handoff and every delegation prompt are read from core, so the section must
+// carry the whole doctrine: when to delegate, where the boundary is, what over-sharding
+// is, and the seven things a prompt states. Concepts, never sentences.
+test("core's Delegation section carries the criterion, the boundary and the prompt contract", () => {
+  const section = flattened(coreSection(contractFragment('core.md'), '## Delegation'));
+  for (const [label, pattern] of [
+    [
+      'delegate only when the gain exceeds the coordination cost',
+      /\bgain\b[^.;]{0,60}\bexceeds?\b[^.;]{0,30}\bcoordination\b/i,
+    ],
+    [
+      'investigation splits into independent questions',
+      /\binvestigation\b[^.;]{0,40}\bindependent questions\b/i,
+    ],
+    [
+      'verification only when it catches risk',
+      /\bverification\b[^.;]{0,30}\bcatch\w*\b[^.;]{0,20}\brisk\b/i,
+    ],
+    ['no subagent per file or tiny edit', /\bno subagent\b[^.;]{0,20}\bper\b[^.;]{0,10}\bfile\b/i],
+    ['an unstated independence stays in the main thread', /\bmain thread\b/i],
+    ['the prompt says why', /\bwhy\b[^.;]{0,30}\bdelegated\b/i],
+    ['the prompt names objective and frontier', /\bobjective\b[^.;]{0,10}\bfrontier\b/i],
+    ['the prompt names the files it owns', /\bfiles\b[^.;]{0,10}\bowns?\b/i],
+    ['a writing role verifies its baseline', /\bwrit\w*\b[^.;]{0,40}\bbaseline\b/i],
+    ['the prompt names its verify command', /\bcommand\b[^.;]{0,20}\bverif/i],
+    ['the prompt names its return format', /\breturn format\b/i],
+  ]) {
+    assert.match(section, pattern, `the Delegation section no longer says ${label}`);
+  }
 });
 
 // 20260730-002730 retired `162015 CR5`: it pinned the eight evidence-contract clauses
@@ -3269,17 +3217,18 @@ const CONCEPT_GUARDS = [
   },
   {
     entry: 5,
-    obligation: '`approve` judges the draft at `approved` severity and refuses an unready one',
+    // 20261023-181753 retired the Definition of Ready this entry used to guard
+    // (`approve` judging the draft at `approved` severity). What `approve` demands
+    // now is the Request's objective and frontier: the four terms must share one
+    // sentence, in any order, so rewording is free and deleting the rule fails.
+    obligation: '`approve` demands the `### Objective` and `### Frontier` of the Request',
     verify: (pack) => {
+      const sentence = (terms) =>
+        new RegExp(terms.map((term) => `(?=(?:[^.]|\\.(?=\\S)){0,300}${term})`).join(''), 'i');
       assert.match(
         pack('spec'),
-        /`?changeledger approve`?[^.:;]{0,90}\b(stricter|strict|approved|higher)\b[^.:;]{0,40}\bseverity\b/i,
-        'the readiness pack no longer makes `approve` judge the draft at the stricter severity',
-      );
-      assert.match(
-        pack('spec'),
-        /\bunready\b[^.:;]{0,30}\bdraft\b[^.:;]{0,40}\b(refused|rejected|refuses)\b/i,
-        'the readiness pack no longer refuses an unready draft',
+        sentence(['`### Objective`', '`### Frontier`', '\\bapprov', '\\bRequest\\b']),
+        'the spec pack no longer names the objective and frontier `approve` demands of the Request',
       );
     },
   },
@@ -3354,12 +3303,19 @@ const CONCEPT_GUARDS = [
   },
   {
     entry: 9,
-    obligation: 'a correction is withheld from history pending fresh confirmation',
+    obligation:
+      'a correction after a fail or a human rejection is committed before the change returns to in-review',
     verify: (pack) => {
+      const core = pack('core');
       assert.match(
-        pack('implement'),
-        /\bcorrection\b[^.;]{0,50}\b(uncommitted|not committed|without a commit)\b[^.;]{0,70}\b(fresh|human|confirms?|reviewer)\b/i,
-        'the implement pack no longer keeps a correction uncommitted until it is confirmed',
+        core,
+        /\bcorrection\b[^.;]{0,80}\b(fail\w*|reject\w*)\b|\b(fail\w*|reject\w*)\b[^.;]{0,80}\bcorrection\b/i,
+        'core no longer names the correction that follows a fail or a rejection',
+      );
+      assert.match(
+        core,
+        /\bcorrection\b[^.;]{0,160}\bcommit\w*\b[^.;]{0,80}\bbefore\b[^.;]{0,60}`?in-review`?|\bbefore\b[^.;]{0,60}`?in-review`?[^.;]{0,80}\bcorrection\b[^.;]{0,60}\bcommit\w*/i,
+        'core no longer commits the correction before the change returns to in-review',
       );
     },
   },
@@ -3389,8 +3345,9 @@ const CONCEPT_GUARDS = [
       // are asserted — present in implement, absent from spec — so the move cannot
       // be undone in either direction without a failure naming which way it went.
       //
-      // The SECTION, not its clauses: the lead-in plus the count of obligations it
-      // introduces. Rewording any clause is free; dropping one is not.
+      // The SECTION and each obligation it carries, matched by concept inside the
+      // section alone: a pattern searched across the whole pack would let a
+      // following fragment stand in for a dropped obligation.
       const leadIn =
         /\b(every|each)\b\s+prompt\b[^.;]{0,70}\b(obligations?|clauses?|standards?)\b[^.;]{0,20}:/i;
       const implement = pack('implement');
@@ -3400,17 +3357,37 @@ const CONCEPT_GUARDS = [
         -1,
         'the implement pack no longer introduces the implementer evidence contract as a section',
       );
-      // Counted inside the section alone, bounded by the next heading: counting to the
-      // end of the pack let the list items of every following fragment stand in for the
-      // clauses, so dropping one survived. Proven with a mutant, not assumed.
       const tail = implement.slice(at);
       const nextHeading = tail.search(/\s#{1,3}\s/);
       const section = nextHeading === -1 ? tail : tail.slice(0, nextHeading);
-      const clauses = section.split(/\s-\s/).length - 1;
-      assert.ok(
-        clauses >= 8,
-        `the implement pack's evidence contract lists ${clauses} obligations, fewer than the eight it must carry`,
-      );
+      for (const [label, pattern] of [
+        [
+          'scope discipline names every residual',
+          /\bscope\b[^.;]{0,60}\bpass\/fail\b|\bresidual\w*\b[^.;]{0,60}\b(name|report|list)\w*|\b(name|report|list)\w*\b[^.;]{0,60}\bresidual/i,
+        ],
+        [
+          'the original defect is reproduced first',
+          /\breproduc\w+\b[^.;]{0,40}\bdefect\b|\bdefect\b[^.;]{0,40}\breproduc\w+/i,
+        ],
+        [
+          'the new test is shown failing before the fix',
+          /\btest\b[^.;]{0,30}\bfail\w*\b[^.;]{0,30}\bbefore\b[^.;]{0,20}\bfix\b/i,
+        ],
+        [
+          'a contradicting instruction is reported',
+          /\binstruction\b[^.;]{0,40}\bcontradict\w*|\bcontradict\w*\b[^.;]{0,40}\binstruction\b/i,
+        ],
+        [
+          'a wider scope stops the work',
+          /\bstop\b[^.;]{0,60}\bwider\b[^.;]{0,15}\bscope\b|\bwider\b[^.;]{0,15}\bscope\b[^.;]{0,60}\bstop/i,
+        ],
+        [
+          'unspecified decisions are reported',
+          /\bdecisions?\b[^.;]{0,40}\b(not|never|did not)\b[^.;]{0,15}\bspecif\w+/i,
+        ],
+      ]) {
+        assert.match(section, pattern, `the evidence contract no longer obliges that ${label}`);
+      }
       assert.doesNotMatch(
         pack('spec'),
         leadIn,
@@ -3494,35 +3471,36 @@ const CONCEPT_GUARDS = [
     entry: 15,
     obligation:
       'sync runs at the strategic points and a same-document conflict goes to the human, never blocking the local flow',
-    verify: (pack) => {
+    // The semantics left core for the overlay an activated repo composes after it,
+    // so the guard reads that fragment; its composition is asserted structurally.
+    verify: () => {
+      const state = flattened(contractFragment('global-state.md'));
       assert.match(
-        pack('core'),
+        state,
         /`?sync`?[^.;]{0,200}\b(session|review|closure|handoff)\b/i,
-        'core no longer obliges running sync at the strategic points',
+        'global-state no longer obliges running sync at the strategic points',
       );
       assert.match(
-        pack('core'),
+        state,
         /\bsame document\b[^.;]{0,160}\bhuman\b|\bhuman\b[^.;]{0,160}\bsame document\b/i,
-        'core no longer routes same-document sync conflicts to the human',
+        'global-state no longer routes same-document sync conflicts to the human',
       );
       assert.match(
-        pack('core'),
+        state,
         /\bsync\b[^.;]{0,160}\b(never|not)\b[^.;]{0,30}\bblock\w*/i,
-        'core no longer declares sync non-blocking',
+        'global-state no longer declares sync non-blocking',
       );
-      // 20260812-003313: the adoption entry point — a clean-context agent found
-      // `cutover` only by listing help; core must name how the state is adopted.
       assert.match(
-        pack('core'),
+        state,
         /\bnot yet activated\b[^.;]{0,90}\bcutover\b|\bcutover\b[^.;]{0,80}\bintegration branch\b/i,
-        'core no longer names cutover as the adoption entry point',
+        'global-state no longer names cutover as the adoption entry point',
       );
     },
   },
   {
     entry: 16,
     obligation:
-      'the documentation type writes its execution rules as its own CRs, citing path and symbol, and the human decides every divergence from an existing spec before in-review',
+      'a change that documents a topic writes its execution rules as its own CRs, citing path and symbol, and the human decides every divergence from an existing spec before in-review',
     verify: () => {
       const spec = flattened(contractFragment('spec.md'));
       assert.match(
@@ -3540,87 +3518,6 @@ const CONCEPT_GUARDS = [
         spec,
         /(?=[^.;]{0,200}\bhuman\b)(?=[^.;]{0,200}\bdivergen)(?=[^.;]{0,200}`in-review`)/i,
         'spec no longer has the human decide every divergence from an existing spec before in-review',
-      );
-    },
-  },
-  {
-    entry: 18,
-    obligation:
-      'the graduation-review delegate is read-only, contrasts each affected spec diff with the code and the change, and recommends apply or correct',
-    verify: () => {
-      const capsule = flattened(contractFragment('agent-contexts/graduation-review.md'));
-      // Files, Git and the ledger forbidden in one sentence, in any order.
-      const window = '[^.]{0,250}';
-      const deny = '\\b(do not|never|must not|may not)\\b[^.;]{0,15}';
-      assert.match(
-        capsule,
-        new RegExp(
-          [
-            `${deny}\\b(modify|edit|write)\\b[^.;]{0,15}\\bfiles?\\b`,
-            `${deny}\\b(change|modify|touch)\\b[^.;]{0,15}\\bGit\\b`,
-            `${deny}\\b(mutate|modify|write)\\b[^.;]{0,15}\\bledger\\b`,
-          ]
-            .map((term) => `(?=${window}${term})`)
-            .join(''),
-          'i',
-        ),
-        'the graduation-review capsule no longer forbids touching files, Git and the ledger',
-      );
-      assert.doesNotMatch(
-        capsule,
-        /changeledger (status|task|log|review|validation|graduate|archive|approve|reopen|discard)\b/,
-        'the graduation-review capsule names a lifecycle command',
-      );
-      // Spec, diff, code and change in one sentence, in any order.
-      assert.match(
-        capsule,
-        new RegExp(
-          [
-            '\\b(each|every|all)\\b[^.;]{0,20}\\bspecs?\\b',
-            '\\bdiff\\b',
-            '\\b(contrast|compar|check|verif)\\w*',
-            '\\bcode\\b',
-            '\\bchange\\b',
-          ]
-            .map((term) => `(?=${window}${term})`)
-            .join(''),
-          'i',
-        ),
-        'the graduation-review capsule no longer contrasts each spec diff with the code and the change',
-      );
-      assert.match(
-        capsule,
-        /\brecommend\w*\b[^.]{0,80}\bapply\b[^.]{0,80}\bcorrect\b/i,
-        'the graduation-review capsule no longer recommends apply or correct',
-      );
-    },
-  },
-  {
-    entry: 19,
-    obligation:
-      'a review_required closure that touches specs is checked by graduation-review before the first --into, and findings go to a fresh reviewer after the correction',
-    verify: () => {
-      const close = flattened(contractFragment('close.md'));
-      // review_required, the delegated role and the first `--into` in one sentence.
-      const window = '[^.]{0,250}';
-      assert.match(
-        close,
-        new RegExp(
-          [
-            '\\breview_required\\b',
-            '`graduation-review`',
-            '\\bbefore\\b[^.;]{0,30}\\b(first|any)\\b[^.;]{0,10}`--into`',
-          ]
-            .map((term) => `(?=${window}${term})`)
-            .join(''),
-          'i',
-        ),
-        'close no longer delegates graduation-review before the first --into',
-      );
-      assert.match(
-        close,
-        /\bfindings?\b[^.;]{0,80}\b(correct|fix)\w*\b[^.;]{0,100}\b(fresh|new|another)\b[^.;]{0,20}\b(reviewer|delegate|subagent)\b/i,
-        'close no longer re-delegates to a fresh reviewer after correcting findings',
       );
     },
   },
@@ -3659,9 +3556,10 @@ const CONCEPT_GUARDS = [
   {
     entry: 21,
     obligation:
-      'a defect makes the agent ask the human between a normal fix and the published release_types, and draft nothing until answered',
-    // Bound to the published `release_types=` field, not to reading `config.yml`.
-    // A sentence ends at a period followed by whitespace.
+      'a defect makes the agent ask the human whether the fix integrates into the published release_branch, declare integrates_into, and draft nothing until answered',
+    // Bound to the published `release_branch=` field, not to reading `config.yml`;
+    // 20261024-121022 replaced the retired `release_types=`. A sentence ends at a
+    // period followed by whitespace.
     verify: () => {
       const spec = flattened(contractFragment('spec.md'));
       const sentence = (terms) =>
@@ -3670,11 +3568,11 @@ const CONCEPT_GUARDS = [
         spec,
         sentence([
           '\\bdefects?\\b',
-          '`release_types=`',
+          '`release_branch=`',
           '\\bask\\w*\\b[^.;]{0,30}\\bhuman\\b',
-          '(\\bnormal\\b[^.;]{0,15}\\bfix\\b|`bug`)',
+          '`integrates_into: release`',
         ]),
-        'spec no longer has a defect make the agent ask the human between a normal fix and the published release types',
+        'spec no longer has a defect make the agent ask the human whether the fix integrates into the release branch',
       );
       assert.match(
         spec,
@@ -3700,6 +3598,127 @@ const CONCEPT_GUARDS = [
       );
     },
   },
+  {
+    entry: 23,
+    obligation:
+      'nothing written outside .changeledger/ cites a change or criterion id; the trace runs from the change through Target, Verify and the [#id] marker',
+    verify: () => {
+      const sentence = (terms) =>
+        new RegExp(terms.map((term) => `(?=(?:[^.]|\\.(?=\\S)){0,300}${term})`).join(''), 'i');
+      const outside = sentence([
+        '\\boutside\\b[^.;]{0,20}`\\.changeledger/`',
+        '\\bchange ids?\\b',
+        '(\\bcriterion ids?\\b|`CRn`)',
+      ]);
+      const implement = flattened(contractFragment('implement.md'));
+      assert.match(implement, outside, 'implement no longer keeps ledger ids out of the code');
+      assert.match(
+        implement,
+        sentence(['`Target`', '`Verify`', '`\\[#id\\]`']),
+        'implement no longer runs the trace through Target, Verify and the [#id] marker',
+      );
+      assert.match(
+        implement,
+        /\btests?\b[^.;]{0,30}\bnamed?\b[^.;]{0,30}\bbehaviou?r|\bnam\w+\b[^.;]{0,30}\btests?\b[^.;]{0,30}\bbehaviou?r/i,
+        'implement no longer names a test by the behaviour it proves',
+      );
+      for (const seat of ['spec.md', 'core.md']) {
+        assert.doesNotMatch(
+          flattened(contractFragment(seat)),
+          outside,
+          `${seat} restates the rule`,
+        );
+      }
+    },
+  },
+  {
+    entry: 24,
+    obligation:
+      'core owns the [#id] subject marker, check --commits and the selection committed before the review is delegated',
+    verify: (pack) => {
+      const core = pack('core');
+      assert.ok(core.includes('[#<id>]'), 'core no longer marks the subject with the change id');
+      assert.ok(
+        core.includes('`changeledger check --commits'),
+        'core no longer runs check --commits before review',
+      );
+      assert.match(
+        core,
+        /\b(every|each)\b[^.;]{0,20}\bselection\b[^.;]{0,40}\bcommitted\b[^.;]{0,40}\bbefore\b[^.;]{0,40}\breview\b/i,
+        'core no longer commits every selection before the review is delegated',
+      );
+    },
+  },
+  {
+    entry: 25,
+    obligation: 'with tdd on, the failing test comes before the code that makes it pass',
+    verify: () => {
+      assert.match(
+        flattened(contractFragment('implement.md')),
+        /`?tdd=on`?[^.;]{0,40}\bfailing test\b[^.;]{0,80}\bpass/i,
+        'implement no longer writes the failing test first under tdd=on',
+      );
+    },
+  },
+  {
+    entry: 26,
+    obligation: 'delegation is one level deep with one owner per write surface',
+    verify: (pack) => {
+      const core = pack('core');
+      assert.match(core, /\bone\b[^.;:]{0,10}\blevel\b/i, 'core no longer bounds delegation depth');
+      assert.match(
+        core,
+        /\bone owner\b[^.;]{0,20}\bsurface\b/i,
+        'core no longer gives each write surface one owner',
+      );
+      const delegation = flattened(coreSection(contractFragment('core.md'), '## Delegation'));
+      assert.match(
+        delegation,
+        /\b(must not|never|do not)\b[^.;]{0,20}\bdelegat\w*\b[^.;]{0,20}\b(further|again)\b/i,
+        'the prompt contract no longer forbids delegating further',
+      );
+      assert.match(
+        delegation,
+        /\bdisjoint\b[^.;]{0,20}\bwrite sets?\b/i,
+        'delegation no longer splits implementation only across disjoint write sets',
+      );
+    },
+  },
+  {
+    entry: 27,
+    obligation:
+      'handoff triage routes each observation to the change, the flow, a finding or a mention, never mixing concerns',
+    verify: () => {
+      const delegation = flattened(coreSection(contractFragment('core.md'), '## Delegation'));
+      for (const [label, pattern] of [
+        [
+          'necessary work updates Specification, Plan and Log',
+          /\bnecessary\b[^.;]{0,80}\bSpecification\b[^.;]{0,30}\bPlan\b[^.;]{0,20}\bLog\b/i,
+        ],
+        [
+          'an operational step is executed or recorded',
+          /\boperational\b[^.;]{0,100}\b(execute|record)/i,
+        ],
+        [
+          'work outside the objective or frontier becomes a finding',
+          /\boutside\b[^.;]{0,60}\b(objective|frontier)\b[^.;]{0,80}`changeledger finding <id>`/i,
+        ],
+        ['a vague observation creates no file', /\bvague\b[^.;]{0,80}\bno\b[^.;]{0,10}\bfiles?\b/i],
+        [
+          'independent concerns are never mixed in',
+          /\b(never|do not)\b[^.;]{0,20}\bmix\w*\b[^.;]{0,60}\bconcerns?\b/i,
+        ],
+        ['a ready delivery is not held up', /\bhold\w*\b[^.;]{0,10}\bup\b[^.;]{0,30}\bdeliver/i],
+      ]) {
+        assert.match(delegation, pattern, `delegation no longer triages so that ${label}`);
+      }
+      assert.doesNotMatch(
+        flattened(contractFragment('review.md')),
+        /changeledger finding/,
+        'review regrew the handoff triage',
+      );
+    },
+  },
 ];
 
 for (const { entry, obligation, verify } of CONCEPT_GUARDS) {
@@ -3716,19 +3735,15 @@ for (const { entry, obligation, verify } of CONCEPT_GUARDS) {
   });
 }
 
-// --- 20261002-113320: per-type tdd in change-id captures ---
+// --- 20261002-113320: the change's own tdd in change-id captures ---
 
-// Declares the `documentation` type of 113320 CR1 whatever the template ships,
-// so the capture is judged on the resolver, not on the template's content.
-function declareDocumentationType(root, globalTdd = true) {
+// Sets the global `tdd` whatever the template ships, so the capture is judged
+// on the resolver, not on the template's content; since 20261024-121022 the
+// override is the change's own `tdd: false`.
+function declareGlobalTdd(root, globalTdd = true) {
   const file = path.join(root, '.changeledger', 'config.yml');
   const config = parseYaml(fs.readFileSync(file, 'utf8'));
   config.tdd = globalTdd;
-  config.types.documentation = {
-    stages: ['request', 'investigation', 'specification', 'log'],
-    review_required: true,
-    tdd: false,
-  };
   fs.writeFileSync(file, stringifyYaml(config));
 }
 
@@ -3738,7 +3753,8 @@ function writeDocumentationChange(root, id, status) {
     `---
 id: "${id}"
 title: Doc fixture
-type: documentation
+type: change
+tdd: false
 status: ${status}
 created: 2026-10-02T11:33:20Z
 depends_on: []
@@ -3748,7 +3764,7 @@ depends_on: []
 
 Document the topic.
 
-## Investigation
+### Investigation
 
 Evidence.
 
@@ -3764,14 +3780,311 @@ Evidence.
   );
 }
 
-test('113320 CR4: a tdd-off change publishes tdd=off and composes no readiness', () => {
+// 20261023-181753 retired the readiness fragment this test also excluded; the
+// retired-phrase sweep `181753 CR7` keeps it out of every capture.
+test('113320 CR4: a tdd-off change publishes tdd=off', () => {
   const root = repo();
-  declareDocumentationType(root);
+  declareGlobalTdd(root);
   const id = '20261002-113321';
   writeDocumentationChange(root, id, 'draft');
   const output = buildContext(id, root);
   const policy = output.split('\n').find((line) => line.startsWith('Effective policy:'));
   assert.match(policy, /tdd=off/);
-  assert.doesNotMatch(output, /# Definition of Ready/);
   assert.match(output, /# Authoring a Change/);
+});
+
+// --- 20261023-181753: the human approves objective and frontier ---
+
+// CR7 — the Definition of Ready is retired from the contract. A retired-phrase
+// sweep over every fragment at any depth, case-insensitive so a capitalised
+// `Readiness` cannot slip back, plus the fragment file itself.
+const RETIRED_READINESS_PHRASES = [
+  'Definition of Ready',
+  'readiness',
+  'test-grade',
+  'materially expands observable scope',
+];
+
+test('181753 CR7: no contract fragment carries the retired readiness model', () => {
+  assert.equal(
+    fs.existsSync(new URL('readiness.md', contractFragments)),
+    false,
+    'templates/contract/readiness.md still exists',
+  );
+  const fragments = contractFragmentNames();
+  for (const retired of RETIRED_READINESS_PHRASES) {
+    const holders = fragments.filter((name) =>
+      flattened(contractFragment(name)).toLowerCase().includes(retired.toLowerCase()),
+    );
+    assert.deepEqual(holders, [], `a contract fragment still carries the retired "${retired}"`);
+  }
+});
+
+// CR7 — the new model, as the criterion states its tolerant patterns. The
+// objective-and-frontier clause `approve` demands is curated concept guard 5.
+test('181753 CR7: the spec pack writes Specification and Plan in in-progress, never re-approved', () => {
+  const spec = flattened(buildContext('spec', repo()));
+  assert.doesNotMatch(spec, /# Definition of Ready/);
+  assert.match(spec, /Specification and Plan[^.]{0,80}in-progress/);
+  assert.match(spec, /(never|not|no)[^.]{0,40}(re-?approv|return[^.]{0,20}approval)/i);
+});
+
+test('181753 CR7: core states the scope test against the approved objective and frontier', () => {
+  const core = flattened(buildContext(undefined, repo()));
+  assert.match(core, /must be true[^.]{0,60}objective/i);
+  assert.match(core, /(pre-?authori[sz]ed|frontier)/i);
+});
+
+test('181753 CR7: implement is governed by objective and frontier and gates in-review on Specification and Plan', () => {
+  const implement = flattened(buildContext('implement', repo()));
+  assert.match(implement, /objective and frontier/i);
+  assert.match(implement, /in-review[^.]{0,80}(Specification|Plan)/);
+});
+
+// --- 20261024-121022: tdd and integrates_into belong to the change ---------
+
+function changeWithFrontmatter(root, id, extra, type = 'change') {
+  writeRawChange(root, { id, status: 'approved', type });
+  const file = path.join(root, '.changeledger', 'changes', `${id}-${type}.md`);
+  const text = fs
+    .readFileSync(file, 'utf8')
+    .replace('\nstatus: approved\n', `\n${extra}status: approved\n`);
+  fs.writeFileSync(
+    file,
+    type === 'epic' ? text.replace(/\n## Specification[\s\S]*?\n## Log/, '\n## Log') : text,
+  );
+}
+
+test('20261024-121022 CR8: a change with tdd: false publishes tdd=off, without the key tdd=on', () => {
+  const root = repo();
+  changeWithFrontmatter(root, '20261024-120000', 'tdd: false\n');
+  changeWithFrontmatter(root, '20261024-120001', '');
+  assert.match(policyLineOf(buildContext('20261024-120000', root)), / — tdd=off( |$)/);
+  assert.match(policyLineOf(buildContext('20261024-120001', root)), / — tdd=on( |$)/);
+  // The tdd-off fixture is the first by id; its capsule publishes the change's own tdd.
+  const [tddOff] = fs
+    .readdirSync(path.join(root, '.changeledger', 'changes'))
+    .map((name) => name.slice(0, 15))
+    .sort();
+  assert.match(reviewCapsule(root, tddOff), /^Effective policy: language=en — tdd=off/m);
+});
+
+test('20261024-121022 CR8: an epic publishes no tdd=', () => {
+  const root = repo();
+  changeWithFrontmatter(root, '20261024-120000', '', 'epic');
+  const policy = policyLineOf(buildContext('20261024-120000', root));
+  assert.doesNotMatch(policy, /tdd=/);
+  assert.match(policy, / — type=epic$/);
+});
+
+test('20261024-121022 CR8: the change policy publishes its type and no matrix line', () => {
+  const root = repo();
+  changeWithFrontmatter(root, '20261024-120000', '');
+  const output = buildContext('20261024-120000', root);
+  assert.match(policyLineOf(output), / — type=change$/);
+  assert.doesNotMatch(output, /review_required\(|Active stages\(/);
+});
+
+test('20261024-121022 CR10: a change integrating into the release branch publishes it with the back merge', () => {
+  const root = repo();
+  setConfig(root, [
+    [/^ {2}integration_branch:.*$/m, '  integration_branch: dev'],
+    [/^ {2}release_branch:.*$/m, '  release_branch: main'],
+  ]);
+  changeWithFrontmatter(root, '20261024-120000', 'integrates_into: release\n');
+  assert.match(
+    policyLineOf(buildContext('20261024-120000', root)),
+    /integration_branch=main — back_merge_branch=dev/,
+  );
+});
+
+test('20261024-121022 CR10: context spec publishes release_branch only when declared, never release_types=', () => {
+  const root = repo();
+  assert.equal(policyLineOf(buildContext('spec', root)), 'Effective policy: language=en — tdd=on');
+  setConfig(root, [[/^ {2}release_branch:.*$/m, '  release_branch: main']]);
+  const declared = policyLineOf(buildContext('spec', root));
+  assert.equal(declared, 'Effective policy: language=en — tdd=on — release_branch=main');
+  assert.doesNotMatch(declared, /release_types=/);
+});
+
+// --- 20261024-121022 CR17: the contract describes the change without a matrix ---
+
+// Retired-phrase sweep over every fragment at any depth. `types.` is the dotted
+// config path (`types.<t>`), so a sentence ending in "types." is not caught;
+// `documentation` is retired as a type, so only its backticked enum form and
+// "documentation type" are swept, never the ordinary noun. The three `fix`
+// flags were removed from the CLI by the same change (CR15).
+const RETIRED_MATRIX_PHRASES = [
+  ['quick', /\bquick\b/i],
+  ['review_required', /review_required/],
+  ['seed_stage', /seed_stage/],
+  ['release_types=', /release_types=/],
+  ['Active stages', /Active stages/i],
+  ['configured matrix', /configured matrix/i],
+  ['documentation as a type', /`documentation`|\bdocumentation type\b/i],
+  ['types.<t>', /\btypes\.(?=[\w<`])/],
+  ['release.impacts', /release\.impacts/],
+  ['fix --plan-tags', /--plan-tags/],
+  ['fix --structured-sections', /--structured-sections/],
+  ['fix --graduation-links', /--graduation-links/],
+];
+
+for (const [label, pattern] of RETIRED_MATRIX_PHRASES) {
+  test(`20261024-121022 CR17: no contract fragment carries the retired "${label}"`, () => {
+    const holders = contractFragmentNames().filter((name) =>
+      pattern.test(flattened(contractFragment(name))),
+    );
+    assert.deepEqual(holders, [], `a contract fragment still carries the retired "${label}"`);
+  });
+}
+
+// The tolerant patterns exactly as CR17 states them, one test per obligation.
+test('20261024-121022 CR17: context spec names the two types', () => {
+  assert.match(
+    flattened(buildContext('spec', repo())),
+    /two types[^.]{0,40}`change`[^.]{0,40}`epic`/i,
+  );
+});
+
+test('20261024-121022 CR17: context spec names the four stages in order', () => {
+  assert.match(
+    flattened(buildContext('spec', repo())),
+    /`Request`, `Specification`, `Plan`[^.]{0,20}`Log`/,
+  );
+});
+
+test('20261024-121022 CR17: context spec decides ceremony by comprehension, risk and resumability', () => {
+  assert.match(
+    flattened(buildContext('spec', repo())),
+    /(comprehension|understanding)[^.]{0,30}risk[^.]{0,40}resum/i,
+  );
+});
+
+test('20261024-121022 CR17: context spec never decides ceremony by size', () => {
+  assert.match(flattened(buildContext('spec', repo())), /never[^.]{0,30}size/i);
+});
+
+test('20261024-121022 CR17: context spec states when a change declares tdd: false', () => {
+  assert.match(flattened(buildContext('spec', repo())), /`tdd: false`[^.]{0,120}(test|exercise)/i);
+});
+
+// The two authoring obligations the retired Investigation and Proposal stages
+// carried keep a home without the type: a defect's root cause, and a proposal's
+// discarded alternatives. Concept guards, never the sentence.
+test('20261024-121022 CR17: context spec keeps the root cause and the discarded alternatives', () => {
+  const spec = flattened(buildContext('spec', repo()));
+  assert.match(spec, /root cause/i);
+  assert.match(spec, /discarded alternatives/i);
+});
+
+test('20261024-121022 CR17: context implement reaches done directly only without code', () => {
+  assert.match(
+    flattened(buildContext('implement', repo())),
+    /done[^.]{0,80}(touch|outside the ledger)/i,
+  );
+});
+
+test('20261024-121022 CR17: core makes small work a change with Request and Log', () => {
+  const core = composedCore();
+  assert.match(core, /\bsmall\b[^.]{0,60}`change`/i);
+  assert.match(core, /`change`[^.|]{0,20}\bRequest\b[^.|]{0,20}\bLog\b/);
+});
+
+test('20261024-121022 CR17: close seeds from Specification or Request', () => {
+  const close = flattened(contractFragment('close.md'));
+  assert.match(close, /\bseed\b[^.]{0,60}\bSpecification\b[^.]{0,40}\bRequest\b/);
+  assert.doesNotMatch(close, /\bProposal\b/);
+});
+
+test('20261024-121022 CR17: release names release.default_impact', () => {
+  assert.match(flattened(buildContext('release', repo())), /`release\.default_impact`/);
+});
+
+// --- The contract cut to ten fragments ----------------------------------------
+//
+// What the cut removed stays removed: one retired-phrase sweep per retired rule,
+// over every fragment at any depth, so a failure names the rule that grew back.
+const RETIRED_CUT_RULES = [
+  ['universal-quantifier standard', /quantif/i],
+  ['ban on copying the capsule checklist', /copy its checklist|\bDo not copy\b/i],
+  ['figures and line numbers handed over as data', /figures, line numbers/i],
+  ['mutant restoration by editing', /Mutate one thing|restore it by editing/i],
+  ['load-once rule for a stage context', /once; do not reload|never reload one already held/i],
+  [
+    'correction isolation',
+    /Correction isolation|uncommitted correction|kept uncommitted|left uncommitted|confirmation review|confirms it/i,
+  ],
+  ['graduation-review delegate', /graduation-review/],
+  ['handoff triage overlay', /# Handoff Triage/],
+  ['discarded overlay', /# Discarded — Terminal/],
+];
+
+for (const [label, pattern] of RETIRED_CUT_RULES) {
+  test(`no contract fragment carries the retired ${label}`, () => {
+    const holders = contractFragmentNames().filter((name) =>
+      pattern.test(flattened(contractFragment(name))),
+    );
+    assert.deepEqual(holders, [], `a contract fragment still carries the retired ${label}`);
+  });
+}
+
+test('a discarded change composes the document with no overlay and no ceiling', () => {
+  const root = repo();
+  const id = addChange(root, 'discarded');
+  const output = buildContext(id, root);
+  assert.match(
+    output.split('\n')[0],
+    new RegExp(`— mode: discarded — change: #${id} — v[^ ]+ — lines:\\d+ =====$`),
+  );
+  const base = output.split('\n# Selected change')[0];
+  const headings = base.split('\n').filter((line) => line.startsWith('# '));
+  assert.deepEqual(headings, [], 'a discarded change composed an overlay');
+  assert.match(output, /## Request[\s\S]*Need exact context/);
+});
+
+const GLOBAL_STATE_HEADING = '# Global State';
+
+// The overlay as it occupies the activated core capture: from its heading to the
+// blank line before END, so its own ceiling measures the increment it adds.
+function globalStateSection(capture) {
+  const at = capture.indexOf(`\n${GLOBAL_STATE_HEADING}\n`);
+  assert.notEqual(at, -1, 'the capture carries no global-state overlay');
+  return capture.slice(at + 1, capture.indexOf(END_LINE));
+}
+
+test('an inactive repo loads no global-state semantics in its core capture', () => {
+  const core = buildContext(undefined, repo());
+  assert.ok(!core.includes(GLOBAL_STATE_HEADING), 'an inactive core carries global-state');
+  assert.doesNotMatch(flattened(core), /\b(cutover|activate|sync)\b/);
+  assert.equal(publishedOccupancy(core).lineLimit, contextBudgets.base.core.lines);
+});
+
+test('an activated repo appends global-state after core, within the summed ceiling', () => {
+  const { root } = activatedContextFixture();
+  const core = buildContext(undefined, root);
+  const stateAt = core.indexOf(`\n${GLOBAL_STATE_HEADING}\n`);
+  assert.notEqual(stateAt, -1, 'the activated core capture does not carry global-state');
+  assert.ok(core.indexOf('# ChangeLedger — Core Contract') < stateAt, 'global-state precedes core');
+  assert.ok(stateAt < core.indexOf(END_LINE), 'global-state follows the END line');
+  const overlay = contextBudgets.overlays['global-state'];
+  const summed = {
+    tokens: contextBudgets.base.core.tokens + overlay.tokens,
+    lines: contextBudgets.base.core.lines + overlay.lines,
+  };
+  assert.equal(publishedOccupancy(core).lineLimit, summed.lines);
+  assert.equal(publishedOccupancy(core).lines, emittedLines(core));
+  assertWithinBudget('activated core', core, summed);
+  assertWithinBudget('global-state overlay', globalStateSection(core), overlay);
+  for (const mode of ['spec', 'implement', 'review', 'release']) {
+    assert.ok(!buildContext(mode, root).includes(GLOBAL_STATE_HEADING), `${mode} carries it`);
+  }
+});
+
+test('context help names the close overlay and no discarded overlay', () => {
+  const help = execFileSync('node', [bin, 'context', '--help'], {
+    encoding: 'utf8',
+    env: sanitizedEnv(),
+  });
+  assert.match(help, /\bclose\b[^.]{0,40}\boverlay\b|\boverlay\b[^.]{0,40}\bclose\b/i);
+  assert.doesNotMatch(help, /discarded/);
 });

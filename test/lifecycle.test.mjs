@@ -9,6 +9,7 @@ import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import {
   assertTransition,
   canTransition,
+  findingsInLog,
   LOG_EVENT_DEFINITIONS,
   LOG_EVENT_PAYLOAD_FORMS,
   LOG_EVENT_TYPES,
@@ -18,6 +19,7 @@ import {
   TASK_ACTIONS,
 } from '../src/lifecycle.mjs';
 import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
+import { changeId } from './helpers/ledger-fixtures.mjs';
 
 const LOG_AT = '- **2026-08-24T16:00:00Z**';
 const logLine = (type, payload) => `${LOG_AT} \`[${type}]\` ${payload}`;
@@ -33,6 +35,7 @@ test('20260824-134716 CR1/CR2: closed lifecycle domains have one executable auth
     'archive',
     'note',
     'version',
+    'finding',
   ]);
   assert.deepEqual(Object.keys(LOG_EVENT_PAYLOAD_FORMS), LOG_EVENT_TYPES);
   assert.deepEqual(REVIEW_VERDICTS, ['pass', 'fail']);
@@ -133,18 +136,19 @@ test('CR1: the happy path is allowed at every step', () => {
   const path = ['draft', 'approved', 'in-progress', 'done'];
   for (let i = 0; i < path.length - 1; i++) {
     assert.ok(canTransition(path[i], path[i + 1]), `${path[i]} → ${path[i + 1]}`);
-    assert.doesNotThrow(() => assertTransition(path[i], path[i + 1]));
+    assert.doesNotThrow(() =>
+      assertTransition(path[i], path[i + 1], { kind: 'change', touchesCode: false }),
+    );
   }
 });
 
-test('20261018-131621 CR4: the review_required happy path delivers through in-review', () => {
-  const opts = { type: 'feature', reviewRequired: true };
+test('20261018-131621 CR4: the reviewed happy path delivers through in-review', () => {
   for (const [from, to] of [
     ['in-progress', 'in-review'],
     ['in-review', 'done'],
   ]) {
     assert.ok(canTransition(from, to), `${from} → ${to}`);
-    assert.doesNotThrow(() => assertTransition(from, to, opts));
+    assert.doesNotThrow(() => assertTransition(from, to, { kind: 'change' }));
   }
 });
 
@@ -170,42 +174,57 @@ test('custom (non-canonical) statuses keep enum-only behavior', () => {
   assert.doesNotThrow(() => assertTransition('custom', 'done'));
 });
 
-// Review gate (change 20260615-150510): in-review sits between in-progress and
-// done for review_required types.
+// The delivery gate (20261024-121022): whether a change reaches `done` straight
+// from `in-progress` is decided by whether its branch touches code, never by
+// its type. The caller reads git and hands the answer in as `touchesCode`;
+// anything but an explicit `false` keeps the change on the reviewed route.
 
-test('171002 CR1: a review_required type cannot skip review before delivery', () => {
+test('20261024-121022 CR5: a change that touches code cannot skip review', () => {
   assert.throws(
-    () =>
-      assertTransition('in-progress', 'done', {
-        type: 'feature',
-        reviewRequired: true,
-      }),
-    /^Error: feature changes must be reviewed before delivery — move to in-review first$/,
+    () => assertTransition('in-progress', 'done', { kind: 'change', touchesCode: true }),
+    /^Error: change touches code outside the ledger: move it to in-review and record a verdict$/,
   );
 });
 
-test('162616 CR3: an empty type does not deform the review-required message with a double space', () => {
+test('20261024-121022 CR5: a change that touches only the ledger delivers from in-progress', () => {
+  assert.doesNotThrow(() =>
+    assertTransition('in-progress', 'done', { kind: 'change', touchesCode: false }),
+  );
+});
+
+test('20261024-121022 CR6: an undecided change cannot skip review', () => {
+  for (const opts of [{ kind: 'change' }, { kind: 'change', touchesCode: undefined }, {}]) {
+    assert.throws(
+      () => assertTransition('in-progress', 'done', opts),
+      /^Error: cannot decide whether the change touches code — move it to in-review and record a verdict$/,
+      JSON.stringify(opts),
+    );
+  }
+});
+
+test('20261024-121022 CR6: a change enters review whether it touches code or not', () => {
+  for (const touchesCode of [true, false, undefined]) {
+    assert.doesNotThrow(() =>
+      assertTransition('in-progress', 'in-review', { kind: 'change', touchesCode }),
+    );
+  }
+});
+
+test('20261024-121022 CR7: an epic never enters review', () => {
   assert.throws(
-    () =>
-      assertTransition('in-progress', 'done', {
-        type: '',
-        reviewRequired: true,
-      }),
-    /^Error: changes must be reviewed before delivery — move to in-review first$/,
+    () => assertTransition('in-progress', 'in-review', { kind: 'epic' }),
+    /^Error: epic changes do not enter review — move to done instead$/,
   );
 });
 
-test('171002 CR5: a non-review_required type delivers straight from in-progress', () => {
-  assert.doesNotThrow(() =>
-    assertTransition('in-progress', 'done', { type: 'chore', reviewRequired: false }),
-  );
+test('20261024-121022 CR7: an epic delivers from in-progress without a code decision', () => {
+  assert.doesNotThrow(() => assertTransition('in-progress', 'done', { kind: 'epic' }));
 });
 
-// 20260711-103756 CR2: the `quick` lane has no review gate — same shape as any
-// other non-review_required type, proven explicitly for `quick`.
-test('103756 CR2: a quick change delivers from in-progress without review', () => {
-  assert.doesNotThrow(() =>
-    assertTransition('in-progress', 'done', { type: 'quick', reviewRequired: false }),
+test('20261024-121022: a kind outside change and epic is refused', () => {
+  assert.throws(
+    () => assertTransition('in-progress', 'done', { kind: 'feature', touchesCode: false }),
+    /^Error: unknown change kind "feature"; valid kinds: change, epic$/,
   );
 });
 
@@ -214,47 +233,7 @@ test('CR5: in-review is only reachable from in-progress', () => {
     () => assertTransition('approved', 'in-review'),
     /^Error: invalid lifecycle transition: approved → in-review$/,
   );
-  assert.doesNotThrow(() =>
-    assertTransition('in-progress', 'in-review', { type: 'feature', reviewRequired: true }),
-  );
-});
-
-// 20260726-141120 — the review gate closes on entry too: a type that does not
-// declare `review_required` activates neither `specification` nor `plan`, so a
-// reviewer dispatched against it has no criterion and no task to inspect.
-
-test('141120 CR1: a type without review cannot enter in-review', () => {
-  assert.throws(
-    () => assertTransition('in-progress', 'in-review', { type: 'audit', reviewRequired: false }),
-    /^Error: audit changes do not require review — move to done instead$/,
-  );
-});
-
-test('141120: a typeless document gets a named cause instead of "undefined"', () => {
-  assert.throws(
-    () => assertTransition('in-progress', 'in-review', { reviewRequired: false }),
-    /^Error: cannot decide review entry: the change declares no type$/,
-  );
-});
-
-test('141120 CR3: the lightweight type keeps its legitimate route to delivery', () => {
-  assert.doesNotThrow(() =>
-    assertTransition('in-progress', 'done', { type: 'audit', reviewRequired: false }),
-  );
-});
-
-test('141120 CR4: feature and bug keep both review edges', () => {
-  for (const type of ['feature', 'bug']) {
-    assert.doesNotThrow(() =>
-      assertTransition('in-progress', 'in-review', { type, reviewRequired: true }),
-    );
-    assert.throws(
-      () => assertTransition('in-progress', 'done', { type, reviewRequired: true }),
-      new RegExp(
-        `^Error: ${type} changes must be reviewed before delivery — move to in-review first$`,
-      ),
-    );
-  }
+  assert.doesNotThrow(() => assertTransition('in-progress', 'in-review', { kind: 'change' }));
 });
 
 test('CR12: an edge outside the graph is rejected', () => {
@@ -503,182 +482,26 @@ test('183807 CR6: an interior "[note]" is ordinary text and is preserved', () =>
   assert.equal(line, '- **2026-07-30T18:00:00Z** `[note]` saw a [note] in the middle');
 });
 
-// 20260722-124656 CR3 — the readiness refusal lives on the write path in
-// `src/commands/agent.mjs`, never in the graph. Removing this edge would "fix"
-// an unready candidate by making every candidate unreachable, so pin it here.
-test('124656 CR3: the in-review edges stay legal; readiness is not a graph rule', () => {
-  assert.doesNotThrow(() =>
-    assertTransition('in-progress', 'in-review', { type: 'feature', reviewRequired: true }),
-  );
+// 20260722-124656 CR3 — the refusal of an unreviewable candidate lives on the
+// write path in `src/commands/agent.mjs`, never in the graph. Removing this edge
+// would "fix" such a candidate by making every candidate unreachable, so pin it
+// here.
+test('124656 CR3: the in-review edges stay legal; the review entry gate is not a graph rule', () => {
+  assert.doesNotThrow(() => assertTransition('in-progress', 'in-review', { kind: 'change' }));
   // The no-verdict return the contract names is a graph edge, not a review verdict.
   // Only `canTransition` is asserted here: `assertTransition('in-review',
-  // 'in-progress')` is already pinned by `171002 CR1/CR3` above, and this repo
+  // 'in-progress')` is already pinned by `20261018-131621 CR4/CR5` above, and this repo
   // keeps one home per truth.
   assert.equal(canTransition('in-review', 'in-progress'), true);
 });
 
-// 20261002-113320 CR8 — first real use of the `documentation` type, through the
-// spawned CLI on a freshly initialised repo: a change with one criterion and no
-// Plan walks approve → in-progress → in-review → review pass. The review gate of
-// a tdd-off type is still honoured: `review` is what reaches validation.
-test('113320 CR8: a documentation change without a Plan reaches done', () => {
-  const bin = fileURLToPath(new URL('../bin/changeledger.mjs', import.meta.url));
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-doc-e2e-'));
-  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
-  initGitFixture(root);
-  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
-  const cli = (...args) => {
-    try {
-      return {
-        code: 0,
-        out: execFileSync('node', [bin, ...args], { cwd: root, env, encoding: 'utf8' }),
-      };
-    } catch (e) {
-      return { code: e.status ?? 1, out: `${e.stdout ?? ''}${e.stderr ?? ''}` };
-    }
-  };
-  const ok = (...args) => {
-    const result = cli(...args);
-    assert.equal(result.code, 0, `${args.join(' ')}: ${result.out}`);
-    return result.out;
-  };
-
-  ok('init');
-  ok('new', 'documentation', 'auth-truth', 'Auth truth', '--owner', 'Test User');
-  const dir = path.join(root, '.changeledger', 'changes');
-  const [name] = fs.readdirSync(dir);
-  const file = path.join(dir, name);
-  const id = name.slice(0, 15);
-  const text = fs.readFileSync(file, 'utf8');
-  assert.doesNotMatch(text, /## Plan/);
-  fs.writeFileSync(
-    file,
-    text
-      .replace('## Request\n', '## Request\n\nDocument authentication.\n')
-      .replace(
-        '## Investigation\n',
-        '## Investigation\n\n`src/auth.mjs` `login` is the entry point.\n',
-      )
-      .replace(
-        '## Specification\n',
-        '## Specification\n\n### CR1 — Login claim\n- **Given** `src/auth.mjs` `login`\n- **When** it is read\n- **Then** the spec states what it does\n',
-      ),
-  );
-
-  ok('approve', id);
-  execFileSync('git', ['checkout', '-q', '-b', `documentation/${id}`], {
-    cwd: root,
-    env: sanitizedEnv(),
-  });
-  ok('status', id, 'in-progress');
-  const skipped = cli('status', id, 'done');
-  assert.notEqual(skipped.code, 0);
-  assert.match(skipped.out, /must be reviewed before delivery — move to in-review first/);
-  ok('status', id, 'in-review');
-  ok('review', id, 'pass');
-  assert.match(fs.readFileSync(file, 'utf8'), /^status: done$/m);
-});
-
-// 20261002-152555 CR8 — first use of `graduation-review`, through the spawned CLI
-// on a freshly initialised repo: a feature change reaches `done`, the orchestrator
-// corrects the body of an existing spec, takes the role's skeleton and capsule,
-// records the review outcome and only then links the spec with `--into`.
-test('152555 CR8: a graduation review is recorded before the first --into of a done feature', () => {
-  const bin = fileURLToPath(new URL('../bin/changeledger.mjs', import.meta.url));
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-gradrev-e2e-'));
-  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
-  initGitFixture(root);
-  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
-  const ok = (...args) => {
-    try {
-      return execFileSync('node', [bin, ...args], { cwd: root, env, encoding: 'utf8' });
-    } catch (e) {
-      assert.fail(`${args.join(' ')} exited ${e.status}: ${e.stdout ?? ''}${e.stderr ?? ''}`);
-    }
-  };
-
-  ok('init');
-  const specFile = path.join(root, '.changeledger', 'specs', 'auth.md');
-  fs.mkdirSync(path.dirname(specFile), { recursive: true });
-  fs.writeFileSync(
-    specFile,
-    '---\ntitle: Authentication\nupdated: 2026-10-01T10:00:00Z\ntags: []\ngraduated_from: []\n---\n\n`src/auth.mjs` `login` returns a token.\n',
-  );
-  ok('new', 'feature', 'auth-session', 'Auth session', '--owner', 'Test User');
-  const dir = path.join(root, '.changeledger', 'changes');
-  const [name] = fs.readdirSync(dir);
-  const file = path.join(dir, name);
-  const id = name.slice(0, 15);
-  fs.writeFileSync(
-    file,
-    fs
-      .readFileSync(file, 'utf8')
-      .replace('## Request\n', '## Request\n\nLogin must return a session.\n')
-      .replace(
-        '## Investigation\n',
-        '## Investigation\n\n`src/auth.mjs` `login` returns a token.\n',
-      )
-      .replace('## Proposal\n', '## Proposal\n\nReturn a session.\n')
-      .replace(
-        '## Specification\n',
-        '## Specification\n\n### CR1 — Session\n- **Given** valid credentials\n- **When** `login` runs\n- **Then** it returns a session\n',
-      )
-      .replace(
-        '## Plan\n',
-        '## Plan\n\n- [ ] Return a session\n  - **Target:** `src/auth.mjs`\n  - **Verify:** `node --test test/auth.test.mjs`\n  - **Criteria:** CR1\n',
-      ),
-  );
-
-  ok('approve', id);
-  execFileSync('git', ['checkout', '-q', '-b', `feature/${id}`], {
-    cwd: root,
-    env: sanitizedEnv(),
-  });
-  ok('status', id, 'in-progress');
-  ok('task', id, 'done', '1');
-  ok('status', id, 'in-review');
-  ok('review', id, 'pass');
-  assert.match(fs.readFileSync(file, 'utf8'), /^status: done$/m);
-
-  // The closure corrects the existing spec's body, then has it reviewed.
-  fs.writeFileSync(
-    specFile,
-    fs.readFileSync(specFile, 'utf8').replace('returns a token', 'returns a session'),
-  );
-  assert.match(
-    ok('agent-prompt', 'graduation-review'),
-    /^===== CHANGELEDGER AGENT PROMPT BEGIN — role: graduation-review — v/,
-  );
-  assert.match(
-    ok('agent-context', 'graduation-review', id),
-    new RegExp(
-      `^===== CHANGELEDGER AGENT CONTEXT BEGIN — role: graduation-review — change: #${id} — v`,
-    ),
-  );
-  const outcome = 'graduation-review: apply — no findings';
-  ok('log', id, outcome);
-  ok('graduate', id, 'auth', '--into');
-
-  const events = fs
-    .readFileSync(file, 'utf8')
-    .split('\n')
-    .map((line) => parseLogEvent(line))
-    .filter(Boolean);
-  const note = events.findIndex((e) => e.type === 'note' && e.message === outcome);
-  const graduation = events.findIndex((e) => e.type === 'graduation' && e.spec === 'auth.md');
-  assert.notEqual(note, -1, 'the review outcome is not in the Log');
-  assert.notEqual(graduation, -1, 'the graduation event is not in the Log');
-  assert.ok(note < graduation, 'the review outcome is not logged before the graduation');
-  assert.match(fs.readFileSync(specFile, 'utf8'), /`login` returns a session\./);
-});
-
-// 20261002-181346 CR10 — first use of a type that integrates into the release
-// branch, through the spawned CLI on a freshly initialised repo. `dev` carries
-// a commit `main` lacks, so the change branch cut from `main` starts only when
-// the guard resolves the type's release branch rather than the integration one.
-test('181346 CR10: a release-type change starts from git.release_branch end to end', () => {
+// 20261002-181346 CR10, retargeted by 20261024-121022 CR10 — a change that
+// integrates into the release branch through its own frontmatter, through the
+// spawned CLI on a freshly initialised repo. `dev` carries a commit `main`
+// lacks, so the change branch cut from `main` starts only when the guard
+// resolves the change's release branch rather than the integration one, and
+// its context names `dev` as the branch to bring the result back to.
+test('181346 CR10: a release change starts from git.release_branch end to end', () => {
   const bin = fileURLToPath(new URL('../bin/changeledger.mjs', import.meta.url));
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-release-e2e-'));
@@ -698,8 +521,6 @@ test('181346 CR10: a release-type change starts from git.release_branch end to e
   const configFile = path.join(root, '.changeledger', 'config.yml');
   const config = parseYaml(fs.readFileSync(configFile, 'utf8'));
   config.git = { ...config.git, integration_branch: 'dev', release_branch: 'main' };
-  config.types.fix = { ...config.types.bug, integrates_into: 'release' };
-  config.release.impacts.fix = 'patch';
   fs.writeFileSync(configFile, stringifyYaml(config));
   ok('check');
   git('config', 'commit.gpgsign', 'false');
@@ -711,7 +532,7 @@ test('181346 CR10: a release-type change starts from git.release_branch end to e
   git('commit', '-q', '-m', 'feat: unreleased work');
   git('checkout', '-q', 'main');
 
-  ok('new', 'fix', 'prod-outage', 'Prod outage', '--owner', 'Test User');
+  ok('new', 'change', 'prod-outage', 'Prod outage', '--owner', 'Test User');
   const dir = path.join(root, '.changeledger', 'changes');
   const [name] = fs.readdirSync(dir);
   const file = path.join(dir, name);
@@ -720,8 +541,11 @@ test('181346 CR10: a release-type change starts from git.release_branch end to e
     file,
     fs
       .readFileSync(file, 'utf8')
-      .replace('## Request\n', '## Request\n\nProduction login fails.\n')
-      .replace('## Investigation\n', '## Investigation\n\n`src/auth.mjs` `login` throws.\n')
+      .replace(/^type: change$/m, 'type: change\nintegrates_into: release')
+      .replace(
+        '## Request\n',
+        '## Request\n\nProduction login fails.\n\n### Objective\n\nO\n\n### Frontier\n\nF\n',
+      )
       .replace(
         '## Specification\n',
         '## Specification\n\n### CR1 — Login\n- **Given** valid credentials\n- **When** `login` runs\n- **Then** it returns a session\n',
@@ -733,73 +557,110 @@ test('181346 CR10: a release-type change starts from git.release_branch end to e
   );
 
   ok('approve', id);
-  git('checkout', '-q', '-b', `fix/${id}`, 'main');
-  ok('status', id, 'in-progress');
-  assert.match(fs.readFileSync(file, 'utf8'), /^status: in-progress$/m);
-  const policy = ok('context', id)
-    .split('\n')
-    .find((line) => line.startsWith('Effective policy:'));
-  assert.match(policy, / — integration_branch=main /, policy);
-});
-
-// 20261002-181428 CR6 — first use of the shipped `hotfix` type, through the
-// spawned CLI on a freshly initialised repo whose template is left as generated
-// except for the two branches: the change starts from `main` and its context
-// names `dev` as the branch to bring the integrated result back to.
-test('181428 CR6: a hotfix change publishes its release branch and back_merge_branch end to end', () => {
-  const bin = fileURLToPath(new URL('../bin/changeledger.mjs', import.meta.url));
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-hotfix-e2e-'));
-  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
-  initGitFixture(root, { args: ['-b', 'main'] });
-  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
-  const git = (...args) => execFileSync('git', args, { cwd: root, env: sanitizedEnv() });
-  const ok = (...args) => {
-    try {
-      return execFileSync('node', [bin, ...args], { cwd: root, env, encoding: 'utf8' });
-    } catch (e) {
-      assert.fail(`${args.join(' ')} exited ${e.status}: ${e.stdout ?? ''}${e.stderr ?? ''}`);
-    }
-  };
-
-  ok('init');
-  const configFile = path.join(root, '.changeledger', 'config.yml');
-  const config = parseYaml(fs.readFileSync(configFile, 'utf8'));
-  config.git = { ...config.git, integration_branch: 'dev', release_branch: 'main' };
-  fs.writeFileSync(configFile, stringifyYaml(config));
-  ok('check');
-  git('config', 'commit.gpgsign', 'false');
-  git('add', '.');
-  git('commit', '-q', '-m', 'chore: baseline');
-  git('branch', 'dev');
-
-  ok('new', 'hotfix', 'prod-outage', 'Prod outage', '--owner', 'Test User');
-  const dir = path.join(root, '.changeledger', 'changes');
-  const [name] = fs.readdirSync(dir);
-  const file = path.join(dir, name);
-  const id = name.slice(0, 15);
-  fs.writeFileSync(
-    file,
-    fs
-      .readFileSync(file, 'utf8')
-      .replace('## Request\n', '## Request\n\nProduction login fails.\n')
-      .replace('## Investigation\n', '## Investigation\n\n`src/auth.mjs` `login` throws.\n')
-      .replace(
-        '## Specification\n',
-        '## Specification\n\n### CR1 — Login\n- **Given** valid credentials\n- **When** `login` runs\n- **Then** it returns a session\n',
-      )
-      .replace(
-        '## Plan\n',
-        '## Plan\n\n- [ ] Fix login\n  - **Target:** `src/auth.mjs`\n  - **Verify:** `node --test test/auth.test.mjs`\n  - **Criteria:** CR1\n',
-      ),
-  );
-
-  ok('approve', id);
-  git('checkout', '-q', '-b', `hotfix/${id}`, 'main');
+  git('checkout', '-q', '-b', `change/${id}`, 'main');
   ok('status', id, 'in-progress');
   assert.match(fs.readFileSync(file, 'utf8'), /^status: in-progress$/m);
   const policy = ok('context', id)
     .split('\n')
     .find((line) => line.startsWith('Effective policy:'));
   assert.match(policy, / — integration_branch=main — back_merge_branch=dev /, policy);
+});
+
+const FINDING_LINES = {
+  open: '- **2026-10-25T10:00:00Z** `[finding]` el ejemplo de ayuda cita un id',
+  promoted: '- **2026-10-25T10:00:00Z** `[finding]` 2 promoted #20260101-000000',
+  dropped: '- **2026-10-25T10:00:00Z** `[finding]` 1 dropped: ya no aplica',
+};
+const FINDING_EVENTS = {
+  open: {
+    at: '2026-10-25T10:00:00Z',
+    type: 'finding',
+    outcome: 'open',
+    text: 'el ejemplo de ayuda cita un id',
+  },
+  promoted: {
+    at: '2026-10-25T10:00:00Z',
+    type: 'finding',
+    outcome: 'promoted',
+    n: 2,
+    target: '20260101-000000',
+  },
+  dropped: {
+    at: '2026-10-25T10:00:00Z',
+    type: 'finding',
+    outcome: 'dropped',
+    n: 1,
+    reason: 'ya no aplica',
+  },
+};
+
+test('20261024-202659 CR1: finding parses its three payload arms', () => {
+  for (const outcome of ['open', 'promoted', 'dropped']) {
+    assert.deepEqual(parseLogEvent(FINDING_LINES[outcome]), FINDING_EVENTS[outcome], outcome);
+  }
+});
+
+test('20261024-202659 CR1: finding is the tenth, non-transition event type', () => {
+  assert.equal(LOG_EVENT_TYPES.length, 10);
+  assert.equal(LOG_EVENT_TYPES.at(-1), 'finding');
+  assert.equal(LOG_EVENT_DEFINITIONS.finding.transition, false);
+  assert.equal(
+    LOG_EVENT_DEFINITIONS.finding.form,
+    '<text> | <n> promoted #<id> | <n> dropped: <reason>',
+  );
+});
+
+test('20261024-202659 CR1: malformed finding payloads do not parse', () => {
+  for (const payload of ['', '0 promoted #20260101-000000', '2 promoted #x', '1 dropped:']) {
+    assert.equal(parseLogEvent(logLine('finding', payload)), null, JSON.stringify(payload));
+  }
+});
+
+test('20261024-202659 CR1: finding serializes its three arms and refuses an empty open text', () => {
+  for (const outcome of ['open', 'promoted', 'dropped']) {
+    assert.equal(serializeLogEvent(FINDING_EVENTS[outcome]), FINDING_LINES[outcome], outcome);
+  }
+  assert.throws(
+    () =>
+      serializeLogEvent({ at: '2026-10-25T10:00:00Z', type: 'finding', outcome: 'open', text: '' }),
+    /^Error: invalid finding Log event$/,
+  );
+  assert.throws(
+    () =>
+      serializeLogEvent({
+        at: '2026-10-25T10:00:00Z',
+        type: 'finding',
+        outcome: 'open',
+        text: '2 promoted #20260101-000000',
+      }),
+    /^Error: invalid finding Log event$/,
+  );
+});
+
+test('findingsInLog numbers the open findings and returns the resolutions it rejects with line and cause', () => {
+  const target = changeId('20260101', '000000');
+  const body = [
+    logLine('finding', 'falta la vista'),
+    logLine('finding', '9 dropped: x'),
+    logLine('finding', '1 dropped: ya no aplica'),
+    logLine('note', 'between'),
+    logLine('finding', `1 promoted #${target}`),
+    logLine('finding', '2 dropped: early'),
+    logLine('finding', 'sobra un test'),
+  ].join('\n');
+  const { findings, rejected } = findingsInLog(body);
+  assert.deepEqual(findings, [
+    {
+      n: 1,
+      text: 'falta la vista',
+      at: '2026-08-24T16:00:00Z',
+      resolution: parseLogEvent(logLine('finding', '1 dropped: ya no aplica')),
+    },
+    { n: 2, text: 'sobra un test', at: '2026-08-24T16:00:00Z', resolution: null },
+  ]);
+  assert.deepEqual(rejected, [
+    { line: 1, n: 9, cause: 'never recorded' },
+    { line: 4, n: 1, cause: { alreadyAt: 2 } },
+    { line: 5, n: 2, cause: 'never recorded' },
+  ]);
 });

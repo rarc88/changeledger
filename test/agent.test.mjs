@@ -8,7 +8,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
-import { parseChange } from '../src/change.mjs';
+import { parseChange, parseRequestSections } from '../src/change.mjs';
 import { writeLedgerFiles } from '../src/change-store.mjs';
 import { checkRepo } from '../src/check.mjs';
 import {
@@ -20,18 +20,29 @@ import {
   isPendingGraduation,
   list,
   log,
+  openFindings,
   owner,
+  recordFinding,
+  recordFindingMutation,
+  resolveFinding,
   review,
   show,
   status,
   task,
 } from '../src/commands/agent.mjs';
+import { check } from '../src/commands/check.mjs';
 import { edit } from '../src/commands/edit.mjs';
 import { fix } from '../src/commands/fix.mjs';
 import { scaffoldSpec, skipGraduation } from '../src/commands/graduate.mjs';
 import { init as initializeRepo } from '../src/commands/init.mjs';
 import { newChange, newChangeFrom, scaffoldChange } from '../src/commands/new.mjs';
 import { resolveRemote } from '../src/commands/sync.mjs';
+import { changeStatus, resolveProjects } from '../src/commands/view.mjs';
+import {
+  changeIntegrationBranch,
+  integratesIntoError,
+  releaseBranchRequirementError,
+} from '../src/config.mjs';
 import { VERSION } from '../src/framing.mjs';
 import { capturedRun, defaultRun } from '../src/git.mjs';
 import { loadRepo } from '../src/repo.mjs';
@@ -59,6 +70,7 @@ import {
   usageRecordText,
 } from './helpers/ccusage.mjs';
 import { initGitFixture, sanitizedEnv } from './helpers/git-env.mjs';
+import { changeId } from './helpers/ledger-fixtures.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 import {
   eventsAdded,
@@ -86,6 +98,9 @@ function init(root) {
   );
 }
 
+const OBJECTIVE_AND_FRONTIER = '### Objective\n\nO\n\n### Frontier\n\nF\n';
+const TEST_GRADE_CR1 = '### CR1 — x\n- **Given** a\n- **When** b\n- **Then** c\n';
+
 function repoWithChange({ configExtra = '' } = {}) {
   // Native realpath at the seat, as in `initStateRepo` (20260812-022248 CR2):
   // on macOS os.tmpdir() lives under /var, a symlink to /private/var, and on
@@ -104,24 +119,19 @@ function repoWithChange({ configExtra = '' } = {}) {
   // the local git identity by default, so the resolver is injected here to keep
   // the precondition explicit instead of depending on the host's git identity.
   const file = newChange(
-    { type: 'feature', slug: 'x', title: 'X', now: '2026-06-13T12:00:00Z' },
+    { type: 'change', slug: 'x', title: 'X', now: '2026-06-13T12:00:00Z' },
     root,
     { ownerHandle: () => '' },
   );
-  // Give it a task to operate on. `(support)` because that is what this task
-  // honestly is — scaffolding for the lifecycle tests below, which declare no
-  // criteria — and since 20260729-185200 an unmarked task with no CR blocks
-  // approval, which these tests cross on their way to later statuses. Since
-  // 20260810-213633 an approve also refuses any active stage left blank
-  // (Request/Investigation/Proposal/Specification), so each gets one minimal
-  // line here too — a single seat for the whole file's approve()/status(…,
-  // 'approved') fixtures rather than patching every call site.
+  // The minimum each lifecycle seat demands, written once for the fixtures built
+  // on this one (20261023-181753): an objective and a frontier for `approve`, and
+  // a Specification with a criterion plus a Plan with a body for the exit to
+  // `in-review`. The task is `Support:` because it is scaffolding for the
+  // lifecycle tests below, not work on the criterion.
   const text = fs
     .readFileSync(file, 'utf8')
-    .replace('## Request\n', '## Request\n\nR\n')
-    .replace('## Investigation\n', '## Investigation\n\nI\n')
-    .replace('## Proposal\n', '## Proposal\n\nP\n')
-    .replace('## Specification\n', '## Specification\n\nS\n')
+    .replace('## Request\n', `## Request\n\nR\n\n${OBJECTIVE_AND_FRONTIER}`)
+    .replace('## Specification\n', `## Specification\n\n${TEST_GRADE_CR1}`)
     .replace('## Plan\n', '## Plan\n\n- [ ] do it\n  - **Support:**\n');
   fs.writeFileSync(file, text);
   const id = parseChange(text).frontmatter.id;
@@ -266,7 +276,130 @@ test('161655 CR7: integration branch alone keeps lifecycle branch checks disable
   );
 });
 
-// --- 20261002-181346: a type's `integrates_into` picks the branch it starts from ---
+// --- 20261024-121022 CR10: `integrates_into` belongs to the change, not its type ---
+
+const BRANCHES = { git: { integration_branch: 'dev', release_branch: 'main' } };
+
+test('20261024-121022 CR10: changeIntegrationBranch reads integrates_into from the change', () => {
+  const id = '20261024-130000';
+  assert.equal(changeIntegrationBranch(BRANCHES, { id, integrates_into: 'release' }), 'main');
+  assert.equal(changeIntegrationBranch(BRANCHES, { id, integrates_into: 'integration' }), 'dev');
+  assert.equal(changeIntegrationBranch(BRANCHES, { id }), 'dev');
+  // No change, as in a mode context, keeps the repo value.
+  assert.equal(changeIntegrationBranch(BRANCHES, undefined), 'dev');
+  // A role still declared on a type has no reader.
+  const typed = { ...BRANCHES, types: { change: { integrates_into: 'release' } } };
+  assert.equal(changeIntegrationBranch(typed, { id, type: 'change' }), 'dev');
+});
+
+test('20261024-121022 CR10: a release change without git.release_branch is named, never sent to dev', () => {
+  const id = '20261024-130000';
+  const config = { git: { integration_branch: 'dev' } };
+  assert.throws(
+    () => changeIntegrationBranch(config, { id, integrates_into: 'release' }),
+    (error) =>
+      error.message === `change ${id} integrates into git.release_branch, which is not declared`,
+  );
+  assert.equal(
+    releaseBranchRequirementError(config, { id, integrates_into: 'release' }),
+    `change ${id} integrates into git.release_branch, which is not declared — set git.release_branch in .changeledger/config.yml, for example "main"`,
+  );
+  for (const frontmatter of [{ id }, { id, integrates_into: 'integration' }, undefined]) {
+    assert.equal(releaseBranchRequirementError(config, frontmatter), undefined);
+  }
+  assert.equal(
+    releaseBranchRequirementError(BRANCHES, { id, integrates_into: 'release' }),
+    undefined,
+  );
+});
+
+test('20261024-121022 CR10: integrates_into outside the two roles is refused', () => {
+  const message = 'integrates_into must be "integration" or "release"';
+  assert.equal(integratesIntoError({ integrates_into: 'foo' }), message);
+  assert.throws(
+    () => changeIntegrationBranch(BRANCHES, { id: '20261024-130000', integrates_into: 'foo' }),
+    (error) => error.message === message,
+  );
+  for (const frontmatter of [
+    { integrates_into: 'integration' },
+    { integrates_into: 'release' },
+    {},
+    undefined,
+  ]) {
+    assert.equal(integratesIntoError(frontmatter), undefined);
+  }
+});
+
+// `check --commits` without a base lints against the branch the change on the
+// checkout integrates into: `main` carries an unmarked commit `dev` lacks, so
+// only the release base keeps the range to the change's own marked work.
+test('20261024-121022 CR10: check --commits follows the integrates_into of the change on the branch', () => {
+  const root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-lint-')));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  initializeRepo(root);
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  const config = parseYaml(fs.readFileSync(configFile, 'utf8'));
+  config.git = { integration_branch: 'dev', release_branch: 'main', change_branch_format: null };
+  fs.writeFileSync(configFile, stringifyYaml(config));
+  const id = '20261024-150000';
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'changes', `${id}-fix.md`),
+    `---\nid: "${id}"\ntitle: Fix\ntype: change\nstatus: in-progress\ncreated: 2026-10-24T15:00:00Z\ndepends_on: []\nbranch: change/${id}\nintegrates_into: release\n---\n\n## Request\n\nR\n\n## Log\n`,
+  );
+  initGitFixture(root, { args: ['-b', 'main'] });
+  git(root, ['config', 'commit.gpgsign', 'false']);
+  git(root, ['add', '.']);
+  git(root, ['commit', '-q', '-m', `chore(init): seed [#${id}]`]);
+  git(root, ['branch', 'dev']);
+  fs.writeFileSync(path.join(root, 'only-main.txt'), 'x\n');
+  git(root, ['add', 'only-main.txt']);
+  git(root, ['commit', '-q', '-m', 'fix(y): shipped on main, no marker']);
+  git(root, ['checkout', '-q', '-b', `change/${id}`]);
+  fs.writeFileSync(path.join(root, 'work.txt'), 'x\n');
+  git(root, ['add', 'work.txt']);
+  git(root, ['commit', '-q', '-m', `fix(x): release work [#${id}]`]);
+  const lines = [];
+  const output = {
+    log: (l) => lines.push(l),
+    error: (l) => lines.push(l),
+    warn: (l) => lines.push(l),
+  };
+
+  assert.equal(check(['--commits'], root, output), 0, lines.join('\n'));
+  assert.deepEqual(lines, ['✓ commits main..HEAD valid']);
+});
+
+test('20261024-121022 CR13: check warns on an outdated schema naming config migrate', () => {
+  const root = fs.realpathSync.native(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-schema-')),
+  );
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  initializeRepo(root);
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  fs.writeFileSync(
+    configFile,
+    fs.readFileSync(configFile, 'utf8').replace(/^schema_version: \d+$/m, 'schema_version: 6'),
+  );
+  const out = {
+    lines: [],
+    log(l) {
+      this.lines.push(l);
+    },
+  };
+
+  check(['--json'], root, out);
+
+  assert.ok(
+    JSON.parse(out.lines.join('\n')).warnings.some(
+      (w) =>
+        w.file === '.changeledger/config.yml' &&
+        w.message === 'config schema 6 is outdated; run `changeledger config migrate`',
+    ),
+    out.lines.join('\n'),
+  );
+});
+
+// --- 20261002-181346: a change's `integrates_into` picks the branch it starts from ---
 
 // `main` carries a release commit `dev` lacks, so a branch cut from `dev` does
 // not descend from `main`: the guard below is judged on which base it resolves.
@@ -289,27 +422,27 @@ function releaseTypeRepo({
   if (integrationBranch) config.git.integration_branch = integrationBranch;
   // `new` refuses a release type without a branch: declare it while creating.
   config.git.release_branch = releaseBranch ?? 'main';
-  config.types.fix = {
-    stages: ['request', 'investigation', 'specification', 'plan', 'log'],
-    integrates_into: 'release',
-  };
   fs.writeFileSync(configFile, stringifyYaml(config));
 
+  // `fix` integrates into the release branch through its own frontmatter
+  // (20261024-121022 CR10); `feature` keeps the default integration role.
   const changes = {};
-  for (const [type, slug, now] of [
+  for (const [role, slug, now] of [
     ['fix', 'release-fix', '2026-10-02T18:00:00Z'],
     ['feature', 'dev-feature', '2026-10-02T18:00:01Z'],
   ]) {
-    const file = newChange({ type, slug, title: slug, now }, root, { ownerHandle: () => '' });
-    const text = fs
+    const file = newChange({ type: 'change', slug, title: slug, now }, root, {
+      ownerHandle: () => '',
+    });
+    let text = fs
       .readFileSync(file, 'utf8')
-      .replace('## Request\n', '## Request\n\nR\n')
-      .replace('## Investigation\n', '## Investigation\n\nI\n')
-      .replace('## Proposal\n', '## Proposal\n\nP\n')
+      .replace('## Request\n', `## Request\n\nR\n\n${OBJECTIVE_AND_FRONTIER}`)
       .replace('## Specification\n', '## Specification\n\nS\n')
       .replace('## Plan\n', '## Plan\n\n- [ ] do it\n  - **Support:**\n');
+    if (role === 'fix')
+      text = text.replace(/^type: change$/m, 'type: change\nintegrates_into: release');
     fs.writeFileSync(file, text);
-    changes[type] = { file, id: parseChange(text).frontmatter.id };
+    changes[role] = { file, id: parseChange(text).frontmatter.id };
   }
 
   initGitFixture(root, { args: ['-b', 'main'] });
@@ -332,8 +465,8 @@ function releaseTypeRepo({
   return { root, changes };
 }
 
-function startOn(root, { id, type }, base) {
-  git(root, ['checkout', '-q', '-b', `${type}/${id}`, base]);
+function startOn(root, { id }, base) {
+  git(root, ['checkout', '-q', '-b', `change/${id}`, base]);
   status(id, 'in-progress', root, { ownerHandle: () => '' });
 }
 
@@ -343,14 +476,15 @@ test('181346 CR3: a release type must start from git.release_branch, not the int
   const before = fs.readFileSync(file, 'utf8');
 
   assert.throws(
-    () => startOn(root, { id, type: 'fix' }, 'dev'),
-    (error) => error.message === `branch "fix/${id}" must descend from integration branch "main"`,
+    () => startOn(root, { id }, 'dev'),
+    (error) =>
+      error.message === `branch "change/${id}" must descend from integration branch "main"`,
   );
   assert.equal(fs.readFileSync(file, 'utf8'), before);
 
   git(root, ['checkout', '-q', 'main']);
-  git(root, ['branch', '-D', `fix/${id}`]);
-  startOn(root, { id, type: 'fix' }, 'main');
+  git(root, ['branch', '-D', `change/${id}`]);
+  startOn(root, { id }, 'main');
   assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'in-progress');
 });
 
@@ -360,9 +494,9 @@ test('181346 CR4: a release type without git.release_branch does not start', () 
   const before = fs.readFileSync(file, 'utf8');
 
   assert.throws(
-    () => startOn(root, { id, type: 'fix' }, 'main'),
+    () => startOn(root, { id }, 'main'),
     (error) =>
-      error.message === 'type "fix" integrates into git.release_branch, which is not declared',
+      error.message === `change ${id} integrates into git.release_branch, which is not declared`,
   );
   assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
@@ -371,7 +505,7 @@ test('181346 CR5: a type without integrates_into still starts from the integrati
   const { root, changes } = releaseTypeRepo();
   const { file, id } = changes.feature;
 
-  startOn(root, { id, type: 'feature' }, 'dev');
+  startOn(root, { id }, 'dev');
 
   assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'in-progress');
 });
@@ -388,9 +522,9 @@ test('204623 CR1: a release branch cut from the integration branch ahead of the 
   const before = fs.readFileSync(file, 'utf8');
 
   assert.throws(
-    () => startOn(root, { id, type: 'fix' }, 'dev'),
+    () => startOn(root, { id }, 'dev'),
     (error) =>
-      error.message === `branch "fix/${id}" contains commits of "dev" that are not in "main"`,
+      error.message === `branch "change/${id}" contains commits of "dev" that are not in "main"`,
   );
   assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
@@ -398,7 +532,7 @@ test('204623 CR1: a release branch cut from the integration branch ahead of the 
 test('204623 CR1: a release branch holding a commit of its own on top of dev work does not start', () => {
   const { root, changes } = releaseTypeRepo({ shape: 'dev-ahead' });
   const { file, id } = changes.fix;
-  git(root, ['checkout', '-q', '-b', `fix/${id}`, 'dev']);
+  git(root, ['checkout', '-q', '-b', `change/${id}`, 'dev']);
   fs.writeFileSync(path.join(root, 'HOTFIX'), '1\n');
   git(root, ['add', 'HOTFIX']);
   git(root, ['commit', '-q', '-m', 'fix: own work']);
@@ -406,7 +540,7 @@ test('204623 CR1: a release branch holding a commit of its own on top of dev wor
   assert.throws(
     () => status(id, 'in-progress', root, { ownerHandle: () => '' }),
     (error) =>
-      error.message === `branch "fix/${id}" contains commits of "dev" that are not in "main"`,
+      error.message === `branch "change/${id}" contains commits of "dev" that are not in "main"`,
   );
   assert.equal(startsInProgress(file), false);
 });
@@ -415,7 +549,7 @@ test('204623 CR2: a release branch cut from the release branch starts although d
   const { root, changes } = releaseTypeRepo({ shape: 'dev-ahead' });
   const { file, id } = changes.fix;
 
-  startOn(root, { id, type: 'fix' }, 'main');
+  startOn(root, { id }, 'main');
 
   assert.equal(startsInProgress(file), true);
 });
@@ -423,7 +557,7 @@ test('204623 CR2: a release branch cut from the release branch starts although d
 test('204623 CR2: work committed on the release branch after the cut still starts', () => {
   const { root, changes } = releaseTypeRepo({ shape: 'dev-ahead' });
   const { file, id } = changes.fix;
-  git(root, ['checkout', '-q', '-b', `fix/${id}`, 'main']);
+  git(root, ['checkout', '-q', '-b', `change/${id}`, 'main']);
   fs.writeFileSync(path.join(root, 'HOTFIX'), '1\n');
   git(root, ['add', 'HOTFIX']);
   git(root, ['commit', '-q', '-m', 'fix: own work']);
@@ -437,7 +571,7 @@ test('204623 CR3: a release branch cut from dev starts when dev and the release 
   const { root, changes } = releaseTypeRepo({ shape: 'same' });
   const { file, id } = changes.fix;
 
-  startOn(root, { id, type: 'fix' }, 'dev');
+  startOn(root, { id }, 'dev');
 
   assert.equal(startsInProgress(file), true);
 });
@@ -446,7 +580,7 @@ test('204623 CR4: an integration type keeps starting from dev when dev is ahead'
   const { root, changes } = releaseTypeRepo({ shape: 'dev-ahead' });
   const { file, id } = changes.feature;
 
-  startOn(root, { id, type: 'feature' }, 'dev');
+  startOn(root, { id }, 'dev');
 
   assert.equal(startsInProgress(file), true);
 });
@@ -454,7 +588,7 @@ test('204623 CR4: an integration type keeps starting from dev when dev is ahead'
 test('204623 CR4: an integration type with commits of its own still starts', () => {
   const { root, changes } = releaseTypeRepo({ shape: 'dev-ahead' });
   const { file, id } = changes.feature;
-  git(root, ['checkout', '-q', '-b', `feature/${id}`, 'dev']);
+  git(root, ['checkout', '-q', '-b', `change/${id}`, 'dev']);
   fs.writeFileSync(path.join(root, 'FEATURE'), '1\n');
   git(root, ['add', 'FEATURE']);
   git(root, ['commit', '-q', '-m', 'feat: own work']);
@@ -489,7 +623,7 @@ test('204623 CR1: a criss-cross with an unpublished merge base does not start', 
   at('2026-01-06T00:00:00Z', ['checkout', '-q', 'dev']);
   at('2026-01-06T00:00:00Z', ['merge', '-q', '--no-ff', '-m', 'merge y', 'feat/y']);
   at('2026-01-07T00:00:00Z', ['merge', '-q', '--no-ff', '-m', 'merge main', 'main']);
-  at('2026-01-08T00:00:00Z', ['checkout', '-q', '-b', `fix/${id}`, 'main']);
+  at('2026-01-08T00:00:00Z', ['checkout', '-q', '-b', `change/${id}`, 'main']);
   at('2026-01-08T00:00:00Z', ['merge', '-q', '--no-ff', '-m', 'merge y', 'feat/y']);
   const before = fs.readFileSync(file, 'utf8');
   const tip = (ref) => git(root, ['rev-parse', ref]).trim();
@@ -499,7 +633,7 @@ test('204623 CR1: a criss-cross with an unpublished merge base does not start', 
   assert.throws(
     () => status(id, 'in-progress', root, { ownerHandle: () => '' }),
     (error) =>
-      error.message === `branch "fix/${id}" contains commits of "dev" that are not in "main"`,
+      error.message === `branch "change/${id}" contains commits of "dev" that are not in "main"`,
   );
   assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
@@ -507,12 +641,13 @@ test('204623 CR1: a criss-cross with an unpublished merge base does not start', 
 test('204623: a missing release branch ref still fails the ancestry check', () => {
   const { root, changes } = releaseTypeRepo({ shape: 'dev-ahead' });
   const { id } = changes.fix;
-  git(root, ['checkout', '-q', '-b', `fix/${id}`, 'main']);
+  git(root, ['checkout', '-q', '-b', `change/${id}`, 'main']);
   git(root, ['branch', '-m', 'main', 'gone']);
 
   assert.throws(
     () => status(id, 'in-progress', root, { ownerHandle: () => '' }),
-    (error) => error.message === `branch "fix/${id}" must descend from integration branch "main"`,
+    (error) =>
+      error.message === `branch "change/${id}" must descend from integration branch "main"`,
   );
 });
 
@@ -521,7 +656,7 @@ test('204623 CR5: without git.integration_branch there is nothing to compare aga
     const { root, changes } = releaseTypeRepo({ shape: 'dev-ahead', integrationBranch: null });
     const { file, id } = changes.fix;
 
-    startOn(root, { id, type: 'fix' }, base);
+    startOn(root, { id }, base);
 
     assert.equal(startsInProgress(file), true, `from ${base}`);
   }
@@ -534,10 +669,10 @@ test('204623: an integration branch absent locally fails closed and says so', ()
   const before = fs.readFileSync(file, 'utf8');
 
   assert.throws(
-    () => startOn(root, { id, type: 'fix' }, 'main'),
+    () => startOn(root, { id }, 'main'),
     (error) =>
       error.message ===
-      `branch "fix/${id}" cannot start: integration branch "dev" does not exist locally — create it (e.g. from its remote-tracking copy) before starting`,
+      `branch "change/${id}" cannot start: integration branch "dev" does not exist locally — create it (e.g. from its remote-tracking copy) before starting`,
   );
   assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
@@ -548,14 +683,14 @@ test('204623: an integration branch with unrelated history fails closed and says
   const emptyTree = git(root, ['hash-object', '-t', 'tree', '/dev/null']).trim();
   const orphan = git(root, ['commit-tree', emptyTree, '-m', 'chore: orphan']).trim();
   git(root, ['branch', '-f', 'dev', orphan]);
-  git(root, ['checkout', '-q', '-b', `fix/${id}`, 'main']);
+  git(root, ['checkout', '-q', '-b', `change/${id}`, 'main']);
   const before = fs.readFileSync(file, 'utf8');
 
   assert.throws(
     () => status(id, 'in-progress', root, { ownerHandle: () => '' }),
     (error) =>
       error.message ===
-      `branch "fix/${id}" cannot start: it shares no history with integration branch "dev"`,
+      `branch "change/${id}" cannot start: it shares no history with integration branch "dev"`,
   );
   assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
@@ -595,10 +730,10 @@ function pushDevWorkFromClone(bare) {
   git(clone, ['push', '-q', 'origin', 'dev']);
 }
 
-// Cuts `<type>/<id>` from `base` and asserts the start throws exactly `message`
+// Cuts `change/<id>` from `base` and asserts the start throws exactly `message`
 // and leaves the document byte for byte as it was.
-function assertStartRefused(root, { file, id }, type, base, message) {
-  git(root, ['checkout', '-q', '-b', `${type}/${id}`, base]);
+function assertStartRefused(root, { file, id }, base, message) {
+  git(root, ['checkout', '-q', '-b', `change/${id}`, base]);
   const before = fs.readFileSync(file, 'utf8');
   assert.throws(
     () => status(id, 'in-progress', root, { ownerHandle: () => '' }),
@@ -609,9 +744,9 @@ function assertStartRefused(root, { file, id }, type, base, message) {
 
 // Back on `main` with the refused change branch deleted, so the same repo can
 // try another base.
-function dropChangeBranch(root, { id }, type) {
+function dropChangeBranch(root, { id }) {
   git(root, ['checkout', '-q', 'main']);
-  git(root, ['branch', '-q', '-D', `${type}/${id}`]);
+  git(root, ['branch', '-q', '-D', `change/${id}`]);
 }
 
 const cliBin = fileURLToPath(new URL('../bin/changeledger.mjs', import.meta.url));
@@ -653,7 +788,7 @@ test('175147 CR1: a release branch cut from main starts while dev and origin/dev
     git(bare, ['rev-parse', 'refs/heads/dev']),
     git(root, ['rev-parse', 'refs/heads/dev']),
   );
-  git(root, ['checkout', '-q', '-b', `fix/${id}`, 'main']);
+  git(root, ['checkout', '-q', '-b', `change/${id}`, 'main']);
 
   const { code, out } = startWithCli(root, id);
 
@@ -662,9 +797,9 @@ test('175147 CR1: a release branch cut from main starts while dev and origin/dev
   const text = fs.readFileSync(file, 'utf8');
   const { frontmatter } = parseChange(text);
   assert.equal(frontmatter.status, 'in-progress');
-  assert.equal(frontmatter.branch, `fix/${id}`);
+  assert.equal(frontmatter.branch, `change/${id}`);
   assert.match(text, /`\[status\]` approved → in-progress/);
-  assert.ok(text.includes(`\`[branch]\` set: fix/${id} (auto)`));
+  assert.ok(text.includes(`\`[branch]\` set: change/${id} (auto)`));
 });
 
 test('175147 CR2: a remote-tracking copy of dev ahead of main blocks a branch cut from it', () => {
@@ -676,7 +811,7 @@ test('175147 CR2: a remote-tracking copy of dev ahead of main blocks a branch cu
     git(root, ['rev-parse', 'refs/heads/dev']),
     git(root, ['rev-parse', 'refs/heads/main']),
   );
-  git(root, ['checkout', '-q', '-b', `fix/${id}`, 'origin/dev']);
+  git(root, ['checkout', '-q', '-b', `change/${id}`, 'origin/dev']);
   const before = fs.readFileSync(file, 'utf8');
 
   const { code, err } = startWithCli(root, id);
@@ -684,7 +819,7 @@ test('175147 CR2: a remote-tracking copy of dev ahead of main blocks a branch cu
   assert.notEqual(code, 0);
   assert.equal(
     err.trim(),
-    `Error: branch "fix/${id}" contains commits of "origin/dev" that are not in "main"`,
+    `Error: branch "change/${id}" contains commits of "origin/dev" that are not in "main"`,
   );
   assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
@@ -699,9 +834,8 @@ test('175147 CR3: the local integration branch is compared before its remote-tra
   assertStartRefused(
     root,
     changes.fix,
-    'fix',
     'dev',
-    `branch "fix/${id}" contains commits of "dev" that are not in "main"`,
+    `branch "change/${id}" contains commits of "dev" that are not in "main"`,
   );
 });
 
@@ -716,12 +850,11 @@ test('175147 CR4: a remote without a copy of the integration branch does not blo
   assertStartRefused(
     root,
     changes.fix,
-    'fix',
     'dev',
-    `branch "fix/${id}" contains commits of "dev" that are not in "main"`,
+    `branch "change/${id}" contains commits of "dev" that are not in "main"`,
   );
-  dropChangeBranch(root, changes.fix, 'fix');
-  startOn(root, { id, type: 'fix' }, 'main');
+  dropChangeBranch(root, changes.fix);
+  startOn(root, { id }, 'main');
 
   assert.equal(startsInProgress(file), true);
 });
@@ -737,12 +870,11 @@ test('175147 CR5: without a local integration branch its remote-tracking copy is
   assertStartRefused(
     root,
     changes.fix,
-    'fix',
     'origin/dev',
-    `branch "fix/${id}" contains commits of "origin/dev" that are not in "main"`,
+    `branch "change/${id}" contains commits of "origin/dev" that are not in "main"`,
   );
-  dropChangeBranch(root, changes.fix, 'fix');
-  startOn(root, { id, type: 'fix' }, 'main');
+  dropChangeBranch(root, changes.fix);
+  startOn(root, { id }, 'main');
 
   assert.equal(startsInProgress(file), true);
 });
@@ -757,9 +889,8 @@ test('175147 CR6: with neither a local nor a remote-tracking integration branch 
   assertStartRefused(
     root,
     changes.fix,
-    'fix',
     'main',
-    `branch "fix/${id}" cannot start: integration branch "dev" does not exist locally — create it (e.g. from its remote-tracking copy) before starting`,
+    `branch "change/${id}" cannot start: integration branch "dev" does not exist locally — create it (e.g. from its remote-tracking copy) before starting`,
   );
 });
 
@@ -794,9 +925,8 @@ for (const [label, plant, missing] of [
     assertStartRefused(
       root,
       changes.fix,
-      'fix',
       'main',
-      `branch "fix/${id}" cannot start: integration branch "dev" does not exist locally — create it (e.g. from its remote-tracking copy) before starting`,
+      `branch "change/${id}" cannot start: integration branch "dev" does not exist locally — create it (e.g. from its remote-tracking copy) before starting`,
     );
   });
 }
@@ -815,9 +945,8 @@ test('175147 CR8: several remotes without origin fail closed and name what is mi
   assertStartRefused(
     root,
     changes.fix,
-    'fix',
     'main',
-    `branch "fix/${id}" cannot start: cannot decide which remote holds integration branch "dev": this repo configures fork, upstream and none is "origin"`,
+    `branch "change/${id}" cannot start: cannot decide which remote holds integration branch "dev": this repo configures fork, upstream and none is "origin"`,
   );
   assert.throws(
     () => resolveRemote(root, defaultRun),
@@ -832,7 +961,7 @@ test('175147 CR9: an integration type does not resolve a remote', () => {
   const { file, id } = changes.feature;
   ambiguousRemotes(root, bare);
 
-  startOn(root, { id, type: 'feature' }, 'dev');
+  startOn(root, { id }, 'dev');
 
   assert.equal(startsInProgress(file), true);
 });
@@ -849,12 +978,11 @@ test('175147 CR10: the guard reads local refs and never reaches the network', ()
   assertStartRefused(
     root,
     changes.fix,
-    'fix',
     ahead,
-    `branch "fix/${id}" contains commits of "origin/dev" that are not in "main"`,
+    `branch "change/${id}" contains commits of "origin/dev" that are not in "main"`,
   );
-  dropChangeBranch(root, changes.fix, 'fix');
-  git(root, ['checkout', '-q', '-b', `fix/${id}`, 'main']);
+  dropChangeBranch(root, changes.fix);
+  git(root, ['checkout', '-q', '-b', `change/${id}`, 'main']);
   const { calls, gitRun } = recordingGitRun();
   status(id, 'in-progress', root, { ownerHandle: () => '', gitRun });
 
@@ -881,9 +1009,8 @@ test('175147 CR11: a remote-tracking copy with unrelated history fails closed an
   assertStartRefused(
     root,
     changes.fix,
-    'fix',
     'main',
-    `branch "fix/${id}" cannot start: it shares no history with integration branch "origin/dev"`,
+    `branch "change/${id}" cannot start: it shares no history with integration branch "origin/dev"`,
   );
 });
 
@@ -896,9 +1023,8 @@ test('175147 CR12: a tag named like the integration branch does not stand in for
   assertStartRefused(
     root,
     changes.fix,
-    'fix',
     'refs/heads/dev',
-    `branch "fix/${id}" contains commits of "dev" that are not in "main"`,
+    `branch "change/${id}" contains commits of "dev" that are not in "main"`,
   );
 });
 
@@ -911,9 +1037,8 @@ test('175147 CR13: a tag named like the release branch does not stand in for it'
   assertStartRefused(
     root,
     changes.fix,
-    'fix',
     'refs/heads/dev',
-    `branch "fix/${id}" contains commits of "dev" that are not in "main"`,
+    `branch "change/${id}" contains commits of "dev" that are not in "main"`,
   );
 });
 
@@ -926,9 +1051,8 @@ test('175147 CR14: the ancestry check of a release type resolves the release bra
   assertStartRefused(
     root,
     changes.fix,
-    'fix',
     'refs/heads/dev',
-    `branch "fix/${id}" must descend from integration branch "main"`,
+    `branch "change/${id}" must descend from integration branch "main"`,
   );
 });
 
@@ -946,16 +1070,15 @@ test('175147 CR14: a tag named refs/heads/main does not stand in for an absent r
   assertStartRefused(
     root,
     changes.fix,
-    'fix',
     'refs/heads/dev',
-    `branch "fix/${id}" must descend from integration branch "main"`,
+    `branch "change/${id}" must descend from integration branch "main"`,
   );
 });
 
 test('175147 CR14: without a remote, a tag named refs/heads/main does not stand in for a missing release branch', () => {
   const { root, changes } = releaseTypeRepo({ shape: 'dev-ahead' });
   const { file, id } = changes.fix;
-  git(root, ['checkout', '-q', '-b', `fix/${id}`, 'main']);
+  git(root, ['checkout', '-q', '-b', `change/${id}`, 'main']);
   git(root, ['branch', '-m', 'main', 'gone']);
   git(root, ['tag', 'refs/heads/main', 'HEAD']);
   assert.equal(git(root, ['remote']), '');
@@ -963,7 +1086,8 @@ test('175147 CR14: without a remote, a tag named refs/heads/main does not stand 
 
   assert.throws(
     () => status(id, 'in-progress', root, { ownerHandle: () => '' }),
-    (error) => error.message === `branch "fix/${id}" must descend from integration branch "main"`,
+    (error) =>
+      error.message === `branch "change/${id}" must descend from integration branch "main"`,
   );
   assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
@@ -977,9 +1101,8 @@ test('175147 CR15: the ancestry check of an integration type resolves the integr
   assertStartRefused(
     root,
     changes.feature,
-    'feature',
     'refs/heads/main',
-    `branch "feature/${id}" must descend from integration branch "dev"`,
+    `branch "change/${id}" must descend from integration branch "dev"`,
   );
 });
 
@@ -993,9 +1116,8 @@ test('175147 CR15: a tag named refs/heads/dev does not stand in for an absent in
   assertStartRefused(
     root,
     changes.feature,
-    'feature',
     'main',
-    `branch "feature/${id}" must descend from integration branch "dev"`,
+    `branch "change/${id}" must descend from integration branch "dev"`,
   );
 });
 
@@ -1008,9 +1130,8 @@ test('175147 CR16: a ref outside refs/tags named like the branch does not stand 
   assertStartRefused(
     root,
     changes.fix,
-    'fix',
     'refs/heads/dev',
-    `branch "fix/${id}" contains commits of "dev" that are not in "main"`,
+    `branch "change/${id}" contains commits of "dev" that are not in "main"`,
   );
 });
 
@@ -1024,9 +1145,8 @@ test('175147 CR17: a tag named like the remote-tracking copy does not stand in f
   assertStartRefused(
     root,
     changes.fix,
-    'fix',
     'refs/remotes/origin/dev',
-    `branch "fix/${id}" contains commits of "origin/dev" that are not in "main"`,
+    `branch "change/${id}" contains commits of "origin/dev" that are not in "main"`,
   );
 });
 
@@ -1039,7 +1159,7 @@ test('175147 CR18: without change_branch_format the guard stays off', () => {
   fs.writeFileSync(configFile, stringifyYaml(config));
   ambiguousRemotes(root, bare);
   commitOn(root, 'dev', 'DEVWORK');
-  git(root, ['checkout', '-q', '-b', `fix/${id}`, 'refs/heads/dev']);
+  git(root, ['checkout', '-q', '-b', `change/${id}`, 'refs/heads/dev']);
   const { calls, gitRun } = recordingGitRun();
 
   status(id, 'in-progress', root, { ownerHandle: () => '', gitRun });
@@ -1053,7 +1173,7 @@ function futureSchemaRepo() {
   const configFile = path.join(fixture.root, '.changeledger', 'config.yml');
   fs.writeFileSync(
     configFile,
-    fs.readFileSync(configFile, 'utf8').replace(/^schema_version: \d+$/m, 'schema_version: 7'),
+    fs.readFileSync(configFile, 'utf8').replace(/^schema_version: \d+$/m, 'schema_version: 8'),
   );
   return fixture;
 }
@@ -1076,7 +1196,7 @@ test('161652 CR2: lifecycle mutations reject a future schema before writing', ()
     const before = fs.readFileSync(fixture.file, 'utf8');
     assert.throws(
       () => mutate(fixture),
-      /^Error: config schema 7 is newer than supported schema 6; update ChangeLedger before writing$/,
+      /^Error: config schema 8 is newer than supported schema 7; update ChangeLedger before writing$/,
       name,
     );
     assert.equal(fs.readFileSync(fixture.file, 'utf8'), before, name);
@@ -1115,9 +1235,8 @@ test('125139 CR1/CR7: conversational approval is attributed without changing vie
   assert.doesNotMatch(viewerLog, /via conversation/);
 });
 
-// 20260729-185200 — the draft's exit gate. `emptyRepo` keeps the defective and
-// the ready candidate side by side: both are hand-written drafts, because the
-// scaffold `new` produces is empty and therefore already ready.
+// 20260729-185200 — the draft's exit gate. `emptyRepo` keeps the broken and the
+// sound candidate side by side as hand-written drafts.
 function emptyRepo() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-gate-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
@@ -1131,14 +1250,11 @@ function writeDraft(root, id, body) {
   return file;
 }
 
-// The readiness defect classes the Investigation reproduced: a criterion with no
-// Given/When/Then, a task citing a criterion that does not exist, and CR-bearing
-// tasks that name neither target nor verification.
-function defectiveDraft(id) {
+function featureDraft(id, plan) {
   return `---
 id: "${id}"
-title: Defective
-type: feature
+title: Draft
+type: change
 status: draft
 created: 2026-06-13T12:00:00Z
 depends_on: []
@@ -1148,97 +1264,30 @@ depends_on: []
 
 R
 
-## Investigation
-
-I
-
-## Proposal
-
-P
-
+${OBJECTIVE_AND_FRONTIER}
 ## Specification
 
-### CR1 — Test-grade
-- **Given** a
-- **When** b
-- **Then** c
-
-### CR2 — Not test-grade
-- **Given** a
-
+${TEST_GRADE_CR1}
 ## Plan
 
-- [ ] vague work
-  - **Criteria:** CR1
-- [ ] more vague work
-  - **Criteria:** CR2
-- [ ] Update \`src/x.mjs\`
-  - **Target:** \`src/x.mjs\`
-  - **Verify:** \`node --test test/x.test.mjs\`
-  - **Criteria:** CR99
-
+${plan}
 ## Log
 
 - **2026-06-13T12:00:00Z** \`[note]\` Draft.
 `;
 }
 
-function readyDraft(id) {
-  return `---
-id: "${id}"
-title: Ready
-type: feature
-status: draft
-created: 2026-06-13T12:00:00Z
-depends_on: []
----
-
-## Request
-
-R
-
-## Investigation
-
-I
-
-## Proposal
-
-P
-
-## Specification
-
-### CR1 — Test-grade
-- **Given** a
-- **When** b
-- **Then** c
-
-## Plan
-
-- [ ] Update \`src/x.mjs\`
-  - **Target:** \`src/x.mjs\`
-  - **Verify:** \`node --test test/x.test.mjs\`
-  - **Criteria:** CR1
-
-## Log
-
-- **2026-06-13T12:00:00Z** \`[note]\` Draft.
-`;
-}
-
-test('185200 CR1: approve rejects a draft whose defects would be errors once approved', () => {
+test('185200 CR1: approve rejects a draft whose task cites an undeclared criterion', () => {
   const root = emptyRepo();
   const id = '20260613-120000';
-  const file = writeDraft(root, id, defectiveDraft(id));
+  const file = writeDraft(root, id, featureDraft(id, '- [ ] Update it\n  - **Criteria:** CR99\n'));
   const before = fs.readFileSync(file, 'utf8');
 
   assert.throws(
     () => approve(id, root),
     (error) => {
       assert.match(error.message, /failed scoped validation/);
-      assert.match(error.message, /CR2 is not test-grade: missing Given\/When\/Then/);
       assert.match(error.message, /Plan task references unknown criterion "CR99"/);
-      assert.match(error.message, /Plan task for CR1 must name target and verification/);
-      assert.match(error.message, /Plan task for CR2 must name target and verification/);
       return true;
     },
   );
@@ -1247,10 +1296,10 @@ test('185200 CR1: approve rejects a draft whose defects would be errors once app
   assert.equal(parseChange(before).frontmatter.status, 'draft');
 });
 
-test('185200 CR2: a ready draft approves exactly as before', () => {
+test('185200 CR2: a sound draft approves exactly as before', () => {
   const root = emptyRepo();
   const id = '20260613-120001';
-  const file = writeDraft(root, id, readyDraft(id));
+  const file = writeDraft(root, id, featureDraft(id, '- [ ] Update it\n  - **Criteria:** CR1\n'));
 
   approve(id, root);
 
@@ -1262,48 +1311,12 @@ test('185200 CR2: a ready draft approves exactly as before', () => {
   );
 });
 
-// 20260810-213633 — the empty-stage gate on the draft→approved transition
-// itself (real incident: 20260810-181801 approved with every narrative stage
-// blank). `checkCoverage`'s referential checks pass vacuously on an empty
-// Specification/Plan — no criteria declared, so nothing is uncovered — so this
-// is a distinct assertion from the 185200 CR1 gate above, not a duplicate.
-function emptySpecAndPlanDraft(id) {
-  return `---
-id: "${id}"
-title: Empty spec and plan
-type: feature
-status: draft
-created: 2026-06-13T12:00:00Z
-depends_on: []
----
-
-## Request
-
-R
-
-## Investigation
-
-I
-
-## Proposal
-
-P
-
-## Specification
-
-## Plan
-
-## Log
-
-- **2026-06-13T12:00:00Z** \`[note]\` Draft.
-`;
-}
-
+// 20260810-213633 — an empty Request is still refused by the approval seat.
 function emptyRequestQuickDraft(id) {
   return `---
 id: "${id}"
 title: Empty request
-type: quick
+type: change
 status: draft
 created: 2026-06-13T12:00:00Z
 depends_on: []
@@ -1317,21 +1330,7 @@ depends_on: []
 `;
 }
 
-test('213633 CR1: approve refuses a feature draft with empty Specification and Plan, naming both', () => {
-  const root = emptyRepo();
-  const id = '20260810-213700';
-  const file = writeDraft(root, id, emptySpecAndPlanDraft(id));
-  const before = fs.readFileSync(file, 'utf8');
-
-  assert.throws(() => approve(id, root), {
-    message: 'cannot approve: "## Specification", "## Plan" are empty',
-  });
-
-  assert.equal(fs.readFileSync(file, 'utf8'), before, 'a rejected approve must not write');
-  assert.equal(parseChange(before).frontmatter.status, 'draft');
-});
-
-test('213633 CR2: approve refuses a quick draft with an empty Request', () => {
+test('213633 CR2: approve refuses a Request-and-Log draft with an empty Request', () => {
   const root = emptyRepo();
   const id = '20260810-213701';
   const file = writeDraft(root, id, emptyRequestQuickDraft(id));
@@ -1343,6 +1342,270 @@ test('213633 CR2: approve refuses a quick draft with an empty Request', () => {
 
   assert.equal(fs.readFileSync(file, 'utf8'), before, 'a rejected approve must not write');
   assert.equal(parseChange(before).frontmatter.status, 'draft');
+});
+
+// 20261023-181753 — the human approves the objective and the frontier; the
+// implementer writes Specification and Plan in `in-progress` and the exit to
+// review demands them.
+
+function requestDraft(id, request) {
+  return `---
+id: "${id}"
+title: Request only
+type: change
+status: draft
+created: 2026-06-13T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+${request}
+## Specification
+
+## Plan
+
+## Log
+
+- **2026-06-13T12:00:00Z** \`[note]\` Draft.
+`;
+}
+
+const binPath = fileURLToPath(new URL('../bin/changeledger.mjs', import.meta.url));
+
+function runCli(args, cwd) {
+  const result = spawnSync(process.execPath, [binPath, ...args], {
+    cwd,
+    encoding: 'utf8',
+    env: sanitizedEnv({ CHANGELEDGER_NO_GH: '1' }),
+  });
+  return { code: result.status, out: result.stdout, err: result.stderr };
+}
+
+function ownDiagnostics(root, id) {
+  const { errors, warnings } = checkRepo(loadRepo(root));
+  return [...errors, ...warnings].filter((e) => e.file.startsWith(id));
+}
+
+test('20261023-181753 CR1: a draft with objective and frontier approves with every later stage empty', () => {
+  const root = emptyRepo();
+  const id = '20261023-120000';
+  const file = writeDraft(root, id, requestDraft(id, `R\n\n${OBJECTIVE_AND_FRONTIER}`));
+
+  const result = runCli(['approve', id], root);
+
+  assert.equal(result.code, 0, result.err);
+  const after = parseChange(fs.readFileSync(file, 'utf8'));
+  assert.equal(after.frontmatter.status, 'approved');
+  assert.match(
+    after.stages.find((stage) => stage.key === 'log').body,
+    /`\[status\]` draft → approved \(human via conversation\)/,
+  );
+  assert.deepEqual(ownDiagnostics(root, id), []);
+});
+
+for (const [label, request, message] of [
+  ['a missing Frontier', 'R\n\n### Objective\n\nO\n', 'cannot approve: "### Frontier" is missing'],
+  [
+    'both subsections empty',
+    'R\n\n### Objective\n\n### Frontier\n',
+    'cannot approve: "### Objective", "### Frontier" are empty',
+  ],
+  ['an empty Request', '', 'cannot approve: "## Request" is empty'],
+]) {
+  test(`20261023-181753 CR2: approve refuses ${label} and leaves the draft byte-identical`, () => {
+    const root = emptyRepo();
+    const id = '20261023-120001';
+    const file = writeDraft(root, id, requestDraft(id, request));
+    const before = fs.readFileSync(file, 'utf8');
+
+    assert.throws(() => approve(id, root), { message });
+    const result = runCli(['approve', id], root);
+
+    assert.notEqual(result.code, 0);
+    assert.match(result.err, new RegExp(message.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    assert.equal(fs.readFileSync(file, 'utf8'), before);
+  });
+}
+
+test('20261023-181753 CR2: the viewer approval reaches the same refusal', () => {
+  const root = emptyRepo();
+  const id = '20261023-120002';
+  const file = writeDraft(root, id, requestDraft(id, 'R\n\n### Objective\n\nO\n'));
+  const before = fs.readFileSync(file, 'utf8');
+  const { projects, current } = resolveProjects(root, false);
+
+  const result = changeStatus(projects, { project: current, id, status: 'approved' });
+
+  assert.equal(result.code, 400);
+  assert.equal(result.body.error, 'cannot approve: "### Frontier" is missing');
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
+// Unspecified by the change: one subsection missing and the other empty. Both
+// defects are named in one refusal, the missing one first.
+test('20261023-181753 CR2: a missing and an empty subsection are named together', () => {
+  const root = emptyRepo();
+  const id = '20261023-120003';
+  writeDraft(root, id, requestDraft(id, 'R\n\n### Frontier\n'));
+
+  assert.throws(() => approve(id, root), {
+    message: 'cannot approve: "### Objective" is missing; "### Frontier" is empty',
+  });
+});
+
+test('20261023-181753 CR2: other level-3 headings in the Request stay free prose', () => {
+  const root = emptyRepo();
+  const id = '20261023-120004';
+  const file = writeDraft(
+    root,
+    id,
+    requestDraft(id, `### Context\n\nC\n\n${OBJECTIVE_AND_FRONTIER}### Notes\n`),
+  );
+
+  approve(id, root);
+
+  assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'approved');
+});
+
+// The Request is read with the same fence handling as `splitStages`, so the
+// two readers of one document agree on where a heading is.
+test('20261023-181753 CR2: a heading inside a code fence is neither a subsection nor its end', () => {
+  for (const [fence, closer] of [
+    ['```', '```'],
+    ['~~~', '~~~'],
+    ['````', '`````'],
+  ]) {
+    const fencedFrontier = `### Objective\n\nO\n\n${fence}\n### Frontier\n${closer}\n`;
+    const refused = emptyRepo();
+    const refusedId = '20261023-120006';
+    const refusedFile = writeDraft(refused, refusedId, requestDraft(refusedId, fencedFrontier));
+    const before = fs.readFileSync(refusedFile, 'utf8');
+
+    assert.throws(() => approve(refusedId, refused), {
+      message: 'cannot approve: "### Frontier" is missing',
+    });
+    assert.equal(fs.readFileSync(refusedFile, 'utf8'), before);
+
+    // A fenced `### Notes` inside Frontier neither closes it nor hides the
+    // real body after it; the Objective's only body line is fenced too.
+    const fencedNotes = `### Objective\n\n${fence}\n### Notes\n${closer}\n\n### Frontier\n\n${fence}\n## Plan\n### Notes\n${closer}\nF\n`;
+    const approved = emptyRepo();
+    const approvedId = '20261023-120007';
+    const approvedFile = writeDraft(approved, approvedId, requestDraft(approvedId, fencedNotes));
+
+    approve(approvedId, approved);
+
+    assert.equal(parseChange(fs.readFileSync(approvedFile, 'utf8')).frontmatter.status, 'approved');
+  }
+  // A fence closes only on a run of its own character at least as long as the
+  // opener: `~~~` inside a backtick fence and ``` inside a ```` fence leave it
+  // open, so the `### Frontier` after them stays fenced.
+  for (const [opener, inner] of [
+    ['```', '~~~'],
+    ['````', '```'],
+  ]) {
+    const mixed = emptyRepo();
+    const mixedId = '20261023-120008';
+    writeDraft(
+      mixed,
+      mixedId,
+      requestDraft(
+        mixedId,
+        `### Objective\n\nO\n\n${opener}\n${inner}\n### Frontier\n\nF\n${opener}\n`,
+      ),
+    );
+    assert.throws(() => approve(mixedId, mixed), {
+      message: 'cannot approve: "### Frontier" is missing',
+    });
+  }
+  // An unterminated fence runs to the end of the Request. Through `approve` it
+  // also swallows every later stage in `splitStages`, so the structural check
+  // answers first; the reader itself is asserted here.
+  assert.deepEqual(parseRequestSections('### Objective\n\nO\n\n```\n### Frontier\n\nF\n'), [
+    { name: 'Objective', present: true, filled: true },
+    { name: 'Frontier', present: false, filled: false },
+  ]);
+});
+
+// The stage body handed to the Request reader keeps each line's indentation:
+// a first line of four spaces and a fence is no fence for `splitStages`, and
+// trimming it would open one for `parseRequestSections` alone, inverting the
+// two readers' fence phase so headings fenced at column 0 count as present.
+test('20261023-181753 CR2: an indented first line of the Request does not open a fence for the reader', () => {
+  const root = emptyRepo();
+  const id = '20261023-120009';
+  const file = writeDraft(
+    root,
+    id,
+    requestDraft(id, '    ```\n\n```\n### Objective\n\nO\n\n### Frontier\n\nF\n```\n'),
+  );
+  const before = fs.readFileSync(file, 'utf8');
+
+  assert.throws(() => approve(id, root), {
+    message: 'cannot approve: "### Objective", "### Frontier" are missing',
+  });
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
+// An approved request-only feature, moved to in-progress, with the given
+// Specification and Plan bodies written in place — the implementer's draft of
+// its own contract.
+function inProgressWith(specification, plan) {
+  const root = emptyRepo();
+  const id = '20261023-120005';
+  const file = writeDraft(root, id, requestDraft(id, OBJECTIVE_AND_FRONTIER));
+  approve(id, root);
+  status(id, 'in-progress', root, { ownerHandle: () => '' });
+  fs.writeFileSync(
+    file,
+    fs
+      .readFileSync(file, 'utf8')
+      .replace('## Specification\n', `## Specification\n\n${specification}`)
+      .replace('## Plan\n', `## Plan\n\n${plan}`),
+  );
+  return { root, file, id };
+}
+
+const CITING_TASK = '- [ ] do it\n  - **Criteria:** CR1\n';
+
+for (const [label, specification, plan, message] of [
+  ['an empty Specification', '', CITING_TASK, 'cannot request review: "## Specification" is empty'],
+  [
+    'a Specification without criteria',
+    'Prose only.\n',
+    CITING_TASK,
+    'cannot request review: "## Specification" declares no criterion',
+  ],
+  [
+    'an empty Specification and Plan',
+    '',
+    '',
+    'cannot request review: "## Specification", "## Plan" are empty',
+  ],
+]) {
+  test(`20261023-181753 CR5: the exit to in-review refuses ${label} and leaves the document byte-identical`, () => {
+    const { root, file, id } = inProgressWith(specification, plan);
+    const before = fs.readFileSync(file, 'utf8');
+
+    assert.throws(() => status(id, 'in-review', root), { message });
+    const result = runCli(['status', id, 'in-review'], root);
+
+    assert.notEqual(result.code, 0);
+    assert.match(result.err, new RegExp(message.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    assert.equal(fs.readFileSync(file, 'utf8'), before);
+  });
+}
+
+test('20261023-181753 CR5: a Specification with a criterion and a Plan with a body reach in-review', () => {
+  const { root, file, id } = inProgressWith(TEST_GRADE_CR1, CITING_TASK);
+
+  const result = runCli(['status', id, 'in-review'], root);
+
+  assert.equal(result.code, 0, result.err);
+  const after = parseChange(fs.readFileSync(file, 'utf8'));
+  assert.equal(after.frontmatter.status, 'in-review');
+  assert.match(after.stages.find((s) => s.key === 'log').body, /in-progress → in-review/);
 });
 
 test('status rejects an invalid value without writing', () => {
@@ -1379,7 +1642,7 @@ const GATE_DONE_NAME = `${GATE_DONE_ID}-graduable.md`;
 const gateDoneChange = `---
 id: "${GATE_DONE_ID}"
 title: Verdad graduable
-type: feature
+type: change
 status: done
 created: 2026-06-01T10:00:00Z
 depends_on: []
@@ -1388,14 +1651,6 @@ depends_on: []
 ## Request
 
 Petición cerrada.
-
-## Investigation
-
-Investigación cerrada.
-
-## Proposal
-
-Propuesta cerrada.
 
 ## Specification
 
@@ -1416,13 +1671,13 @@ Propuesta cerrada.
 `;
 
 const gateInProgress = (id) => ({
-  [`${id}-en-curso.md`]: `---\nid: "${id}"\ntitle: En curso\ntype: chore\nstatus: in-progress\ncreated: 2026-06-13T12:00:00Z\ndepends_on: []\n---\n\n## Request\n\nAlgo.\n\n## Plan\n\n- [ ] Hacer la cosa\n\n## Log\n\n- **2026-06-13T12:00:00Z** \`[status]\` draft → approved\n- **2026-06-13T12:01:00Z** \`[status]\` approved → in-progress\n`,
+  [`${id}-en-curso.md`]: `---\nid: "${id}"\ntitle: En curso\ntype: change\nstatus: in-progress\ncreated: 2026-06-13T12:00:00Z\ndepends_on: []\n---\n\n## Request\n\nAlgo.\n\n## Plan\n\n- [ ] Hacer la cosa\n\n## Log\n\n- **2026-06-13T12:00:00Z** \`[status]\` draft → approved\n- **2026-06-13T12:01:00Z** \`[status]\` approved → in-progress\n`,
 });
 
 const GATE_BROKEN_NAME = '20260613-200000-roto.md';
 const gateBroken = {
   [GATE_BROKEN_NAME]:
-    '---\nid: "20260613-200000"\ntitle: Roto\ntype: quick\nstatus: draft\ncreated: 2026-06-13T20:00:00Z\ndepends_on: []\nparent: "20200101-000000"\n---\n\n## Request\n\nAlgo.\n\n## Log\n',
+    '---\nid: "20260613-200000"\ntitle: Roto\ntype: change\nstatus: draft\ncreated: 2026-06-13T20:00:00Z\ndepends_on: []\nparent: "20200101-000000"\n---\n\n## Request\n\nAlgo.\n\n## Log\n',
 };
 
 // `docs` maps a change filename to its text: written to the worktree, or
@@ -1559,7 +1814,7 @@ test('new --owner writes the owner into the frontmatter', () => {
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
   init(root);
   const file = newChange(
-    { type: 'feature', slug: 'x', title: 'X', owner: 'ana', now: '2026-06-13T12:00:00Z' },
+    { type: 'change', slug: 'x', title: 'X', owner: 'ana', now: '2026-06-13T12:00:00Z' },
     root,
   );
   assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.owner, 'ana');
@@ -1728,7 +1983,7 @@ function repoWithArchiveCandidates() {
   const write = ({
     id,
     status = 'done',
-    type = 'feature',
+    type = 'change',
     owner,
     reviewed = true,
     archived = false,
@@ -1747,7 +2002,7 @@ function repoWithArchiveCandidates() {
       'depends_on: []',
       '---',
     ].join('\n');
-    const text = `${fm}\n\n## Request\n\nR\n\n## Investigation\n\nI\n\n## Proposal\n\nP\n\n## Specification\n\n### CR1 — C\n- **Given** x\n- **When** y\n- **Then** z\n\n## Plan\n\n- [x] do it (CR1) — 2026-06-13T12:00:00Z\n\n## Log\n${log}\n`;
+    const text = `${fm}\n\n## Request\n\nR\n\n## Specification\n\n### CR1 — C\n- **Given** x\n- **When** y\n- **Then** z\n\n## Plan\n\n- [x] do it (CR1) — 2026-06-13T12:00:00Z\n\n## Log\n${log}\n`;
     const file = path.join(changesDir, `${id}-candidate.md`);
     fs.writeFileSync(file, text);
     return file;
@@ -1904,10 +2159,10 @@ test('131649 CR3-CR5: list combines owner, unowned, status and type filters', ()
   write({ id: '20260613-120001', owner: 'Roberto Ruiz', status: 'in-review' });
   write({ id: '20260613-120002', owner: 'raruiz-hiberuscom', status: 'in-review' });
   write({ id: '20260613-120003', status: 'in-review' });
-  write({ id: '20260613-120004', owner: 'Roberto Ruiz', type: 'bug' });
+  write({ id: '20260613-120004', owner: 'Roberto Ruiz', type: 'change' });
 
   assert.deepEqual(
-    list({ owner: 'Roberto Ruiz', status: 'in-review', type: 'feature' }, root).map(
+    list({ owner: 'Roberto Ruiz', status: 'in-review', type: 'change' }, root).map(
       (change) => change.id,
     ),
     ['20260613-120001'],
@@ -1942,28 +2197,8 @@ test('131649 CR6/CR7: list hides archives by default and exposes unambiguous vis
   );
 });
 
-// Review gate (change 20260615-150510). repoWithChange() is a `feature`, which
-// the seeded config marks review_required.
-
-function repoWithChore() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-agent-'));
-  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
-  init(root);
-  const file = newChange(
-    { type: 'chore', slug: 'c', title: 'C', now: '2026-06-13T12:00:00Z' },
-    root,
-    { ownerHandle: () => '' },
-  );
-  // 20260810-213633: approve refuses a chore whose active stages (request,
-  // plan) are blank, so this shared fixture back-fills both minimally.
-  const text = fs
-    .readFileSync(file, 'utf8')
-    .replace('## Request\n', '## Request\n\nR\n')
-    .replace('## Plan\n', '## Plan\n\n- [ ] do it\n  - **Support:**\n');
-  fs.writeFileSync(file, text);
-  const id = parseChange(text).frontmatter.id;
-  return { root, file, id };
-}
+// Review gate (change 20260615-150510). repoWithChange() reaches in-review and
+// review pass, the route of a change whose branch touches code.
 
 // repoWithChange() deliberately produces an owner-less change (see its own
 // comment), so the pre-existing in-progress auto-assign guard (!fm.owner)
@@ -1977,126 +2212,476 @@ const reach = (id, root, target) => {
   }
 };
 
-test('171002 CR1: status blocks review-required in-progress → done', () => {
-  const { root, file, id } = repoWithChange();
-  reach(id, root, 'in-progress');
+// --- 20261024-121022 CR5/CR6/CR7: `done` straight from in-progress only when
+// the change's branch touches nothing outside the ledger; an epic keeps its
+// short cycle and never enters review ---
+
+const GATE_ID = '20261024-140000';
+const GATE_BODY = {
+  change: `## Request\n\nR\n\n${OBJECTIVE_AND_FRONTIER}\n## Specification\n\n${TEST_GRADE_CR1}\n## Plan\n\n- [ ] do it\n  - **Support:**\n\n`,
+  epic: `## Request\n\nR\n\n${OBJECTIVE_AND_FRONTIER}\n`,
+};
+
+// A git repo of the template's schema-7 shape (no types, no stages) whose
+// integration branch is `dev`, holding one document written by hand so the
+// fixture does not lean on the scaffold. It is approved on `dev` and started
+// on `<type>/<id>` when a branch format is declared, with its Plan task closed
+// unless `closeTask: false`. `record: false` keeps the branch out of the
+// frontmatter, as a start from a detached checkout would.
+function gateRepo({
+  type = 'change',
+  format = '{type}/{id}',
+  record = true,
+  closeTask = true,
+  dirs = {},
+} = {}) {
+  const root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-gate-')));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  initializeRepo(root);
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  const config = parseYaml(fs.readFileSync(configFile, 'utf8'));
+  config.git = { integration_branch: 'dev', change_branch_format: format };
+  Object.assign(config, dirs);
+  fs.writeFileSync(configFile, stringifyYaml(config));
+  const changesDir = path.join(root, config.changes_dir);
+  fs.mkdirSync(changesDir, { recursive: true });
+  const file = path.join(changesDir, `${GATE_ID}-gate.md`);
+  fs.writeFileSync(
+    file,
+    `---\nid: "${GATE_ID}"\ntitle: Gate\ntype: ${type}\nstatus: draft\ncreated: 2026-10-24T14:00:00Z\ndepends_on: []\n---\n\n${GATE_BODY[type]}## Log\n`,
+  );
+  initGitFixture(root, { args: ['-b', 'dev'] });
+  git(root, ['config', 'commit.gpgsign', 'false']);
+  git(root, ['add', '.']);
+  git(root, ['commit', '-q', '-m', 'chore: baseline']);
+  approve(GATE_ID, root);
+  const branch = format ? `${type}/${GATE_ID}` : undefined;
+  if (branch) git(root, ['checkout', '-q', '-b', branch]);
+  status(GATE_ID, 'in-progress', root, {
+    ownerHandle: () => '',
+    ...(record ? {} : { checkoutBranch: () => '' }),
+  });
+  if (type === 'change' && closeTask) task(GATE_ID, 'done', 1, '', root);
+  return { root, file, id: GATE_ID, branch };
+}
+
+// Commits `files` (repo-relative) on the checked-out branch, the change's own
+// document included, so the range holds ledger work beside whatever else. A
+// Markdown file is written as a spec, since the ledger reads its specs dir.
+const GATE_SPEC =
+  '---\ntitle: S\nupdated: 2026-10-24T14:00:00Z\ntags: []\ngraduated_from: []\n---\n\nBody.\n';
+function commitOnBranch(root, file, files = [], message = 'work') {
+  for (const rel of files) {
+    fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
+    fs.writeFileSync(path.join(root, rel), rel.endsWith('.md') ? GATE_SPEC : `${rel}\n`);
+  }
+  git(root, ['add', '--', path.relative(root, file), ...files]);
+  git(root, ['commit', '-q', '-m', message]);
+}
+
+const verdictRoute = 'move it to in-review and record a verdict';
+
+test('20261024-121022 CR5: a change whose branch touches code is refused done and left untouched', () => {
+  const { root, file, id } = gateRepo();
+  commitOnBranch(root, file, ['src/x.mjs']);
   const before = fs.readFileSync(file, 'utf8');
+  const message = `change ${id} touches code outside the ledger (1 path, e.g. src/x.mjs): ${verdictRoute}`;
+
   assert.throws(
     () => status(id, 'done', root),
-    /feature changes must be reviewed before delivery — move to in-review first/,
+    (error) => error.message === message,
+  );
+  const cli = runCli(['status', id, 'done'], root);
+  assert.notEqual(cli.code, 0);
+  assert.equal(cli.err.trim(), `Error: ${message}`);
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
+test('20261024-121022 CR5: the refusal counts every code path and names the first', () => {
+  const { root, file, id } = gateRepo();
+  commitOnBranch(root, file, ['src/a.mjs', 'test/a.test.mjs']);
+
+  assert.throws(
+    () => status(id, 'done', root),
+    (error) =>
+      error.message ===
+      `change ${id} touches code outside the ledger (2 paths, e.g. src/a.mjs): ${verdictRoute}`,
+  );
+});
+
+test('20261024-121022 CR5: a change touching only changes_dir, specs_dir and .changeledger/ delivers from in-progress', () => {
+  const { root, file, id } = gateRepo();
+  commitOnBranch(root, file, ['.changeledger/specs/s.md', '.changeledger/notes.md']);
+  const { calls, gitRun } = recordingGitRun();
+
+  status(id, 'done', root, { gitRun });
+
+  const c = parseChange(fs.readFileSync(file, 'utf8'));
+  assert.equal(c.frontmatter.status, 'done');
+  assert.match(c.stages.find((s) => s.key === 'log').body, /`\[status\]` in-progress → done/);
+  assert.deepEqual(
+    calls.find((args) => subcommandOf(args)[0] === 'diff'),
+    [
+      '-c',
+      'core.quotePath=false',
+      'diff',
+      '-z',
+      '--no-renames',
+      '--no-relative',
+      '--ignore-submodules=none',
+      '--name-only',
+      `refs/heads/dev...refs/heads/change/${id}`,
+      '--',
+    ],
+  );
+});
+
+test('20261024-121022 CR5: configured ledger dirs are normalised and compared as path prefixes', () => {
+  const dirs = { changes_dir: './ledger/changes/', specs_dir: 'docs//specs' };
+  const ledgerOnly = gateRepo({ dirs });
+  commitOnBranch(ledgerOnly.root, ledgerOnly.file, ['docs/specs/s.md']);
+  status(ledgerOnly.id, 'done', ledgerOnly.root);
+  assert.equal(parseChange(fs.readFileSync(ledgerOnly.file, 'utf8')).frontmatter.status, 'done');
+
+  // A sibling sharing the directory's name as a string prefix is code.
+  const sibling = gateRepo({ dirs });
+  commitOnBranch(sibling.root, sibling.file, ['docs/specs-old/s.md']);
+  assert.throws(
+    () => status(sibling.id, 'done', sibling.root),
+    (error) =>
+      error.message ===
+      `change ${sibling.id} touches code outside the ledger (1 path, e.g. docs/specs-old/s.md): ${verdictRoute}`,
+  );
+});
+
+test('20261024-121022 CR5: a ledger below the git top-level judges paths in git coordinates', () => {
+  const { root, id } = gateRepo();
+  // Move the whole ChangeLedger repo one level below a fresh git top-level.
+  const top = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-top-')));
+  const nested = path.join(top, 'app');
+  fs.rmSync(path.join(root, '.git'), { recursive: true, force: true });
+  fs.cpSync(root, nested, { recursive: true });
+  initGitFixture(top, { args: ['-b', 'dev'] });
+  git(top, ['config', 'commit.gpgsign', 'false']);
+  git(top, ['add', '.']);
+  git(top, ['commit', '-q', '-m', 'chore: baseline']);
+  git(top, ['checkout', '-q', '-b', `change/${id}`]);
+  fs.writeFileSync(path.join(top, '.changeledger-not-mine.md'), 'x\n');
+  fs.mkdirSync(path.join(nested, '.changeledger', 'specs'), { recursive: true });
+  fs.writeFileSync(path.join(nested, '.changeledger', 'specs', 's.md'), GATE_SPEC);
+  git(top, ['add', '.']);
+  git(top, ['commit', '-q', '-m', 'work']);
+
+  assert.throws(
+    () => status(id, 'done', nested),
+    (error) =>
+      error.message ===
+      `change ${id} touches code outside the ledger (1 path, e.g. .changeledger-not-mine.md): ${verdictRoute}`,
+  );
+});
+
+test('20261024-121022 CR6: a change with no branch recorded or derivable is refused done', () => {
+  const { root, file, id } = gateRepo({ format: null, record: false });
+  const before = fs.readFileSync(file, 'utf8');
+
+  assert.throws(
+    () => status(id, 'done', root),
+    (error) =>
+      error.message ===
+      `cannot decide whether change ${id} touches code: no branch recorded for it — ${verdictRoute}`,
   );
   assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
 
-// 20260726-141120 — entry into review is closed for a type without
-// `review_required`. `init` seeds `audit` without it.
+test('20261024-121022 CR6: with no branch recorded the declared format derives it', () => {
+  const { root, file, id } = gateRepo({ record: false });
+  assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.branch, undefined);
+  commitOnBranch(root, file);
 
-function repoWithAudit() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-agent-'));
-  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
-  init(root);
-  const file = newChange(
-    { type: 'audit', slug: 'a', title: 'A', now: '2026-06-13T12:00:00Z' },
-    root,
-    { ownerHandle: () => '' },
-  );
-  // 20260810-213633: approve refuses an audit whose active stages (request,
-  // investigation) are blank, so this shared fixture back-fills both minimally.
-  const text = fs
-    .readFileSync(file, 'utf8')
-    .replace('## Request\n', '## Request\n\nR\n')
-    .replace('## Investigation\n', '## Investigation\n\nI\n');
-  fs.writeFileSync(file, text);
-  const id = parseChange(text).frontmatter.id;
-  status(id, 'approved', root);
-  status(id, 'in-progress', root, { ownerHandle: () => '' });
-  return { root, file, id };
-}
+  status(id, 'done', root);
 
-test('141120 CR2: rejecting review entry leaves the document and Log untouched', () => {
-  const { root, file, id } = repoWithAudit();
-  const before = fs.readFileSync(file, 'utf8');
-  assert.throws(
-    () => status(id, 'in-review', root),
-    /^Error: audit changes do not require review — move to done instead$/,
-  );
-  const after = fs.readFileSync(file, 'utf8');
-  assert.equal(after, before);
-  const c = parseChange(after);
-  assert.equal(c.frontmatter.status, 'in-progress');
-  assert.doesNotMatch(c.stages.find((s) => s.key === 'log').body, /in-review/);
+  assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'done');
 });
 
-test('141120 CR1: the CLI reports the rejection and exits 1', async () => {
-  const { root, id } = repoWithAudit();
-  const bin = path.resolve('bin/changeledger.mjs');
-  const failure = await execFileAsync(process.execPath, [bin, 'status', id, 'in-review'], {
-    cwd: root,
-  }).then(
-    () => null,
-    (e) => e,
+test('20261024-121022 CR6: a recorded branch that does not exist locally is refused done', () => {
+  const { root, file, id, branch } = gateRepo();
+  git(root, ['checkout', '-q', 'dev']);
+  git(root, ['branch', '-q', '-D', branch]);
+  // A same-named tag must not answer for the deleted branch.
+  git(root, ['tag', `refs/heads/${branch}`]);
+  const before = fs.readFileSync(file, 'utf8');
+
+  assert.throws(
+    () => status(id, 'done', root),
+    (error) =>
+      error.message ===
+      `cannot decide whether change ${id} touches code: branch "${branch}" does not exist locally — ${verdictRoute}`,
   );
-  assert.ok(failure, 'the CLI must fail');
-  assert.equal(failure.code, 1);
-  assert.match(
-    failure.stderr,
-    /^Error: audit changes do not require review — move to done instead$/m,
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
+test('20261024-121022 CR6: a git failure is named and closes the direct route', () => {
+  const { root, file, id, branch } = gateRepo();
+  const gitRun = (args, cwd) => {
+    if (subcommandOf(args)[0] === 'diff') {
+      throw new Error(`Command failed: git ${args.join(' ')}\nfatal: unable to read tree`);
+    }
+    return capturedRun(args, cwd);
+  };
+  const before = fs.readFileSync(file, 'utf8');
+
+  assert.throws(
+    () => status(id, 'done', root, { gitRun }),
+    (error) =>
+      error.message ===
+      `cannot decide whether change ${id} touches code: git diff dev...${branch} failed: fatal: unable to read tree — ${verdictRoute}`,
   );
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
+test('20261024-121022 CR6: a change recorded on the integration branch itself cannot be judged', () => {
+  const { root, id } = gateRepo({ format: null });
+
+  assert.throws(
+    () => status(id, 'done', root),
+    (error) =>
+      error.message ===
+      `cannot decide whether change ${id} touches code: branch "dev" is the integration branch — ${verdictRoute}`,
+  );
+});
+
+// Leaves `files` (repo-relative) uncommitted in the checkout: `staged` ones are
+// added to the index, the rest stay untracked. Markdown is written as a spec,
+// as in `commitOnBranch`.
+function leaveUncommitted(root, { untracked = [], staged = [] }) {
+  for (const rel of [...untracked, ...staged]) {
+    fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
+    fs.writeFileSync(path.join(root, rel), rel.endsWith('.md') ? GATE_SPEC : `${rel}\n`);
+  }
+  if (staged.length > 0) git(root, ['add', '--', ...staged]);
+}
+
+test('20261024-121022 CR5: an untracked code path on the change branch is refused done and left untouched', () => {
+  const { root, file, id } = gateRepo();
+  commitOnBranch(root, file);
+  leaveUncommitted(root, { untracked: ['src/uncommitted.mjs'] });
+  const before = fs.readFileSync(file, 'utf8');
+  const message = `change ${id} touches code outside the ledger in uncommitted paths (1 path, e.g. src/uncommitted.mjs): commit them, ${verdictRoute}`;
+
+  assert.throws(
+    () => status(id, 'done', root),
+    (error) => error.message === message,
+  );
+  const cli = runCli(['status', id, 'done'], root);
+  assert.notEqual(cli.code, 0);
+  assert.equal(cli.err.trim(), `Error: ${message}`);
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
+test('20261024-121022 CR5: staged, modified and untracked code paths all count as uncommitted', () => {
+  const { root, file, id } = gateRepo();
+  commitOnBranch(root, file);
+  // AGENTS.md is tracked since the baseline, so editing it is an unstaged change.
+  fs.appendFileSync(path.join(root, 'AGENTS.md'), 'more\n');
+  leaveUncommitted(root, { staged: ['a/staged.mjs'], untracked: ['z/untracked.mjs'] });
+
+  assert.throws(
+    () => status(id, 'done', root),
+    (error) =>
+      error.message ===
+      `change ${id} touches code outside the ledger in uncommitted paths (3 paths, e.g. AGENTS.md): commit them, ${verdictRoute}`,
+  );
+});
+
+test('20261024-121022 CR5: uncommitted paths under the ledger directories do not count', () => {
+  const { root, file, id } = gateRepo();
+  commitOnBranch(root, file);
+  leaveUncommitted(root, {
+    untracked: ['.changeledger/specs/new.md'],
+    staged: ['.changeledger/notes.md'],
+  });
+
+  status(id, 'done', root);
+
+  assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'done');
+});
+
+// The uncommitted paths that count are those of the worktree holding the
+// change's branch, wherever it is; a checkout on another branch holds someone
+// else's work.
+test('20261024-121022 CR5: the branch checked out in another worktree has its uncommitted paths read there', () => {
+  const { root, file, id, branch } = gateRepo();
+  commitOnBranch(root, file);
+  git(root, ['checkout', '-q', '-b', 'elsewhere']);
+  const other = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-wt-')));
+  git(root, ['worktree', 'add', '-q', other, branch]);
+  leaveUncommitted(other, { untracked: ['src/in-worktree.mjs'] });
+  const before = fs.readFileSync(file, 'utf8');
+
+  assert.throws(
+    () => status(id, 'done', root),
+    (error) =>
+      error.message ===
+      `change ${id} touches code outside the ledger in uncommitted paths (1 path, e.g. src/in-worktree.mjs): commit them, ${verdictRoute}`,
+  );
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
+test('20261024-121022 CR5: a branch checked out nowhere is judged by its committed range alone', () => {
+  const { root, file, id } = gateRepo();
+  commitOnBranch(root, file);
+  git(root, ['checkout', '-q', '-b', 'elsewhere']);
+  // This checkout's own uncommitted work is not the change's.
+  leaveUncommitted(root, { untracked: ['src/not-mine.mjs'] });
+
+  status(id, 'done', root);
+
+  assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'done');
+});
+
+// Merges `branch` into `dev` with `mode` and returns to the branch.
+function mergeIntoDev(root, branch, mode) {
+  git(root, ['checkout', '-q', 'dev']);
+  git(root, ['merge', '-q', mode, '-m', 'merge', branch]);
+  git(root, ['checkout', '-q', branch]);
+}
+
+test('20261024-121022 CR6: a change whose marked commits the integration branch reaches is refused done', () => {
+  for (const mode of ['--ff-only', '--no-ff']) {
+    const { root, file, id, branch } = gateRepo();
+    commitOnBranch(root, file, ['src/x.mjs'], `feat(x): add x [#${id}]`);
+    mergeIntoDev(root, branch, mode);
+    const before = fs.readFileSync(file, 'utf8');
+
+    assert.throws(
+      () => status(id, 'done', root),
+      (error) =>
+        error.message ===
+        `cannot decide whether change ${id} touches code: its commits are already merged into "dev" — ${verdictRoute}`,
+      mode,
+    );
+    assert.equal(fs.readFileSync(file, 'utf8'), before);
+  }
+});
+
+// The declared residual of unmarked history: once merged, unmarked commits
+// leave an empty `...` range and nothing names them as the change's own, so the
+// committed-range rule alone judges the branch — and an empty range delivers.
+test('20261024-121022 CR6: a merged branch with unmarked commits is judged by its committed range alone', () => {
+  for (const mode of ['--ff-only', '--no-ff']) {
+    const { root, file, id, branch } = gateRepo();
+    commitOnBranch(root, file, ['src/x.mjs']);
+    mergeIntoDev(root, branch, mode);
+
+    status(id, 'done', root);
+
+    assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'done', mode);
+  }
+});
+
+test('20261024-121022 CR6: a branch with no commits of its own, cut at the integration tip, delivers', () => {
+  const { root, file, id } = gateRepo();
+
+  status(id, 'done', root);
+
+  assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'done');
+});
+
+test('20261024-121022 CR6: a git failure reading the merged commits is named and closes the direct route', () => {
+  const { root, file, id } = gateRepo();
+  commitOnBranch(root, file);
+  const gitRun = (args, cwd) => {
+    if (subcommandOf(args)[0] === 'log') {
+      throw new Error(`Command failed: git ${args.join(' ')}\nfatal: bad object`);
+    }
+    return capturedRun(args, cwd);
+  };
+
+  assert.throws(
+    () => status(id, 'done', root, { gitRun }),
+    (error) =>
+      error.message ===
+      `cannot decide whether change ${id} touches code: git log dev failed: fatal: bad object — ${verdictRoute}`,
+  );
+});
+
+test('20261024-121022 CR6: any change enters review, whether its branch touches code or not', () => {
+  for (const files of [['src/x.mjs'], []]) {
+    const { root, file, id } = gateRepo();
+    commitOnBranch(root, file, files);
+    status(id, 'in-review', root);
+    assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'in-review');
+  }
+});
+
+test('20261024-121022 CR7: an epic delivers from in-progress without consulting git', () => {
+  const { root, file, id } = gateRepo({ type: 'epic', format: null });
+  const { calls, gitRun } = recordingGitRun();
+
+  status(id, 'done', root, { gitRun, checkoutBranch: () => '' });
+
+  assert.deepEqual(calls, []);
+  assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'done');
+});
+
+test('20261024-121022 CR7: an epic never enters review, and the CLI exits 1 leaving it untouched', () => {
+  const { root, file, id } = gateRepo({ type: 'epic', format: null });
+  const before = fs.readFileSync(file, 'utf8');
+  const message = 'epic changes do not enter review — move to done instead';
+
+  assert.throws(
+    () => status(id, 'in-review', root),
+    (error) => error.message === message,
+  );
+  const cli = runCli(['status', id, 'in-review'], root);
+  assert.equal(cli.code, 1);
+  assert.equal(cli.err.trim(), `Error: ${message}`);
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
+test('20261024-121022 CR7: review pass on an epic in progress fails as an invalid transition', () => {
+  const { root, file, id } = gateRepo({ type: 'epic', format: null });
+  const before = fs.readFileSync(file, 'utf8');
+
+  assert.throws(
+    () => review(id, 'pass', {}, root),
+    (error) => error.message === 'review requires status in-review (current: in-progress)',
+  );
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
 
 // 20260722-124656 — the local gate decides whether a reviewable candidate exists,
-// so the transition that claims review started is the last place the readiness of
-// that candidate can still be refused instead of delegated to the reviewer.
-function repoWithUnreadyChange() {
+// so the transition that claims review started is the last place a structurally
+// broken candidate can still be refused instead of delegated to the reviewer.
+function repoWithBrokenChange() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-agent-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
   init(root);
   const file = newChange(
-    { type: 'feature', slug: 'unready', title: 'Unready', now: '2026-06-13T12:00:00Z' },
+    { type: 'change', slug: 'broken', title: 'Broken', now: '2026-06-13T12:00:00Z' },
     root,
     { ownerHandle: () => '' },
   );
-  // Walk to in-progress while the document is still ready: since 20260729-185200
-  // the draft → approved gate refuses a defective candidate, and the subject here
-  // is the in-review gate, not approval.
-  const ready = fs
+  const sound = fs
     .readFileSync(file, 'utf8')
-    .replace('## Request\n', '## Request\n\nR\n')
-    .replace('## Investigation\n', '## Investigation\n\nI\n')
-    .replace('## Proposal\n', '## Proposal\n\nP\n')
-    .replace(
-      '## Specification\n',
-      '## Specification\n\n### CR1 — Something\n- **Given** a thing\n- **When** it runs\n- **Then** it holds\n',
-    )
-    .replace(
-      '## Plan\n',
-      '## Plan\n\n- [ ] do it in `src/x.mjs`\n  - **Target:** `src/x.mjs`\n  - **Verify:** `test/x.test.mjs`\n  - **Criteria:** CR1\n',
-    );
-  fs.writeFileSync(file, ready);
-  const id = parseChange(ready).frontmatter.id;
+    .replace('## Request\n', `## Request\n\nR\n\n${OBJECTIVE_AND_FRONTIER}`)
+    .replace('## Specification\n', `## Specification\n\n${TEST_GRADE_CR1}`)
+    .replace('## Plan\n', '## Plan\n\n- [ ] do it\n  - **Criteria:** CR1\n');
+  fs.writeFileSync(file, sound);
+  const id = parseChange(sound).frontmatter.id;
   status(id, 'approved', root);
   status(id, 'in-progress', root, { ownerHandle: () => '' });
-  // Two readiness defects at once, introduced where this fixture needs them: CR1
-  // has no When/Then, and the Plan task that claims it names neither a target
-  // (`src/**`) nor a verification (`test/**`).
+  // The defect is introduced in `in-progress`, where the implementer writes the
+  // Plan: a task citing a criterion the Specification does not declare.
   fs.writeFileSync(
     file,
-    fs
-      .readFileSync(file, 'utf8')
-      .replace(
-        '### CR1 — Something\n- **Given** a thing\n- **When** it runs\n- **Then** it holds\n',
-        '### CR1 — Something\n- **Given** a thing\n',
-      )
-      .replace(
-        '- [ ] do it in `src/x.mjs`\n  - **Target:** `src/x.mjs`\n  - **Verify:** `test/x.test.mjs`\n  - **Criteria:** CR1',
-        '- [ ] do the thing\n  - **Criteria:** CR1',
-      ),
+    fs.readFileSync(file, 'utf8').replace('  - **Criteria:** CR1', '  - **Criteria:** CR2'),
   );
   return { root, file, id };
 }
 
-test('124656 CR3: the in-review transition refuses an unready candidate', () => {
-  const { root, file, id } = repoWithUnreadyChange();
+test('124656 CR3: the in-review transition refuses a structurally broken candidate', () => {
+  const { root, file, id } = repoWithBrokenChange();
   const before = fs.readFileSync(file, 'utf8');
   let thrown;
   try {
@@ -2104,10 +2689,8 @@ test('124656 CR3: the in-review transition refuses an unready candidate', () => 
   } catch (error) {
     thrown = error;
   }
-  assert.ok(thrown, 'the transition must refuse an unready candidate');
-  // Every readiness defect is named, not just the first one found.
-  assert.match(thrown.message, /CR1 is not test-grade: missing Given\/When\/Then/);
-  assert.match(thrown.message, /Plan task for CR1 must name target and verification/);
+  assert.ok(thrown, 'the transition must refuse a broken candidate');
+  assert.match(thrown.message, /Plan task references unknown criterion "CR2"/);
   // The refusal is byte-preserving: no status flip, and no Log entry at all.
   const after = fs.readFileSync(file, 'utf8');
   assert.equal(after, before);
@@ -2119,19 +2702,12 @@ test('124656 CR3: the in-review transition refuses an unready candidate', () => 
   assert.doesNotMatch(logBody, /\[review\]/);
 });
 
-test('124656 CR3: a ready candidate still reaches in-review', () => {
-  const { root, file, id } = repoWithUnreadyChange();
-  const repaired = fs
-    .readFileSync(file, 'utf8')
-    .replace(
-      '### CR1 — Something\n- **Given** a thing\n',
-      '### CR1 — Something\n- **Given** a thing\n- **When** it runs\n- **Then** it holds\n',
-    )
-    .replace(
-      '- [ ] do the thing\n  - **Criteria:** CR1',
-      '- [ ] do it in `src/x.mjs`\n  - **Target:** `src/x.mjs`\n  - **Verify:** `test/x.test.mjs`\n  - **Criteria:** CR1',
-    );
-  fs.writeFileSync(file, repaired);
+test('124656 CR3: a repaired candidate reaches in-review', () => {
+  const { root, file, id } = repoWithBrokenChange();
+  fs.writeFileSync(
+    file,
+    fs.readFileSync(file, 'utf8').replace('  - **Criteria:** CR2', '  - **Criteria:** CR1'),
+  );
   status(id, 'in-review', root);
   const c = parseChange(fs.readFileSync(file, 'utf8'));
   assert.equal(c.frontmatter.status, 'in-review');
@@ -2293,21 +2869,9 @@ test('20261018-131621 CR9: only release membership closes the return from done',
 // closes the window, and in a worktree layout the race stays open and
 // unguarded (20261018-131621 CR16).
 
-test('20261018-131621 CR4: a type without review delivers through generic status', () => {
-  const { root, file, id } = repoWithChore();
-  status(id, 'approved', root);
-  status(id, 'in-progress', root, { ownerHandle: () => '' });
-  task(id, 'done', 1, '', root);
-  status(id, 'done', root);
-  const c = parseChange(fs.readFileSync(file, 'utf8'));
-  assert.equal(c.frontmatter.status, 'done');
-  assert.match(c.stages.find((s) => s.key === 'log').body, /`\[status\]` in-progress → done/);
-});
-
 test('20261018-131621 CR20: status done refuses a change with an open Plan task', () => {
-  const { root, file, id } = repoWithChore();
-  status(id, 'approved', root);
-  status(id, 'in-progress', root, { ownerHandle: () => '' });
+  const { root, file, id } = gateRepo({ closeTask: false });
+  commitOnBranch(root, file);
   const before = fs.readFileSync(file, 'utf8');
   assert.throws(() => status(id, 'done', root), /status is "done" but 1 task\(s\) are not done/);
   assert.equal(fs.readFileSync(file, 'utf8'), before);
@@ -2402,24 +2966,21 @@ function repoWithTwoSamePrefix() {
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
   init(root);
   const fileA = newChange(
-    { type: 'feature', slug: 'a', title: 'A', now: '2026-06-13T12:00:00Z' },
+    { type: 'change', slug: 'a', title: 'A', now: '2026-06-13T12:00:00Z' },
     root,
     { ownerHandle: () => '' },
   );
   const fileB = newChange(
-    { type: 'feature', slug: 'b', title: 'B', now: '2026-06-13T12:00:01Z' },
+    { type: 'change', slug: 'b', title: 'B', now: '2026-06-13T12:00:01Z' },
     root,
     { ownerHandle: () => '' },
   );
-  // 20260810-213633: fileB reaches approved in CR1 below, so its active stages
-  // need minimal content; fileA is filled the same way to keep both siblings
-  // uniform (it never itself moves past draft in these tests).
+  // fileB reaches approved in CR1 below, so its Request carries an objective
+  // and a frontier (20261023-181753); fileA is filled the same way to keep both
+  // siblings uniform (it never itself moves past draft in these tests).
   const fillStages = (text) =>
     text
-      .replace('## Request\n', '## Request\n\nR\n')
-      .replace('## Investigation\n', '## Investigation\n\nI\n')
-      .replace('## Proposal\n', '## Proposal\n\nP\n')
-      .replace('## Specification\n', '## Specification\n\nS\n')
+      .replace('## Request\n', `## Request\n\nR\n\n${OBJECTIVE_AND_FRONTIER}`)
       .replace('## Plan\n', '## Plan\n\n- [ ] do it\n  - **Support:**\n');
   fs.writeFileSync(fileA, fillStages(fs.readFileSync(fileA, 'utf8')));
   fs.writeFileSync(fileB, fillStages(fs.readFileSync(fileB, 'utf8')));
@@ -2458,7 +3019,7 @@ test('175734 CR3: a filename whose frontmatter id differs is not an exact match'
   // `owner`, not `approve`: the corruption this fixture needs is itself a check
   // error ("filename does not match id"), and since 20260729-185200 the
   // draft → approved gate refuses any document with errors. Resolution, not
-  // readiness, is what this criterion owns.
+  // approval, is what this criterion owns.
   owner('20260613-999999', 'ana', root);
   assert.equal(parseChange(fs.readFileSync(fileA, 'utf8')).frontmatter.owner, 'ana');
 });
@@ -2513,7 +3074,7 @@ function repoWithTwoTasks() {
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
   init(root);
   const file = newChange(
-    { type: 'feature', slug: 'race', title: 'Race', now: '2026-06-13T12:00:00Z' },
+    { type: 'change', slug: 'race', title: 'Race', now: '2026-06-13T12:00:00Z' },
     root,
     { ownerHandle: () => '' },
   );
@@ -2569,7 +3130,7 @@ test('212314 CR1: concurrent task mutations on the same change preserve both wri
 test('212314 CR2: a lock on one change does not block mutating another change', () => {
   const first = repoWithTwoTasks();
   const secondFile = newChange(
-    { type: 'feature', slug: 'other', title: 'Other', now: '2026-06-13T12:00:01Z' },
+    { type: 'change', slug: 'other', title: 'Other', now: '2026-06-13T12:00:01Z' },
     first.root,
     { ownerHandle: () => '' },
   );
@@ -2717,14 +3278,14 @@ function archiveCandidateText(id, log) {
     '---',
     `id: "${id}"`,
     'title: Candidate',
-    'type: feature',
+    'type: change',
     'status: done',
     'created: 2026-06-13T12:00:00Z',
     'reviewed: true',
     'depends_on: []',
     '---',
   ].join('\n');
-  return `${fm}\n\n## Request\n\nR\n\n## Investigation\n\nI\n\n## Proposal\n\nP\n\n## Specification\n\n### CR1 — C\n- **Given** x\n- **When** y\n- **Then** z\n\n## Plan\n\n- [x] do it (CR1) — 2026-06-13T12:00:00Z\n\n## Log\n${log}\n`;
+  return `${fm}\n\n## Request\n\nR\n\n## Specification\n\n### CR1 — C\n- **Given** x\n- **When** y\n- **Then** z\n\n## Plan\n\n- [x] do it (CR1) — 2026-06-13T12:00:00Z\n\n## Log\n${log}\n`;
 }
 
 test('CR1: archiveGraduated commits every archived change in one commit, active mode', () => {
@@ -3095,10 +3656,8 @@ const onlyChangeFile = (root) => {
 };
 const fillFeature = (text) =>
   text
-    .replace('## Request\n', '## Request\n\nR\n')
-    .replace('## Investigation\n', '## Investigation\n\nI\n')
-    .replace('## Proposal\n', '## Proposal\n\nP\n')
-    .replace('## Specification\n', '## Specification\n\nS\n')
+    .replace('## Request\n', `## Request\n\nR\n\n${OBJECTIVE_AND_FRONTIER}`)
+    .replace('## Specification\n', `## Specification\n\n${TEST_GRADE_CR1}`)
     .replace('## Plan\n', '## Plan\n\n- [ ] do it\n  - **Support:**\n');
 
 test('20261001-155216 CR10: a change created and approved by 0.18.0 and finished by 0.18.1 records both versions once', () => {
@@ -3108,7 +3667,7 @@ test('20261001-155216 CR10: a change created and approved by 0.18.0 and finished
   const root = cliRepo(v180, home);
 
   assert.equal(
-    v180(['new', 'feature', 'demo', 'Demo', '--owner', 'ana'], { cwd: root, home }).code,
+    v180(['new', 'change', 'demo', 'Demo', '--owner', 'ana'], { cwd: root, home }).code,
     0,
   );
   const file = onlyChangeFile(root);
@@ -3174,7 +3733,7 @@ test('20261001-155216 CR1: a change created by 0.18.0 starts with exactly its ow
   const home = cliHome();
   const v18 = installCli('0.18.0');
   const root = cliRepo(v18, home);
-  assert.equal(v18(['new', 'feature', 'demo', 'Demo'], { cwd: root, home }).code, 0);
+  assert.equal(v18(['new', 'change', 'demo', 'Demo'], { cwd: root, home }).code, 0);
   const text = fs.readFileSync(onlyChangeFile(root), 'utf8');
   const { created } = parseChange(text).frontmatter;
   assert.equal(
@@ -3195,7 +3754,7 @@ test('20261001-155216 CR5: a lower installed version, still allowed by min_cli_v
     /min_cli_version: 0\.18\.0/,
   );
   assert.equal(
-    v181(['new', 'feature', 'demo', 'Demo', '--owner', 'ana'], { cwd: root, home }).code,
+    v181(['new', 'change', 'demo', 'Demo', '--owner', 'ana'], { cwd: root, home }).code,
     0,
   );
   const file = onlyChangeFile(root);
@@ -3461,7 +4020,7 @@ for (const activated of [false, true]) {
 
       // A second change carries creation, edit, fix and discard.
       const draft = scaffoldChange(
-        { type: 'quick', slug: 'second', title: 'Second', now: '2026-06-14T12:00:00Z' },
+        { type: 'change', slug: 'second', title: 'Second', now: '2026-06-14T12:00:00Z' },
         root,
         { ownerHandle: () => '' },
       );
@@ -3469,7 +4028,7 @@ for (const activated of [false, true]) {
       t.after(() => fs.rmSync(draftFile, { force: true }));
       fs.writeFileSync(draftFile, draft.text);
       newChangeFrom(
-        { type: 'quick', slug: 'second', title: 'Second', from: draftFile },
+        { type: 'change', slug: 'second', title: 'Second', from: draftFile },
         root,
         quiet,
       );
@@ -3506,7 +4065,7 @@ for (const activated of [false, true]) {
     const { root } = usageRepo({ activated, t });
     const warnings = [];
     const file = newChange(
-      { type: 'quick', slug: 'fresh', title: 'Fresh', now: '2026-06-15T09:30:00Z' },
+      { type: 'change', slug: 'fresh', title: 'Fresh', now: '2026-06-15T09:30:00Z' },
       root,
       {
         ownerHandle: () => '',
@@ -3734,7 +4293,7 @@ test('20261012-213243 CR4: a repo reached through a symlink records usage for th
   };
 
   const created = runUsageBin(
-    ['new', 'quick', 'second-step', 'Segundo paso', '--owner', 't'],
+    ['new', 'change', 'second-step', 'Segundo paso', '--owner', 't'],
     logical,
     env,
   );
@@ -3744,11 +4303,13 @@ test('20261012-213243 CR4: a repo reached through a symlink records usage for th
   const file = path.join(logical, '.changeledger', 'changes', `${id}-second-step.md`);
   fs.writeFileSync(
     file,
-    fs.readFileSync(file, 'utf8').replace('## Request\n', '## Request\n\nSegundo paso.\n'),
+    fs
+      .readFileSync(file, 'utf8')
+      .replace('## Request\n', `## Request\n\nSegundo paso.\n\n${OBJECTIVE_AND_FRONTIER}`),
   );
 
   const approved = runUsageBin(['approve', id], logical, env);
-  git(logical, ['checkout', '-q', '-b', `quick/${id}`]);
+  git(logical, ['checkout', '-q', '-b', `change/${id}`]);
   const started = runUsageBin(['status', id, 'in-progress'], logical, env);
   for (const out of [created, approved, started]) {
     assert.equal(out.code, 0, out.err);
@@ -3910,11 +4471,11 @@ function epicWithChild(childStatus) {
   const epicId = '20260613-110000';
   fs.writeFileSync(
     path.join(dir, `${epicId}-epic.md`),
-    `---\nid: "${epicId}"\ntitle: Épica\ntype: epic\nstatus: in-progress\ncreated: 2026-06-13T11:00:00Z\ndepends_on: []\n---\n\n## Request\n\nObjetivo.\n\n## Proposal\n\nFrontera.\n\n## Log\n\n- **2026-06-13T11:00:00Z** \`[status]\` draft → approved\n- **2026-06-13T11:05:00Z** \`[status]\` approved → in-progress\n`,
+    `---\nid: "${epicId}"\ntitle: Épica\ntype: epic\nstatus: in-progress\ncreated: 2026-06-13T11:00:00Z\ndepends_on: []\n---\n\n## Request\n\nObjetivo.\n\n## Log\n\n- **2026-06-13T11:00:00Z** \`[status]\` draft → approved\n- **2026-06-13T11:05:00Z** \`[status]\` approved → in-progress\n`,
   );
   fs.writeFileSync(
     path.join(dir, '20260613-130000-child.md'),
-    `---\nid: "20260613-130000"\ntitle: Hijo\ntype: quick\nstatus: ${childStatus}\ncreated: 2026-06-13T13:00:00Z\ndepends_on: []\nparent: "${epicId}"\n---\n\n## Request\n\nAlgo.\n\n## Log\n\n- **2026-06-13T13:00:00Z** \`[note]\` created\n`,
+    `---\nid: "20260613-130000"\ntitle: Hijo\ntype: change\nstatus: ${childStatus}\ncreated: 2026-06-13T13:00:00Z\ndepends_on: []\nparent: "${epicId}"\n---\n\n## Request\n\nAlgo.\n\n## Log\n\n- **2026-06-13T13:00:00Z** \`[note]\` created\n`,
   );
   return { ...fixture, epicId };
 }
@@ -3944,7 +4505,7 @@ for (const resolved of ['done', 'discarded']) {
 }
 
 // `done` has two write seats and the guard was wired into one. `review pass`
-// is the only route for a review_required type, and nothing restricts `parent`
+// is the only route for a change that touches code, and nothing restricts `parent`
 // to the `epic` type — `--parent` and `check` both accept any id — so a
 // `documentation` parent walked in-review → done with a `draft` child. The
 // scoped validation that seat already runs cannot stand in for the guard: it
@@ -3955,11 +4516,11 @@ function reviewableParentWithChild(childStatus) {
   const parentId = '20260613-110000';
   fs.writeFileSync(
     path.join(dir, `${parentId}-parent.md`),
-    `---\nid: "${parentId}"\ntitle: Padre\ntype: documentation\nstatus: in-review\ncreated: 2026-06-13T11:00:00Z\ndepends_on: []\n---\n\n## Request\n\nObjetivo.\n\n## Investigation\n\nIndagado.\n\n## Specification\n\n- [x] CR1 Given algo When algo Then algo\n\n## Log\n\n- **2026-06-13T11:00:00Z** \`[status]\` draft → approved\n- **2026-06-13T11:05:00Z** \`[status]\` approved → in-progress\n- **2026-06-13T11:10:00Z** \`[status]\` in-progress → in-review\n`,
+    `---\nid: "${parentId}"\ntitle: Padre\ntype: change\nstatus: in-review\ncreated: 2026-06-13T11:00:00Z\ndepends_on: []\n---\n\n## Request\n\nObjetivo.\n\n## Specification\n\n- [x] CR1 Given algo When algo Then algo\n\n## Log\n\n- **2026-06-13T11:00:00Z** \`[status]\` draft → approved\n- **2026-06-13T11:05:00Z** \`[status]\` approved → in-progress\n- **2026-06-13T11:10:00Z** \`[status]\` in-progress → in-review\n`,
   );
   fs.writeFileSync(
     path.join(dir, '20260613-130000-child.md'),
-    `---\nid: "20260613-130000"\ntitle: Hijo\ntype: quick\nstatus: ${childStatus}\ncreated: 2026-06-13T13:00:00Z\ndepends_on: []\nparent: "${parentId}"\n---\n\n## Request\n\nAlgo.\n\n## Log\n\n- **2026-06-13T13:00:00Z** \`[note]\` created\n`,
+    `---\nid: "20260613-130000"\ntitle: Hijo\ntype: change\nstatus: ${childStatus}\ncreated: 2026-06-13T13:00:00Z\ndepends_on: []\nparent: "${parentId}"\n---\n\n## Request\n\nAlgo.\n\n## Log\n\n- **2026-06-13T13:00:00Z** \`[note]\` created\n`,
   );
   return { ...fixture, parentId };
 }
@@ -4020,7 +4581,7 @@ function epicWithChildren() {
   const dir = path.join(fixture.root, '.changeledger', 'changes');
   fs.writeFileSync(
     path.join(dir, `${epicId}-epic.md`),
-    `---\nid: "${epicId}"\ntitle: Épica\ntype: epic\nstatus: draft\ncreated: 2026-06-13T11:00:00Z\ndepends_on: []\n---\n\n## Request\n\nObjetivo.\n\n## Proposal\n\nFrontera.\n\n## Log\n`,
+    `---\nid: "${epicId}"\ntitle: Épica\ntype: epic\nstatus: draft\ncreated: 2026-06-13T11:00:00Z\ndepends_on: []\n---\n\n## Request\n\nObjetivo.\n\n## Log\n`,
   );
   for (const [id, title] of [
     ['20260613-140000', 'Hijo uno'],
@@ -4028,7 +4589,7 @@ function epicWithChildren() {
   ]) {
     fs.writeFileSync(
       path.join(dir, `${id}-child.md`),
-      `---\nid: "${id}"\ntitle: ${title}\ntype: quick\nstatus: draft\ncreated: 2026-06-13T14:00:00Z\ndepends_on: []\nparent: "${epicId}"\n---\n\n## Request\n\nAlgo.\n\n## Log\n`,
+      `---\nid: "${id}"\ntitle: ${title}\ntype: change\nstatus: draft\ncreated: 2026-06-13T14:00:00Z\ndepends_on: []\nparent: "${epicId}"\n---\n\n## Request\n\nAlgo.\n\n## Log\n`,
     );
   }
   return { ...fixture, epicId };
@@ -4067,7 +4628,7 @@ test('20261020-172221 CR7: the --print scaffold carries the parent too', () => {
   const { root, epicId } = epicWithChildren();
   const scaffold = scaffoldChange(
     {
-      type: 'quick',
+      type: 'change',
       slug: 'impreso',
       title: 'Hijo impreso',
       parent: epicId,
@@ -4083,7 +4644,7 @@ test('20261020-172221 CR7: new --parent writes the field into the scaffold', () 
   const { root, epicId } = epicWithChildren();
   const created = newChange(
     {
-      type: 'quick',
+      type: 'change',
       slug: 'nuevo',
       title: 'Nuevo hijo',
       parent: epicId,
@@ -4135,7 +4696,7 @@ test('20261020-172221 CR7: the two creation seats accept and refuse the same doc
     const scaffoldFixture = epicWithChildren();
     const parent = prepare(scaffoldFixture.root, scaffoldFixture.epicId);
     const args = {
-      type: 'quick',
+      type: 'change',
       slug: 'candidato',
       title: 'Candidato',
       parent,
@@ -4152,7 +4713,7 @@ test('20261020-172221 CR7: the two creation seats accept and refuse the same doc
     fs.writeFileSync(source, printed.text);
     const viaDocument = outcome(() =>
       newChangeFrom(
-        { type: 'quick', slug: 'candidato', title: 'Candidato', from: source },
+        { type: 'change', slug: 'candidato', title: 'Candidato', from: source },
         documentFixture.root,
       ),
     );
@@ -4180,13 +4741,13 @@ test('20261020-172221 CR7: a pre-existing error elsewhere does not block a clean
   const { root, epicId } = epicWithChildren();
   fs.writeFileSync(
     path.join(root, '.changeledger', 'changes', '20260613-160000-roto.md'),
-    `---\nid: "20260613-160000"\ntitle: Roto\ntype: quick\nstatus: draft\ncreated: 2026-06-13T16:00:00Z\ndepends_on: []\nparent: "no-es-un-id"\n---\n\n## Request\n\nAlgo.\n\n## Log\n`,
+    `---\nid: "20260613-160000"\ntitle: Roto\ntype: change\nstatus: draft\ncreated: 2026-06-13T16:00:00Z\ndepends_on: []\nparent: "no-es-un-id"\n---\n\n## Request\n\nAlgo.\n\n## Log\n`,
   );
   assert.ok(checkRepo(loadRepo(root)).errors.length > 0, 'the fixture must start from a red repo');
   assert.doesNotThrow(() =>
     newChange(
       {
-        type: 'quick',
+        type: 'change',
         slug: 'limpio',
         title: 'Limpio',
         parent: epicId,
@@ -4211,7 +4772,7 @@ test('20261020-172221 CR7: neither seat creates a child of a missing, closed or 
     assert.throws(
       () =>
         newChange(
-          { type: 'quick', slug: 'x', title: 'X', parent, now: '2026-06-13T18:00:00Z' },
+          { type: 'change', slug: 'x', title: 'X', parent, now: '2026-06-13T18:00:00Z' },
           root,
           { ownerHandle: () => '' },
         ),
@@ -4299,18 +4860,17 @@ test('20261020-172221 CR4: an epic walks draft → approved → in-progress → 
     file,
     fs
       .readFileSync(file, 'utf8')
-      .replace('## Request\n', '## Request\n\nObjetivo.\n')
-      .replace('## Proposal\n', '## Proposal\n\nFrontera.\n'),
+      .replace('## Request\n', `## Request\n\n${OBJECTIVE_AND_FRONTIER}`),
   );
 
   approve(id, root);
   status(id, 'in-progress', root);
-  // Straight to done: the delivery gate that would demand a review verdict is
-  // keyed on `review_required`, which this type does not declare.
+  // Straight to done: an epic is never implemented, so the delivery gate
+  // that would demand a review verdict never asks git about it.
   status(id, 'done', root);
   assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'done');
 
-  // No Specification stage, so nothing demands criteria coverage or readiness.
+  // No Specification stage, so nothing demands criteria.
   const { errors, warnings } = checkRepo(loadRepo(root));
   const own = [...errors, ...warnings].filter((e) => e.file.startsWith(id));
   assert.deepEqual(own, [], `an epic must raise nothing of its own: ${JSON.stringify(own)}`);
@@ -4334,7 +4894,7 @@ function archivableOnBranch({ merged, status = 'done' }) {
   git(root, ['config', 'user.name', 'T']);
   git(root, ['add', '-A']);
   git(root, ['commit', '-qm', 'seed']);
-  const branch = `feature/${id}`;
+  const branch = `change/${id}`;
   git(root, ['checkout', '-q', '-b', branch, 'dev']);
   fs.writeFileSync(path.join(root, 'work.txt'), 'work\n');
   git(root, ['add', 'work.txt']);
@@ -4380,7 +4940,7 @@ test('20261020-172221 CR8: the integration branch is never deleted', () => {
   const { root, id, branches } = archivableOnBranch({ merged: true });
   const file = path.join(root, '.changeledger', 'changes', `${id}-x.md`);
   fs.appendFileSync(file, '- **2026-06-13T12:40:00Z** `[branch]` set: dev (auto)\n');
-  git(root, ['checkout', '-q', `feature/${id}`]);
+  git(root, ['checkout', '-q', `change/${id}`]);
   const result = archive(id, root);
   assert.match(result.branchOutcome, /is the integration branch/);
   assert.ok(branches().includes('dev'), 'the integration branch must survive');
@@ -4404,14 +4964,17 @@ test('20261020-172221 CR8: the branch of the current checkout is never deleted',
   assert.ok(branches().includes(branch));
 });
 
-// `archive` had no config dependency before this change. A type whose
-// `integrates_into` names a retired `git.release_branch` makes the lookup
+// `archive` had no config dependency before this change. A change whose
+// `integrates_into` names an undeclared `git.release_branch` makes the lookup
 // throw, and that must never cost an archive that has already landed:
 // terminal changes are history (20261012-174310).
 test('20261020-172221 CR8: an unresolvable integration branch never costs the archive', () => {
   const { root, id } = archivableOnBranch({ merged: true });
   const file = path.join(root, '.changeledger', 'changes', `${id}-x.md`);
-  fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('type: feature', 'type: hotfix'));
+  fs.writeFileSync(
+    file,
+    fs.readFileSync(file, 'utf8').replace('type: change', 'type: change\nintegrates_into: release'),
+  );
   const result = archive(id, root);
   assert.match(result.branchOutcome, /could not be resolved/);
   assert.match(fs.readFileSync(file, 'utf8'), /archived: true/, 'the archive still landed');
@@ -4461,4 +5024,280 @@ test('20261020-172221 CR8: no remote reference is touched, and the archive still
   );
   const text = fs.readFileSync(path.join(root, '.changeledger', 'changes', `${id}-x.md`), 'utf8');
   assert.match(text, /archived: true/, 'the archive is the point of the command');
+});
+
+// --- findings (20261024-202659) ---
+
+const FINDING_LINE = /^- \*\*\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z\*\* `\[finding\]` /;
+
+function archivedFindingDoc(id) {
+  return [
+    '---',
+    `id: "${id}"`,
+    'title: Archived',
+    'type: change',
+    'status: done',
+    'created: 2026-06-13T12:00:00Z',
+    'reviewed: true',
+    'archived: true',
+    'depends_on: []',
+    '---',
+    '',
+    '## Request',
+    '',
+    'R',
+    '',
+    '## Log',
+    '- **2026-06-13T12:00:00Z** `[status]` in-review → done',
+    '',
+  ].join('\n');
+}
+
+const nonEmptyLogLines = (text) => logLines(text).filter(Boolean);
+
+for (const activated of [false, true]) {
+  const layout = activated ? 'activated' : 'inactive';
+
+  test(`20261024-202659 CR4 (${layout}): finding records an open finding on a live and an archived change`, (t) => {
+    const { root, id, read } = usageRepo({ activated, t });
+    const archivedId = '20260613-120009';
+    const archivedRel = `changes/${archivedId}-archived.md`;
+    if (activated) {
+      writeLedgerFiles(
+        loadRepo(root),
+        [{ relPath: archivedRel, text: archivedFindingDoc(archivedId) }],
+        {
+          message: 'seed: archived',
+        },
+      );
+    } else {
+      fs.writeFileSync(
+        path.join(root, '.changeledger', archivedRel),
+        archivedFindingDoc(archivedId),
+      );
+    }
+    const readArchived = () =>
+      activated
+        ? stateDocText(root, stateRefTip(root), archivedRel)
+        : fs.readFileSync(path.join(root, '.changeledger', archivedRel), 'utf8');
+
+    withFakeCcusage({ FAKE_CCUSAGE_ROOT: encodeProjectPath(root) }, () => {
+      const quiet = { usage: usageOptions() };
+      task(id, 'done', 1, '', root);
+      approve(id, root, quiet);
+      status(id, 'in-progress', root, { ownerHandle: () => '', ...quiet });
+
+      const before = read();
+      const records = usageRecords(root, id).length;
+      assert.equal(recordFinding(id, 'el ejemplo de ayuda cita un id', root).n, 1);
+      const after = read();
+      const last = nonEmptyLogLines(after).at(-1);
+      assert.match(last, FINDING_LINE);
+      assert.ok(last.endsWith('`[finding]` el ejemplo de ayuda cita un id'), last);
+      assert.deepEqual(parseChange(after).frontmatter, parseChange(before).frontmatter);
+      assert.equal(usageRecords(root, id).length, records);
+      if (activated) assert.equal(lastCommitMessage(root), `finding: ${id}`);
+
+      const archivedBefore = readArchived();
+      assert.equal(recordFinding(archivedId, 'la vista de pendientes no existe', root).n, 1);
+      const archivedAfter = readArchived();
+      const [stamp, finding] = nonEmptyLogLines(archivedAfter).slice(-2);
+      assert.ok(stamp.endsWith(`\`[version]\` ${VERSION}`), stamp);
+      assert.ok(finding.endsWith('`[finding]` la vista de pendientes no existe'), finding);
+      assert.deepEqual(
+        parseChange(archivedAfter).frontmatter,
+        parseChange(archivedBefore).frontmatter,
+      );
+      assert.equal(usageRecords(root, archivedId).length, 0);
+      if (activated) assert.equal(lastCommitMessage(root), `finding: ${archivedId}`);
+
+      log(id, '[finding] x', root);
+      assert.ok(nonEmptyLogLines(read()).at(-1).endsWith('`[note]` [finding] x'));
+    });
+  });
+}
+
+test('20261024-202659 CR5: an empty or resolution-shaped finding text is refused and nothing is written', () => {
+  const { root, file, id } = repoWithChange();
+  const before = fs.readFileSync(file, 'utf8');
+  assert.throws(() => recordFinding(id, '', root), { message: 'finding text must not be empty' });
+  for (const text of ['2 promoted #20260101-000000', '1 dropped: x']) {
+    assert.throws(() => recordFinding(id, text, root), {
+      message: `finding text "${text}" reads as a resolution; resolve a finding with changeledger finding <id> promote|drop <n>`,
+    });
+  }
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
+test('a finding text opening with a resolution verb and an ordinal is refused as ambiguous', () => {
+  const { root, file, id } = repoWithChange();
+  const before = fs.readFileSync(file, 'utf8');
+  for (const [text, n] of [
+    ['drop 5 cache', '5'],
+    ['promote 4 elsewhere', '4'],
+    ['drop 2', '2'],
+  ]) {
+    const message = `finding text "${text}" reads as a resolution: run it without quotes to resolve F${n}, or start the text with another word`;
+    assert.throws(() => recordFindingMutation(text), { message }, text);
+    assert.throws(() => recordFinding(id, text, root), { message }, text);
+  }
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+  for (const [text, n] of [
+    ['drop the cache', 1],
+    ['3 drop tables', 2],
+    ['promote abc elsewhere', 3],
+    ['dropped 5 rows', 4],
+  ]) {
+    assert.equal(recordFinding(id, text, root).n, n, text);
+  }
+});
+
+function findingRepo() {
+  const { root, write } = repoWithArchiveCandidates();
+  const x = '20260613-120001';
+  const y = '20260613-120002';
+  const file = write({
+    id: x,
+    status: 'in-progress',
+    reviewed: false,
+    log: '\n- **2026-06-13T12:00:00Z** `[finding]` first\n- **2026-06-13T12:01:00Z** `[finding]` second',
+  });
+  write({ id: y, status: 'draft', reviewed: false });
+  return { root, file, x, y };
+}
+
+test('20261024-202659 CR6: promote links an open finding to an existing change', () => {
+  const { root, file, x, y } = findingRepo();
+  resolveFinding(x, 2, 'promote', y, root);
+  assert.ok(
+    nonEmptyLogLines(fs.readFileSync(file, 'utf8'))
+      .at(-1)
+      .endsWith(`\`[finding]\` 2 promoted #${y}`),
+  );
+
+  const before = fs.readFileSync(file, 'utf8');
+  for (const [args, message] of [
+    [[x, 3, 'promote', y], `change #${x} has no finding F3`],
+    [[x, 2, 'promote', y], `finding F2 of #${x} is already promoted to #${y}`],
+    [
+      [x, 1, 'promote', '20990101-000000'],
+      'No change with id "20990101-000000" (use the exact id; run `changeledger check` if a filename\'s id looks wrong)',
+    ],
+    [[x, 1, 'promote', x], `finding F1 cannot be promoted to its own change #${x}`],
+    [[x, 'abc', 'promote', y], 'finding ordinal must be a positive integer (got "abc")'],
+  ]) {
+    assert.throws(() => resolveFinding(...args, root), { message }, args.join(' '));
+  }
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
+test('20261024-202659 CR7: drop closes an open finding with a reason', () => {
+  const { root, file, x, y } = findingRepo();
+  resolveFinding(x, 1, 'drop', 'ya no aplica', root);
+  assert.ok(
+    nonEmptyLogLines(fs.readFileSync(file, 'utf8'))
+      .at(-1)
+      .endsWith('`[finding]` 1 dropped: ya no aplica'),
+  );
+
+  const before = fs.readFileSync(file, 'utf8');
+  for (const [args, message] of [
+    [[x, 1, 'drop', ''], 'drop requires a reason'],
+    [[x, 1, 'drop', 'otra vez'], `finding F1 of #${x} is already dropped`],
+    [[x, 1, 'promote', y], `finding F1 of #${x} is already dropped`],
+  ]) {
+    assert.throws(() => resolveFinding(...args, root), { message }, args.join(' '));
+  }
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
+test('list and finding read past an orphan or repeated resolution, the lines check rejects', () => {
+  const { root, write } = repoWithArchiveCandidates();
+  const x = changeId('20260613', '120001');
+  const file = write({
+    id: x,
+    status: 'in-progress',
+    reviewed: false,
+    log: [
+      '',
+      '- **2026-06-13T12:00:00Z** `[finding]` 2 dropped: before it exists',
+      '- **2026-06-13T12:01:00Z** `[finding]` first',
+      '- **2026-06-13T12:02:00Z** `[finding]` 9 dropped: x',
+      '- **2026-06-13T12:03:00Z** `[finding]` 1 dropped: no aplica',
+      '- **2026-06-13T12:04:00Z** `[finding]` 1 dropped: otra vez',
+      '- **2026-06-13T12:05:00Z** `[finding]` second',
+    ].join('\n'),
+  });
+  assert.deepEqual(openFindings(loadRepo(root).changes), [
+    { id: x, n: 2, text: 'second', at: '2026-06-13T12:05:00Z' },
+  ]);
+  const before = fs.readFileSync(file, 'utf8');
+  assert.throws(() => resolveFinding(x, 1, 'drop', 'again', root), {
+    message: `finding F1 of #${x} is already dropped`,
+  });
+  assert.throws(() => resolveFinding(x, 9, 'drop', 'x', root), {
+    message: `change #${x} has no finding F9`,
+  });
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+  resolveFinding(x, 2, 'drop', 'done', root);
+  assert.deepEqual(openFindings(loadRepo(root).changes), []);
+});
+
+// The CR8 ledger: A archived (F1 open, F2 promoted), B done (F1 dropped),
+// C in-progress and owned (F1 open), D without findings.
+function pendingFindingsRepo() {
+  const { root, write } = repoWithArchiveCandidates();
+  const [a, b, c, d] = ['20260613-120001', '20260613-120002', '20260613-120003', '20260613-120004'];
+  write({
+    id: a,
+    archived: true,
+    log: `\n- **2026-06-13T12:00:00Z** \`[finding]\` falta la vista\n- **2026-06-13T12:01:00Z** \`[finding]\` sobra un test\n- **2026-06-13T12:02:00Z** \`[finding]\` 2 promoted #${d}`,
+  });
+  write({
+    id: b,
+    log: '\n- **2026-06-13T12:00:00Z** `[finding]` ya resuelto\n- **2026-06-13T12:01:00Z** `[finding]` 1 dropped: no aplica',
+  });
+  write({
+    id: c,
+    status: 'in-progress',
+    reviewed: false,
+    owner: 'Roberto Ruiz',
+    log: '\n- **2026-06-13T12:03:00Z** `[finding]` el ejemplo cita un id',
+  });
+  write({ id: d, status: 'draft', reviewed: false });
+  const rowA = { id: a, n: 1, text: 'falta la vista', at: '2026-06-13T12:00:00Z' };
+  const rowC = { id: c, n: 1, text: 'el ejemplo cita un id', at: '2026-06-13T12:03:00Z' };
+  return { root, rowA, rowC };
+}
+
+test('20261024-202659 CR8: list pending findings returns the open finding rows of the whole ledger', () => {
+  const { root, rowA, rowC } = pendingFindingsRepo();
+  assert.deepEqual(list({ pending: 'findings' }, root), [rowA, rowC]);
+  assert.deepEqual(list({ pending: 'findings', all: true }, root), [rowA, rowC]);
+  assert.deepEqual(list({ pending: 'findings', archived: true }, root), [rowA]);
+  assert.deepEqual(list({ pending: 'findings', owner: 'Roberto Ruiz' }, root), [rowC]);
+  assert.deepEqual(list({ pending: 'findings', status: 'in-progress' }, root), [rowC]);
+  assert.deepEqual(openFindings(loadRepo(root).changes), [rowA, rowC]);
+});
+
+test('20261024-202659 CR10: an open finding does not hold back the archive', () => {
+  const { root, file, id } = gateRepo();
+  commitOnBranch(root, file, ['.changeledger/specs/s.md']);
+  status(id, 'done', root);
+  recordFinding(id, 'falta la vista', root);
+  skipGraduation(id, 'nada durable', root);
+  const result = archive(id, root);
+  assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.archived, true);
+  assert.doesNotMatch(JSON.stringify(result), /finding|F1|falta la vista/i);
+  assert.equal(openFindings(loadRepo(root).changes).length, 1);
+});
+
+test('20261024-202659 CR10: an open finding does not hold back a direct done', () => {
+  const { root, file, id } = gateRepo();
+  recordFinding(id, 'falta la vista', root);
+  commitOnBranch(root, file, ['.changeledger/specs/s.md']);
+  const result = status(id, 'done', root);
+  assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'done');
+  assert.doesNotMatch(JSON.stringify(result ?? {}), /finding|F1|falta la vista/i);
+  assert.equal(openFindings(loadRepo(root).changes).length, 1);
 });

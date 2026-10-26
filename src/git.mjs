@@ -3,6 +3,7 @@
 // logic is testable without a real repo. Any git failure yields empty refs.
 
 import { execFileSync } from 'node:child_process';
+import path from 'node:path';
 
 const SEP = String.fromCharCode(31); // ASCII unit separator — safe field delimiter
 const RECORD_SEP = String.fromCharCode(30);
@@ -297,6 +298,109 @@ export function stagedFiles(cwd, run = defaultRun) {
   return out.split('\0').filter((entry) => entry !== '');
 }
 
+// The paths `head` changed since it forked from `base` (`<base>...<head>`, so
+// work landed on `base` after the fork is not counted), read with the same
+// pinned axes as `stagedFiles` and returned the same way: relative to git's
+// top-level, raw, never trimmed. Both ends must be local branches of exactly
+// that name — a same-named tag or remote copy never stands in (see
+// `refExists`). Every failure throws with its cause named, because the caller
+// decides from this whether a change may skip review and a doubt must not read
+// as "nothing changed".
+const RANGE_ARGS = [
+  '-c',
+  'core.quotePath=false',
+  'diff',
+  '-z',
+  '--no-renames',
+  '--no-relative',
+  '--ignore-submodules=none',
+  '--name-only',
+];
+
+export function changedPathsInRange(cwd, base, head, run = capturedRun) {
+  for (const name of [base, head]) assertLocalBranch(cwd, name, run);
+  let out;
+  try {
+    out = run([...RANGE_ARGS, `refs/heads/${base}...refs/heads/${head}`, '--'], cwd);
+  } catch (e) {
+    throw new Error(gitFailure(e, `git diff ${base}...${head} failed`), { cause: e });
+  }
+  return String(out)
+    .split('\0')
+    .filter((entry) => entry !== '');
+}
+
+// The paths the checkout at `cwd` holds uncommitted — staged, modified or
+// untracked, ignored ones excepted — read with the same pins as
+// `changedPathsInRange`: relative to git's top-level (porcelain output always
+// is), raw, renames split into their two paths, never trimmed. Each NUL-ended
+// entry is `XY <path>`. A failure throws with its cause, for the same reason.
+const STATUS_ARGS = [
+  '-c',
+  'core.quotePath=false',
+  'status',
+  '--porcelain=v1',
+  '-z',
+  '--no-renames',
+  '--untracked-files=all',
+  '--ignore-submodules=none',
+];
+
+export function uncommittedPaths(cwd, run = capturedRun) {
+  let out;
+  try {
+    out = run(STATUS_ARGS, cwd);
+  } catch (e) {
+    throw new Error(gitFailure(e, 'git status failed'), { cause: e });
+  }
+  return String(out)
+    .split('\0')
+    .filter((entry) => entry !== '')
+    .map((entry) => entry.slice(3));
+}
+
+// The worktree that has local branch `branch` checked out (`%(worktreepath)`,
+// git >= 2.23), or '' when none does. Git prints the path with forward
+// slashes, on Windows too; it is returned in the platform's own form, the one
+// `fs.realpathSync.native` yields. Every failure throws with its cause: a
+// gate reads it.
+export function branchWorktree(cwd, branch, run = capturedRun) {
+  let out;
+  try {
+    out = run(['for-each-ref', '--format=%(worktreepath)', `refs/heads/${branch}`], cwd);
+  } catch (e) {
+    throw new Error(gitFailure(e, `cannot tell where "${branch}" is checked out`), { cause: e });
+  }
+  const reported = String(out).replace(/\n$/, '');
+  return reported === '' ? '' : path.resolve(reported);
+}
+
+// `show-ref --verify` exits 1 exactly when the ref is absent; any other failure
+// is git's own and is reported as such.
+function assertLocalBranch(cwd, name, run) {
+  try {
+    run(['show-ref', '--verify', '--quiet', `refs/heads/${name}`], cwd);
+  } catch (e) {
+    if ((e.cause ?? e).status === 1) throw new Error(`branch "${name}" does not exist locally`);
+    throw new Error(gitFailure(e, `cannot read branch "${name}"`), { cause: e });
+  }
+}
+
+function gitFailure(error, context) {
+  if ((error.cause ?? error).code === 'ENOENT') return 'git is not installed or not on PATH';
+  // `capturedRun` appends git's stderr below the process message; that
+  // diagnostic is the cause, the command line above it is noise.
+  const lines = String(error.message)
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const detail = lines.length > 1 ? lines.slice(1).join(' ') : (lines[0] ?? 'unknown error');
+  if (UNKNOWN_NO_RELATIVE_RE.test(error.message)) {
+    return `git >= ${GIT_FLOOR} is required for --no-relative: ${detail}`;
+  }
+  return `${context}: ${detail}`;
+}
+
 // Git's own repository root, via `git rev-parse --show-toplevel`. This is the
 // coordinate system `stagedFiles`' paths are relative to, regardless of `cwd`
 // — which differs from a ChangeLedger repo's `repoRoot` (dirname of
@@ -512,35 +616,34 @@ function attributesTo({ subject, body }, id) {
   return MULTI_BODY_RE.test(declaration) && declaration.includes(marker);
 }
 
+// The `log --pretty` shape both readers of attributed commits parse, and the
+// parse itself: the grep only prefilters candidates — it matches the whole
+// message — so `attributesTo` decides which of them the id belongs to.
+const ATTRIBUTED_FORMAT = `--pretty=format:%H${SEP}%s${SEP}%cI${SEP}%b${RECORD_SEP}`;
+
+function attributedCommits(out, id) {
+  return String(out)
+    .split(RECORD_SEP)
+    .map((record) => record.trim())
+    .filter(Boolean)
+    .map((record) => {
+      const [sha, subject, date, body = ''] = record.split(SEP);
+      return { sha, subject, date, body };
+    })
+    .filter((commit) => attributesTo(commit, id))
+    .map(({ sha, subject, date }) => ({ sha, subject, date }));
+}
+
 export function gitRefs(repoRoot, id, run = defaultRun) {
   const refs = { commits: [], branches: [] };
   if (!id) return refs;
 
   try {
-    // The grep only prefilters candidates: it matches the whole message, so
-    // attributesTo decides which of them the id actually belongs to.
     const out = run(
-      [
-        'log',
-        '--all',
-        '-n',
-        '100',
-        '-F',
-        `--grep=[#${id}]`,
-        `--pretty=format:%H${SEP}%s${SEP}%cI${SEP}%b${RECORD_SEP}`,
-      ],
+      ['log', '--all', '-n', '100', '-F', `--grep=[#${id}]`, ATTRIBUTED_FORMAT],
       repoRoot,
     );
-    refs.commits = out
-      .split(RECORD_SEP)
-      .map((record) => record.trim())
-      .filter(Boolean)
-      .map((record) => {
-        const [sha, subject, date, body = ''] = record.split(SEP);
-        return { sha, subject, date, body };
-      })
-      .filter((commit) => attributesTo(commit, id))
-      .map(({ sha, subject, date }) => ({ sha, subject, date }));
+    refs.commits = attributedCommits(out, id);
   } catch {
     // not a git repo, or git unavailable — leave commits empty
   }
@@ -556,6 +659,23 @@ export function gitRefs(repoRoot, id, run = defaultRun) {
   }
 
   return refs;
+}
+
+// The commits attributed to change `id` (`attributesTo`: the subject marker or
+// the body declaration) that local branch `integration` already reaches. A
+// gate reads it, so unlike `gitRefs` it is not capped and every git failure
+// throws with its cause.
+export function attributedCommitsIn(cwd, integration, id, run = capturedRun) {
+  let out;
+  try {
+    out = run(
+      ['log', `refs/heads/${integration}`, '-F', `--grep=[#${id}]`, ATTRIBUTED_FORMAT, '--'],
+      cwd,
+    );
+  } catch (e) {
+    throw new Error(gitFailure(e, `git log ${integration} failed`), { cause: e });
+  }
+  return attributedCommits(out, id);
 }
 
 // Deletes a local branch, and only when its tip is already an ancestor of

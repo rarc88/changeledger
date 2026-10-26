@@ -42,14 +42,21 @@ conversation → draft → human approval → implementation → review
 A typical change starts like this:
 
 ```sh
-changeledger new feature oauth-login "Add OAuth login"
+changeledger new change oauth-login "Add OAuth login"
 changeledger view
 ```
 
-The agent completes the generated stages under `.changeledger/changes/`. You approve the
-draft in the viewer before implementation. From there, ChangeLedger validates
+There are two types: `change` implements and `epic` groups several changes. The
+agent drafts the change under `.changeledger/changes/`, stating its objective and
+its frontier in the Request. You approve the objective and the frontier of the draft in
+the viewer before implementation; the agent then writes the Specification and Plan with
+the code in front. From there, ChangeLedger validates
 lifecycle transitions and task traceability; the merge is the acceptance.
-When the work is done, its lasting truth graduates into `.changeledger/specs/`.
+A `change` goes from `in-progress` to `done` directly only when git shows that neither
+its unmerged branch nor the uncommitted paths of its checkout touch anything outside
+the ledger; any other `change` goes through `in-review` and reaches `done` with
+`changeledger review <id> pass`. When the work is done, its lasting truth graduates
+into `.changeledger/specs/`.
 
 The contract is agent-agnostic: Codex, Claude Code, opencode, Copilot, Cursor and
 other tools discover it through the repository's `AGENTS.md` reference.
@@ -63,10 +70,14 @@ other tools discover it through the repository's `AGENTS.md` reference.
   product truth. Work performed without the CLI may diverge; observed drift is
   reported for human resolution rather than reconciled automatically.
 
-With the default Definition of Ready policy, `changeledger check` verifies that acceptance
-criteria are test-grade and mapped to actionable tasks. Repositories doing
-exploratory work can set `tdd: false`; run `changeledger context spec` or
-`changeledger context implement` for the complete task-specific rules.
+With the default `tdd: true`, the implementer writes each criterion's failing test
+before the code, and moving a change to `in-review` requires a Specification with at
+least one acceptance criterion and a Plan. Repositories doing exploratory work can set
+`tdd: false` in the configuration; a change that delivers no behaviour a test can
+exercise declares `tdd: false` in its own frontmatter. A defect fixed on the release
+branch declares `integrates_into: release` in its frontmatter. Run
+`changeledger context spec` or `changeledger context implement` for the complete
+task-specific rules.
 
 ## Essential commands
 
@@ -84,13 +95,15 @@ changeledger analyze [id] [--by K]        # token use and cost from the usage re
 ### Work with changes
 
 ```sh
-changeledger new <type> <slug> <title>    # create a draft change
+changeledger new change|epic <slug> <title> # create a draft change
 changeledger list [--status S] [--type T] [--owner NAME|--unowned]
-changeledger list [--pending graduation|archive] [--archived|--all]
+changeledger list [--pending graduation|archive|findings] [--archived|--all]
 changeledger show <id> [--json]
 changeledger status <id> <status>
 changeledger task <id> done|block <n> [reason]
 changeledger log <id> <message>
+# a finding is something found outside the active change's frontier, kept in its Log
+changeledger finding <id> "<text>" | promote <n> <id> | drop <n> "<reason>"
 changeledger review <id> pass
 changeledger review <id> fail "<reason>"
 changeledger discard <id> <reason>
@@ -123,7 +136,8 @@ changeledger release record 0.2.0     # record the calculated release manifest
 ```
 
 The CLI decides which changes belong to the release and calculates their
-effective `release_impact`. The operating agent applies that version to the
+effective `release_impact`: the configured `release.default_impact` unless a change
+declares its own. The operating agent applies that version to the
 project's own surfaces—`package.json`, `pubspec.yaml`, `Cargo.toml`, Gradle,
 Xcode or a monorepo—then runs the local quality gates and release workflow.
 
@@ -143,7 +157,7 @@ changeledger context                    # minimal non-negotiable core
 changeledger context <change-id>        # lifecycle-aware rules + selected change
 changeledger context review             # explicit task mode
 changeledger agent-prompt <role>         # portable delegation skeleton
-changeledger agent-context <role> [id]  # self-contained context for that delegate
+changeledger agent-context review <id>  # self-contained context for the reviewer
 ```
 
 `init` places a small optional-discovery bootstrap in the project-owned
@@ -154,27 +168,42 @@ output through the END sentinel. When the command is unavailable it continues
 normally without ChangeLedger; when the executable fails it reports the error
 for human direction.
 
-Roles are `investigation`, `implementation`, `review` and
-`graduation-review`; all but `implementation` are read-only.
-`graduation-review` is a read-only check of the spec
-reconciliation drafted for a change already `done`, before the first `--into`;
-it never moves the change either. Each generated
-delegation prompt explicitly replaces the bootstrap's default context load with
-its specialized `agent-context` command.
+The only delegate role with a generated skeleton is `review`: `agent-prompt review`
+prints the portable prompt and `agent-context review <id>` the self-contained,
+read-only context it points to, which replaces the bootstrap's default context load.
+Any other delegation follows the prompt contract in the core's Delegation section.
+
+The contract forbids change ids and `CRn` criteria outside `.changeledger/`: a change
+reaches the code through the Plan's `Target` and `Verify` and the `[#id]` commit marker,
+and the code does not cite the change. This repo enforces it with `hooks/no-ledger-refs.sh`, run from its
+pre-commit hook (`--cached`) and from CI on pull requests (Linux and macOS legs, over `origin/dev...HEAD`, the integration branch, so a dev→main PR inspects nothing).
+`hooks/` is not packaged, so a consuming repo copies the script into its own pre-commit.
 
 ### Upgrading an existing repo's configuration
 
-Repos created before ChangeLedger 0.6 may have an older configuration schema.
-Run this to inspect and apply available migrations:
+`changeledger check` warns when the configuration is at an older schema and
+names what remains to migrate. `changeledger config migrate` takes the
+configuration from schema 6 to 7: it removes `types`, `stages`,
+`release.impacts`, `readiness` and the retired statuses, and declares
+`release.default_impact`. `changeledger fix` then rewrites the live documents: a
+retired type becomes `change`, and `## Investigation` and `## Proposal` fold
+under the Request as `###` subsections. What a retired type implied — its release
+impact, `integrates_into: release` for `hotfix`, `tdd: false` for `documentation` —
+is written into the frontmatter unless the document already declares it, and a
+`type:` line `fix` cannot read is listed for a manual fix. `fix` migrates no archived
+or discarded document; the format repairs still apply to them.
 
 ```sh
 changeledger config migrate --dry-run   # preview changes without writing
 changeledger config migrate             # apply atomically
+changeledger fix --dry-run              # preview the live-document repairs
+changeledger fix                        # apply them
 changeledger check                      # confirm the repo is valid
 ```
 
-Migrations are safe to run more than once — if the config is already current,
-the command reports so and exits without modifying any file.
+Both are safe to run more than once — if nothing is left to migrate, the
+command reports so and exits without modifying any file. A schema older than 6
+is refused, and the error names the ChangeLedger version that migrates it.
 
 ## Compatibility and security
 

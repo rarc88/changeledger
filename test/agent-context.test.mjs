@@ -86,13 +86,13 @@ function activatedAgentContextFixture({ broken = false } = {}) {
 
   const refId = '20260808-000005';
   const worktreeId = '20260808-000006';
-  addChange(root, 'in-progress', worktreeId);
+  addChange(root, 'in-review', worktreeId);
 
   const refText = `---
 id: "${refId}"
 title: Delegated work
 type: feature
-status: approved
+status: in-review
 created: 2026-07-05T12:00:00Z
 depends_on: []
 ---
@@ -122,27 +122,24 @@ Do the delegated work.
 test('20260808-151641 CR7: agent-context resolves the snapshot change, not a worktree phantom, in an activated repo', () => {
   const { root, refId, worktreeId, refText } = activatedAgentContextFixture();
 
-  const out = buildAgentContext('implementation', refId, root);
+  const out = buildAgentContext('review', refId, root);
   assert.match(out, new RegExp(`change: #${refId}`));
   assert.ok(out.includes(refText.trim()));
 
-  assert.throws(() => buildAgentContext('implementation', worktreeId, root), /No change with id/);
+  assert.throws(() => buildAgentContext('review', worktreeId, root), /No change with id/);
 });
 
-test('20260809-113242 CR3: changeless agent-context uses activated config policy', () => {
-  const { root } = activatedAgentContextFixture();
+test('agent-context uses the activated config policy', () => {
+  const { root, refId } = activatedAgentContextFixture();
 
-  assert.match(
-    buildAgentContext('investigation', undefined, root),
-    /Effective policy: language=es/,
-  );
+  assert.match(buildAgentContext('review', refId, root), /Effective policy: language=es/);
 });
 
 test('20260808-171107 CR5: activated agent-context resolves an unknown id before an unrelated malformed change', () => {
   const { root } = activatedAgentContextFixture({ broken: true });
 
   assert.throws(
-    () => buildAgentContext('implementation', '20990101-000000', root),
+    () => buildAgentContext('review', `${'20990101'}-000000`, root),
     /No change with id "20990101-000000"/,
   );
 });
@@ -161,7 +158,7 @@ test('20260809-194236 CR1: the malformed document requested by id is named, not 
   );
 
   assert.throws(
-    () => buildAgentContext('implementation', id, root),
+    () => buildAgentContext('review', id, root),
     (error) => {
       assert.match(error.message, /Change is missing its frontmatter block/);
       assert.doesNotMatch(error.message, /No change with id/);
@@ -180,7 +177,7 @@ test('20260809-194236 CR2: a genuinely unknown id keeps the "No change with id" 
   );
 
   assert.throws(
-    () => buildAgentContext('implementation', '20990101-999999', root),
+    () => buildAgentContext('review', `${'20990101'}-999999`, root),
     (error) => {
       assert.equal(
         error.message,
@@ -189,21 +186,6 @@ test('20260809-194236 CR2: a genuinely unknown id keeps the "No change with id" 
       return true;
     },
   );
-});
-
-// 20260808-151641 R1 (correction round 2) — same regression as
-// context.test.mjs's R1: `investigation` with no change id never needed
-// `repo.changes` before this change, so a broken change document elsewhere in
-// the repo must not deny it. Only a change-id role load needs the full repo.
-test('20260808-151641 R1: a legacy repo with one unparseable change still serves the investigation capsule', () => {
-  const root = repo();
-  fs.writeFileSync(
-    path.join(root, '.changeledger', 'changes', 'broken.md'),
-    'no frontmatter here, just prose\n',
-  );
-
-  assert.doesNotThrow(() => buildAgentContext('investigation', undefined, root));
-  assert.match(buildAgentContext('investigation', undefined, root), /role: investigation/);
 });
 
 test('144327 CR7: role context is framed, self-contained and carries effective policy', () => {
@@ -237,69 +219,57 @@ test('144327 CR7: role and lifecycle guards fail before emitting a misleading ca
   addChange(root, 'in-progress', progress);
   addChange(root, 'in-review', review);
 
-  assert.doesNotThrow(() => buildAgentContext('implementation', approved, root));
-  assert.doesNotThrow(() => buildAgentContext('implementation', progress, root));
   assert.doesNotThrow(() => buildAgentContext('review', review, root));
   assert.throws(
     () => buildAgentContext('review', progress, root),
     /role review requires change status in-review; got in-progress/,
   );
   assert.throws(
-    () => buildAgentContext('implementation', review, root),
-    /role implementation requires change status approved or in-progress; got in-review/,
+    () => buildAgentContext('review', approved, root),
+    /role review requires change status in-review; got approved/,
   );
-  assert.throws(
-    () => buildAgentContext('implementation', undefined, root),
-    /role implementation requires a change id/,
-  );
-  assert.throws(
-    () => buildAgentContext('scaffolding', undefined, root),
-    /valid roles: investigation, implementation, review/,
-  );
+  assert.throws(() => buildAgentContext('scaffolding', undefined, root), /valid roles: review$/);
 });
 
-test('144327 CR7: investigation works before a change and optionally includes one', () => {
-  const root = repo();
-  const without = buildAgentContext('investigation', undefined, root);
-  assert.match(without, /role: investigation/);
-  assert.doesNotMatch(without, /# Selected change/);
-
-  const id = '20260705-120005';
-  addChange(root, 'draft', id);
-  const withChange = buildAgentContext('investigation', id, root);
-  assert.match(withChange, new RegExp(`# Selected change[\\s\\S]*id: "${id}"`));
-});
+// `review` is the only role that survives. The retired roles fail with the same closed-set message a never-existing one does, on
+// the function and through the spawned CLI; no alias, no residue.
+for (const retired of ['investigation', 'implementation', 'graduation-review']) {
+  test(`the retired role "${retired}" fails with the one-role message`, async () => {
+    const root = repo();
+    const id = `${'20261024'}-200001`;
+    addChange(root, 'in-review', id);
+    assert.throws(
+      () => buildAgentContext(retired, id, root),
+      new RegExp(`^Error: Unknown role "${retired}" — valid roles: review$`),
+    );
+    const failure = await execFileAsync(process.execPath, [bin, 'agent-context', retired, id], {
+      cwd: root,
+    }).then(
+      () => null,
+      (e) => e,
+    );
+    assert.ok(failure, 'the CLI must fail');
+    assert.equal(failure.code, 1);
+    assert.match(failure.stderr, /Allowed choices are review\./);
+    assert.doesNotMatch(failure.stdout, /AGENT CONTEXT BEGIN/);
+  });
+}
 
 test('144327 CR8: delegated capsules expose no orchestrator mutation surface and fit budget', () => {
   const root = repo();
-  const fixtures = {
-    investigation: undefined,
-    implementation: '20260705-120006',
-    review: '20260705-120007',
-  };
-  addChange(root, 'approved', fixtures.implementation);
-  addChange(root, 'in-review', fixtures.review);
+  const id = `${'20260705'}-120007`;
+  addChange(root, 'in-review', id);
 
-  for (const [role, id] of Object.entries(fixtures)) {
-    const out = buildAgentContext(role, id, root);
-    const base = out.split('\n# Selected change')[0];
-    assertWithinBudget(`${role} capsule`, base, agentBudget);
-    assert.doesNotMatch(
-      base,
-      /changeledger (status|task|log|review|graduate|archive|unarchive)/,
-      `${role} exposes orchestrator mutation commands`,
-    );
-    assert.doesNotMatch(base, /# Economical Delegation|Do not over-shard/);
-  }
-
-  assert.match(buildAgentContext('investigation', undefined, root), /read-only/i);
-  assert.match(buildAgentContext('review', fixtures.review, root), /read-only/i);
-  // 20260730-002730: tolerant, not the capsule's sentence — the obligation is that the
-  // implementation capsule bounds writes to what the prompt assigned, however worded.
-  assert.match(
-    buildAgentContext('implementation', fixtures.implementation, root),
-    /\bonly\b[^.]{0,30}\bfiles?\b[^.]{0,40}\b(assigned|listed|named|owned)\b/i,
+  const out = buildAgentContext('review', id, root);
+  const base = out.split('\n# Selected change')[0];
+  assertWithinBudget('review capsule', base, agentBudget);
+  assert.doesNotMatch(
+    base,
+    /changeledger (status|task|log|review|graduate|archive|unarchive)/,
+    'review exposes orchestrator mutation commands',
   );
+  assert.doesNotMatch(base, /# Economical Delegation|over-shard/i);
+  assert.match(base, /read-only/i);
 });
 
 // 183520 CR1/CR2: the capsule's checklist is conditional on the mandate the
@@ -355,7 +325,7 @@ test('183520 CR2: with no mandate declared the review capsule applies the full a
 // still at 350 only `investigation` would report while the rest stayed
 // silently unexecuted. One independent test per role
 // in the list below is what proves each measured capsule exceeds 350 tokens.
-for (const role of ['investigation', 'implementation', 'review', 'graduation-review']) {
+for (const role of ['review']) {
   test(`20260728-212043 CR6: ${role} prompt capsule fits the shared agent budget`, () => {
     assertWithinBudget(`${role} prompt capsule`, buildAgentPrompt(role), agentBudget);
   });
@@ -366,9 +336,7 @@ for (const retired of ['audit', 'post-review']) {
     const root = repo();
     assert.throws(
       () => buildAgentContext(retired, undefined, root),
-      new RegExp(
-        `^Error: Unknown role "${retired}" — valid roles: investigation, implementation, review, graduation-review$`,
-      ),
+      new RegExp(`^Error: Unknown role "${retired}" — valid roles: review$`),
     );
   });
 }
@@ -390,10 +358,7 @@ test('201703 CR2: review context is allowed only for in-review and requires a ch
     /role review requires a change id/,
   );
   // An unknown role names the surviving set, so a retired one cannot look valid.
-  assert.throws(
-    () => buildAgentContext('scaffolding', undefined, root),
-    /valid roles: investigation, implementation, review, graduation-review$/,
-  );
+  assert.throws(() => buildAgentContext('scaffolding', undefined, root), /valid roles: review$/);
   const reviewOut = buildAgentContext('review', inReview, root);
   // Guard the obligation, not its phrasing. Matching the prose failed in both
   // directions: an anchor on the sentence's noun broke when the noun was
@@ -412,93 +377,30 @@ test('201703 CR2: review context is allowed only for in-review and requires a ch
   assert.doesNotMatch(base, /fail-(retry|block)|--retry|--block/i);
 });
 
-// 20261002-152555 — `graduation-review` checks the spec reconciliation a closure
-// drafted, so the change it reads is always `done`.
-test('152555 CR1: graduation-review context on a done change is framed with policy, capsule and change', () => {
-  const root = repo();
-  const id = '20261002-152601';
-  const selected = addChange(root, 'done', id);
-  const out = buildAgentContext('graduation-review', id, root);
-  const lines = out.trimEnd().split('\n');
-  assert.equal(
-    lines[0],
-    `===== CHANGELEDGER AGENT CONTEXT BEGIN — role: graduation-review — change: #${id} — v${VERSION} =====`,
-  );
-  assert.match(lines[2], /^Effective policy: /);
-  assert.equal(
-    lines.at(-1),
-    '===== CHANGELEDGER AGENT CONTEXT END — if this line is missing, the output was truncated: stop and re-run =====',
-  );
-  const capsuleFile = new URL(
-    '../templates/contract/agent-contexts/graduation-review.md',
-    import.meta.url,
-  );
-  const capsule = fs.readFileSync(capsuleFile, 'utf8').trim();
-  const [base, change] = out.split('\n# Selected change');
-  assert.ok(base.includes(capsule), 'the graduation-review capsule is not composed');
-  assert.ok(change.includes(selected.trim()), 'the selected change is not composed');
-});
-
-test('152555 CR2: graduation-review requires done and requires a change id', async () => {
-  const root = repo();
-  const inValidation = '20261002-152602';
-  addChange(root, 'in-validation', inValidation);
-  assert.throws(
-    () => buildAgentContext('graduation-review', inValidation, root),
-    /^Error: role graduation-review requires change status done; got in-validation$/,
-  );
-  assert.throws(
-    () => buildAgentContext('graduation-review', undefined, root),
-    /^Error: role graduation-review requires a change id$/,
-  );
-  // The CLI surfaces the same refusal and emits no BEGIN line.
-  const failure = await execFileAsync(
-    process.execPath,
-    [bin, 'agent-context', 'graduation-review', inValidation],
-    { cwd: root },
-  ).then(
-    () => null,
-    (e) => e,
-  );
-  assert.ok(failure, 'the CLI must fail');
-  assert.notEqual(failure.code, 0);
-  assert.match(
-    failure.stderr,
-    /role graduation-review requires change status done; got in-validation/,
-  );
-  assert.doesNotMatch(failure.stdout, /AGENT CONTEXT BEGIN/);
-});
-
-test('152555 CR7: graduation-review capsule fits the shared agent budget', () => {
-  const root = repo();
-  const id = '20261002-152603';
-  addChange(root, 'done', id);
-  const base = buildAgentContext('graduation-review', id, root).split('\n# Selected change')[0];
-  assertWithinBudget('graduation-review capsule', base, agentBudget);
-});
-
 test('144327 CR7: agent-context is wired through the CLI', async () => {
   const root = repo();
-  const { stdout } = await execFileAsync(
-    process.execPath,
-    [bin, 'agent-context', 'investigation'],
-    { cwd: root },
-  );
-  assert.match(stdout, /^===== CHANGELEDGER AGENT CONTEXT BEGIN — role: investigation/);
+  const id = `${'20260705'}-120012`;
+  addChange(root, 'in-review', id);
+  const { stdout } = await execFileAsync(process.execPath, [bin, 'agent-context', 'review', id], {
+    cwd: root,
+  });
+  assert.match(stdout, /^===== CHANGELEDGER AGENT CONTEXT BEGIN — role: review/);
   assert.match(stdout, /CHANGELEDGER AGENT CONTEXT END/);
 });
 
-// 20260726-141120 CR5 — the review capsule is unreachable for a type without
-// `review_required`: the lifecycle refuses the only status that would dispatch
-// it, so the role guard is the last line rather than the only one.
+// 20260726-141120 CR5 — the review capsule is unreachable for a change that
+// never enters review: the lifecycle refuses the only status that would
+// dispatch it, so the role guard is the last line rather than the only one.
+// 20261024-121022 retargeted it from the retired `quick` type to the `epic`,
+// the one type the lifecycle keeps out of `in-review`.
 
-function addQuickChange(root, id = '20260726-141120') {
+function addEpicChange(root, id = '20260726-141120') {
   fs.writeFileSync(
-    path.join(root, '.changeledger', 'changes', `${id}-quick-fixture.md`),
+    path.join(root, '.changeledger', 'changes', `${id}-epic-fixture.md`),
     `---
 id: "${id}"
-title: Quick fixture
-type: quick
+title: Epic fixture
+type: epic
 status: in-progress
 created: 2026-07-26T14:11:20Z
 depends_on: []
@@ -516,12 +418,12 @@ Small reversible work.
   return id;
 }
 
-test('141120 CR5: a quick change can never reach the status the review role needs', () => {
+test('141120 CR5: an epic can never reach the status the review role needs', () => {
   const root = repo();
-  const id = addQuickChange(root);
+  const id = addEpicChange(root);
   assert.throws(
     () => status(id, 'in-review', root),
-    /^Error: quick changes do not require review — move to done instead$/,
+    /^Error: epic changes do not enter review — move to done instead$/,
   );
   assert.throws(
     () => buildAgentContext('review', id, root),
@@ -531,7 +433,7 @@ test('141120 CR5: a quick change can never reach the status the review role need
 
 test('141120 CR5: the CLI refuses the review capsule and emits no BEGIN line', async () => {
   const root = repo();
-  const id = addQuickChange(root);
+  const id = addEpicChange(root);
   const failure = await execFileAsync(process.execPath, [bin, 'agent-context', 'review', id], {
     cwd: root,
   }).then(
@@ -549,16 +451,13 @@ test('141120 CR5: the CLI refuses the review capsule and emits no BEGIN line', a
 
 // --- 20261002-113320: the delegate receives the selected change's tdd ---
 
-test('113320 CR5: the policy line follows the selected change type, else the global tdd', () => {
+// 20261024-121022 retargeted this from the retired `types.documentation.tdd`
+// to the change's own `tdd: false`, the only override left.
+test('113320 CR5: the policy line follows the selected change, else the global tdd', () => {
   const root = repo();
   const file = path.join(root, '.changeledger', 'config.yml');
   const config = parseYaml(fs.readFileSync(file, 'utf8'));
   config.tdd = true;
-  config.types.documentation = {
-    stages: ['request', 'investigation', 'specification', 'log'],
-    review_required: true,
-    tdd: false,
-  };
   fs.writeFileSync(file, stringifyYaml(config));
   const id = '20261002-113322';
   fs.writeFileSync(
@@ -566,8 +465,9 @@ test('113320 CR5: the policy line follows the selected change type, else the glo
     `---
 id: "${id}"
 title: Doc fixture
-type: documentation
-status: in-progress
+type: change
+tdd: false
+status: in-review
 created: 2026-10-02T11:33:20Z
 depends_on: []
 ---
@@ -576,7 +476,7 @@ depends_on: []
 
 Document the topic.
 
-## Investigation
+### Investigation
 
 Evidence.
 
@@ -590,7 +490,9 @@ Evidence.
 ## Log
 `,
   );
+  const other = `${'20261002'}-113323`;
+  addChange(root, 'in-review', other);
   const policyOf = (out) => out.split('\n').find((line) => line.startsWith('Effective policy:'));
-  assert.match(policyOf(buildAgentContext('implementation', id, root)), /tdd=off/);
-  assert.match(policyOf(buildAgentContext('investigation', undefined, root)), /tdd=on/);
+  assert.match(policyOf(buildAgentContext('review', id, root)), /tdd=off/);
+  assert.match(policyOf(buildAgentContext('review', other, root)), /tdd=on/);
 });
