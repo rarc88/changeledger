@@ -2687,24 +2687,21 @@ test('141643 CR4/CR5: desktop board is the sole two-axis viewport and all lanes 
   const columnRule = css.match(/\.column\s*\{([^}]*)\}/s)?.[1] ?? '';
   const bodyRule = css.match(/\.column-body\s*\{([^}]*)\}/s)?.[1] ?? '';
 
-  assert.match(boardRule, /height:\s*calc\(100dvh\s*-\s*var\(--header-height\)\)/);
+  assert.match(boardRule, /flex:\s*1\s+1\s+auto/);
+  assert.match(boardRule, /min-height:\s*0/);
   assert.match(boardRule, /overflow:\s*auto/);
   assert.doesNotMatch(boardRule, /overflow-[xy]:/);
   assert.match(boardRule, /display:\s*grid/);
   assert.match(boardRule, /grid-auto-flow:\s*column/);
   assert.match(boardRule, /grid-template-rows:\s*minmax\(max-content,\s*100%\)/);
   assert.doesNotMatch(boardRule, /grid-template-rows:\s*minmax\(100%,\s*max-content\)/);
-  assert.match(
-    boardRule,
-    /grid-auto-columns:\s*clamp\(190px,\s*calc\(\(100vw - 140px\) \/ 6\),\s*400px\)/,
-  );
+  assert.match(boardRule, /grid-auto-columns:\s*minmax\(190px,\s*1fr\)/);
   assert.match(boardRule, /align-items:\s*stretch/);
   assert.match(columnRule, /display:\s*flex/);
   assert.match(columnRule, /flex-direction:\s*column/);
   assert.match(bodyRule, /flex:\s*1\s+0\s+auto/);
   assert.doesNotMatch(css, /proxy[-_ ]scroll|scrollbar[-_ ]proxy|sync(?:ed|hronized)?[-_ ]scroll/i);
-  assert.match(app, /new ResizeObserver\(syncHeaderHeight\)\.observe\(topbar\)/);
-  assert.match(app, /setProperty\('--header-height',\s*`\$\{topbar\.offsetHeight\}px`\)/);
+  assert.doesNotMatch(app, /--header-height/);
 });
 
 test('141643 CR6: mobile board restores natural stacked lanes without internal overflow', () => {
@@ -2721,6 +2718,90 @@ test('141643 CR6: mobile board restores natural stacked lanes without internal o
   assert.match(mobileBoard, /overflow:\s*visible/);
   assert.match(mobileColumn, /width:\s*100%/);
   assert.match(mobileColumn, /flex:\s*0\s+0\s+auto/);
+});
+
+// The lane width used to be arithmetic — a divisor of six baked into both the
+// board and the column — while the lane count comes from `statuses` and the
+// active filters. The grid track owns the width now, so any lane count fills
+// the viewport and the 190px floor still buys the horizontal scroll that
+// 20260703-220013 asked for (134323 CR1).
+test('134323 CR1: the lane takes its width from the grid track and declares none of its own', () => {
+  const css = fs.readFileSync(new URL('../src/viewer/public/styles.css', import.meta.url), 'utf8');
+  const columnRule = css.match(/\.column\s*\{([^}]*)\}/s)?.[1] ?? '';
+
+  assert.doesNotMatch(columnRule, /(?:^|;)\s*width:/);
+  assert.doesNotMatch(columnRule, /min-width:/);
+  assert.doesNotMatch(columnRule, /max-width:/);
+  assert.doesNotMatch(columnRule, /(?:^|;)\s*flex:/);
+  assert.doesNotMatch(css, /calc\(\(100vw[^)]*\)\s*\/\s*\d/);
+});
+
+// One height model: the body is the flex column, the visible view is its
+// elastic item. The subtraction of a JS-synchronised header height overflowed
+// the document by the rounding error and painted a second scrollbar
+// (134323 CR2).
+test('134323 CR2: the body owns the height and no rule subtracts a header variable', () => {
+  const css = fs.readFileSync(new URL('../src/viewer/public/styles.css', import.meta.url), 'utf8');
+  const app = fs.readFileSync(new URL('../src/viewer/public/app.js', import.meta.url), 'utf8');
+  const bodyRule = css.match(/(?<!,)\nbody\s*\{([^}]*)\}/s)?.[1] ?? '';
+
+  assert.match(bodyRule, /height:\s*100dvh/);
+  assert.match(bodyRule, /display:\s*flex/);
+  assert.match(bodyRule, /flex-direction:\s*column/);
+  assert.match(bodyRule, /overflow:\s*hidden/);
+  assert.doesNotMatch(css, /--header-height/);
+  assert.doesNotMatch(app, /--header-height/);
+  assert.doesNotMatch(app, /ResizeObserver/);
+
+  for (const view of ['.table-view', '.metrics-view', '.global-view', '.projects-view']) {
+    const rule = css.match(new RegExp(`\\${view}\\s*\\{([^}]*)\\}`, 's'))?.[1] ?? '';
+    assert.match(rule, /flex:\s*1\s+1\s+auto/, view);
+    assert.match(rule, /min-height:\s*0/, view);
+  }
+});
+
+// Below 680px the lanes stack and the page is the scroller on purpose, so the
+// desktop lock has to be lifted there (134323 CR3).
+test('134323 CR3: the mobile block hands the scroll back to the page', () => {
+  const css = fs.readFileSync(new URL('../src/viewer/public/styles.css', import.meta.url), 'utf8');
+  const responsive = css.slice(css.indexOf('/* Responsive: stack on narrow viewports (mobile) */'));
+  const mobileBody =
+    responsive.match(/@media\s*\(max-width:\s*680px\)[\s\S]*?\n\s*body\s*\{([^}]*)\}/)?.[1] ?? '';
+
+  assert.match(mobileBody, /height:\s*auto/);
+  assert.match(mobileBody, /overflow:\s*visible/);
+});
+
+// `.detail-open` locked the document, but every view is a scroll container of
+// its own and survived the lock, so the board kept a second vertical bar
+// beside the detail's (134323 CR4).
+test('134323 CR4: an open detail silences the scrollers behind it', () => {
+  const css = fs.readFileSync(new URL('../src/viewer/public/styles.css', import.meta.url), 'utf8');
+  const detailRule = css.match(/\n\.detail\s*\{([^}]*)\}/s)?.[1] ?? '';
+  const lockRule = css.match(/\.detail-open\s+\.board[^{]*\{([^}]*)\}/s)?.[1] ?? '';
+
+  assert.match(detailRule, /overscroll-behavior:\s*contain/);
+  assert.match(lockRule, /overflow:\s*hidden/);
+  for (const view of ['.table-view', '.metrics-view', '.global-view', '.ledger-article-panel']) {
+    assert.match(css, new RegExp(`\\.detail-open\\s+\\${view}`), view);
+  }
+});
+
+// CR23 took the Accept control out of the verdict panel and left the third
+// grid track behind: the reason field collapsed into the `auto` track at
+// 169px and the button stretched across the `1fr` at 669px (134323 CR5).
+test('134323 CR5: the verdict row declares one track per control it renders', () => {
+  const css = fs.readFileSync(new URL('../src/viewer/public/styles.css', import.meta.url), 'utf8');
+  const rule = css.match(/\.validation-controls\s*\{([^}]*)\}/s)?.[1] ?? '';
+  const tracks = rule.match(/grid-template-columns:\s*([^;]+);/)?.[1] ?? '';
+  const controls = parse(
+    rejectionPanel({ ...baseChange(), status: 'done', released: false }),
+  ).querySelector('.validation-controls');
+
+  assert.equal(tracks.trim(), 'minmax(190px, 1fr) auto');
+  assert.equal(controls.children.length, 2);
+  assert.ok(controls.children[0].classList.contains('rejection-field'));
+  assert.equal(controls.children[1].tagName, 'BUTTON');
 });
 
 test('125850 CR5: real diagram lightbox clones SVG and closes by button, Escape, or backdrop', () => {
@@ -4066,8 +4147,8 @@ test('141859 CR5: only same-category allowlisted relative document links are int
 test('141859 CR8: Ledger documentary layout is independently scrollable and stacks on mobile', () => {
   const css = fs.readFileSync(new URL('../src/viewer/public/styles.css', import.meta.url), 'utf8');
   const browserRule = css.match(/\.ledger-document-browser\s*\{([^}]*)\}/s)?.[1] ?? '';
-  const treeRule = css.match(/\.ledger-tree-panel\s*\{([^}]*)\}/s)?.[1] ?? '';
-  const articleRule = css.match(/\.ledger-article-panel\s*\{([^}]*)\}/s)?.[1] ?? '';
+  const treeRule = css.match(/\n\.ledger-tree-panel\s*\{([^}]*)\}/s)?.[1] ?? '';
+  const articleRule = css.match(/\n\.ledger-article-panel\s*\{([^}]*)\}/s)?.[1] ?? '';
   const mobile = css.slice(css.lastIndexOf('@media (max-width: 680px)'));
 
   assert.match(browserRule, /grid-template-columns:/);

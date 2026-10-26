@@ -2350,17 +2350,6 @@ function bootstrap() {
   window.onpopstate = (event) => void restoreViewerLocation(event);
   void loadProjects(initialRoute);
   setInterval(() => load(getRepo, applyLoadedRepo, { polling: true }), 5000);
-
-  // The topbar wraps to multiple rows at content-dependent widths, so the
-  // CSS fallback constant cannot bound the projects panels; track the real
-  // rendered height instead.
-  const topbar = document.querySelector('.topbar');
-  if (topbar && typeof ResizeObserver === 'function') {
-    const syncHeaderHeight = () =>
-      document.documentElement.style.setProperty('--header-height', `${topbar.offsetHeight}px`);
-    new ResizeObserver(syncHeaderHeight).observe(topbar);
-    syncHeaderHeight();
-  }
 }
 
 export function closeFilterMenusOnOutsideClick(menus, target) {
