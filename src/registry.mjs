@@ -80,8 +80,6 @@ export function cleanMissingProjects(
   });
 }
 
-// Sorted by display name, then id: the registry object enumerates an all-digit
-// key before the others, so its own order depends on the shape of the key.
 // The one probe that decides a registered path's health: the viewer's Projects
 // panel, its cleanup and the CLI all read it, so the ENOENT/ENOTDIR rule that
 // makes an absence "confirmed" lives here and not in each seat.
@@ -97,6 +95,8 @@ export function probeProject(projectPath) {
   }
 }
 
+// Sorted by display name, then id: the registry object enumerates an all-digit
+// key before the others, so its own order depends on the shape of the key.
 // `tolerant` is for a seat that must keep working on the rest of the registry
 // when one entry cannot be inspected: a broken repo is exactly why someone
 // reaches the CLI, so there it reports the reason instead of failing closed.
