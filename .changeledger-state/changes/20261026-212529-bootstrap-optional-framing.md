@@ -222,3 +222,4 @@ al texto en vez de pincharlo.
 - **2026-10-26T21:28:09Z** `[branch]` set: change/20261026-212529
 - **2026-10-26T21:42:40Z** `[finding]` prettierBootstrap en test/register.test.mjs conserva un .replace('> to continue; do not treat', ...) que no casa con ningún texto del REFERENCE vigente: código muerto previo a este cambio, fuera de su frontera
 - **2026-10-26T21:42:41Z** `[note]` El bloque pierde un bullet (5 → 4): el de ausencia sube al párrafo de cabecera. La frontera no fijaba conteo y referenceBullets lo deriva del parseo
+- **2026-10-26T21:42:46Z** `[note]` BOOTSTRAP_VERSION se queda en 4: check compara el payload, así que un bloque v4 reformulado ya sale outdated y register lo reescribe. Los repos consumidores en una versión anterior verán ese error hasta actualizar y re-registrar; por eso release_impact: minor
