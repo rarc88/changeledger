@@ -171,6 +171,13 @@ práctica» es exactamente lo que dejó pasar dos defectos en
 - **Then** el selector llega entero, en vez de cortarse por ese punto y coma
 - **And** un punto y coma dentro del valor de una declaración —una `url()` con `data:` o una cadena— sigue cerrando la sentencia como hasta ahora
 
+### CR10 — El scanner no se traga el resto de la hoja en silencio
+
+- **Given** una hoja que deja una comilla, un corchete o un bloque sin cerrar —por una comilla escapada, un `url(` sin cerrar o una llave desbalanceada—
+- **When** el test deriva su conjunto de scrollers
+- **Then** el scanner falla nombrando lo que quedó abierto, en vez de devolver las reglas que alcanzó a leer y perder el resto sin aviso
+- **And** una comilla escapada dentro de una cadena no cierra la cadena, de modo que `content: "a\"b"` deja de tragarse lo que viene detrás
+
 ## Plan
 
 - [x] Endurecer la derivación: descender a las at-rules, aceptar `scroll` y denunciar lo que no sepa normalizar
@@ -200,6 +207,10 @@ práctica» es exactamente lo que dejó pasar dos defectos en
   - **Target:** `test/viewer-metadata.test.mjs`
   - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
   - **Criteria:** CR9
+- [ ] Saltar el carácter que sigue a una barra invertida dentro de una cadena, y fallar al terminar con comillas, corchetes o marcos abiertos
+  - **Target:** `test/viewer-metadata.test.mjs`
+  - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
+  - **Criteria:** CR10
 - [x] Pasar la puerta local completa
   - **Support:** `pnpm verify`
   - **Resolved:** `2026-10-26T17:09:13Z`
