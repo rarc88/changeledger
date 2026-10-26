@@ -210,8 +210,9 @@ al texto en vez de pincharlo.
 - [x] Revisar `README.md` y la spec `contract-discovery` con el texto nuevo delante y corregir sólo lo que haya quedado falso
   - **Support:**
   - **Resolved:** `2026-10-26T21:42:33Z`
-- [ ] Ejecutar `pnpm verify` sobre el candidato completo
+- [x] Ejecutar `pnpm verify` sobre el candidato completo
   - **Support:**
+  - **Resolved:** `2026-10-26T21:42:34Z`
 
 ## Log
 - **2026-10-26T21:27:11Z** `[version]` 1.0.0
