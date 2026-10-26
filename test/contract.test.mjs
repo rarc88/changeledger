@@ -951,11 +951,20 @@ test('the absence clause precedes the obligation and tells the agent to work nor
 // review, not here; the Specification of 20261026-212529 says so.
 test('the mandatory sentence names the installed case and no widening survives', () => {
   const prose = flatten(REFERENCE);
-  const sentence = prose.match(/[^.]*\bmandatory\b[^.]*/)[0];
+  // The obligation ends at the colon that introduces the command, and there is
+  // no period before it: a `[^.]*` window would spill over the fenced command
+  // into the first bullet, so the word could leak in from text that is not the
+  // obligation at all. Bound it on both, and assert it never reaches the list.
+  const obligation = prose.match(/[^.:]*\bmandatory\b[^.:]*/)[0];
+  assert.doesNotMatch(
+    obligation,
+    / - /,
+    `the window must stay inside the obligation, not reach the bullets: ${obligation}`,
+  );
   assert.match(
-    sentence,
+    obligation,
     /\binstalled\b/i,
-    `the obligation must name the installed case: ${sentence}`,
+    `the obligation must name the installed case: ${obligation}`,
   );
   for (const widening of [
     /installed or not/i,
@@ -969,7 +978,7 @@ test('the mandatory sentence names the installed case and no widening survives',
 });
 
 test('no versioned file still carries the unconditional mandatory phrase', () => {
-  const retired = ['it is mandatory,', 'not optional'].join(' ');
+  const retired = 'it is mandatory, not optional';
   const root = fileURLToPath(new URL('..', import.meta.url));
   const listed = spawnSync('git', ['ls-files', '-z'], {
     cwd: root,
