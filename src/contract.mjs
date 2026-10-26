@@ -58,8 +58,11 @@ const beginMarker = (version) => `<!-- CHANGELEDGER BOOTSTRAP BEGIN v${version} 
 export const BOOTSTRAP_CAPTURE_LINES = 400;
 
 export const REFERENCE = `> [!IMPORTANT]
-> **ChangeLedger governs this repo.** Before planning, investigating, answering
-> or editing anything, run exactly this — it is mandatory, not optional:
+> **ChangeLedger governs this repo wherever it is installed.** If \`changeledger\`
+> is not in this environment (\`command not found\`), it is absent: work normally,
+> and never emulate it. Where it is installed, running it is mandatory — before
+> planning, investigating, answering or editing anything, run exactly this and
+> let the context it prints govern the work:
 >
 > \`changeledger context 2>&1 | head -${BOOTSTRAP_CAPTURE_LINES}\`
 >
@@ -69,9 +72,7 @@ export const REFERENCE = `> [!IMPORTANT]
 >   line reports the exact \`lines:\` count of the full output, counting the
 >   \`BEGIN\` and \`END\` lines themselves; if \`END\` is missing, re-run with
 >   \`head -<lines>\` and read that capture instead.
-> - Command not installed (\`command not found\`) → ChangeLedger is absent:
->   continue the task normally and never emulate it.
-> - Command present but failing (any other error or non-zero exit) → stop,
+> - A failure is not an absence: on any other error or non-zero exit, stop,
 >   report the captured error to the human, and wait for their decision.
 > - Run this again as the first action of the first response after any context
 >   compaction.

@@ -7,6 +7,7 @@ import { registerRepo } from '../src/commands/register.mjs';
 import { BOOTSTRAP_VERSION, REFERENCE } from '../src/contract.mjs';
 import { readRegistry } from '../src/registry.mjs';
 import { STATE_REF, writeActivation } from '../src/state-store.mjs';
+import { reflowBootstrap } from './helpers/bootstrap-fixtures.mjs';
 import { initGitFixture } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
@@ -21,13 +22,6 @@ function initializedRepo(agentsBody = '# Project rules\n') {
     'schema_version: 1\nproject_id: "abc1234567"\nproject_name: test\n',
   );
   return dir;
-}
-
-function reflowBootstrap(text) {
-  return text.replace(
-    '> **ChangeLedger governs this repo.** Before planning, investigating, answering\n> or editing anything, run exactly this — it is mandatory, not optional:',
-    '>**ChangeLedger governs this repo.** Before planning, investigating,\n> answering or editing anything, run exactly this — it is mandatory, not optional:',
-  );
 }
 
 function prettierBootstrap(text) {
