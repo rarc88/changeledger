@@ -96,6 +96,69 @@ Queda fuera:
   sondea el directorio, mientras la limpieza sondea
   `<path>/.changeledger/config.yml`.
 
+## Specification
+
+### CR1 — El listado nombra cada proyecto y su salud
+- **Given** un registro con `alpha` cuyo `.changeledger/config.yml` existe, `gone` cuya ruta no existe y `denied` cuyo sondeo lanza `EACCES`
+- **When** se ejecuta `changeledger projects`
+- **Then** la salida nombra los tres con su id y su ruta
+- **And** marca `alpha` como `available`, `gone` como `missing` y `denied` como `unreadable`
+
+### CR2 — La limpieza elimina solo las ausencias confirmadas
+- **Given** el registro de CR1
+- **When** se ejecuta `changeledger projects --clean-missing`
+- **Then** `gone` desaparece del registro y `alpha` y `denied` se conservan con el mismo id y la misma ruta
+- **And** la salida declara `removed: 1` y `skipped: 1`
+
+### CR3 — `--dry-run` no escribe nada
+- **Given** el registro de CR1
+- **When** se ejecuta `changeledger projects --clean-missing --dry-run`
+- **Then** la salida nombra `gone` como candidata y declara que no se eliminó nada
+- **And** el contenido de `.registry.json` es byte a byte el mismo que antes del comando
+
+### CR4 — Un repo activado ilegible no bloquea el listado ni la limpieza
+- **Given** un registro con `broken`, activado y con su state ref ausente, y `gone`, cuya ruta no existe
+- **When** se ejecutan `changeledger projects` y `changeledger projects --clean-missing`
+- **Then** ambas salidas nombran `broken` y el motivo por el que no se pudo inspeccionar, con código de salida `0`
+- **And** la limpieza elimina `gone` y conserva `broken`
+
+### CR5 — Un registro demasiado sucio para el viewer se limpia de una vez
+- **Given** un registro con 1.000 entradas cuyas rutas no existen y una entrada viva
+- **When** se ejecuta `changeledger projects --clean-missing`
+- **Then** la salida declara `removed: 1000` y el registro conserva solo la entrada viva
+
+## Plan
+
+- [ ] Extraer el sondeo de disponibilidad a `src/registry.mjs` y consumirlo
+  desde `src/viewer/domain.mjs`, para que el criterio viva en un solo sitio
+  - **Target:** `src/registry.mjs`
+  - **Verify:** `node --test test/registry.test.mjs test/view.test.mjs`
+  - **Criteria:** CR1, CR2
+- [ ] Dar a `listProjects` un modo tolerante que devuelva el motivo en vez de
+  relanzar, sin alterar su comportamiento actual
+  - **Target:** `src/registry.mjs`
+  - **Verify:** `node --test test/registry.test.mjs`
+  - **Criteria:** CR4
+- [ ] Escribir el comando que lista y, con `--clean-missing`, pasa las
+  candidatas observadas a `cleanMissingProjects`
+  - **Target:** `src/commands/projects.mjs`
+  - **Verify:** `node --test test/projects-command.test.mjs`
+  - **Criteria:** CR1, CR2, CR3, CR4, CR5
+- [ ] Declarar el comando y sus opciones en el CLI
+  - **Target:** `bin/changeledger.mjs`
+  - **Verify:** `node --test test/cli-bin.test.mjs`
+  - **Criteria:** CR1, CR2, CR3
+- [ ] Escribir los criterios como tests
+  - **Target:** `test/projects-command.test.mjs`
+  - **Verify:** `node --test test/projects-command.test.mjs`
+  - **Criteria:** CR1, CR2, CR3, CR4, CR5
+- [ ] Reconciliar los specs que describan el listado o la limpieza del registro
+  - **Target:** `.changeledger/specs/viewer.md`
+  - **Verify:** `node bin/changeledger.mjs check`
+  - **Support:**
+- [ ] Ejecutar el gate local completo
+  - **Support:** `pnpm test`
+
 ## Log
 - **2026-10-26T13:55:23Z** `[version]` 1.0.1-dev
 - **2026-10-26T13:56:52Z** `[status]` draft → approved (human via conversation)
