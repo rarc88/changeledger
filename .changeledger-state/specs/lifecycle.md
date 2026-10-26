@@ -404,8 +404,14 @@ vía aunque no inyecte resolver. Los scripts usan una asignación de entorno
 inline y el workspace de pnpm habilita `shellEmulator`, por lo que ese
 kill-switch se aplica también cuando pnpm ejecuta la suite en Windows. El
 script `test` lanza `node --test` a través de `scripts/run-tests.mjs`, que da a
-cada ejecución una raíz temporal propia (`TMPDIR`, `TEMP` y `TMP`) y la borra
-cuando la suite termina o falla y, en POSIX, tras SIGINT, SIGTERM, SIGHUP o
+cada ejecución una raíz temporal propia (`TMPDIR`, `TEMP` y `TMP`) y, dentro de
+ella, un `CHANGELEDGER_HOME` desechable: `registryDir()` cae en `os.homedir()`
+cuando esa variable no está, de modo que un test que llame a `init()` sin
+fijarla registraría su repo temporal en el registro global real del usuario.
+Fijarla en el envoltorio, y no en cada fichero de test, hace que un test nuevo
+no pueda olvidarlo; un fichero que la asigne en proceso sigue ganando, porque
+esa asignación ocurre dentro del hijo. El envoltorio borra la raíz —con el home
+desechable dentro— cuando la suite termina o falla y, en POSIX, tras SIGINT, SIGTERM, SIGHUP o
 SIGQUIT; un SIGKILL del envoltorio la deja atrás. En Windows no hay señales
 POSIX: Ctrl+C normalmente entrega SIGINT y cerrar la consola SIGHUP, mientras
 que `subprocess.kill()` con SIGINT, SIGTERM, SIGHUP o SIGQUIT termina el
