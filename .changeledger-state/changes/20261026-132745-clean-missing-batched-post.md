@@ -129,11 +129,12 @@ Queda fuera:
 
 ## Plan
 
-- [ ] Extraer el presupuesto de troceo como constante del cliente y la función
+- [x] Extraer el presupuesto de troceo como constante del cliente y la función
   que parte las candidatas en lotes que quepan en él
   - **Target:** `src/viewer/public/api.js`
   - **Verify:** `node --test test/viewer-metadata.test.mjs`
   - **Criteria:** CR1, CR2, CR3
+  - **Resolved:** `2026-10-26T13:35:15Z`
 - [ ] Emitir una petición por lote y agregar `removedIds`, `removed` y `skipped`
   en un único cuerpo para la UI, informando del fallo tras refrescar
   - **Target:** `src/viewer/public/app.js`
