@@ -2,9 +2,10 @@
 id: "20261023-181453"
 title: Los tests contaminan el registro global del usuario
 type: change
-status: approved
+status: in-progress
 created: 2026-10-23T18:14:53Z
 depends_on: []
+branch: change/20261023-181453
 related_to: ["20261007-135154", "20261023-181753"]
 owner: raruiz-hiberuscom
 ---
@@ -121,3 +122,5 @@ desechable en vez del del usuario.
 - **2026-10-23T18:14:53Z** `[version]` 0.18.0
 - **2026-10-26T12:34:45Z** `[version]` 0.18.0 → 1.0.1-dev
 - **2026-10-26T12:34:45Z** `[status]` draft → approved (human via conversation)
+- **2026-10-26T12:35:19Z** `[status]` approved → in-progress
+- **2026-10-26T12:35:19Z** `[branch]` set: change/20261023-181453 (auto)
