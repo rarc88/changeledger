@@ -40,7 +40,7 @@ flowchart TD
     VIEW[view] --> SRV
   end
   SRV[server node:http] --> REPO
-  SRV --> UI[visor: board / table / graph / Ledger / metrics]
+  SRV --> UI[visor: board / table / Ledger / metrics]
 ```
 
 `bin/changeledger.mjs` define la interfaz de comandos con `commander`, manteniendo
