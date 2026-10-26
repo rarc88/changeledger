@@ -207,8 +207,9 @@ al texto en vez de pincharlo.
   - **Verify:** `changeledger check`
   - **Criteria:** CR6
   - **Resolved:** `2026-10-26T21:42:31Z`
-- [ ] Revisar `README.md` y la spec `contract-discovery` con el texto nuevo delante y corregir sólo lo que haya quedado falso
+- [x] Revisar `README.md` y la spec `contract-discovery` con el texto nuevo delante y corregir sólo lo que haya quedado falso
   - **Support:**
+  - **Resolved:** `2026-10-26T21:42:33Z`
 - [ ] Ejecutar `pnpm verify` sobre el candidato completo
   - **Support:**
 
