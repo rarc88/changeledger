@@ -101,10 +101,10 @@ Queda fuera:
 ## Specification
 
 ### CR1 — Un conjunto por encima del tope se trocea y se elimina entero
-- **Given** 600 candidatas ausentes cuyas rutas hacen que un solo cuerpo `{confirm, candidates}` supere el presupuesto de troceo del cliente
+- **Given** 1.000 candidatas ausentes cuyas rutas hacen que un solo cuerpo `{confirm, candidates}` supere el presupuesto de troceo del cliente
 - **When** se confirma `Clean missing` y todos los lotes responden `200`
 - **Then** el cliente emite más de una petición y ningún cuerpo enviado supera ese presupuesto
-- **And** el cuerpo agregado que recibe la UI declara `removed: 600` y `skipped: 0`
+- **And** el cuerpo agregado que recibe la UI declara `removed: 1000` y `skipped: 0`
 
 ### CR2 — El presupuesto del cliente no puede superar al del servidor
 - **Given** la constante de presupuesto del cliente y `MAX_BODY` de `src/viewer/server/router.mjs`
@@ -117,7 +117,7 @@ Queda fuera:
 - **Then** se emite exactamente una petición
 
 ### CR4 — Un lote que falla no se presenta como limpieza completa
-- **Given** 600 candidatas y un servidor que responde `200` al primer lote y `500 {"error":"unable to update project registry"}` al segundo
+- **Given** 1.000 candidatas y un servidor que responde `200` al primer lote y `500 {"error":"unable to update project registry"}` al segundo
 - **When** termina la operación
 - **Then** la UI refresca el listado antes de informar del fallo
 - **And** el mensaje de error nombra cuántas entradas se eliminaron antes de parar
