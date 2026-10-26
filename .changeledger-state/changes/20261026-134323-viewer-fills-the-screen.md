@@ -5,6 +5,7 @@ type: change
 status: done
 created: 2026-10-26T13:43:23Z
 depends_on: []
+reviewed: true
 branch: change/20261026-134323
 related_to: ["20260703-220013", "20261018-131621"]
 owner: raruiz-hiberuscom
@@ -220,3 +221,4 @@ libre y el botón mide su contenido.
 - **2026-10-26T16:08:56Z** `[note]` CI fallo en los dos jobs de verify: hooks/no-ledger-refs.sh rechaza 13 lineas anadidas que citan ids de change y CRn fuera de .changeledger/. La regla esta en el contexto de implementacion y no la apliqué: copié el estilo de los tests vecinos, que el guard tolera por ser lineas preexistentes. El hook versionado no esta instalado en este checkout, asi que nada local lo caza; solo CI.
 - **2026-10-26T16:08:57Z** `[status]` in-progress → in-review
 - **2026-10-26T16:20:54Z** `[review]` in-review → done (delegated subagent, clean context)
+- **2026-10-26T16:46:56Z** `[graduation]` spec: `viewer.md`
