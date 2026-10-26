@@ -2790,25 +2790,55 @@ test('the mobile block hands the scroll back to the page', () => {
 function styleRules(css) {
   const rules = [];
   const source = css.replace(/\/\*[\s\S]*?\*\//g, '');
-  const kinds = [];
-  let depth = 0;
-  let start = 0;
-  let selector = '';
-  for (let i = 0; i < source.length; i += 1) {
-    if (source[i] === '{') {
-      selector = source.slice(start, i).trim();
-      kinds[depth] = selector.startsWith('@') ? 'at' : 'rule';
-      depth += 1;
-      start = i + 1;
-    } else if (source[i] === '}') {
-      depth -= 1;
-      if (kinds[depth] === 'rule') rules.push({ selector, body: source.slice(start, i) });
-      start = i + 1;
-      selector = '';
+  // One frame per open block. A frame's body collects only the characters at
+  // its own level, so a rule that nests another keeps its own declarations and
+  // the nested one is seen in its own right.
+  const frames = [];
+  let pending = '';
+  for (const ch of source) {
+    if (ch === '{') {
+      const selector = pending.trim();
+      frames.push({ kind: selector.startsWith('@') ? 'at' : 'rule', selector, body: '' });
+      pending = '';
+    } else if (ch === '}') {
+      const frame = frames.pop();
+      if (frame?.kind === 'rule') rules.push({ selector: frame.selector, body: frame.body });
+      pending = '';
+    } else {
+      // A `;` ends a statement — a declaration, or an at-rule such as `@import
+      // url("x");`. Without this the next selector would absorb it and the rule
+      // it names would be classified as an at-rule and dropped.
+      if (ch === ';') pending = '';
+      else pending += ch;
+      if (frames.length) frames[frames.length - 1].body += ch;
     }
   }
   return rules;
 }
+
+// The scanner's own guards, because the sheet uses none of these constructs
+// today and a blind spot nobody exercises is a blind spot nobody notices.
+test('the rule scanner survives statement at-rules and nesting', () => {
+  const scrollersOf = (css) =>
+    styleRules(css)
+      .filter((rule) => /overflow(?:-y)?:\s*(?:auto|scroll)/.test(rule.body))
+      .flatMap((rule) => rule.selector.split(',').map((one) => one.trim()))
+      .sort();
+
+  // A `;`-terminated at-rule ends a statement: the rule after it keeps its own
+  // selector instead of being absorbed into the at-rule's.
+  assert.deepEqual(scrollersOf('@import url("x");\n.a { overflow: auto }'), ['.a']);
+  assert.deepEqual(scrollersOf('@layer base;\n.b { overflow-y: scroll }'), ['.b']);
+
+  // A rule that nests another keeps its own declarations, and the nested one is
+  // seen in its own right.
+  assert.deepEqual(scrollersOf('.p { overflow-y: auto; & .c { color: red } }'), ['.p']);
+  assert.deepEqual(scrollersOf('.p { color: red; & .c { overflow: auto } }'), ['& .c']);
+  assert.deepEqual(scrollersOf('.p { overflow: auto; & .c { overflow-y: scroll } }').sort(), [
+    '& .c',
+    '.p',
+  ]);
+});
 
 // Only a vertical overflow paints the bar this is about; `overflow-x` does not.
 const VERTICAL_SCROLL = /overflow(?:-y)?:\s*(?:auto|scroll)/;
@@ -2816,20 +2846,20 @@ const VERTICAL_SCROLL = /overflow(?:-y)?:\s*(?:auto|scroll)/;
 // skipped — it fails the test, because a shape nobody anticipated is exactly
 // what a silent skip turns into a second scrollbar.
 const SIMPLE_CLASS = /^(\.[a-z][a-z0-9-]*)(\[[^\]]*\])?$/;
-// What lives in FRONT of the overlay, so it is allowed to keep its scrollbar:
-// the detail itself and the diagram lightbox, which opens above everything.
-const IN_FRONT = /^\.(?:detail|diagram-)/;
+// What lives in FRONT of the overlay, so it is allowed to keep its scrollbar.
+// An exact list, not a prefix: `.detail-…` is a naming convention, not a
+// guarantee of sitting in front, and a prefix would exclude a future panel
+// silently. Adding a third one here is then a deliberate act.
+const IN_FRONT = new Set(['.detail', '.diagram-canvas']);
 
-// The obligation, derived from the stylesheet rather than listed: anything
-// behind the overlay that scrolls paints a bar beside the detail's, so it must
-// be in the lock. The derivation used to recognise a hand-written family of
-// names and drop the rest without a word — which is how two panels stayed
-// unlocked and a whole `@media` block stayed unread.
-test('every scroll container behind the overlay is in the detail-open lock', () => {
-  const css = fs.readFileSync(new URL('../src/viewer/public/styles.css', import.meta.url), 'utf8');
+// The derivation itself, over any stylesheet: what scrolls vertically behind
+// the overlay, and what the test could not classify.
+function scrollersBehindOverlay(css) {
   const rules = styleRules(css);
   const selectorsOf = (rule) => rule.selector.split(',').map((one) => one.trim());
-
+  const vertical = [
+    ...new Set(rules.filter((rule) => VERTICAL_SCROLL.test(rule.body)).flatMap(selectorsOf)),
+  ];
   const locked = new Set(
     rules
       .filter(
@@ -2838,19 +2868,44 @@ test('every scroll container behind the overlay is in the detail-open lock', () 
       .flatMap(selectorsOf)
       .map((one) => one.replace(/^\.detail-open\s+/, '').replace(/\[[^\]]*\]$/, '')),
   );
+  return {
+    locked,
+    unrecognised: vertical.filter((one) => !SIMPLE_CLASS.test(one)),
+    behind: new Set(
+      vertical.map((one) => one.replace(SIMPLE_CLASS, '$1')).filter((one) => !IN_FRONT.has(one)),
+    ),
+  };
+}
 
-  const vertical = [
-    ...new Set(rules.filter((rule) => VERTICAL_SCROLL.test(rule.body)).flatMap(selectorsOf)),
-  ];
-  const unrecognised = vertical.filter((one) => !SIMPLE_CLASS.test(one));
+// A prefix match would wave through anything merely named like the overlay's
+// own parts; only the two that really sit in front are excluded.
+test('only the panels that really sit in front of the overlay are excused', () => {
+  const sheet = (selector) => `${selector} { overflow-y: auto }`;
+
+  assert.deepEqual([...scrollersBehindOverlay(sheet('.detail')).behind], []);
+  assert.deepEqual([...scrollersBehindOverlay(sheet('.diagram-canvas')).behind], []);
+  for (const lookalike of ['.detail-sidebar', '.detail-notes', '.diagram-index']) {
+    assert.deepEqual(
+      [...scrollersBehindOverlay(sheet(lookalike)).behind],
+      [lookalike],
+      `${lookalike} only looks like it sits in front`,
+    );
+  }
+});
+
+// The obligation, derived from the stylesheet rather than listed: anything
+// behind the overlay that scrolls paints a bar beside the detail's, so it must
+// be in the lock. The derivation used to recognise a hand-written family of
+// names and drop the rest without a word — which is how two panels stayed
+// unlocked and a whole `@media` block stayed unread.
+test('every scroll container behind the overlay is in the detail-open lock', () => {
+  const css = fs.readFileSync(new URL('../src/viewer/public/styles.css', import.meta.url), 'utf8');
+  const { locked, unrecognised, behind } = scrollersBehindOverlay(css);
+
   assert.deepEqual(
     unrecognised,
     [],
     `these selectors scroll vertically in a shape this test cannot normalise, so it cannot tell whether they are locked: ${unrecognised.join(', ')}`,
-  );
-
-  const behind = new Set(
-    vertical.map((one) => one.replace(SIMPLE_CLASS, '$1')).filter((one) => !IN_FRONT.test(one)),
   );
   assert.ok(behind.size >= 12, `expected the views and panels to scroll, found ${[...behind]}`);
   for (const scroller of behind) {
