@@ -5,6 +5,7 @@ type: change
 status: done
 created: 2026-10-26T13:55:23Z
 depends_on: []
+reviewed: true
 branch: change/20261026-135523
 related_to: ["20260815-133442", "20261026-132745", "20261023-181453"]
 owner: raruiz-hiberuscom
@@ -176,3 +177,4 @@ Queda fuera:
 - **2026-10-26T14:11:50Z** `[status]` in-progress → in-review
 - **2026-10-26T14:14:52Z** `[note]` Corregido tras el informe de revisión, que lo señaló como residuo no bloqueante: al insertar `probeProject` quedó el comentario del orden del listado encima de la función equivocada. Solo se movió el comentario; sin cambio de comportamiento.
 - **2026-10-26T14:15:00Z** `[review]` in-review → done (delegated subagent, clean context)
+- **2026-10-26T14:15:10Z** `[graduation]` spec: `architecture.md`
