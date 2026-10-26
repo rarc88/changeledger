@@ -2,7 +2,7 @@
 id: "20261026-165918"
 title: El diagrama de arquitectura enumera cuatro vistas y hay cinco
 type: change
-status: draft
+status: approved
 created: 2026-10-26T16:59:18Z
 depends_on: []
 related_to: ["20261026-145217"]
@@ -56,3 +56,4 @@ de `viewer.md`, que ya es correcto; y el código del visor, que no cambia.
 
 ## Log
 - **2026-10-26T16:59:18Z** `[version]` 1.0.0
+- **2026-10-26T17:01:09Z** `[status]` draft → approved (human via conversation)
