@@ -145,10 +145,11 @@ práctica» es exactamente lo que dejó pasar dos defectos en
 
 ## Plan
 
-- [ ] Endurecer la derivación: descender a las at-rules, aceptar `scroll` y denunciar lo que no sepa normalizar
+- [x] Endurecer la derivación: descender a las at-rules, aceptar `scroll` y denunciar lo que no sepa normalizar
   - **Target:** `test/viewer-metadata.test.mjs`
   - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
   - **Criteria:** CR1, CR2, CR3
+  - **Resolved:** `2026-10-26T17:04:29Z`
 - [ ] Completar la lista de bloqueo con los cuatro selectores que faltan
   - **Target:** `src/viewer/public/styles.css`
   - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
