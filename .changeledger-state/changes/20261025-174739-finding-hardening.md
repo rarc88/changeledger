@@ -269,3 +269,4 @@ construyen con el helper de CR4.
 - **2026-10-25T20:11:43Z** `[finding]` La expresión de encabezado y frontmatter está copiada en change.mjs, fix.mjs y check.mjs; una pasada de etapas con números de línea exportada desde change.mjs las uniría. Deuda, no defecto.
 - **2026-10-25T20:11:43Z** `[graduation]` skipped: código sin verdad persistente nueva: la forma de finding y las reglas de check las documentan la ayuda, README y CONTRIBUTING; la spec usage.md la reconcilia la épica 20261023-181733 al cerrar
 - **2026-10-25T21:24:52Z** `[archive]` archived
+- **2026-10-26T10:03:49Z** `[finding]` 1 dropped: resuelto como edición operativa autorizada por el humano: la pasada de etapas y la expresión de frontmatter tienen una sede en change.mjs (PR 34 contra dev), sin cambio de comportamiento
