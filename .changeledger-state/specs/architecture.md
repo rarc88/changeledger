@@ -245,7 +245,10 @@ tolerante, que devuelve el motivo en la entrada como `listingError` y sigue con
 el resto: un repo roto es justamente uno de los motivos por los que se llega al
 comando `changeledger projects`, que lista el registry con la salud de cada
 entrada y, con `--clean-missing`, le pasa las ausencias confirmadas a la misma
-mutación que usa el visor; `--dry-run` las nombra sin escribir. El sondeo que
+mutación que usa el visor; `--dry-run` las nombra sin escribir y, sin
+`--clean-missing`, se rechaza con `--dry-run only applies to
+--clean-missing` en vez de ignorarse, porque una previsualización que no
+iba a eliminar nada no es una previsualización. El sondeo que
 decide esa salud —`<path>/.changeledger/config.yml`, con `ENOENT` y `ENOTDIR`
 como única ausencia confirmada— vive en `src/registry.mjs` y lo consumen tanto
 ese comando como el visor, de modo que el criterio no se enuncia dos veces.
