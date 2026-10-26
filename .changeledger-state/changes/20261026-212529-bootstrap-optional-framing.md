@@ -149,6 +149,12 @@ is installed, and equally where it is not, running it is mandatory», que
 satisface además la de orden. Cada arreglo era una enumeración con forma de
 propiedad, y cada uno rechazaba de paso redacciones honestas.
 
+La ventana del guard tampoco era lo que CR2 decía. No hay punto entre la
+obligación y el final del primer bullet, así que un `[^.]*` se derramaba sobre
+el comando y la lista: `installed` podía entrar desde un bullet y satisfacer un
+criterio sobre la obligación. El tramo se acota ahora al punto anterior y a los
+dos puntos que cierran la obligación, y se afirma que no alcanza la lista.
+
 Por eso CR2 se reescribe a lo que un test sobre prosa normativa sí sostiene,
 según la convención del propio repositorio: un concept guard tolerante a la
 redacción más un barrido que mantiene retiradas las reaperturas ya observadas.
@@ -174,8 +180,9 @@ al texto en vez de pincharlo.
 
 ### CR2 — La obligación nombra el caso instalado y las reaperturas vistas quedan retiradas
 - **Given** el bloque publicado en `REFERENCE`
-- **When** se aísla la frase que contiene `mandatory`
-- **Then** esa frase nombra el caso instalado con la palabra `installed`
+- **When** se aísla el tramo que contiene `mandatory`, delimitado por el punto que lo precede y los dos puntos que cierran la obligación
+- **Then** ese tramo no alcanza la lista de bullets
+- **And** ese tramo nombra el caso instalado con la palabra `installed`
 - **And** el bloque no contiene ninguna de las reaperturas observadas en revisión: `installed or not`, `whether or not … install`, `regardless of … install`, `equally where it is not`, `and where it is not`
 - **And** sigue exigiendo ejecutar el comando antes de planificar, investigar, responder o editar
 
@@ -193,7 +200,7 @@ al texto en vez de pincharlo.
 ### CR5 — La formulación retirada no sobrevive en el árbol
 - **Given** el repositorio excluyendo `node_modules`
 - **When** se busca la cadena `it is mandatory, not optional`
-- **Then** no aparece en ningún fichero versionado
+- **Then** no aparece en ningún fichero versionado salvo `test/contract.test.mjs`, donde CR4 exige el bloque v4 anterior como fixture histórico
 
 ### CR6 — El `AGENTS.md` de este repositorio queda instalado y válido
 - **Given** este repositorio tras ejecutar `changeledger register`
@@ -235,6 +242,10 @@ al texto en vez de pincharlo.
 - [x] Ejecutar `pnpm verify` sobre el candidato completo
   - **Support:**
   - **Resolved:** `2026-10-26T21:42:34Z`
+- [ ] Acotar la ventana de CR2 al tramo de la obligación y declarar en CR5 la exención del fixture histórico
+  - **Target:** `test/contract.test.mjs`
+  - **Verify:** `node --test test/contract.test.mjs test/register.test.mjs`
+  - **Criteria:** CR2, CR5
 
 ## Log
 - **2026-10-26T21:27:11Z** `[version]` 1.0.0
