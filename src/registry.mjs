@@ -82,7 +82,25 @@ export function cleanMissingProjects(
 
 // Sorted by display name, then id: the registry object enumerates an all-digit
 // key before the others, so its own order depends on the shape of the key.
-export function listProjects() {
+// The one probe that decides a registered path's health: the viewer's Projects
+// panel, its cleanup and the CLI all read it, so the ENOENT/ENOTDIR rule that
+// makes an absence "confirmed" lives here and not in each seat.
+export function probeProject(projectPath) {
+  try {
+    fs.statSync(path.join(projectPath, '.changeledger', 'config.yml'));
+    return { alive: true, missing: false };
+  } catch (error) {
+    return {
+      alive: false,
+      missing: error?.code === 'ENOENT' || error?.code === 'ENOTDIR',
+    };
+  }
+}
+
+// `tolerant` is for a seat that must keep working on the rest of the registry
+// when one entry cannot be inspected: a broken repo is exactly why someone
+// reaches the CLI, so there it reports the reason instead of failing closed.
+export function listProjects({ tolerant = false } = {}) {
   const projects = Object.entries(readRegistry()).map(([id, value]) => {
     let name = value.name;
     // Only an entry we managed to probe as activated owes a fail-closed error;
@@ -110,7 +128,10 @@ export function listProjects() {
         name = config.project_name;
       }
     } catch (error) {
-      if (activated) throw error;
+      if (activated) {
+        if (!tolerant) throw error;
+        return { id, name, path: value.path, listingError: error.message };
+      }
       // Missing or unreadable projects keep their last registered display name.
     }
     return { id, name, path: value.path };
