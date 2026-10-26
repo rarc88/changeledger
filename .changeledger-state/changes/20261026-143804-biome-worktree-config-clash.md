@@ -2,9 +2,10 @@
 id: "20261026-143804"
 title: Un worktree de la app aborta el lint del repo padre
 type: change
-status: approved
+status: in-progress
 created: 2026-10-26T14:38:04Z
 depends_on: []
+branch: change/20261026-143804
 related_to: ["20260613-215319"]
 owner: raruiz-hiberuscom
 ---
@@ -77,3 +78,5 @@ Queda fuera:
 ## Log
 - **2026-10-26T14:38:04Z** `[version]` 1.0.1-dev
 - **2026-10-26T14:39:17Z** `[status]` draft → approved (human via conversation)
+- **2026-10-26T14:39:21Z** `[status]` approved → in-progress
+- **2026-10-26T14:39:21Z** `[branch]` set: change/20261026-143804 (auto)
