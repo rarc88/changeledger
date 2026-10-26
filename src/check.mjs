@@ -10,11 +10,12 @@ import {
   CANONICAL_STAGES,
   CHANGE_TYPES,
   childrenOpenError,
-  fenceTracker,
+  FRONTMATTER,
   parseChange,
   parseRequestSections,
   RETIRED_STAGES,
   RETIRED_TYPES,
+  stageHeadings,
   stageSource,
 } from './change.mjs';
 import {
@@ -960,26 +961,19 @@ function checkDeliveryVerdict(c, fm, err) {
 
 // The lines of the Log stage, each with its 1-based line number in the
 // document: the numbering every `Log line <n>` diagnostic cites. The walk is
-// the stage parser's (`stageSource`): it starts after the frontmatter, a `## `
+// the stage parser's (`stageHeadings`): it starts after the frontmatter, a `## `
 // line inside a code fence is content, keys compare lowercase and the first
 // Log stage is the Log, so check judges the Log the readers read.
 function logSection(text) {
   const source = String(text ?? '');
-  const head = source.match(/^---\n[\s\S]*?\n---\n?/)?.[0] ?? '';
+  const head = source.match(FRONTMATTER)?.[0] ?? '';
   const offset = head.split('\n').length - 1;
-  const isFenced = fenceTracker();
-  const section = [];
-  let inLog = false;
-  for (const [i, line] of source.slice(head.length).split('\n').entries()) {
-    const heading = isFenced(line) ? null : line.match(/^##\s+(.+?)\s*$/);
-    if (heading) {
-      if (inLog) break;
-      inLog = heading[1].trim().toLowerCase() === 'log';
-      continue;
-    }
-    if (inLog) section.push({ number: offset + i + 1, line });
-  }
-  return section;
+  const lines = source.slice(head.length).split('\n');
+  const log = stageHeadings(lines).find(({ title }) => title.trim().toLowerCase() === 'log');
+  if (!log) return [];
+  return lines
+    .slice(log.start + 1, log.end)
+    .map((line, i) => ({ number: offset + log.start + i + 2, line }));
 }
 
 // Replays `## Log` lifecycle events from `draft` against the transition graph

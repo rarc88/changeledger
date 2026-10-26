@@ -4,7 +4,7 @@
 import { parseTaskBlocks } from './task.mjs';
 import { parseYaml } from './yaml.mjs';
 
-const FRONTMATTER = /^---\n([\s\S]*?)\n---\n?/;
+export const FRONTMATTER = /^---\n([\s\S]*?)\n---\n?/;
 
 // Fixed in code, like the six statuses of the lifecycle (20261024-121022): a
 // `change` carries the stages it needs, in this order, and an `epic` groups
@@ -136,22 +136,35 @@ export function fenceTracker() {
   };
 }
 
-// One walk over the body, fence-aware: each stage keeps its lines exactly as
-// this walk saw them.
-function walkStages(body) {
-  const stages = [];
-  let current = null;
+// The one fence-aware walk over a body's lines that every stage reader shares
+// (`walkStages`, `fix`, `check`): each `## ` heading outside a code fence, with
+// its 0-based line index `start`, its raw `title` and the index `end` where its
+// stage stops (the next heading, or the line count). The stage's lines are
+// `lines.slice(start + 1, end)`.
+export function stageHeadings(lines) {
   const isFenced = fenceTracker();
-  for (const line of body.split('\n')) {
+  const headings = [];
+  for (const [index, line] of lines.entries()) {
     const m = isFenced(line) ? null : line.match(/^##\s+(.+?)\s*$/);
-    if (m) {
-      current = { key: m[1].trim().toLowerCase(), heading: m[1].trim(), source: '' };
-      stages.push(current);
-    } else if (current) {
-      current.source += `${line}\n`;
-    }
+    if (m) headings.push({ start: index, title: m[1] });
   }
-  return stages;
+  return headings.map((heading, i) => ({
+    ...heading,
+    end: headings[i + 1]?.start ?? lines.length,
+  }));
+}
+
+// Each stage keeps its lines exactly as the walk saw them.
+function walkStages(body) {
+  const lines = body.split('\n');
+  return stageHeadings(lines).map(({ start, end, title }) => ({
+    key: title.trim().toLowerCase(),
+    heading: title.trim(),
+    source: lines
+      .slice(start + 1, end)
+      .map((line) => `${line}\n`)
+      .join(''),
+  }));
 }
 
 // The stages every reader consumes, each body trimmed as a whole.
