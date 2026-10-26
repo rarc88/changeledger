@@ -5,6 +5,7 @@ type: change
 status: done
 created: 2026-10-26T14:38:04Z
 depends_on: []
+accepted_at: 2026-10-26T15:42:44Z
 reviewed: true
 branch: change/20261026-143804
 related_to: ["20260613-215319"]
@@ -141,3 +142,4 @@ Queda fuera:
 - **2026-10-26T15:06:22Z** `[note]` CI falló en el PR 43: la guarda `no test fixture invokes git without a sanitized environment` cazó el `spawnSync('git', …)` que introduje al sustituir la comprobación literal de `.gitignore` por `git check-ignore`. Causa de que se me escapara: cambié el candidato después de correr `pnpm verify` y solo revalidé el fichero tocado.
 - **2026-10-26T15:06:39Z** `[status]` in-progress → in-review
 - **2026-10-26T15:08:06Z** `[review]` in-review → done (delegated subagent, clean context)
+- **2026-10-26T15:43:53Z** `[validation]` accepted (merged 3c6b1ec)
