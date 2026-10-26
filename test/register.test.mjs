@@ -23,11 +23,29 @@ function initializedRepo(agentsBody = '# Project rules\n') {
   return dir;
 }
 
+// Rewraps the lead paragraph of the real block at a different width and drops
+// the space after the quote marker, as an editor reflow would.
 function reflowBootstrap(text) {
-  return text.replace(
-    '> **ChangeLedger governs this repo.** Before planning, investigating, answering\n> or editing anything, run exactly this — it is mandatory, not optional:',
-    '>**ChangeLedger governs this repo.** Before planning, investigating,\n> answering or editing anything, run exactly this — it is mandatory, not optional:',
-  );
+  const lines = REFERENCE.split('\n');
+  const end = lines.indexOf('>');
+  const lead = lines.slice(1, end);
+  const words = lead
+    .map((line) => line.replace(/^> ?/, ''))
+    .join(' ')
+    .split(' ');
+  const wrapped = [];
+  let current = '';
+  for (const word of words) {
+    if (current && current.length + word.length + 1 > 58) {
+      wrapped.push(current);
+      current = word;
+    } else {
+      current = current ? `${current} ${word}` : word;
+    }
+  }
+  wrapped.push(current);
+  const rewrapped = wrapped.map((line, i) => (i === 0 ? `>${line}` : `> ${line}`)).join('\n');
+  return text.replace(lead.join('\n'), rewrapped);
 }
 
 function prettierBootstrap(text) {

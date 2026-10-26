@@ -64,17 +64,43 @@ function root() {
   return dir;
 }
 
+// Derived from REFERENCE so a fixture that mutates "the first bold span of the
+// block" follows the text instead of pinning it.
+const BOLD_LEAD = REFERENCE.match(/\*\*[^*]+\*\*/)[0];
+const UNDERSCORE_LEAD = `__${BOLD_LEAD.slice(2, -2)}__`;
+
+// Rewraps the lead paragraph of the real block at a different width and drops
+// the space after the quote marker, as an editor reflow would.
 function reflowBootstrap(text) {
-  return text.replace(
-    '> **ChangeLedger governs this repo.** Before planning, investigating, answering\n> or editing anything, run exactly this — it is mandatory, not optional:',
-    '>**ChangeLedger governs this repo.** Before planning, investigating,\n> answering or editing anything, run exactly this — it is mandatory, not optional:',
-  );
+  const lines = REFERENCE.split('\n');
+  const end = lines.indexOf('>');
+  const lead = lines.slice(1, end);
+  const words = lead
+    .map((line) => line.replace(/^> ?/, ''))
+    .join(' ')
+    .split(' ');
+  const wrapped = [];
+  let current = '';
+  for (const word of words) {
+    if (current && current.length + word.length + 1 > 58) {
+      wrapped.push(current);
+      current = word;
+    } else {
+      current = current ? `${current} ${word}` : word;
+    }
+  }
+  wrapped.push(current);
+  const rewrapped = wrapped.map((line, i) => (i === 0 ? `>${line}` : `> ${line}`)).join('\n');
+  return text.replace(lead.join('\n'), rewrapped);
 }
+
+// A formatter may leave a paragraph continuation without its quote marker.
+const LAZY_LINE = REFERENCE.split('\n')[2];
 
 function prettierBootstrap(text) {
   return text
     .replace(/(<!-- CHANGELEDGER BOOTSTRAP BEGIN v\d+ -->)\n/, '$1\n\n')
-    .replace('> or editing anything, run', 'or editing anything, run')
+    .replace(LAZY_LINE, LAZY_LINE.replace(/^> /, ''))
     .replace('\n<!-- CHANGELEDGER BOOTSTRAP END -->', '\n\n<!-- CHANGELEDGER BOOTSTRAP END -->');
 }
 
@@ -90,8 +116,8 @@ test('212659 CR1/CR2: init installs an optional bootstrap without hiding real fa
       `run exactly this[\\s\\S]*\`changeledger context 2>&1 \\| head -${BOOTSTRAP_CAPTURE_LINES}\``,
     ),
   );
-  assert.match(agents, /Command not installed[\s\S]*continue the task normally/i);
-  assert.match(agents, /Command present but failing[\s\S]*report the captured error[\s\S]*human/i);
+  assert.match(agents, /command not found[\s\S]*work normally[\s\S]*never emulate it/i);
+  assert.match(agents, /A failure is not an absence[\s\S]*report the captured error[\s\S]*human/i);
   assert.match(agents, /human, and wait\s+>?\s*for their decision/i);
   assert.doesNotMatch(agents, /restore\/install ChangeLedger|command -v|which changeledger/i);
   assert.doesNotMatch(agents, /\.changeledger\/AGENTS\.md/);
@@ -102,8 +128,8 @@ test('212659 CR1: bootstrap attempts the core load immediately, not only before 
   const dir = root();
   init(dir);
   const agents = fs.readFileSync(path.join(dir, 'AGENTS.md'), 'utf8');
-  assert.match(agents, /Before planning, investigating, answering\s+>?\s*or editing anything/);
-  assert.match(agents, /run exactly this — it is mandatory, not optional/);
+  assert.match(agents, /before\s+>?\s*planning, investigating, answering or editing anything/);
+  assert.match(agents, /running it is mandatory[\s\S]*run exactly this/);
   assert.doesNotMatch(agents, /Before creating or modifying files/);
 });
 
@@ -165,9 +191,10 @@ test('124834 CR1: the bootstrap publishes the exact bounded capture command', ()
     prose.includes(`\`changeledger context 2>&1 | head -${BOOTSTRAP_CAPTURE_LINES}\``),
     'the block must publish the bounded command literally',
   );
-  assert.ok(
-    prose.includes('run exactly this — it is mandatory, not optional'),
-    'the block must state the mandatory framing literally',
+  assert.match(
+    prose,
+    /is mandatory[^.]*run exactly this/,
+    'the block must keep the run obligation',
   );
 });
 
@@ -196,14 +223,12 @@ test('124834 CR3: absent command stays distinct from a present command that fail
   init(dir);
   const prose = flatten(bootstrapProse(dir));
   assert.ok(
-    prose.includes(
-      'Command not installed (`command not found`) → ChangeLedger is absent: continue the task normally and never emulate it',
-    ),
+    prose.includes('it is absent: work normally, and never emulate it'),
     'the absent branch must be stated literally',
   );
   assert.ok(
     prose.includes(
-      'Command present but failing (any other error or non-zero exit) → stop, report the captured error to the human, and wait for their decision',
+      'A failure is not an absence: on any other error or non-zero exit, stop, report the captured error to the human, and wait for their decision',
     ),
     'the failing branch must be stated literally and separately',
   );
@@ -265,12 +290,7 @@ test('124834 CR5: a v3 block is outdated and register rewrites it to v4', () => 
 
 const OUTDATED = 'AGENTS.md has an outdated ChangeLedger reference — run `changeledger register`';
 
-const ABSENT_BULLET = `> - Command not installed (\`command not found\`) → ChangeLedger is absent:
->   continue the task normally and never emulate it.
-`;
-const FAILING_BULLET = `> - Command present but failing (any other error or non-zero exit) → stop,
->   report the captured error to the human, and wait for their decision.
-`;
+const [, , BOUNDED_BULLET, FAILING_BULLET] = REFERENCE.split(/^(?=> - )/m);
 
 // The v4 block is the first REFERENCE built from a Markdown list. These fixtures
 // pin the two halves a list must not cost us: formatter tolerance beyond byte
@@ -295,10 +315,10 @@ function rejects(mutate, why) {
 test('124834 CR7: semantic equivalence survives the bullet list', () => {
   const { dir, file, canonical } = installed();
   const equivalent = canonical
-    .replace('**ChangeLedger governs this repo.**', '__ChangeLedger governs this repo.__')
+    .replace(BOLD_LEAD, UNDERSCORE_LEAD)
     .replace('>   compaction.', '> compaction.');
   assert.notEqual(equivalent, canonical);
-  assert.match(equivalent, /__ChangeLedger governs this repo\.__/);
+  assert.ok(equivalent.includes(UNDERSCORE_LEAD));
   assert.match(equivalent, /any context\n> compaction\./);
   fs.writeFileSync(file, equivalent);
 
@@ -374,8 +394,8 @@ test('124834 CR8: drift in every parsed bullet is still outdated', () => {
 
 test('124834 CR8: reordering two bullets without changing their text is outdated', () => {
   rejects((text) => {
-    assert.ok(text.includes(`${ABSENT_BULLET}${FAILING_BULLET}`), 'both bullets must be adjacent');
-    return text.replace(`${ABSENT_BULLET}${FAILING_BULLET}`, `${FAILING_BULLET}${ABSENT_BULLET}`);
+    assert.ok(text.includes(`${BOUNDED_BULLET}${FAILING_BULLET}`), 'both bullets must be adjacent');
+    return text.replace(`${BOUNDED_BULLET}${FAILING_BULLET}`, `${FAILING_BULLET}${BOUNDED_BULLET}`);
   }, 'bullet order must be preserved inside lists');
 });
 
@@ -453,7 +473,7 @@ test('153633 CR1/CR3: check accepts the real Prettier lazy-continuation fixture'
   const canonical = fs.readFileSync(file, 'utf8');
   const reformatted = prettierBootstrap(canonical);
   assert.notEqual(reformatted, canonical);
-  assert.match(reformatted, /investigating, answering\nor editing anything, run/);
+  assert.ok(reformatted.includes(`\n${LAZY_LINE.replace(/^> /, '')}\n`));
 
   fs.writeFileSync(file, reformatted);
 
@@ -465,10 +485,7 @@ test('153633 CR3: check accepts different Markdown syntax with the same token tr
   init(dir);
   const file = path.join(dir, 'AGENTS.md');
   const canonical = fs.readFileSync(file, 'utf8');
-  const equivalent = canonical.replace(
-    '**ChangeLedger governs this repo.**',
-    '__ChangeLedger governs this repo.__',
-  );
+  const equivalent = canonical.replace(BOLD_LEAD, UNDERSCORE_LEAD);
   assert.notEqual(equivalent, canonical);
 
   fs.writeFileSync(file, equivalent);
@@ -548,11 +565,9 @@ test('124113 CR5: a direct stale CLAUDE.md bootstrap still requires repair', () 
 test('150300 CR3/CR4: check rejects semantic and structural bootstrap changes', () => {
   const mutations = [
     (text) => text.replace('`changeledger context 2>&1', '`changeledger check 2>&1'),
-    (text) =>
-      text.replace('**ChangeLedger governs this repo.**', '**ChangeLedger  governs this repo.**'),
-    (text) => text.replace('> or editing anything', '>\n> or editing anything'),
-    (text) =>
-      text.replace('> or editing anything', '>\n\noutside the blockquote\n\n> or editing anything'),
+    (text) => text.replace(BOLD_LEAD, BOLD_LEAD.replace(' ', '  ')),
+    (text) => text.replace(LAZY_LINE, `>\n${LAZY_LINE}`),
+    (text) => text.replace(LAZY_LINE, `>\n\noutside the blockquote\n\n${LAZY_LINE}`),
   ];
 
   for (const mutate of mutations) {
@@ -590,8 +605,8 @@ test('153633 CR4/CR5: check rejects semantic token and delimiter changes', () =>
     (text) => text.replace('`changeledger context 2>&1', '`changeledger check 2>&1'),
     (text) =>
       text.replace(
-        '**ChangeLedger governs this repo.**',
-        '**[ChangeLedger](https://example.com) governs this repo.**',
+        BOLD_LEAD,
+        BOLD_LEAD.replace('ChangeLedger', '[ChangeLedger](https://example.com)'),
       ),
     (text) => `${text}<!-- CHANGELEDGER BOOTSTRAP END -->\n`,
     (text) =>
@@ -934,4 +949,89 @@ test('README says hooks/ is not packaged and a consuming repo copies the script'
   assert.match(text, /`?hooks\/`? is not packaged/i);
   assert.match(text, /copies? the script/i);
   assert.match(text, /outside `\.changeledger\/`/);
+});
+
+const flat = (text) => text.replace(/^>[ ]?/gm, '').replace(/\s+/g, ' ');
+
+test('the absence clause precedes the obligation and tells the agent to work normally', () => {
+  const prose = flat(REFERENCE);
+  assert.ok(prose.indexOf('command not found') !== -1, 'the block must name the absent case');
+  assert.ok(
+    prose.indexOf('command not found') < prose.indexOf('mandatory'),
+    'the absence clause must come before the mandatory obligation',
+  );
+  assert.match(prose, /command not found[^.]*work normally[^.]*never emulate it/);
+});
+
+test('the mandatory sentence is conditioned on the CLI being installed', () => {
+  const sentence = flat(REFERENCE).match(/[^.]*\bmandatory\b[^.]*/)[0];
+  assert.match(sentence, /where it is installed/i);
+});
+
+test('no versioned file still carries the unconditional mandatory phrase', () => {
+  const retired = ['it is mandatory,', 'not optional'].join(' ');
+  const root = fileURLToPath(new URL('..', import.meta.url));
+  const listed = spawnSync('git', ['ls-files', '-z'], {
+    cwd: root,
+    encoding: 'utf8',
+    env: sanitizedEnv(),
+  });
+  assert.equal(listed.status, 0, listed.stderr);
+  const offenders = listed.stdout
+    .split('\0')
+    // This file embeds the retired text as the historical fixture of the v4 test.
+    .filter((file) => file && file !== 'test/contract.test.mjs')
+    .filter((file) => !file.startsWith('node_modules/') && fs.existsSync(path.join(root, file)))
+    .filter((file) => {
+      const text = fs.readFileSync(path.join(root, file));
+      return !text.includes(0) && text.toString('utf8').includes(retired);
+    });
+  assert.deepEqual(offenders, []);
+});
+
+test('the test fixtures derive the bold lead from REFERENCE instead of writing it by hand', () => {
+  for (const name of ['contract.test.mjs', 'register.test.mjs']) {
+    const source = fs.readFileSync(fileURLToPath(new URL(name, import.meta.url)), 'utf8');
+    assert.ok(!source.includes(BOLD_LEAD), `${name} must not hand-write the bold lead`);
+  }
+});
+
+// The version stays at v4: `check` compares the payload, so a reworded block
+// under the same marker is outdated without a bump.
+test('the previous v4 reference is outdated and register rewrites it in place', () => {
+  const previousV4 = `> [!IMPORTANT]
+> **ChangeLedger governs this repo.** Before planning, investigating, answering
+> or editing anything, run exactly this — it is mandatory, not optional:
+>
+> \`changeledger context 2>&1 | head -${BOOTSTRAP_CAPTURE_LINES}\`
+>
+> - The capture is valid **only if its last line contains
+>   \`CHANGELEDGER CONTEXT END\`**. Nothing before that line is actionable.
+> - The core context is bounded and fits within these ${BOOTSTRAP_CAPTURE_LINES} lines. The \`BEGIN\`
+>   line reports the exact \`lines:\` count of the full output, counting the
+>   \`BEGIN\` and \`END\` lines themselves; if \`END\` is missing, re-run with
+>   \`head -<lines>\` and read that capture instead.
+> - Command not installed (\`command not found\`) → ChangeLedger is absent:
+>   continue the task normally and never emulate it.
+> - Command present but failing (any other error or non-zero exit) → stop,
+>   report the captured error to the human, and wait for their decision.
+> - Run this again as the first action of the first response after any context
+>   compaction.
+`;
+  const dir = root();
+  init(dir);
+  const file = path.join(dir, 'AGENTS.md');
+  fs.writeFileSync(
+    file,
+    `# Project\n\n<!-- CHANGELEDGER BOOTSTRAP BEGIN v4 -->\n${previousV4}<!-- CHANGELEDGER BOOTSTRAP END -->\n`,
+  );
+
+  assert.deepEqual(checkContract(dir), [OUTDATED]);
+
+  registerRepo(dir);
+
+  const after = fs.readFileSync(file, 'utf8');
+  assert.ok(after.includes(REFERENCE));
+  assert.ok(after.includes('<!-- CHANGELEDGER BOOTSTRAP BEGIN v4 -->'));
+  assert.deepEqual(checkContract(dir), []);
 });
