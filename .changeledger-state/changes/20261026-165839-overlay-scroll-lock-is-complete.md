@@ -208,10 +208,11 @@ práctica» es exactamente lo que dejó pasar dos defectos en
   - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
   - **Criteria:** CR9
   - **Resolved:** `2026-10-26T18:13:19Z`
-- [ ] Saltar el carácter que sigue a una barra invertida dentro de una cadena, y fallar al terminar con comillas, corchetes o marcos abiertos
+- [x] Saltar el carácter que sigue a una barra invertida dentro de una cadena, y fallar al terminar con comillas, corchetes o marcos abiertos
   - **Target:** `test/viewer-metadata.test.mjs`
   - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
   - **Criteria:** CR10
+  - **Resolved:** `2026-10-26T18:13:20Z`
 - [x] Pasar la puerta local completa
   - **Support:** `pnpm verify`
   - **Resolved:** `2026-10-26T17:09:13Z`
