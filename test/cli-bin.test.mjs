@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
+import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import { parse as parseYaml } from 'yaml';
 import { status, task } from '../src/commands/agent.mjs';
@@ -1717,38 +1718,91 @@ test('20260808-141944 CR6: status warns on stderr when the checkout differs from
   assert.match(result.stderr, /changeledger branch/);
 });
 
-// 20260808-151643 CR2 — the bin presents a CAS conflict as an actionable,
-// non-zero-exit error, never the store's own "state ref moved" wording.
-// Two real subprocesses mutate the same activated snapshot at once: which one
-// wins the race is not deterministic, but that exactly one wins and the other
-// gets this exact message and no partial write is guaranteed by the CAS
-// itself, not by timing — spawning both together (no artificial delay) gives
-// them every chance to overlap in practice.
-test('CR2: two concurrent CLI writes — exactly one succeeds, the loser gets the actionable message', async () => {
+// The bin presents a CAS conflict as an actionable, non-zero-exit error, never
+// the store's own "state ref moved" wording. The conflict is provoked rather
+// than awaited: spawning two writers together and hoping they overlap is no
+// precondition at all — run in serial order both succeed, which is the CAS
+// working correctly, and the assertion then fails for the wrong reason.
+//
+// `git` is invoked by name through PATH, so a shim ahead of the real one holds
+// the second writer at the state ref's `update-ref` — the last step of
+// `mutateState`, reached only once its revision is already loaded — until the
+// first writer has moved the ref. The second one therefore arrives with a
+// revision that is certainly stale, with no dependency on the scheduler.
+function writePausingGitShim(dir, { readyFile, goFile, passthroughPath }) {
+  fs.mkdirSync(dir, { recursive: true });
+  const shim = path.join(dir, 'git');
+  // The shim pauses the first state-ref update only, and restores the original
+  // PATH before exec so it never resolves to itself.
+  fs.writeFileSync(
+    shim,
+    `#!/bin/sh
+if [ "$1" = "update-ref" ] && [ "$2" = ${JSON.stringify(STATE_REF)} ] && [ ! -e ${JSON.stringify(readyFile)} ]; then
+  : > ${JSON.stringify(readyFile)}
+  while [ ! -e ${JSON.stringify(goFile)} ]; do sleep 0.02; done
+fi
+PATH=${JSON.stringify(passthroughPath)}
+export PATH
+exec git "$@"
+`,
+  );
+  fs.chmodSync(shim, 0o755);
+}
+
+// Both waits fail by naming what did not happen: a gate that is never reached,
+// or a process that never finishes once it opens, is a broken scenario and must
+// not be reported as a failed assertion about the CAS.
+const GATE_TIMEOUT_MS = 20000;
+
+async function waitForGate(file, failure) {
+  const deadline = Date.now() + GATE_TIMEOUT_MS;
+  while (!fs.existsSync(file)) {
+    if (Date.now() >= deadline) assert.fail(`${failure} within ${GATE_TIMEOUT_MS}ms`);
+    await delay(10);
+  }
+}
+
+async function settledWithin(promise, failure) {
+  const pending = Symbol('pending');
+  const outcome = await Promise.race([promise, delay(GATE_TIMEOUT_MS, pending, { ref: false })]);
+  if (outcome === pending) assert.fail(`${failure} within ${GATE_TIMEOUT_MS}ms`);
+  return outcome;
+}
+
+test('two CLI writes race for the state ref — the stale one is refused with the actionable message', async () => {
   const { root, env } = activatedCliRepo();
-  const spawnAsync = (args) =>
-    new Promise((resolve) => {
-      const child = spawn('node', [bin, ...args], { cwd: root, env });
-      let stderr = '';
-      child.stderr.on('data', (chunk) => {
-        stderr += chunk;
-      });
-      child.on('close', (code) => resolve({ code, stderr }));
+  const gate = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-gate-'));
+  const readyFile = path.join(gate, 'at-the-gate');
+  const goFile = path.join(gate, 'go');
+  const shimDir = path.join(gate, 'bin');
+  writePausingGitShim(shimDir, { readyFile, goFile, passthroughPath: env.PATH });
+
+  const held = new Promise((resolve) => {
+    const child = spawn('node', [bin, 'log', 'only-ref', 'note B'], {
+      cwd: root,
+      env: { ...env, PATH: `${shimDir}${path.delimiter}${env.PATH}` },
     });
+    let stderr = '';
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk;
+    });
+    child.on('close', (code) => resolve({ code, stderr }));
+  });
 
-  const [a, b] = await Promise.all([
-    spawnAsync(['log', 'only-ref', 'note A']),
-    spawnAsync(['log', 'only-ref', 'note B']),
-  ]);
+  await waitForGate(readyFile, 'the second writer never reached the state ref update');
 
-  const outcomes = [a, b];
-  const succeeded = outcomes.filter((o) => o.code === 0);
-  const failed = outcomes.filter((o) => o.code !== 0);
-  assert.equal(succeeded.length, 1, JSON.stringify(outcomes));
-  assert.equal(failed.length, 1, JSON.stringify(outcomes));
-  assert.equal(failed[0].code, 1);
-  assert.match(failed[0].stderr, /state changed since load — re-run the command/);
-  assert.doesNotMatch(failed[0].stderr, /state ref moved/);
+  const winner = runIn(root, env, 'log', 'only-ref', 'note A');
+  assert.equal(winner.code, 0, winner.err);
+
+  fs.writeFileSync(goFile, 'go');
+  const refused = await settledWithin(
+    held,
+    'the second writer never finished after the gate opened',
+  );
+
+  assert.equal(refused.code, 1, refused.stderr);
+  assert.match(refused.stderr, /state changed since load — re-run the command/);
+  assert.doesNotMatch(refused.stderr, /state ref moved/);
 
   // No partial write: the surviving snapshot has exactly one of the two
   // notes, never both, never neither.
