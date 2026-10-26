@@ -2,7 +2,7 @@
 id: "20261026-212529"
 title: Reescribir el bloque bootstrap para que la opcionalidad se lea primero
 type: change
-status: in-progress
+status: in-review
 created: 2026-10-26T21:25:29Z
 depends_on: []
 branch: change/20261026-212529
@@ -252,3 +252,4 @@ al texto en vez de pincharlo.
 - **2026-10-26T21:58:59Z** `[status]` in-progress → in-review
 - **2026-10-26T22:08:57Z** `[review]` in-review → in-progress: Segundo fail de la misma clase: «Where it is installed, and equally where it is not, running it is mandatory» pasa 67/67. CR2 pide probar una propiedad semántica que el patrón no decide; el guard es una enumeración, no una propiedad
 - **2026-10-26T22:15:27Z** `[note]` Segunda corrección: CR2 se reescribe a concept guard tolerante más barrido de reaperturas, porque la conditionality no es decidible por patrón; 212659 CR1 deja de pinchar el orden de palabras; reflowBootstrap, BOLD_LEAD y LAZY_LINE se extraen a test/helpers/bootstrap-fixtures.mjs y flat deja de duplicar flatten. Contraejemplos A y B rechazados, redacción honesta aceptada
+- **2026-10-26T22:15:27Z** `[status]` in-progress → in-review
