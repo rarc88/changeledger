@@ -159,10 +159,11 @@ libre y el botón mide su contenido.
   - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
   - **Criteria:** CR1, CR2
   - **Resolved:** `2026-10-26T13:55:30Z`
-- [ ] El board reparte el ancho entre las pistas de grid
+- [x] El board reparte el ancho entre las pistas de grid
   - **Target:** `src/viewer/public/styles.css`
   - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
   - **Criteria:** CR1
+  - **Resolved:** `2026-10-26T13:55:31Z`
 - [ ] El body es el contenedor flex de altura y las vistas son su item elástico
   - **Target:** `src/viewer/public/styles.css`
   - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
