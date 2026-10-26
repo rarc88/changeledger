@@ -336,6 +336,20 @@ cambios de párrafo o delimitadores ausentes, duplicados, desordenados o unidos
 a texto. Cualquier diferencia semántica restaura el bloque canónico. El
 bootstrap mantiene un único punto de entrada: `changeledger context`.
 
+**El bloque abre por la exención, no por el gobierno.** La primera frase acota
+el gobierno a los entornos que tienen el CLI; la segunda resuelve la ausencia:
+si `changeledger` no está, se trabaja con normalidad y no se emula. Sólo
+después, y condicionada a que esté instalado, llega la obligación de ejecutarlo
+antes de planificar, investigar, responder o editar. El orden es normativo, no
+estilístico: `AGENTS.md` lo leen también las personas que no han adoptado la
+herramienta, y un bloque que afirme el gobierno antes que la exención se lee
+como una imposición que en su entorno no se aplica, lo que empuja a reescribirlo
+a mano y a romper el bloque administrado —con el coste añadido de que
+`checkContract` lo reporta como desactualizado y tumba el gate de todo el
+equipo—. Que la obligación quede acotada al caso instalado es una propiedad
+semántica que ningún patrón decide: los tests la guardan por concepto y por
+barrido de las reaperturas ya observadas, y la revisión es su verdadera puerta.
+
 **El bootstrap manda un comando acotado, no una prohibición.** Desde el formato
 v4 no ordena "no recortes la salida" —una negación que el arnés incumple sin que
 el agente lo note— sino un comando exacto, `changeledger context 2>&1 |
