@@ -239,7 +239,17 @@ bootstrap de `loadRepo*`, las lecturas de config del visor y el listado del
 registry (que conserva el nombre cacheado cuando la ruta registrada no
 es un directorio utilizable, pero distingue "no activado" de "activación
 ilegible": un fallo del probe de activación sale en la entrada como
-`activationError` en vez de listarse como inactivo). `loadConfig`
+`activationError` en vez de listarse como inactivo). Ese listado falla cerrado
+cuando un repo ya probado como activado resulta ilegible, salvo en su modo
+tolerante, que devuelve el motivo en la entrada como `listingError` y sigue con
+el resto: un repo roto es justamente uno de los motivos por los que se llega al
+comando `changeledger projects`, que lista el registry con la salud de cada
+entrada y, con `--clean-missing`, le pasa las ausencias confirmadas a la misma
+mutación que usa el visor; `--dry-run` las nombra sin escribir. El sondeo que
+decide esa salud —`<path>/.changeledger/config.yml`, con `ENOENT` y `ENOTDIR`
+como única ausencia confirmada— vive en `src/registry.mjs` y lo consumen tanto
+ese comando como el visor, de modo que el criterio no se enuncia dos veces.
+`loadConfig`
 queda como primitiva interna del camino inactivo; `new.mjs` mantiene su gate
 propio y `resolveChange` sigue siendo por diseño el camino de mutación sobre
 worktree en modo inactivo. La autoridad que este camino devuelve la decide el mismo ancla de propiedad
