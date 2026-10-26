@@ -160,8 +160,9 @@ Alternativas descartadas:
 
 ## Plan
 
-- [ ] Reproducir el defecto con los dos procesos en serie y registrar su salida literal
+- [x] Reproducir el defecto con los dos procesos en serie y registrar su salida literal
   - **Support:** `node --test test/cli-bin.test.mjs`
+  - **Resolved:** `2026-10-26T18:46:49Z`
 - [ ] Instalar el `git` instrumentado y reescribir el test con la barrera, con papeles fijos
   - **Target:** `test/cli-bin.test.mjs`
   - **Verify:** `node --test test/cli-bin.test.mjs`
