@@ -2,9 +2,10 @@
 id: "20261026-165839"
 title: El bloqueo de scroll del detalle no ve todo lo que puede scrollear
 type: change
-status: approved
+status: in-progress
 created: 2026-10-26T16:58:39Z
 depends_on: []
+branch: change/20261026-165839
 related_to: ["20261026-134323"]
 owner: raruiz-hiberuscom
 ---
@@ -80,3 +81,5 @@ el test endurecido denuncie, aunque hoy no sea alcanzable.
 ## Log
 - **2026-10-26T16:58:39Z** `[version]` 1.0.0
 - **2026-10-26T17:01:05Z** `[status]` draft → approved (human via conversation)
+- **2026-10-26T17:01:14Z** `[status]` approved → in-progress
+- **2026-10-26T17:01:14Z** `[branch]` set: change/20261026-165839 (auto)
