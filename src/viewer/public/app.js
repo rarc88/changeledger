@@ -1,4 +1,5 @@
 import {
+  batchCleanMissingCandidates,
   getConfigMigrationPreview,
   getGitRefs,
   getLedgerDocument,
@@ -46,7 +47,7 @@ import {
 } from './app-state.js';
 import { createLedgerBrowser, handleLedgerDocumentLink } from './ledger-browser.js';
 import { cssIdent, initMermaid, makeMermaidExpandable, renderMermaid } from './security.js';
-import { boardStatuses, isVisible, passesTombstones } from './state.js';
+import { boardStatuses, isVisible } from './state.js';
 import { html, render as litRender, nothing } from './templates.js';
 import {
   approvalPanel,
@@ -63,7 +64,6 @@ import {
 } from './view-parts.js';
 import {
   changeUsageHtml,
-  graphSvg,
   ledgerViewHtml,
   metricsHtml,
   sortSpecsByUpdated,
@@ -455,8 +455,7 @@ function render() {
     else litRender(loadingProjectMessage(), $(`#${state.currentView}`));
     return;
   }
-  if (state.currentView === 'graph') renderGraph();
-  else if (state.currentView === 'table') renderTable();
+  if (state.currentView === 'table') renderTable();
   else if (state.currentView === 'ledger') renderLedger();
   else if (state.currentView === 'metrics') renderMetrics();
   else if (state.currentView === 'projects') renderProjects();
@@ -942,17 +941,6 @@ async function gotoChange(proj, changeId) {
   openDetail(changeId);
 }
 
-/* Dependency graph */
-function renderGraph() {
-  const changes = state.repo.changes.filter((c) => passesTombstones(c, state.filters));
-  litRender(graphSvg(changes), $('#graph'));
-  $('#graph')
-    .querySelectorAll('.node')
-    .forEach((el) => {
-      el.onclick = () => openDetail(el.dataset.id);
-    });
-}
-
 /* Table view */
 function renderTable() {
   const cols = [
@@ -1203,7 +1191,7 @@ export function handleSpecBodyClick(event, _openSpecByName) {
   _openSpecByName(href);
 }
 
-const VIEWS = ['board', 'table', 'graph', 'ledger', 'metrics', 'projects'];
+const VIEWS = ['board', 'table', 'ledger', 'metrics', 'projects'];
 
 // The shared metrics module is dynamic-imported once and cached: the client
 // computes metrics itself, over the filtered set, instead of duplicating
@@ -1837,6 +1825,31 @@ async function refreshProjectRegistry(stale = () => false) {
   return true;
 }
 
+// One request per batch, aggregated into the single receipt the panel already
+// consumes. A batch that fails stops the run and keeps what the finished ones
+// removed, so the receipt stays truthful about a partial cleanup.
+async function cleanMissingInBatches(request, candidates) {
+  const aggregate = { removedIds: [], removed: 0, skipped: 0 };
+  for (const batch of batchCleanMissingCandidates(candidates)) {
+    const response = await request(true, batch);
+    const body = await response.json();
+    if (!response.ok) {
+      const reason = body?.error || 'Project update failed.';
+      return {
+        ok: true,
+        json: async () => ({
+          ...aggregate,
+          error: `${reason} ${aggregate.removed} of ${candidates.length} missing project(s) were removed before it stopped.`,
+        }),
+      };
+    }
+    aggregate.removedIds.push(...(body.removedIds ?? []));
+    aggregate.removed += body.removed ?? 0;
+    aggregate.skipped += body.skipped ?? 0;
+  }
+  return { ok: true, json: async () => aggregate };
+}
+
 export async function cleanMissingProjectsFromView(
   root,
   candidates,
@@ -1852,7 +1865,7 @@ export async function cleanMissingProjectsFromView(
   const previousTarget = captureProjectTarget(state.currentProject);
   return projectMutation(
     root,
-    () => request(true, candidates),
+    () => cleanMissingInBatches(request, candidates),
     async (body) => {
       if (!(await refresh())) return;
       if (
@@ -1863,6 +1876,10 @@ export async function cleanMissingProjectsFromView(
           throw new Error('Unable to reload the selected project after cleanup.');
       }
       await onCleaned(body);
+      // Raised only after the panel has been refreshed: a batch that failed
+      // must not read as a complete cleanup, and the entries the finished
+      // batches did remove must already be gone from the view.
+      if (body.error) throw new Error(body.error);
     },
     { errorSelector: '.project-clean-error' },
   );
@@ -2324,7 +2341,6 @@ function bootstrap() {
   });
   $('#view-board').onclick = () => activateView('board');
   $('#view-table').onclick = () => activateView('table');
-  $('#view-graph').onclick = () => activateView('graph');
   $('#view-ledger').onclick = () => activateView('ledger');
   $('#view-metrics').onclick = () => activateView('metrics');
   $('#view-projects').onclick = () => activateView('projects');
@@ -2350,17 +2366,6 @@ function bootstrap() {
   window.onpopstate = (event) => void restoreViewerLocation(event);
   void loadProjects(initialRoute);
   setInterval(() => load(getRepo, applyLoadedRepo, { polling: true }), 5000);
-
-  // The topbar wraps to multiple rows at content-dependent widths, so the
-  // CSS fallback constant cannot bound the projects panels; track the real
-  // rendered height instead.
-  const topbar = document.querySelector('.topbar');
-  if (topbar && typeof ResizeObserver === 'function') {
-    const syncHeaderHeight = () =>
-      document.documentElement.style.setProperty('--header-height', `${topbar.offsetHeight}px`);
-    new ResizeObserver(syncHeaderHeight).observe(topbar);
-    syncHeaderHeight();
-  }
 }
 
 export function closeFilterMenusOnOutsideClick(menus, target) {

@@ -15,3 +15,7 @@ npm-debug.log*
 
 # Temporary files
 .tmp
+
+# Worktrees the desktop app creates for its sessions: checkouts of this same
+# repo, so each carries a copy of biome.json that would collide with the root.
+.claude/worktrees/

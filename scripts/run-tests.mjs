@@ -1,6 +1,12 @@
 #!/usr/bin/env node
 // Runs `node --test` with a temp root of its own and removes that root when
 // the run ends, so the suite leaves nothing in the system temp (20261007-135154).
+// The root also holds the throwaway CHANGELEDGER_HOME the child runs against:
+// `registryDir()` falls back to os.homedir(), so a test that calls `init()`
+// without setting that variable would register its temp repo in the real
+// user's registry. Isolating it here rather than per test file means a new
+// test cannot forget to; a file that still sets it in-process wins, because
+// that assignment happens inside the child.
 // os.tmpdir() reads TMPDIR (TEMP/TMP on Windows) and `node --test` children
 // inherit the environment, so directories the tests create through os.tmpdir()
 // land inside the root. Arguments are forwarded to `node --test`; the exit
@@ -66,9 +72,11 @@ for (const [signal, forward] of Object.entries(forwarded)) {
 }
 
 root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-test-'));
+const home = path.join(root, 'home');
+fs.mkdirSync(home);
 const child = spawn(process.execPath, ['--test', ...process.argv.slice(2)], {
   stdio: 'inherit',
-  env: { ...process.env, TMPDIR: root, TEMP: root, TMP: root },
+  env: { ...process.env, TMPDIR: root, TEMP: root, TMP: root, CHANGELEDGER_HOME: home },
 });
 
 child.on('error', (error) => {

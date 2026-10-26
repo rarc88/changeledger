@@ -24,8 +24,6 @@
   --status-done: #3fb950;
   --status-discarded: #9aa0aa;
   --status-muted: #8b929e;
-  /* fallback only: app.js keeps this synced to the real .topbar height */
-  --header-height: 55px;
   font-family: "Avenir Next", Avenir, ui-sans-serif, sans-serif;
   color-scheme: dark;
 }
@@ -55,8 +53,15 @@ body::-webkit-scrollbar-thumb {
   border-radius: 999px;
 }
 
+/* The body owns the viewport height: the topbar is the rigid item, the one
+   visible view is the elastic one. Nothing subtracts a header height, so no
+   rounding error can overflow the document into a second scrollbar. */
 body {
   margin: 0;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   background: var(--bg);
   color: var(--text);
   font-size: 14px;
@@ -69,6 +74,7 @@ body {
 
 /* Top bar */
 .topbar {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -161,7 +167,9 @@ body {
 /* Project management */
 .projects-view {
   padding: 18px;
-  height: calc(100dvh - var(--header-height));
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
   box-sizing: border-box;
 }
 .projects-shell {
@@ -364,9 +372,8 @@ body {
   cursor: wait;
 }
 @media (max-width: 900px) {
-  .projects-view {
-    height: auto;
-  }
+  /* The panels hand their scroll to the view, which owns one of its own; the
+     view's height comes from the flex model, not from a declaration here. */
   .projects-shell {
     grid-template-columns: 1fr;
     height: auto;
@@ -538,7 +545,9 @@ body {
 /* Table view */
 .table-view {
   padding: 16px;
-  overflow-x: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
 }
 .grid {
   width: 100%;
@@ -623,11 +632,14 @@ body {
 .board {
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: clamp(190px, calc((100vw - 140px) / 6), 400px);
+  /* The implicit tracks share the free width, whatever the lane count is; the
+     190px floor keeps the horizontal scroll once they no longer fit. */
+  grid-auto-columns: minmax(190px, 1fr);
   grid-template-rows: minmax(max-content, 100%);
   gap: 14px;
   padding: 16px;
-  height: calc(100dvh - var(--header-height));
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: auto;
   align-items: stretch;
 }
@@ -665,10 +677,6 @@ body {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 12px;
-  width: clamp(190px, calc((100vw - 140px) / 6), 400px);
-  min-width: 190px;
-  max-width: 400px;
-  flex: 0 0 clamp(190px, calc((100vw - 140px) / 6), 400px);
 }
 .column-head {
   display: flex;
@@ -843,7 +851,7 @@ body {
 }
 .validation-controls {
   display: grid;
-  grid-template-columns: auto minmax(190px, 1fr) auto;
+  grid-template-columns: minmax(190px, 1fr) auto;
   align-items: end;
   gap: 10px;
   margin-top: 15px;
@@ -936,6 +944,8 @@ body {
 }
 .global-view {
   padding: 18px;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: auto;
 }
 .search-group {
@@ -961,6 +971,8 @@ body {
 }
 .metrics-view {
   padding: 18px;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: auto;
 }
 .metrics-cards {
@@ -1097,6 +1109,7 @@ body {
   border-left: 1px solid var(--line);
   overflow-y: auto;
   overflow-anchor: none;
+  overscroll-behavior: contain;
   padding: 22px 26px 60px;
   box-shadow: -24px 0 70px rgba(0, 0, 0, 0.28);
 }
@@ -1427,14 +1440,6 @@ body {
   color: var(--blocked);
 }
 
-/* Graph */
-.graph {
-  padding: 24px;
-  overflow: auto;
-}
-.graph svg {
-  width: 100%;
-}
 .mermaid-expandable {
   position: relative;
   cursor: zoom-in;
@@ -1508,40 +1513,10 @@ body {
   min-height: 100%;
   margin: auto;
 }
-.node rect {
-  fill: var(--panel-2);
-  stroke: var(--line);
-  rx: 8;
-  cursor: pointer;
-}
-.node:hover rect {
-  stroke: var(--accent);
-}
-.node text {
-  fill: var(--text);
-  font-size: 12px;
-}
-.node .nid {
-  fill: var(--muted);
-  font-family: ui-monospace, monospace;
-  font-size: 10px;
-}
-.edge {
-  stroke: var(--muted);
-  stroke-width: 1.5;
-  fill: none;
-  marker-end: url(#arrow);
-}
-.relation-edge {
-  stroke: var(--accent);
-  stroke-width: 1.4;
-  stroke-dasharray: 5 5;
-  opacity: 0.72;
-}
 
 /* Ledger */
 .ledger-view {
-  height: calc(100dvh - var(--header-height));
+  flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
   display: flex;
@@ -1720,9 +1695,14 @@ body {
 
 /* Responsive: stack on narrow viewports (mobile) */
 @media (max-width: 680px) {
+  /* Here the lanes stack and the page is the scroller on purpose, so the
+     desktop height lock is lifted. */
+  body {
+    height: auto;
+    overflow: visible;
+  }
   .ledger-view {
     height: auto;
-    min-height: calc(100dvh - var(--header-height));
     overflow: visible;
     overflow-x: hidden;
   }
@@ -1764,8 +1744,6 @@ body {
     overflow: visible;
   }
   .column {
-    max-width: none;
-    min-width: 0;
     width: 100%;
     flex: 0 0 auto;
   }
@@ -2102,4 +2080,27 @@ body {
 .cl-prompt-input:focus {
   outline: none;
   border-color: var(--accent);
+}
+
+/* The one detail-open lock. Locking the document is not enough: every view —
+   and, in the Ledger, its inner panels — is a scroll container of its own and
+   would paint a second vertical bar beside the detail's. Anything that scrolls
+   behind the overlay belongs on this list; the test derives the list from the
+   stylesheet so a newly elastic view cannot be left off it. The block sits
+   after every rule it overrides, so neither source order nor an equally
+   specific attribute selector can win over it, and `overflow: hidden` keeps
+   the scroll offset, so closing the detail restores the position. */
+.detail-open .board,
+.detail-open .table-view,
+.detail-open .metrics-view,
+.detail-open .global-view,
+.detail-open .projects-view,
+.detail-open .projects-list,
+.detail-open .project-editor,
+.detail-open .config-migration-yaml,
+.detail-open .ledger-content,
+.detail-open .ledger-source,
+.detail-open .ledger-tree-panel,
+.detail-open .ledger-article-panel {
+  overflow: hidden;
 }

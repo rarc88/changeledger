@@ -82,15 +82,13 @@ const {
   rejectionPanel,
   specBody,
 } = await import('../src/viewer/public/view-parts.js');
-const { graphSvg, metricsHtml, specsListHtml } = await import(
-  '../src/viewer/public/view-renderers.js'
-);
+const { metricsHtml, specsListHtml } = await import('../src/viewer/public/view-renderers.js');
 
 const viewerShell = () => {
   const root = document.createElement('div');
   root.innerHTML = `<input id="search"><button id="toggle-global"></button><select id="project"></select>
     <span id="lang"></span><div id="type-filter"></div><div id="owner-filter"></div><div id="status-filter"></div>
-    ${['board', 'table', 'graph', 'ledger', 'metrics', 'projects']
+    ${['board', 'table', 'ledger', 'metrics', 'projects']
       .map((name) => `<button id="view-${name}"></button><section id="${name}"></section>`)
       .join('')}
     <section id="global"></section>`;
@@ -849,24 +847,24 @@ test('111218 CR3/CR6/CR7/CR9: project view wires select, reload, save, repair an
 test('111219 CR1/CR2: restored state hydrates search, active view and global mode', () => {
   const root = document.createElement('div');
   root.innerHTML = `<input id="search"><button id="toggle-global"></button>
-    ${['board', 'table', 'graph', 'ledger', 'metrics', 'projects']
+    ${['board', 'table', 'ledger', 'metrics', 'projects']
       .map((name) => `<button id="view-${name}"></button><section id="${name}"></section>`)
       .join('')}
     <section id="global"></section>`;
   appState.filters.text = 'authentication';
-  appState.currentView = 'graph';
+  appState.currentView = 'metrics';
   appState.globalMode = false;
   syncViewerShell(root, false);
   assert.equal(root.querySelector('#search').value, 'authentication');
-  assert.ok(root.querySelector('#view-graph').classList.contains('active'));
-  assert.ok(!root.querySelector('#graph').classList.contains('hidden'));
+  assert.ok(root.querySelector('#view-metrics').classList.contains('active'));
+  assert.ok(!root.querySelector('#metrics').classList.contains('hidden'));
   assert.ok(root.querySelector('#board').classList.contains('hidden'));
 
   appState.globalMode = true;
   syncViewerShell(root, false);
   assert.ok(root.querySelector('#toggle-global').classList.contains('active'));
   assert.ok(!root.querySelector('#global').classList.contains('hidden'));
-  assert.ok(root.querySelector('#graph').classList.contains('hidden'));
+  assert.ok(root.querySelector('#metrics').classList.contains('hidden'));
 
   appState.globalMode = false;
   appState.currentView = 'ledger';
@@ -935,7 +933,7 @@ test('111219 CR1/CR6: bootstrap restores shell synchronously and tolerates block
   const shell = () => {
     const root = document.createElement('div');
     root.innerHTML = `<input id="search"><button id="toggle-global"></button>
-      ${['board', 'table', 'graph', 'ledger', 'metrics', 'projects']
+      ${['board', 'table', 'ledger', 'metrics', 'projects']
         .map((name) => `<button id="view-${name}"></button><section id="${name}"></section>`)
         .join('')}
       <section id="global"></section>`;
@@ -965,7 +963,7 @@ test('111219 CR1/CR6: bootstrap restores shell synchronously and tolerates block
 test('111219 CR4: no live project replaces a restored view with the visible empty state', () => {
   const root = document.createElement('div');
   root.innerHTML = `<input id="search"><button id="toggle-global"></button>
-    ${['board', 'table', 'graph', 'ledger', 'metrics', 'projects']
+    ${['board', 'table', 'ledger', 'metrics', 'projects']
       .map((name) => `<button id="view-${name}"></button><section id="${name}"></section>`)
       .join('')}
     <section id="global"></section>`;
@@ -994,7 +992,7 @@ test('20261007-135148 CR1: every project view shows the empty state when no repo
   appState.repo = null;
   appState.currentProject = null;
   try {
-    for (const view of ['board', 'table', 'graph', 'ledger', 'metrics']) {
+    for (const view of ['board', 'table', 'ledger', 'metrics']) {
       activateView(view, { historyMode: null });
       await new Promise((resolve) => setTimeout(resolve, 0));
       const container = fixture.querySelector(`#${view}`);
@@ -1037,7 +1035,7 @@ test('20261007-135148 CR2: the projects view still shows its own empty state wit
   }
 });
 
-const LOAD_ERROR_VIEWS = ['board', 'table', 'graph', 'ledger', 'metrics'];
+const LOAD_ERROR_VIEWS = ['board', 'table', 'ledger', 'metrics'];
 const NO_PROJECTS_TEXT = 'No projects registered. Run changeledger init in a repo.';
 
 async function withFailedLoadFixture(run) {
@@ -1101,7 +1099,7 @@ const recoveredPayloadText = () =>
     }),
   });
 
-test('20261007-172305 CR1: a failed project load shows its error in board, table, graph, ledger and metrics', async () => {
+test('a failed project load shows its error in board, table, ledger and metrics', async () => {
   await withFailedLoadFixture(async (fixture, tick) => {
     assert.equal(await load(failingLoad), false);
     for (const view of LOAD_ERROR_VIEWS) {
@@ -1180,7 +1178,7 @@ test('20261007-172305 F1: a failed load of the selected project is not covered b
     await selectViewerProject('beta', { loadProject: () => load(failingLoad) });
     try {
       setTextFilter('anything');
-      for (const view of ['board', 'table', 'graph', 'ledger', 'metrics', 'board']) {
+      for (const view of ['board', 'table', 'ledger', 'metrics', 'board']) {
         activateView(view, { historyMode: null });
         await tick();
         const shown = fixture.querySelector(`#${view}`).textContent;
@@ -2486,14 +2484,14 @@ test('210508 CR6 / 125850 CR2: discarded is hidden by default and gets an opt-in
     'done',
     'discarded',
   ]);
-  // The graph uses passesTombstones directly (shared with isVisible) so it can't
-  // diverge: discarded is hidden by default there too, shown only with the toggle.
-  assert.equal(passesTombstones(c, f), false, 'graph hides discarded by default');
-  assert.equal(passesTombstones(c, { ...f, showDiscarded: true }), true, 'graph shows with toggle');
+  // passesTombstones is the rule itself, which isVisible composes, so no view
+  // can diverge: discarded is hidden by default, shown only with the toggle.
+  assert.equal(passesTombstones(c, f), false, 'discarded hidden by default');
+  assert.equal(passesTombstones(c, { ...f, showDiscarded: true }), true, 'shown with the toggle');
   assert.equal(
     passesTombstones({ ...baseChange(), archived: true }, f),
     false,
-    'graph hides archived',
+    'archived hidden by default',
   );
 });
 
@@ -2528,7 +2526,7 @@ test('105206 CR1/CR2/CR3: type and owner sets combine inclusively without a sent
   );
 });
 
-test('141643 CR3: pending graduation combines with every visible-change filter but not Graph', () => {
+test('pending graduation combines with every visible-change filter but not the tombstone rule', () => {
   const filters = {
     text: 'needle',
     types: new Set(['feature']),
@@ -2556,7 +2554,7 @@ test('141643 CR3: pending graduation combines with every visible-change filter b
   assert.equal(
     passesTombstones({ ...matching, pending_graduation: false }, filters),
     true,
-    'Graph keeps its tombstone-only filter semantics',
+    'the tombstone rule stays independent of pending graduation',
   );
 });
 
@@ -2687,24 +2685,21 @@ test('141643 CR4/CR5: desktop board is the sole two-axis viewport and all lanes 
   const columnRule = css.match(/\.column\s*\{([^}]*)\}/s)?.[1] ?? '';
   const bodyRule = css.match(/\.column-body\s*\{([^}]*)\}/s)?.[1] ?? '';
 
-  assert.match(boardRule, /height:\s*calc\(100dvh\s*-\s*var\(--header-height\)\)/);
+  assert.match(boardRule, /flex:\s*1\s+1\s+auto/);
+  assert.match(boardRule, /min-height:\s*0/);
   assert.match(boardRule, /overflow:\s*auto/);
   assert.doesNotMatch(boardRule, /overflow-[xy]:/);
   assert.match(boardRule, /display:\s*grid/);
   assert.match(boardRule, /grid-auto-flow:\s*column/);
   assert.match(boardRule, /grid-template-rows:\s*minmax\(max-content,\s*100%\)/);
   assert.doesNotMatch(boardRule, /grid-template-rows:\s*minmax\(100%,\s*max-content\)/);
-  assert.match(
-    boardRule,
-    /grid-auto-columns:\s*clamp\(190px,\s*calc\(\(100vw - 140px\) \/ 6\),\s*400px\)/,
-  );
+  assert.match(boardRule, /grid-auto-columns:\s*minmax\(190px,\s*1fr\)/);
   assert.match(boardRule, /align-items:\s*stretch/);
   assert.match(columnRule, /display:\s*flex/);
   assert.match(columnRule, /flex-direction:\s*column/);
   assert.match(bodyRule, /flex:\s*1\s+0\s+auto/);
   assert.doesNotMatch(css, /proxy[-_ ]scroll|scrollbar[-_ ]proxy|sync(?:ed|hronized)?[-_ ]scroll/i);
-  assert.match(app, /new ResizeObserver\(syncHeaderHeight\)\.observe\(topbar\)/);
-  assert.match(app, /setProperty\('--header-height',\s*`\$\{topbar\.offsetHeight\}px`\)/);
+  assert.doesNotMatch(app, /--header-height/);
 });
 
 test('141643 CR6: mobile board restores natural stacked lanes without internal overflow', () => {
@@ -2721,6 +2716,317 @@ test('141643 CR6: mobile board restores natural stacked lanes without internal o
   assert.match(mobileBoard, /overflow:\s*visible/);
   assert.match(mobileColumn, /width:\s*100%/);
   assert.match(mobileColumn, /flex:\s*0\s+0\s+auto/);
+});
+
+// The lane width used to be arithmetic — a divisor of six baked into both the
+// board and the column — while the lane count comes from `statuses` and the
+// active filters. The grid track owns the width now, so any lane count fills
+// the viewport and the 190px floor still buys the horizontal scroll the board
+// was given when its overflow was first fixed.
+test('the lane takes its width from the grid track and declares none of its own', () => {
+  const css = fs.readFileSync(new URL('../src/viewer/public/styles.css', import.meta.url), 'utf8');
+  const columnRule = css.match(/\.column\s*\{([^}]*)\}/s)?.[1] ?? '';
+
+  assert.doesNotMatch(columnRule, /(?:^|;)\s*width:/);
+  assert.doesNotMatch(columnRule, /min-width:/);
+  assert.doesNotMatch(columnRule, /max-width:/);
+  assert.doesNotMatch(columnRule, /(?:^|;)\s*flex:/);
+  assert.doesNotMatch(css, /calc\(\(100vw[^)]*\)\s*\/\s*\d/);
+});
+
+// One height model: the body is the flex column, the visible view is its
+// elastic item. The subtraction of a JS-synchronised header height overflowed
+// the document by the rounding error and painted a second scrollbar.
+test('the body owns the height and no rule subtracts a header variable', () => {
+  const css = fs.readFileSync(new URL('../src/viewer/public/styles.css', import.meta.url), 'utf8');
+  const app = fs.readFileSync(new URL('../src/viewer/public/app.js', import.meta.url), 'utf8');
+  const bodyRule = css.match(/(?<!,)\nbody\s*\{([^}]*)\}/s)?.[1] ?? '';
+
+  assert.match(bodyRule, /height:\s*100dvh/);
+  assert.match(bodyRule, /display:\s*flex/);
+  assert.match(bodyRule, /flex-direction:\s*column/);
+  assert.match(bodyRule, /overflow:\s*hidden/);
+  assert.doesNotMatch(css, /--header-height/);
+  assert.doesNotMatch(app, /--header-height/);
+  assert.doesNotMatch(app, /ResizeObserver/);
+
+  // A locked body clips whatever its elastic item cannot show, so every view
+  // owns a scroller of its own — either directly, or by handing it to inner
+  // panels behind `overflow: hidden`. `.projects-view` was the hole: it was
+  // given the elastic sizing and no overflow, and the pre-existing 900px block
+  // takes the scroll off its inner panels, so between 681px and 900px nothing
+  // scrolled and the content was unreachable.
+  for (const view of [
+    '.board',
+    '.table-view',
+    '.metrics-view',
+    '.global-view',
+    '.projects-view',
+    '.ledger-view',
+  ]) {
+    const rule = css.match(new RegExp(`\\${view}\\s*\\{([^}]*)\\}`, 's'))?.[1] ?? '';
+    assert.match(rule, /flex:\s*1\s+1\s+auto/, view);
+    assert.match(rule, /min-height:\s*0/, view);
+    assert.match(rule, /overflow:\s*(?:auto|hidden)/, view);
+  }
+});
+
+// Below 680px the lanes stack and the page is the scroller on purpose, so the
+// desktop lock has to be lifted there.
+test('the mobile block hands the scroll back to the page', () => {
+  const css = fs.readFileSync(new URL('../src/viewer/public/styles.css', import.meta.url), 'utf8');
+  const responsive = css.slice(css.indexOf('/* Responsive: stack on narrow viewports (mobile) */'));
+  const mobileBody =
+    responsive.match(/@media\s*\(max-width:\s*680px\)[\s\S]*?\n\s*body\s*\{([^}]*)\}/)?.[1] ?? '';
+
+  assert.match(mobileBody, /height:\s*auto/);
+  assert.match(mobileBody, /overflow:\s*visible/);
+});
+
+// Every style rule, including the ones nested in an at-rule: a `@media` block
+// is a container of rules, not a rule, so its contents are scanned rather than
+// skipped. Leaving them out is what hid the defect that made a whole view
+// unreachable between two breakpoints.
+function styleRules(css) {
+  const rules = [];
+  const source = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  // One frame per open block. A frame's body collects only the characters at
+  // its own level, so a rule that nests another keeps its own declarations and
+  // the nested one is seen in its own right.
+  const frames = [];
+  let pending = '';
+  // A `;` only ends a statement outside quotes and brackets: a selector may
+  // carry one inside an attribute value, and a declaration inside a string or
+  // a `data:` URL.
+  let quote = '';
+  let brackets = 0;
+  let escaped = false;
+  for (const ch of source) {
+    if (escaped) {
+      escaped = false;
+      if (frames.length) frames[frames.length - 1].body += ch;
+      else pending += ch;
+      continue;
+    }
+    if (quote && ch === '\\') {
+      escaped = true;
+      if (frames.length) frames[frames.length - 1].body += ch;
+      continue;
+    }
+    if (quote) {
+      if (ch === quote) quote = '';
+    } else if (ch === '"' || ch === "'") {
+      quote = ch;
+    } else if (ch === '[' || ch === '(') {
+      brackets += 1;
+    } else if (ch === ']' || ch === ')') {
+      brackets = Math.max(0, brackets - 1);
+    }
+    const inLiteral = quote !== '' || brackets > 0;
+
+    if (ch === '{' && !inLiteral) {
+      const selector = pending.trim();
+      frames.push({ kind: selector.startsWith('@') ? 'at' : 'rule', selector, body: '' });
+      pending = '';
+    } else if (ch === '}' && !inLiteral) {
+      const frame = frames.pop();
+      if (frame?.kind === 'rule') rules.push({ selector: frame.selector, body: frame.body });
+      pending = '';
+    } else {
+      // Outside a literal, a `;` ends a statement — a declaration, or an
+      // at-rule such as `@import url("x");`. Without this the next selector
+      // would absorb it and the rule it names would be classified as an
+      // at-rule and dropped.
+      if (ch === ';' && !inLiteral) pending = '';
+      else pending += ch;
+      if (frames.length) frames[frames.length - 1].body += ch;
+    }
+  }
+  // Anything still open means the walk lost its place, and every rule after
+  // that point is missing from the result. Say so rather than hand back a
+  // partial answer that looks complete.
+  const open = [
+    quote && `string opened with ${quote}`,
+    brackets > 0 && `${brackets} bracket(s)`,
+    frames.length && `${frames.length} block(s)`,
+  ].filter(Boolean);
+  if (open.length)
+    throw new Error(`unterminated ${open.join(', ')} — the stylesheet was not fully read`);
+  return rules;
+}
+
+// The scanner's own guards, because the sheet uses none of these constructs
+// today and a blind spot nobody exercises is a blind spot nobody notices.
+test('the rule scanner survives statement at-rules and nesting', () => {
+  const scrollersOf = (css) =>
+    styleRules(css)
+      .filter((rule) => VERTICAL_SCROLL.test(rule.body))
+      .flatMap((rule) => rule.selector.split(',').map((one) => one.trim()))
+      .sort();
+
+  // A `;`-terminated at-rule ends a statement: the rule after it keeps its own
+  // selector instead of being absorbed into the at-rule's.
+  assert.deepEqual(scrollersOf('@import url("x");\n.a { overflow: auto }'), ['.a']);
+  assert.deepEqual(scrollersOf('@layer base;\n.b { overflow-y: scroll }'), ['.b']);
+
+  // A rule that nests another keeps its own declarations, and the nested one is
+  // seen in its own right.
+  assert.deepEqual(scrollersOf('.p { overflow-y: auto; & .c { color: red } }'), ['.p']);
+  assert.deepEqual(scrollersOf('.p { color: red; & .c { overflow: auto } }'), ['& .c']);
+  assert.deepEqual(scrollersOf('.p { overflow: auto; & .c { overflow-y: scroll } }').sort(), [
+    '& .c',
+    '.p',
+  ]);
+
+  // The `;` that ends a statement is the one outside quotes and brackets. A
+  // selector may legitimately carry one inside an attribute value, and a
+  // declaration may carry one inside a string or a `data:` URL.
+  assert.deepEqual(scrollersOf('.a[data-x="a;b"] { overflow-y: auto }'), ['.a[data-x="a;b"]']);
+  assert.deepEqual(scrollersOf(".a[data-x='a;b'] { overflow: scroll }"), [".a[data-x='a;b']"]);
+  assert.deepEqual(
+    scrollersOf('.q { background: url(data:image/svg+xml;base64,AAA) }\n.r { overflow: auto }'),
+    ['.r'],
+  );
+  assert.deepEqual(scrollersOf('.s { content: "x;y"; overflow-y: auto }'), ['.s']);
+
+  // Same reason braces inside a string no longer desynchronise the frames: the
+  // closing one used to end the rule early, so its own declaration was lost.
+  assert.deepEqual(scrollersOf('.t { content: "{"; overflow-y: auto }'), ['.t']);
+  assert.deepEqual(scrollersOf('.u { content: "}"; overflow-y: auto }'), ['.u']);
+
+  // A backslash escapes the next character, so an escaped quote does not end
+  // the string and take the rest of the sheet with it.
+  assert.deepEqual(scrollersOf('.w { content: "a\\"b"; overflow-y: auto }'), ['.w']);
+  assert.deepEqual(scrollersOf('.x { content: "a\\"b" }\n.y { overflow: auto }'), ['.y']);
+});
+
+// Everything above is about not losing a rule. This is the backstop: when the
+// scanner cannot make sense of the sheet at all it says so, instead of
+// returning the rules it managed to read and dropping the rest in silence —
+// which is the one failure mode this whole guard exists to prevent.
+test('the rule scanner refuses a sheet it could not finish reading', () => {
+  const unfinished = [
+    ['an unclosed string', '.a { content: "x }'],
+    ['an unclosed url()', '.a { background: url(foo.png; }\n.b { overflow: auto }'],
+    ['an unclosed attribute selector', '.a[x { }\n.b { overflow: auto }'],
+    ['an unclosed block', '.a { overflow: auto'],
+  ];
+  for (const [what, css] of unfinished) {
+    assert.throws(() => styleRules(css), /unterminated/i, what);
+  }
+  assert.doesNotThrow(() =>
+    styleRules(
+      fs.readFileSync(new URL('../src/viewer/public/styles.css', import.meta.url), 'utf8'),
+    ),
+  );
+});
+
+// Only a vertical overflow paints the bar this is about; `overflow-x` does not.
+const VERTICAL_SCROLL = /overflow(?:-y)?:\s*(?:auto|scroll)/;
+// A bare class, optionally qualified by one attribute. Anything else is not
+// skipped — it fails the test, because a shape nobody anticipated is exactly
+// what a silent skip turns into a second scrollbar.
+const SIMPLE_CLASS = /^(\.[a-z][a-z0-9-]*)(\[[^\]]*\])?$/;
+// What lives in FRONT of the overlay, so it is allowed to keep its scrollbar.
+// An exact list, not a prefix: `.detail-…` is a naming convention, not a
+// guarantee of sitting in front, and a prefix would exclude a future panel
+// silently. Adding a third one here is then a deliberate act.
+const IN_FRONT = new Set(['.detail', '.diagram-canvas']);
+
+// The derivation itself, over any stylesheet: what scrolls vertically behind
+// the overlay, and what the test could not classify.
+function scrollersBehindOverlay(css) {
+  const rules = styleRules(css);
+  const selectorsOf = (rule) => rule.selector.split(',').map((one) => one.trim());
+  const vertical = [
+    ...new Set(rules.filter((rule) => VERTICAL_SCROLL.test(rule.body)).flatMap(selectorsOf)),
+  ];
+  const locked = new Set(
+    rules
+      .filter(
+        (rule) => /\.detail-open\s/.test(rule.selector) && /overflow:\s*hidden/.test(rule.body),
+      )
+      .flatMap(selectorsOf)
+      .map((one) => one.replace(/^\.detail-open\s+/, '').replace(/\[[^\]]*\]$/, '')),
+  );
+  return {
+    locked,
+    unrecognised: vertical.filter((one) => !SIMPLE_CLASS.test(one)),
+    behind: new Set(
+      vertical.map((one) => one.replace(SIMPLE_CLASS, '$1')).filter((one) => !IN_FRONT.has(one)),
+    ),
+  };
+}
+
+// A prefix match would wave through anything merely named like the overlay's
+// own parts; only the two that really sit in front are excluded.
+test('only the panels that really sit in front of the overlay are excused', () => {
+  const sheet = (selector) => `${selector} { overflow-y: auto }`;
+
+  assert.deepEqual([...scrollersBehindOverlay(sheet('.detail')).behind], []);
+  assert.deepEqual([...scrollersBehindOverlay(sheet('.diagram-canvas')).behind], []);
+  for (const lookalike of ['.detail-sidebar', '.detail-notes', '.diagram-index']) {
+    assert.deepEqual(
+      [...scrollersBehindOverlay(sheet(lookalike)).behind],
+      [lookalike],
+      `${lookalike} only looks like it sits in front`,
+    );
+  }
+});
+
+// The obligation, derived from the stylesheet rather than listed: anything
+// behind the overlay that scrolls paints a bar beside the detail's, so it must
+// be in the lock. The derivation used to recognise a hand-written family of
+// names and drop the rest without a word — which is how two panels stayed
+// unlocked and a whole `@media` block stayed unread.
+test('every scroll container behind the overlay is in the detail-open lock', () => {
+  const css = fs.readFileSync(new URL('../src/viewer/public/styles.css', import.meta.url), 'utf8');
+  const { locked, unrecognised, behind } = scrollersBehindOverlay(css);
+
+  assert.deepEqual(
+    unrecognised,
+    [],
+    `these selectors scroll vertically in a shape this test cannot normalise, so it cannot tell whether they are locked: ${unrecognised.join(', ')}`,
+  );
+  assert.ok(behind.size >= 12, `expected the views and panels to scroll, found ${[...behind]}`);
+  for (const scroller of behind) {
+    assert.ok(
+      locked.has(scroller),
+      `${scroller} scrolls but is not locked while the detail is open`,
+    );
+  }
+});
+
+// `.detail-open` locked the document, but every view is a scroll container of
+// its own and survived the lock, so the board kept a second vertical bar
+// beside the detail's.
+test('an open detail silences the scrollers behind it', () => {
+  const css = fs.readFileSync(new URL('../src/viewer/public/styles.css', import.meta.url), 'utf8');
+  const detailRule = css.match(/\n\.detail\s*\{([^}]*)\}/s)?.[1] ?? '';
+  const lockRule = css.match(/\.detail-open\s+\.board[^{]*\{([^}]*)\}/s)?.[1] ?? '';
+
+  assert.match(detailRule, /overscroll-behavior:\s*contain/);
+  assert.match(lockRule, /overflow:\s*hidden/);
+  for (const view of ['.table-view', '.metrics-view', '.global-view', '.ledger-article-panel']) {
+    assert.match(css, new RegExp(`\\.detail-open\\s+\\${view}`), view);
+  }
+});
+
+// Retiring the Accept control from the verdict panel left its third grid track
+// behind: the reason field collapsed into the `auto` track at 169px and the
+// button stretched across the `1fr` at 669px.
+test('the verdict row declares one track per control it renders', () => {
+  const css = fs.readFileSync(new URL('../src/viewer/public/styles.css', import.meta.url), 'utf8');
+  const rule = css.match(/\.validation-controls\s*\{([^}]*)\}/s)?.[1] ?? '';
+  const tracks = rule.match(/grid-template-columns:\s*([^;]+);/)?.[1] ?? '';
+  const controls = parse(
+    rejectionPanel({ ...baseChange(), status: 'done', released: false }),
+  ).querySelector('.validation-controls');
+
+  assert.equal(tracks.trim(), 'minmax(190px, 1fr) auto');
+  assert.equal(controls.children.length, 2);
+  assert.ok(controls.children[0].classList.contains('rejection-field'));
+  assert.equal(controls.children[1].tagName, 'BUTTON');
 });
 
 test('125850 CR5: real diagram lightbox clones SVG and closes by button, Escape, or backdrop', () => {
@@ -2878,84 +3184,57 @@ test('111457 request: structured graduation history resolves a change for naviga
   assert.equal(opened, undefined);
 });
 
-test('222619 CR1: graph empty state does not render invalid dimensions', () => {
-  const host = parse(graphSvg([]));
-  assert.equal(host.querySelector('.empty')?.textContent, 'No changes match the current filters.');
-  assert.equal(host.querySelector('svg'), null);
-  assert.doesNotMatch(host.innerHTML, /Infinity|NaN/);
-});
-
-test('222619 CR2: graph with changes keeps finite svg dimensions and nodes', () => {
-  const host = parse(
-    graphSvg([
-      baseChange(),
-      {
-        ...baseChange(),
-        id: '20260613-120001',
-        title: 'dependent',
-        depends_on: ['20260613-120000'],
-      },
-    ]),
+// The Graph view was retired as a product decision: it was maintained, tested
+// and documented without being used. What it left behind — a tab, a section, a
+// renderer, a block of node/edge CSS — is gone, and nothing that served the
+// other views went with it.
+test('the viewer offers five views and keeps no graph surface', async () => {
+  const html = fs.readFileSync(new URL('../src/viewer/public/index.html', import.meta.url), 'utf8');
+  const css = fs.readFileSync(new URL('../src/viewer/public/styles.css', import.meta.url), 'utf8');
+  const app = fs.readFileSync(new URL('../src/viewer/public/app.js', import.meta.url), 'utf8');
+  const appState = fs.readFileSync(
+    new URL('../src/viewer/public/app-state.js', import.meta.url),
+    'utf8',
   );
-  const svg = host.querySelector('svg');
-  assert.ok(svg, 'graph renders an svg');
-  assert.doesNotMatch(svg.getAttribute('viewBox'), /Infinity|NaN/);
-  assert.doesNotMatch(svg.getAttribute('height'), /Infinity|NaN/);
-  assert.equal(host.querySelectorAll('.node').length, 2);
-  assert.equal(host.querySelectorAll('.edge').length, 1);
-});
-
-test('105456 CR5: graph renders deduplicated dashed undirected relation edges', () => {
-  const host = parse(
-    graphSvg([
-      { ...baseChange(), id: 'A', title: 'A', related_to: ['B'] },
-      { ...baseChange(), id: 'B', title: 'B', related_to: ['A'] },
-    ]),
+  const renderers = fs.readFileSync(
+    new URL('../src/viewer/public/view-renderers.js', import.meta.url),
+    'utf8',
   );
-  assert.equal(host.querySelectorAll('.relation-edge').length, 1);
-  assert.equal(host.querySelectorAll('.edge').length, 0);
-});
 
-const nodeX = (host, id) => {
-  const transform = host.querySelector(`.node[data-id="${id}"]`)?.getAttribute('transform') ?? '';
-  const match = transform.match(/translate\((\d+),/);
-  return match ? Number(match[1]) : Number.NaN;
-};
-
-test('162104 CR1: graph shared dependencies do not collapse depth', () => {
-  const changes = [
-    { ...baseChange(), id: 'A', title: 'A' },
-    { ...baseChange(), id: 'B', title: 'B', depends_on: ['A'] },
-    { ...baseChange(), id: 'C', title: 'C', depends_on: ['A'] },
-    { ...baseChange(), id: 'D', title: 'D', depends_on: ['B', 'C'] },
-  ];
-  const host = parse(graphSvg(changes));
-  assert.ok(nodeX(host, 'D') > nodeX(host, 'B'));
-  assert.ok(nodeX(host, 'D') > nodeX(host, 'C'));
-  assert.equal(host.querySelectorAll('.edge').length, 4);
-});
-
-test('162104 CR2: graph with a real cycle stays finite', () => {
-  const host = parse(
-    graphSvg([
-      { ...baseChange(), id: 'A', title: 'A', depends_on: ['B'] },
-      { ...baseChange(), id: 'B', title: 'B', depends_on: ['A'] },
-    ]),
+  const views = ['board', 'table', 'ledger', 'metrics', 'projects'];
+  for (const view of views) {
+    assert.match(html, new RegExp(`id="view-${view}"`), view);
+    assert.match(html, new RegExp(`<section id="${view}"|<main id="${view}"`), view);
+  }
+  assert.doesNotMatch(html, /view-graph|id="graph"/);
+  assert.match(app, new RegExp(`const VIEWS = \\[${views.map((v) => `'${v}'`).join(', ')}\\]`));
+  assert.match(
+    appState,
+    new RegExp(`VALID_VIEWS = new Set\\(\\[${views.map((v) => `'${v}'`).join(', ')}\\]\\)`),
   );
-  const svg = host.querySelector('svg');
-  assert.ok(svg, 'graph renders an svg');
-  assert.doesNotMatch(svg.getAttribute('viewBox'), /Infinity|NaN/);
-  assert.equal(host.querySelectorAll('.node').length, 2);
-});
 
-test('162104 CR3: simple graph still places dependents after dependencies', () => {
-  const host = parse(
-    graphSvg([
-      { ...baseChange(), id: 'A', title: 'A' },
-      { ...baseChange(), id: 'B', title: 'B', depends_on: ['A'] },
-    ]),
-  );
-  assert.ok(nodeX(host, 'B') > nodeX(host, 'A'));
+  assert.doesNotMatch(renderers, /graphSvg/);
+  assert.doesNotMatch(app, /graphSvg|renderGraph|view-graph/);
+  for (const rule of [
+    '.graph',
+    '.node rect',
+    '.node text',
+    '.node .nid',
+    '.edge',
+    '.relation-edge',
+  ]) {
+    assert.doesNotMatch(
+      css,
+      new RegExp(`\\n${rule.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*[,{]`),
+      rule,
+    );
+  }
+
+  // Mermaid draws the diagrams inside change and spec bodies; the graph drew
+  // its own SVG by hand, so retiring it must not take Mermaid with it.
+  assert.match(html, /mermaid\.min\.js/);
+  const { createDiagramLightbox } = await import('../src/viewer/public/app.js');
+  assert.equal(typeof createDiagramLightbox, 'function');
 });
 
 // 20260711-155721 — metricsHtml: KPI cards, hand-rolled throughput SVG,
@@ -4066,8 +4345,8 @@ test('141859 CR5: only same-category allowlisted relative document links are int
 test('141859 CR8: Ledger documentary layout is independently scrollable and stacks on mobile', () => {
   const css = fs.readFileSync(new URL('../src/viewer/public/styles.css', import.meta.url), 'utf8');
   const browserRule = css.match(/\.ledger-document-browser\s*\{([^}]*)\}/s)?.[1] ?? '';
-  const treeRule = css.match(/\.ledger-tree-panel\s*\{([^}]*)\}/s)?.[1] ?? '';
-  const articleRule = css.match(/\.ledger-article-panel\s*\{([^}]*)\}/s)?.[1] ?? '';
+  const treeRule = css.match(/\n\.ledger-tree-panel\s*\{([^}]*)\}/s)?.[1] ?? '';
+  const articleRule = css.match(/\n\.ledger-article-panel\s*\{([^}]*)\}/s)?.[1] ?? '';
   const mobile = css.slice(css.lastIndexOf('@media (max-width: 680px)'));
 
   assert.match(browserRule, /grid-template-columns:/);
@@ -5110,4 +5389,109 @@ test('141643 CR3: Status menu toggles and clears pending graduation without losi
   } finally {
     fixture.remove();
   }
+});
+
+// --- Cleaning a registry too dirty to clean in one body -------------------
+//
+// The router caps a POST body and answers 413 before the request reaches the
+// domain, so `Clean missing` used to clean nothing once the registry held more
+// missing projects than fit in one body — it failed exactly when it was
+// needed. The client now splits the candidates into bodies that fit.
+
+const { CLEAN_MISSING_BODY_BUDGET } = await import('../src/viewer/public/api.js');
+const { MAX_BODY } = await import('../src/viewer/server/router.mjs');
+
+const missingCandidates = (count) =>
+  Array.from({ length: count }, (_, index) => ({
+    id: `gone-${index}`,
+    path: `/private/var/folders/th/26svz8w90_j16z8r3kc2sdt40000gn/T/changeledger-seats-${index}`,
+  }));
+
+const cleanupHarness = (candidates, respond) => {
+  const root = document.createElement('div');
+  root.innerHTML = '<p class="project-clean-error" hidden></p>';
+  const sent = [];
+  const order = [];
+  return {
+    root,
+    sent,
+    order,
+    run: (receipt = {}) =>
+      cleanMissingProjectsFromView(root, candidates, {
+        confirm: async () => true,
+        request: async (confirm, batch) => {
+          assert.equal(confirm, true, 'a batch travelled without its confirmation');
+          sent.push(batch);
+          return respond(sent.length, batch);
+        },
+        refresh: async () => {
+          order.push('refresh');
+          return true;
+        },
+        reload: async () => true,
+        onCleaned: async (body) => {
+          order.push('cleaned');
+          Object.assign(receipt, body);
+        },
+      }),
+  };
+};
+
+const okBatch = (_call, batch) => ({
+  ok: true,
+  json: async () => ({
+    removedIds: batch.map((item) => item.id),
+    removed: batch.length,
+    skipped: 0,
+  }),
+});
+
+test('a cleanup wider than one body is split into bodies that fit', async () => {
+  const candidates = missingCandidates(1000);
+  const harness = cleanupHarness(candidates, okBatch);
+  const receipt = {};
+  assert.equal(await harness.run(receipt), true);
+
+  assert.ok(harness.sent.length > 1, 'the cleanup travelled in a single body');
+  for (const batch of harness.sent) {
+    const size = JSON.stringify({ confirm: true, candidates: batch }).length;
+    assert.ok(size <= MAX_BODY, `a body of ${size} bytes exceeds the router cap ${MAX_BODY}`);
+  }
+  assert.equal(harness.sent.flat().length, 1000);
+  assert.equal(receipt.removed, 1000);
+  assert.equal(receipt.skipped, 0);
+  assert.equal(receipt.removedIds.length, 1000);
+});
+
+test('the client body budget never exceeds the router cap', () => {
+  assert.ok(
+    CLEAN_MISSING_BODY_BUDGET <= MAX_BODY,
+    `budget ${CLEAN_MISSING_BODY_BUDGET} exceeds the router cap ${MAX_BODY}`,
+  );
+});
+
+test('a cleanup that fits still travels in one request', async () => {
+  const candidates = missingCandidates(3);
+  const harness = cleanupHarness(candidates, okBatch);
+  assert.equal(await harness.run(), true);
+  assert.equal(harness.sent.length, 1);
+  assert.deepEqual(harness.sent[0], candidates);
+});
+
+test('a failed batch refreshes first and reports what was already removed', async () => {
+  const candidates = missingCandidates(1000);
+  const harness = cleanupHarness(candidates, (call, batch) =>
+    call === 1
+      ? okBatch(call, batch)
+      : { ok: false, json: async () => ({ error: 'unable to update project registry' }) },
+  );
+  const receipt = {};
+  await harness.run(receipt);
+
+  assert.equal(harness.order[0], 'refresh', 'the panel was not refreshed before reporting');
+  const error = harness.root.querySelector('.project-clean-error');
+  assert.equal(error.hidden, false);
+  assert.match(error.textContent, /unable to update project registry/);
+  assert.match(error.textContent, new RegExp(`${harness.sent[0].length} of 1000`));
+  assert.equal(receipt.removed, harness.sent[0].length);
 });
