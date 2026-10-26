@@ -34,20 +34,18 @@ deshabilitada. El éxito relee el repo y sólo entonces cierra el modal; ante er
 el modal conserva abierto el draft, rehabilita la acción y muestra el mensaje
 existente. La autoridad sobre actores y transiciones permanece en
 [`lifecycle.md`](lifecycle.md); el viewer sólo ofrece estas interacciones humanas.
-La UI rinde board (kanban), table, graph
-(`depends_on` y `related_to`), Ledger y metrics, con búsqueda full-text, filtros (tipo, estado,
+La UI rinde board (kanban), table, Ledger y metrics, con búsqueda full-text, filtros (tipo, estado,
 owner) y render de markdown + mermaid. Type y owner son filtros inclusivos de
 multiselección; type ofrece los dos tipos, `change` y `epic`, y owner incluye `Unassigned` como booleano independiente de los
 nombres para no colisionar con un owner real. El cliente está dividido en módulos
 estáticos pequeños: `security.js` (escape/sanitización/Mermaid), `state.js`
 (filtros y tombstones), `api.js` (fetch), `templates.js` (lit-html y el wrapper
 único de Markdown sanitizado), `view-parts.js` (templates reutilizables),
-`view-renderers.js` (graph/Ledger/metrics), `ledger-browser.js` (árbol y selección
+`view-renderers.js` (Ledger/metrics), `ledger-browser.js` (árbol y selección
 documental en memoria), `viewer-routing.js` (URL e history) y `app-state.js` (estado global y
 helpers de transición puros — repo, filtros, vista, proyecto, sort — sin tocar el
-DOM); `app.js` queda como bootstrap y wiring de eventos. El graph muestra un estado vacío cuando los filtros no dejan changes
-visibles, en vez de generar un SVG con dimensiones inválidas. Sin un proyecto
-seleccionado, las vistas board, table, graph, ledger y metrics muestran
+DOM); `app.js` queda como bootstrap y wiring de eventos. Sin un proyecto
+seleccionado, las vistas board, table, ledger y metrics muestran
 `No projects registered. Run changeledger init in a repo.` en su contenedor en
 vez de fallar, y la vista de proyectos conserva su propio estado vacío. Con un
 proyecto seleccionado cuyo payload aún no está cargado, esas vistas muestran
@@ -65,10 +63,7 @@ sondeo periódico sin proyectos repinta la vista activa sin cambiarla; sólo la
 carga de arranque cae en Board. Si la carga del proyecto seleccionado falla y
 no hay payload suyo cargado (ninguno, o el de otro proyecto), la vista activa
 muestra el error de carga en lugar de ese mensaje o de los changes del otro
-proyecto, y una carga correcta posterior o cambiar de proyecto lo limpia. La profundidad del
-grafo usa un set de visitados por rama para detectar ciclos solo en el camino
-actual: dependencias compartidas entre ramas no colapsan la capa del nodo
-dependiente, y los ciclos reales siguen terminando en un SVG finito.
+proyecto, y una carga correcta posterior o cambiar de proyecto lo limpia.
 
 La carga HTTP del repositorio aísla por documento los fallos de lectura o parseo
 de `changes`: conserva los changes válidos, calcula filtros y métricas solo con
@@ -90,8 +85,8 @@ Los estados se filtran desde un menú compacto de selección múltiple. `Pending
 graduation` usa el booleano que el servidor deriva del mismo predicado canónico
 que el CLI: `status === "done" && reviewed !== true`; un scaffold o marker no lo
 resuelve mientras `reviewed` no sea `true`. Se combina con AND con búsqueda,
-type, owner y statuses, y afecta Board, Table y Metrics; Graph conserva su
-semántica de tombstones. El valor se persiste por proyecto junto con los demás
+type, owner y statuses, y afecta Board, Table y Metrics; la regla de
+tombstones se mantiene independiente de él. El valor se persiste por proyecto junto con los demás
 filtros. `Clear` lo desactiva y restablece tanto los statuses como la visibilidad
 `Archived`/`Discarded`;
 `Discarded` añade su lane al final del Board sin comprimir las columnas
@@ -122,8 +117,7 @@ cada referencia local muestra id, título, tipo, estado y owner cuando existe, y
 la fila completa abre el change. Los backlinks de `related_to` se derivan sin
 duplicar la relación en ambos documentos. Las referencias cross-proyecto
 conservan la navegación global y permanecen visibles como externas si no pueden
-resolverse. El grafo dibuja dependencias como aristas dirigidas y relaciones
-como aristas no dirigidas discontinuas. En specs, el frontmatter estructurado
+resolverse. En specs, el frontmatter estructurado
 `graduated_from` reutiliza el mismo componente como historial colapsable: los
 ids resolubles muestran metadatos y abren el change; los ausentes siguen visibles
 como `unavailable`, sin reinterpretar el cuerpo Markdown ni relajar la
