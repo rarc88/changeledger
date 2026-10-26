@@ -1440,16 +1440,6 @@ body {
   color: var(--blocked);
 }
 
-/* Graph */
-.graph {
-  padding: 24px;
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: auto;
-}
-.graph svg {
-  width: 100%;
-}
 .mermaid-expandable {
   position: relative;
   cursor: zoom-in;
@@ -1522,36 +1512,6 @@ body {
   height: auto;
   min-height: 100%;
   margin: auto;
-}
-.node rect {
-  fill: var(--panel-2);
-  stroke: var(--line);
-  rx: 8;
-  cursor: pointer;
-}
-.node:hover rect {
-  stroke: var(--accent);
-}
-.node text {
-  fill: var(--text);
-  font-size: 12px;
-}
-.node .nid {
-  fill: var(--muted);
-  font-family: ui-monospace, monospace;
-  font-size: 10px;
-}
-.edge {
-  stroke: var(--muted);
-  stroke-width: 1.5;
-  fill: none;
-  marker-end: url(#arrow);
-}
-.relation-edge {
-  stroke: var(--accent);
-  stroke-width: 1.4;
-  stroke-dasharray: 5 5;
-  opacity: 0.72;
 }
 
 /* Ledger */
@@ -1731,7 +1691,6 @@ body {
    the scroll offset, so closing the detail restores the position. */
 .detail-open .board,
 .detail-open .table-view,
-.detail-open .graph,
 .detail-open .metrics-view,
 .detail-open .global-view,
 .detail-open .projects-view,

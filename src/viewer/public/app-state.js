@@ -1,6 +1,6 @@
 export const VIEWER_STATE_KEY = 'changeledger.viewer-state.v1';
 
-const VALID_VIEWS = new Set(['board', 'table', 'graph', 'ledger', 'metrics', 'projects']);
+const VALID_VIEWS = new Set(['board', 'table', 'ledger', 'metrics', 'projects']);
 const VALID_LEDGER_CATEGORIES = new Set(['specs', 'project-docs', 'contract', 'templates']);
 const VALID_SORT_KEYS = new Set(['id', 'title', 'type', 'status', 'progress', 'deps']);
 const VALID_DETAIL_MODES = new Set(['side', 'floating']);
@@ -135,7 +135,10 @@ export function restoreViewerState(storageLike) {
     state.currentView = 'ledger';
     state.ledgerCategory = 'specs';
   } else {
-    if (typeof snapshot.currentView === 'string') state.currentView = snapshot.currentView;
+    // A snapshot written before a view was retired names one that no longer
+    // exists; validate here, like every other restored enum, so the shell never
+    // syncs against a section the document does not have.
+    if (VALID_VIEWS.has(snapshot.currentView)) state.currentView = snapshot.currentView;
     state.ledgerCategory = VALID_LEDGER_CATEGORIES.has(snapshot.ledgerCategory)
       ? snapshot.ledgerCategory
       : 'specs';

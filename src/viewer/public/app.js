@@ -47,7 +47,7 @@ import {
 } from './app-state.js';
 import { createLedgerBrowser, handleLedgerDocumentLink } from './ledger-browser.js';
 import { cssIdent, initMermaid, makeMermaidExpandable, renderMermaid } from './security.js';
-import { boardStatuses, isVisible, passesTombstones } from './state.js';
+import { boardStatuses, isVisible } from './state.js';
 import { html, render as litRender, nothing } from './templates.js';
 import {
   approvalPanel,
@@ -64,7 +64,6 @@ import {
 } from './view-parts.js';
 import {
   changeUsageHtml,
-  graphSvg,
   ledgerViewHtml,
   metricsHtml,
   sortSpecsByUpdated,
@@ -456,8 +455,7 @@ function render() {
     else litRender(loadingProjectMessage(), $(`#${state.currentView}`));
     return;
   }
-  if (state.currentView === 'graph') renderGraph();
-  else if (state.currentView === 'table') renderTable();
+  if (state.currentView === 'table') renderTable();
   else if (state.currentView === 'ledger') renderLedger();
   else if (state.currentView === 'metrics') renderMetrics();
   else if (state.currentView === 'projects') renderProjects();
@@ -943,17 +941,6 @@ async function gotoChange(proj, changeId) {
   openDetail(changeId);
 }
 
-/* Dependency graph */
-function renderGraph() {
-  const changes = state.repo.changes.filter((c) => passesTombstones(c, state.filters));
-  litRender(graphSvg(changes), $('#graph'));
-  $('#graph')
-    .querySelectorAll('.node')
-    .forEach((el) => {
-      el.onclick = () => openDetail(el.dataset.id);
-    });
-}
-
 /* Table view */
 function renderTable() {
   const cols = [
@@ -1204,7 +1191,7 @@ export function handleSpecBodyClick(event, _openSpecByName) {
   _openSpecByName(href);
 }
 
-const VIEWS = ['board', 'table', 'graph', 'ledger', 'metrics', 'projects'];
+const VIEWS = ['board', 'table', 'ledger', 'metrics', 'projects'];
 
 // The shared metrics module is dynamic-imported once and cached: the client
 // computes metrics itself, over the filtered set, instead of duplicating
@@ -2354,7 +2341,6 @@ function bootstrap() {
   });
   $('#view-board').onclick = () => activateView('board');
   $('#view-table').onclick = () => activateView('table');
-  $('#view-graph').onclick = () => activateView('graph');
   $('#view-ledger').onclick = () => activateView('ledger');
   $('#view-metrics').onclick = () => activateView('metrics');
   $('#view-projects').onclick = () => activateView('projects');
