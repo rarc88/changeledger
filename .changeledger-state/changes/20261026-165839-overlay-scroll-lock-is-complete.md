@@ -158,8 +158,9 @@ práctica» es exactamente lo que dejó pasar dos defectos en
 - [x] Comprobar el invariante en el viewer en ejecución y anotar las cifras en el Log
   - **Support:** el layout computado no lo cubre la suite; se mide con el navegador
   - **Resolved:** `2026-10-26T17:06:28Z`
-- [ ] Pasar la puerta local completa
+- [x] Pasar la puerta local completa
   - **Support:** `pnpm verify`
+  - **Resolved:** `2026-10-26T17:09:13Z`
 
 ## Log
 - **2026-10-26T16:58:39Z** `[version]` 1.0.0
