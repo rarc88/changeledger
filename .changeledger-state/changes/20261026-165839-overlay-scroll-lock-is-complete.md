@@ -164,6 +164,13 @@ práctica» es exactamente lo que dejó pasar dos defectos en
 - **Then** ese selector se exige bloqueado, en vez de excluirse por parecerse de nombre a los que van delante
 - **And** la exclusión nombra exactamente los dos que hoy van delante, `.detail` y `.diagram-canvas`, de modo que añadir un tercero es un acto deliberado y no un efecto del prefijo
 
+### CR9 — Un punto y coma dentro de un selector no lo corrompe
+
+- **Given** una regla cuyo selector lleva un punto y coma dentro del valor de un atributo, como `.a[data-x="a;b"]`, y declara desbordamiento vertical
+- **When** el test deriva su conjunto de scrollers
+- **Then** el selector llega entero, en vez de cortarse por ese punto y coma
+- **And** un punto y coma dentro del valor de una declaración —una `url()` con `data:` o una cadena— sigue cerrando la sentencia como hasta ahora
+
 ## Plan
 
 - [x] Endurecer la derivación: descender a las at-rules, aceptar `scroll` y denunciar lo que no sepa normalizar
@@ -188,6 +195,10 @@ práctica» es exactamente lo que dejó pasar dos defectos en
   - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
   - **Criteria:** CR8
   - **Resolved:** `2026-10-26T17:37:59Z`
+- [ ] Cortar el selector en `;` solo fuera de comillas y corchetes
+  - **Target:** `test/viewer-metadata.test.mjs`
+  - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
+  - **Criteria:** CR9
 - [x] Pasar la puerta local completa
   - **Support:** `pnpm verify`
   - **Resolved:** `2026-10-26T17:09:13Z`
