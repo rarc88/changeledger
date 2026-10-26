@@ -224,3 +224,4 @@ libre y el botón mide su contenido.
 - **2026-10-26T16:20:54Z** `[review]` in-review → done (delegated subagent, clean context)
 - **2026-10-26T16:46:56Z** `[graduation]` spec: `viewer.md`
 - **2026-10-26T16:50:09Z** `[archive]` archived
+- **2026-10-26T16:59:50Z** `[finding]` 1 promoted #20261026-165839
