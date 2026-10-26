@@ -2,7 +2,7 @@
 id: "20261026-165839"
 title: El bloqueo de scroll del detalle no ve todo lo que puede scrollear
 type: change
-status: in-review
+status: done
 created: 2026-10-26T16:58:39Z
 depends_on: []
 reviewed: true
@@ -248,3 +248,4 @@ práctica» es exactamente lo que dejó pasar dos defectos en
 - **2026-10-26T18:03:15Z** `[note]` Verificado sin regresion: 340 reglas y los mismos catorce selectores verticales. El caso de cola silenciosa devuelve ahora sus dos reglas, y el url( sin cerrar lanza nombrando lo que quedo abierto.
 - **2026-10-26T18:03:24Z** `[finding]` El contador de corchetes del scanner comparte los de tipo [ y (, asi que una hoja con .a[x="1") se considera balanceada cuando no lo esta. Ningun CSS real produce esa forma y el fallo seria ruidoso por el guard de cierre; separarlos en dos contadores es trivial si alguna vez importa.
 - **2026-10-26T18:06:17Z** `[status]` in-progress → in-review
+- **2026-10-26T18:13:21Z** `[review]` in-review → done (delegated subagent, clean context)
