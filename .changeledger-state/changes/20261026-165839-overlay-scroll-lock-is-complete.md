@@ -2,7 +2,7 @@
 id: "20261026-165839"
 title: El bloqueo de scroll del detalle no ve todo lo que puede scrollear
 type: change
-status: in-progress
+status: in-review
 created: 2026-10-26T16:58:39Z
 depends_on: []
 reviewed: true
@@ -245,3 +245,4 @@ práctica» es exactamente lo que dejó pasar dos defectos en
 - **2026-10-26T18:03:14Z** `[note]` Cuarta ronda: la revision encontro que una comilla escapada y un corchete sin cerrar se tragaban el resto de la hoja, y que el caso de la comilla escapada era silencioso si caia detras del bloque de bloqueo. El scanner salta el caracter tras una barra invertida dentro de una cadena, y al terminar lanza si quedan comillas, corchetes o bloques abiertos, en vez de devolver una respuesta parcial con aspecto de completa.
 - **2026-10-26T18:03:15Z** `[note]` Verificado sin regresion: 340 reglas y los mismos catorce selectores verticales. El caso de cola silenciosa devuelve ahora sus dos reglas, y el url( sin cerrar lanza nombrando lo que quedo abierto.
 - **2026-10-26T18:03:24Z** `[finding]` El contador de corchetes del scanner comparte los de tipo [ y (, asi que una hoja con .a[x="1") se considera balanceada cuando no lo esta. Ningun CSS real produce esa forma y el fallo seria ruidoso por el guard de cierre; separarlos en dos contadores es trivial si alguna vez importa.
+- **2026-10-26T18:06:17Z** `[status]` in-progress → in-review
