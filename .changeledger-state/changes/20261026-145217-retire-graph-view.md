@@ -2,7 +2,7 @@
 id: "20261026-145217"
 title: La vista Graph ocupa sitio sin ganárselo
 type: change
-status: in-review
+status: done
 created: 2026-10-26T14:52:17Z
 depends_on: ["20261026-134323"]
 branch: change/20261026-145217
@@ -230,3 +230,4 @@ pasajes y es verdad persistente: quedarse falsa es peor que no existir.
 - **2026-10-26T16:09:44Z** `[status]` done → in-progress (agent)
 - **2026-10-26T16:16:03Z** `[note]` Mismo fallo de CI que 134323: seis lineas mas citaban ids de change o CRn fuera de .changeledger/, dos de ellas titulos de tests preexistentes que yo habia reescrito, lo que los vuelve lineas anadidas y sujetas al guard. Renombrados por el comportamiento que prueban.
 - **2026-10-26T16:16:03Z** `[status]` in-progress → in-review
+- **2026-10-26T16:21:01Z** `[review]` in-review → done (delegated subagent, clean context)
