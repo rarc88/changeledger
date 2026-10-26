@@ -76,39 +76,112 @@ Preautorizado dentro: eliminar la variable `--header-height` y su
 `ResizeObserver` si el modelo de altura que los sustituye los deja sin uso, y
 ajustar los tests que afirmen sobre el CSS o el DOM que esta frontera cambia.
 
-### CR1 — El board reparte el ancho entre los carriles que hay
-
-- **Given** el viewer abierto en una ventana de 1920px con cinco carriles visibles
-- **When** se renderiza el board
-- **Then** las columnas reparten el ancho del contenedor sin dejar franja vacía a la derecha, en lugar de los 1573px de 1920 que ocupan hoy
-- **And** cada columna mide 190px o más, y el board solo scrollea en horizontal cuando los carriles ya no caben a ese mínimo
-- **And** `src/viewer/public/styles.css` no contiene ningún divisor fijo de carriles ni `max-width` de columna
-
-### CR2 — La página no scrollea
-
-- **Given** el viewer abierto en cualquiera de sus vistas, con la barra superior en una o en dos filas
-- **When** se mide el documento
-- **Then** `document.documentElement.scrollHeight` no supera su `clientHeight`
-- **And** ninguna regla de `styles.css` calcula una altura restando `--header-height`
-
-### CR3 — Con el detalle abierto solo scrollea el detalle
-
-- **Given** un board con más cards de las que caben en la ventana
-- **When** se abre el detalle de un change, en modo panel lateral o en modal flotante
-- **Then** el único contenedor con scroll vertical es `#detail`
-- **And** al cerrarlo, el board recupera su scroll en la posición en la que estaba
-
-### CR4 — El control de rechazo reparte su fila
-
-- **Given** un change en `done` no incluido en ninguna release
-- **When** se abre su detalle y se mide la fila de controles
-- **Then** el campo de razón mide 190px o más, frente a los 169px de hoy
-- **And** el botón `Send back with reason` mide su contenido, no los 669px de hoy
-- **And** `.validation-controls` declara tantas pistas de grid como hijos renderiza `rejectionPanel`
-
 ## Specification
 
+### Proposal
+
+**Un solo modelo de altura, sin variable intermedia.** El `body` pasa a ser un
+contenedor flex en columna de `100dvh` con `overflow: hidden`; la barra superior
+es un item rígido y la vista visible es `flex: 1 1 auto` con `min-height: 0` y su
+propio `overflow`. Las cuatro reglas que hoy restan `--header-height` desaparecen,
+y con ellas la variable y el `ResizeObserver` que la sincronizaba, que eran el
+parche de un modelo que el navegador ya resuelve. Descartado subir la precisión
+de la variable — con `getBoundingClientRect().height` en vez de `offsetHeight` —
+porque deja en pie dos fuentes de verdad para la misma altura y el error vuelve
+en cuanto la barra cambie de filas.
+
+El bloque móvil de `max-width: 680px` devuelve el `body` a `height: auto` y
+`overflow: visible`: ahí la página scrollea a propósito, con los carriles
+apilados, y ese comportamiento se conserva.
+
+**El carril se dimensiona por la pista de grid, no por sí mismo.** `.board`
+declara `grid-auto-columns: minmax(190px, 1fr)` y `.column` deja de declarar
+`width`, `min-width`, `max-width` y `flex`: las pistas implícitas reparten el
+ancho libre del contenedor sea cual sea su número, y el suelo de 190px mantiene
+el scroll horizontal de `#20260703-220013` cuando ya no caben. Descartado
+calcular el divisor en JavaScript a partir de los carriles renderizados: añade
+una sincronización que el grid hace solo.
+
+**El fondo deja de ofrecer una segunda barra.** `.detail-open` ya bloquea el
+scroll del documento, pero el board es un contenedor de scroll propio y
+sobrevive al bloqueo. Se le añade el bloqueo del scroller de la vista mientras el
+detalle está abierto, preservando la posición de scroll al cerrarlo, y
+`overscroll-behavior: contain` en `.detail` para que la rueda no encadene al
+fondo.
+
+**La fila de veredicto declara las pistas que renderiza.**
+`.validation-controls` pasa de tres pistas a `minmax(190px, 1fr) auto`, la misma
+forma que ya tiene `.reopen-controls`: el campo de razón se lleva el espacio
+libre y el botón mide su contenido.
+
+### CR1 — El board reparte el ancho entre los carriles que hay
+
+- **Given** el viewer abierto en una ventana de 1920px de ancho con cinco carriles visibles
+- **When** se renderiza el board
+- **Then** las columnas y sus huecos ocupan el ancho del contenedor sin dejar franja vacía a la derecha, frente a los 1573px de 1920 que ocupan hoy
+- **And** cada columna mide 190px o más, y `.board` solo desborda en horizontal cuando los carriles ya no caben a ese mínimo
+- **And** la regla `.board` de `src/viewer/public/styles.css` declara `grid-auto-columns: minmax(190px, 1fr)`, y la regla `.column` no declara `width`, `min-width`, `max-width` ni `flex`
+
+### CR2 — La página no scrollea en el layout de escritorio
+
+- **Given** el viewer abierto por encima de 680px de ancho, en cualquiera de sus vistas y con la barra superior en una o en dos filas
+- **When** se mide el documento
+- **Then** `document.documentElement.scrollHeight` no supera su `clientHeight`
+- **And** ninguna regla de `src/viewer/public/styles.css` calcula una altura restando `--header-height`, la variable no se declara y `src/viewer/public/app.js` no contiene ningún `ResizeObserver` que la escriba
+
+### CR3 — Por debajo de 680px el layout apilado conserva el scroll de página
+
+- **Given** el viewer abierto en una ventana de 375px de ancho
+- **When** se renderiza el board
+- **Then** los carriles se apilan en vertical a ancho completo y la página es la que scrollea
+- **And** el bloque `@media (max-width: 680px)` devuelve al `body` `height: auto` y `overflow: visible`
+
+### CR4 — Con el detalle abierto solo scrollea el detalle
+
+- **Given** un board con más cards de las que caben en la ventana, por encima de 680px de ancho
+- **When** se abre el detalle de un change, en modo panel lateral y en modal flotante
+- **Then** el único contenedor con barra de scroll vertical es `#detail`
+- **And** al cerrar el detalle, `.board` recupera el `scrollTop` que tenía antes de abrirlo
+- **And** `.detail` declara `overscroll-behavior: contain`
+
+### CR5 — El control de rechazo reparte su fila
+
+- **Given** un change en `done` no incluido en ninguna release, abierto en su detalle a 1920px
+- **When** se mide la fila `.validation-controls`
+- **Then** el campo de razón mide 190px o más, frente a los 169px de hoy
+- **And** el botón `Send back with reason` mide su contenido, no los 669px de hoy
+- **And** `.validation-controls` declara exactamente dos pistas de grid, las mismas que hijos renderiza `rejectionPanel` en `src/viewer/public/view-parts.js`
+
 ## Plan
+
+- [ ] Retargetear el test que fija el mecanismo retirado del board
+  - **Target:** `test/viewer-metadata.test.mjs`
+  - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
+  - **Criteria:** CR1, CR2
+- [ ] El board reparte el ancho entre las pistas de grid
+  - **Target:** `src/viewer/public/styles.css`
+  - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
+  - **Criteria:** CR1
+- [ ] El body es el contenedor flex de altura y las vistas son su item elástico
+  - **Target:** `src/viewer/public/styles.css`
+  - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
+  - **Criteria:** CR2, CR3
+- [ ] Retirar `--header-height` y el `ResizeObserver` que la escribía
+  - **Target:** `src/viewer/public/app.js`
+  - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
+  - **Criteria:** CR2
+- [ ] Bloquear el scroller de la vista mientras el detalle está abierto
+  - **Target:** `src/viewer/public/styles.css`
+  - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
+  - **Criteria:** CR4
+- [ ] La fila de veredicto declara dos pistas
+  - **Target:** `src/viewer/public/styles.css`
+  - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
+  - **Criteria:** CR5
+- [ ] Medir las cinco CR en el viewer en ejecución y anotar las cifras en el Log
+  - **Support:** el layout computado no lo cubre la suite; se mide con el navegador contra `changeledger view .`
+- [ ] Pasar la puerta local completa
+  - **Support:** `pnpm verify`
 
 ## Log
 - **2026-10-26T13:47:14Z** `[version]` 1.0.0
