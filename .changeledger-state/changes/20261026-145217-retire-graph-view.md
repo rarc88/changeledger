@@ -82,7 +82,107 @@ las reglas CSS que solo usaba el grafo.
 
 ## Specification
 
+### Proposal
+
+**Un corte limpio, no un apagado.** La vista se retira entera: pestaña, sección,
+render, CSS propio y pruebas. No queda ni bandera de configuración ni código
+muerto comentado. Descartado ocultar la pestaña dejando el render en su sitio:
+deja exactamente la superficie que esta retirada quiere dejar de mantener.
+
+**El estado persistido no se migra.** `restoreState` en `app-state.js` ya cae a
+`board` cuando `VALID_VIEWS` no reconoce la vista guardada, así que sacar `graph`
+del conjunto es toda la migración que hace falta. Descartado escribir un paso de
+migración del `localStorage`: añadiría código con fecha de caducidad para algo
+que la validación existente ya cubre.
+
+**`passesTombstones` se queda.** Lo compartían el grafo y `isVisible`; retirar el
+grafo no lo deja sin consumidor, solo corrige el comentario de `state.js` que lo
+nombra.
+
+**La spec se corrige dentro del change.** `viewer.md` describe la vista en seis
+pasajes y es verdad persistente: quedarse falsa es peor que no existir.
+
+### CR1 — El viewer ofrece cinco vistas y ninguna se llama Graph
+
+- **Given** el viewer cargado con un proyecto
+- **When** se inspecciona la barra de pestañas
+- **Then** hay cinco pestañas —Board, Table, Ledger, Metrics y Projects— y no existe ningún elemento `#view-graph` ni `#graph`
+- **And** `VIEWS` en `src/viewer/public/app.js` y `VALID_VIEWS` en `src/viewer/public/app-state.js` declaran las mismas cinco vistas
+
+### CR2 — Una ruta o un estado guardado que pide Graph aterriza en Board
+
+- **Given** un `localStorage` escrito por una versión anterior con `currentView: "graph"`, o una URL con `?view=graph`
+- **When** el viewer arranca
+- **Then** la vista activa es `board` y no se lanza ningún error
+- **And** la pestaña Board queda marcada como activa
+
+### CR3 — No queda código ni estilo que solo sirviera al grafo
+
+- **Given** el árbol de fuentes tras la retirada
+- **When** se busca la superficie del grafo en `src/viewer/public/`
+- **Then** no existen `graphSvg` ni `renderGraph`, ni la regla `.graph`, ni las reglas `.node rect`, `.node:hover rect`, `.node text`, `.node .nid`, `.edge` y `.relation-edge`
+- **And** `src/viewer/public/view-renderers.js` no exporta `graphSvg` y nadie lo importa
+- **And** `mermaid` sigue cargándose en `index.html` y el lightbox de diagramas sigue funcionando, porque sirven a los diagramas de los documentos y no al grafo
+
+### CR4 — Las cinco vistas que quedan no cambian de comportamiento
+
+- **Given** un proyecto sin seleccionar, uno seleccionado sin payload cargado, y uno cuya carga falla
+- **When** se recorren Board, Table, Ledger y Metrics en cada uno de esos tres estados
+- **Then** siguen mostrando `No projects registered. Run changeledger init in a repo.`, `Loading project…` y el error de carga respectivamente, igual que antes de la retirada
+- **And** el filtro `Pending graduation` sigue combinándose con búsqueda, type, owner y statuses sobre Board, Table y Metrics
+
+### CR5 — La spec deja de describir una vista que no existe
+
+- **Given** `spec:viewer`
+- **When** se lee entera
+- **Then** ninguno de sus seis pasajes sobre el grafo —la enumeración de vistas, el reparto de `view-renderers.js`, el estado vacío, la lista de vistas sin payload, la semántica de tombstones frente a `Pending graduation` y el dibujo de dependencias y relaciones como aristas— describe ya la vista Graph
+- **And** lo que sigue siendo cierto de las otras vistas se conserva, en vez de borrarse con el pasaje
+
+### CR6 — Recorrido completo del día después
+
+- **Given** un viewer arrancado contra un repo real, con el estado guardado pidiendo `graph`
+- **When** se abre, se recorren las cinco pestañas una por una y se abre el detalle de un change desde Board y desde Table
+- **Then** arranca en Board, cada pestaña rinde su contenido sin error de consola, y el detalle abre y cierra en ambas
+- **And** la única barra de scroll vertical con el detalle abierto sigue siendo la de `#detail`, como fijó `#20261026-134323`
+
 ## Plan
+
+- [ ] Retirar la vista de las pruebas que la enumeran y las que solo la cubren a ella
+  - **Target:** `test/viewer-metadata.test.mjs`
+  - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
+  - **Criteria:** CR1, CR3, CR4
+- [ ] Retirar `graph` del estado de vistas y de su validación
+  - **Target:** `src/viewer/public/app-state.js`
+  - **Verify:** `pnpm test test/app-state.test.mjs`
+  - **Criteria:** CR1, CR2
+- [ ] Retirar la pestaña y la sección del documento
+  - **Target:** `src/viewer/public/index.html`
+  - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
+  - **Criteria:** CR1
+- [ ] Retirar el render, el despacho, el import y el handler
+  - **Target:** `src/viewer/public/app.js`
+  - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
+  - **Criteria:** CR1, CR3
+- [ ] Retirar `graphSvg` y corregir el comentario que lo citaba como precedente
+  - **Target:** `src/viewer/public/view-renderers.js`
+  - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
+  - **Criteria:** CR3
+- [ ] Retirar el bloque CSS del grafo y sus reglas de nodo y arista
+  - **Target:** `src/viewer/public/styles.css`
+  - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
+  - **Criteria:** CR3
+- [ ] Corregir el comentario de `state.js` que nombra al grafo
+  - **Target:** `src/viewer/public/state.js`
+  - **Verify:** `pnpm lint`
+  - **Criteria:** CR3
+- [ ] Corregir los seis pasajes de `viewer.md`
+  - **Target:** `spec:viewer`
+  - **Verify:** `changeledger check`
+  - **Criteria:** CR5
+- [ ] Recorrer las cinco vistas en el viewer en ejecución y anotar el resultado en el Log
+  - **Support:** el recorrido de CR6 no lo cubre la suite; se mide con el navegador
+- [ ] Pasar la puerta local completa
+  - **Support:** `pnpm verify`
 
 ## Log
 - **2026-10-26T14:52:17Z** `[version]` 1.0.0
