@@ -95,7 +95,7 @@ desechable en vez del del usuario.
 - **Given** una fixture ejecutada por el envoltorio que llama a `register({ id: 'cr4', name: 'cr4', path: <dir temporal> })` de `src/registry.mjs`
 - **When** la fixture termina
 - **Then** el `registryPath()` que la fixture observa está dentro de la raíz temporal del envoltorio y el fichero existe con la entrada `cr4`
-- **And** `~/.changeledger/.registry.json` no contiene la entrada `cr4`
+- **And** el conjunto de claves de `~/.changeledger/.registry.json` es el mismo antes y después de la ejecución
 
 ## Plan
 
