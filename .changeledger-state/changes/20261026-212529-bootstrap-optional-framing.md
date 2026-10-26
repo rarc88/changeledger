@@ -2,7 +2,7 @@
 id: "20261026-212529"
 title: Reescribir el bloque bootstrap para que la opcionalidad se lea primero
 type: change
-status: draft
+status: approved
 created: 2026-10-26T21:25:29Z
 depends_on: []
 related_to:
@@ -130,3 +130,5 @@ el contenido de `templates/contract/` y sus presupuestos; el comportamiento de
 ## Plan
 
 ## Log
+- **2026-10-26T21:27:11Z** `[version]` 1.0.0
+- **2026-10-26T21:27:11Z** `[status]` draft → approved (human via conversation)
