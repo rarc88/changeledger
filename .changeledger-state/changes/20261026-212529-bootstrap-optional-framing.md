@@ -2,7 +2,7 @@
 id: "20261026-212529"
 title: Reescribir el bloque bootstrap para que la opcionalidad se lea primero
 type: change
-status: in-progress
+status: in-review
 created: 2026-10-26T21:25:29Z
 depends_on: []
 branch: change/20261026-212529
@@ -228,3 +228,4 @@ al texto en vez de pincharlo.
 - **2026-10-26T21:55:22Z** `[version]` 1.0.0 → 1.1.0
 - **2026-10-26T21:55:22Z** `[review]` in-review → in-progress: El guard de CR2 no comprueba que la condición gobierne la obligación: un bloque que diga «Installed or not, running it is mandatory … run exactly this where it is installed» pasa los 67 tests. Reproducido de forma independiente
 - **2026-10-26T21:58:58Z** `[note]` Corrección tras el fail: el guard de CR2 pasa de comprobar presencia a comprobar que la condición precede a 'mandatory' dentro de su frase, más un barrido contra frases que reabren el alcance ('installed or not'). Verificado en rojo con el contraejemplo del revisor. De paso, LAZY_LINE deja de ser posicional y el barrido de CR5 selecciona sólo ficheros regulares
+- **2026-10-26T21:58:59Z** `[status]` in-progress → in-review
