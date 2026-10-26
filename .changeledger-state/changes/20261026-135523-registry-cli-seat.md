@@ -2,9 +2,10 @@
 id: "20261026-135523"
 title: La limpieza del registro no se alcanza sin el viewer
 type: change
-status: approved
+status: in-progress
 created: 2026-10-26T13:55:23Z
 depends_on: []
+branch: change/20261026-135523
 related_to: ["20260815-133442", "20261026-132745", "20261023-181453"]
 owner: raruiz-hiberuscom
 ---
@@ -98,3 +99,5 @@ Queda fuera:
 ## Log
 - **2026-10-26T13:55:23Z** `[version]` 1.0.1-dev
 - **2026-10-26T13:56:52Z** `[status]` draft → approved (human via conversation)
+- **2026-10-26T13:56:56Z** `[status]` approved → in-progress
+- **2026-10-26T13:56:56Z** `[branch]` set: change/20261026-135523 (auto)
