@@ -1,9 +1,18 @@
 name: CI
 
+# Runs once per pull request head and never on a merge: `main` only receives
+# merged pull requests, and the publish workflow runs the same gate through
+# `prepublishOnly` before anything is uploaded. A push that supersedes a run
+# on the same pull request cancels it. Markdown outside `docs/` is not ignored:
+# AGENTS.md, README.md, INTENT.md and the contract fragments are read by tests.
 on:
-  push:
-    branches: [main]
   pull_request:
+    paths-ignore:
+      - 'docs/**'
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
   verify:
@@ -32,7 +41,7 @@ jobs:
       # The diff is the same on every runner, so the Windows leg skips the
       # check rather than rely on `sh` being on its PATH.
       - name: no ledger references outside .changeledger/
-        if: github.event_name == 'pull_request' && runner.os != 'Windows'
+        if: runner.os != 'Windows'
         run: |
           git fetch origin dev
           sh hooks/no-ledger-refs.sh origin/dev...HEAD
