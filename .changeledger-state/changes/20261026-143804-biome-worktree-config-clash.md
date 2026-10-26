@@ -143,3 +143,4 @@ Queda fuera:
 - **2026-10-26T15:06:39Z** `[status]` in-progress → in-review
 - **2026-10-26T15:08:06Z** `[review]` in-review → done (delegated subagent, clean context)
 - **2026-10-26T15:43:53Z** `[validation]` accepted (merged 3c6b1ec)
+- **2026-10-26T15:49:33Z** `[finding]` 1 promoted #20261026-154858
