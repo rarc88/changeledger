@@ -2,7 +2,7 @@
 id: "20261026-154858"
 title: Un patrón de ignore sin anclar puede sacar código del lint
 type: change
-status: draft
+status: discarded
 created: 2026-10-26T15:48:58Z
 depends_on: []
 related_to: ["20261026-143804"]
@@ -60,3 +60,4 @@ Queda fuera:
 
 ## Log
 - **2026-10-26T15:48:58Z** `[version]` 1.0.1-dev
+- **2026-10-26T15:56:25Z** `[status]` draft → discarded: El patrón .tmp casa solo un componente llamado exactamente así, no la extensión, y lo que hay dentro es scratch sin versionar: que el lint no lo mire es el comportamiento correcto. Anclarlo a /.tmp haría lo contrario de lo deseado, versionando y linterando un src/.tmp. La verdad ya está en specs/lifecycle.md.
