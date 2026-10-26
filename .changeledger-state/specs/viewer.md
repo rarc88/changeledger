@@ -241,10 +241,18 @@ mutación vuelve a leer el registry bajo su lock: solo elimina una entrada si su
 binding conserva exactamente la ruta observada y el segundo sondeo confirma que
 sigue ausente. Una entrada añadida después de la observación, un mismo id
 revinculado a otra ruta y cualquier fallo no concluyente como `EACCES` se
-conservan. La operación reemplaza el registry una sola vez, nunca elimina
-archivos o directorios de los repositorios y, después del éxito, relee el
-listado, actualiza el selector y carga el repositorio fallback antes de presentar
-el resultado.
+conservan. El conjunto observado viaja troceado en cuerpos que caben bajo el
+tope del router, uno por petición, porque un único cuerpo con todas las
+candidatas recibía `413 body too large` y no limpiaba nada: la limpieza fallaba
+cuanto más sucio estaba el registro. Cada lote es una mutación completa con las
+garantías anteriores y reemplaza el registry una sola vez; el resultado que ve
+la UI agrega `removedIds`, `removed` y `skipped` de todos ellos. Un lote que
+falla detiene la operación y conserva lo que los anteriores eliminaron: la UI
+relee el listado antes de informar y el mensaje nombra cuántas entradas se
+eliminaron antes de parar, de modo que un éxito parcial nunca se presenta como
+limpieza completa. La operación nunca elimina archivos o directorios de los
+repositorios y, después del éxito, relee el listado, actualiza el selector y
+carga el repositorio fallback antes de presentar el resultado.
 
 Para proyectos vivos, `.changeledger/config.yml` es la autoridad del nombre. El
 nombre guardado en `.registry.json` solo sirve como fallback cuando la ruta ya no
