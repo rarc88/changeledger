@@ -2,7 +2,7 @@
 id: "20261026-135523"
 title: La limpieza del registro no se alcanza sin el viewer
 type: change
-status: in-progress
+status: in-review
 created: 2026-10-26T13:55:23Z
 depends_on: []
 branch: change/20261026-135523
@@ -173,3 +173,4 @@ Queda fuera:
 - **2026-10-26T13:56:56Z** `[branch]` set: change/20261026-135523 (auto)
 - **2026-10-26T14:08:38Z** `[note]` La verdad persistente se reconcilió en `architecture.md`, no en `viewer.md`: la sede nueva es del CLI y el párrafo que ya describía el listado del registry y su fail-closed vive allí.
 - **2026-10-26T14:08:38Z** `[note]` El sondeo de disponibilidad se movió del visor a `src/registry.mjs` como `probeProject` y `src/viewer/domain.mjs` lo importa. Toca el visor, pero solo para borrar la copia: sin una única sede del criterio, el objetivo de limpiar «con el mismo criterio que el visor» no se puede garantizar.
+- **2026-10-26T14:11:50Z** `[status]` in-progress → in-review
