@@ -179,3 +179,4 @@ práctica» es exactamente lo que dejó pasar dos defectos en
 - **2026-10-26T17:21:21Z** `[note]` La revision senalo que el conjunto locked no filtraba por overflow hidden y que .detail-open suelto entraba en el. Comprobado: el filtro si exige overflow hidden en el cuerpo, y el conjunto sale con los doce selectores exactos, sin .detail-open. La observacion no se registra como finding.
 - **2026-10-26T17:21:47Z** `[graduation]` spec: `viewer.md`
 - **2026-10-26T17:35:30Z** `[status]` done → in-progress (agent)
+- **2026-10-26T17:35:37Z** `[finding]` 1 dropped: absorbido en este mismo change: la frontera aprobada ya cubre el scanner de reglas
