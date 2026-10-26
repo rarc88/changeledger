@@ -167,10 +167,11 @@ pasajes y es verdad persistente: quedarse falsa es peor que no existir.
   - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
   - **Criteria:** CR1, CR3
   - **Resolved:** `2026-10-26T15:08:04Z`
-- [ ] Retirar `graphSvg` y corregir el comentario que lo citaba como precedente
+- [x] Retirar `graphSvg` y corregir el comentario que lo citaba como precedente
   - **Target:** `src/viewer/public/view-renderers.js`
   - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
   - **Criteria:** CR3
+  - **Resolved:** `2026-10-26T15:08:04Z`
 - [ ] Retirar el bloque CSS del grafo y sus reglas de nodo y arista
   - **Target:** `src/viewer/public/styles.css`
   - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
