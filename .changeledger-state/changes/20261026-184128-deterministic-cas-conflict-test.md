@@ -177,3 +177,4 @@ Alternativas descartadas:
 - **2026-10-26T18:43:34Z** `[status]` draft → approved (human via conversation)
 - **2026-10-26T18:43:59Z** `[status]` approved → in-progress
 - **2026-10-26T18:43:59Z** `[branch]` set: change/20261026-184128 (auto)
+- **2026-10-26T18:46:50Z** `[note]` Defecto reproducido antes de tocar nada: con los dos procesos en serie el test falla con la firma exacta de CI, [{"code":0,"stderr":""},{"code":0,"stderr":""}] y 2 !== 1. La precondicion de la carrera, no la asercion, es lo que estaba al azar.
