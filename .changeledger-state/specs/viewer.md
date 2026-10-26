@@ -204,9 +204,14 @@ y elegir `Compact` (720 px), `Wide` (960 px, default) o `Full` (1280 px), siempr
 limitados al viewport seguro. El modal se centra con altura acotada y scroll
 interno; el panel conserva el contexto visual detrás. Mientras hay un detalle
 abierto, el único contenedor con barra de scroll vertical es el propio detalle:
-las vistas de debajo y los paneles del Ledger quedan bloqueados, conservando su
-desplazamiento, de modo que cerrarlo lo restituye; el detalle contiene además su
-propio encadenamiento de scroll para que la rueda no arrastre el fondo. Los controles son botones
+todo lo que desborda en vertical detrás de él queda bloqueado —las vistas, los
+paneles del Ledger y los de Projects—, conservando su desplazamiento, de modo
+que cerrarlo lo restituye; el detalle contiene además su propio encadenamiento
+de scroll para que la rueda no arrastre el fondo. Qué entra en ese bloqueo no se
+mantiene a mano: un test lo deriva de la propia hoja de estilos, recogiendo todo
+selector que declare desbordamiento vertical, excluyendo lo que vive delante del
+overlay y fallando ante cualquier forma que no sepa clasificar, en vez de
+descartarla en silencio. Los controles son botones
 con grupos y estado `aria-pressed`, y cambiar un preset no reconstruye el detalle
 ni pierde su scroll. Hasta 680 px ambos modos convergen temporalmente en pantalla
 completa sin sobrescribir la preferencia de escritorio. Tablas, código y Mermaid
