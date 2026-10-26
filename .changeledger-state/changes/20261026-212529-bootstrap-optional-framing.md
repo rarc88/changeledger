@@ -2,7 +2,7 @@
 id: "20261026-212529"
 title: Reescribir el bloque bootstrap para que la opcionalidad se lea primero
 type: change
-status: done
+status: in-progress
 created: 2026-10-26T21:25:29Z
 depends_on: []
 branch: change/20261026-212529
@@ -255,3 +255,4 @@ al texto en vez de pincharlo.
 - **2026-10-26T22:15:27Z** `[status]` in-progress → in-review
 - **2026-10-26T22:16:56Z** `[note]` El humano acepta el repliegue de CR2: concept guard tolerante más barrido de reaperturas, y la conditionality plena queda verificada por la revisión, no por el test
 - **2026-10-26T22:24:19Z** `[review]` in-review → done (delegated subagent, clean context)
+- **2026-10-26T22:25:42Z** `[status]` done → in-progress (agent)
