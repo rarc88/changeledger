@@ -2795,20 +2795,37 @@ function styleRules(css) {
   // the nested one is seen in its own right.
   const frames = [];
   let pending = '';
+  // A `;` only ends a statement outside quotes and brackets: a selector may
+  // carry one inside an attribute value, and a declaration inside a string or
+  // a `data:` URL.
+  let quote = '';
+  let brackets = 0;
   for (const ch of source) {
-    if (ch === '{') {
+    if (quote) {
+      if (ch === quote) quote = '';
+    } else if (ch === '"' || ch === "'") {
+      quote = ch;
+    } else if (ch === '[' || ch === '(') {
+      brackets += 1;
+    } else if (ch === ']' || ch === ')') {
+      brackets = Math.max(0, brackets - 1);
+    }
+    const inLiteral = quote !== '' || brackets > 0;
+
+    if (ch === '{' && !inLiteral) {
       const selector = pending.trim();
       frames.push({ kind: selector.startsWith('@') ? 'at' : 'rule', selector, body: '' });
       pending = '';
-    } else if (ch === '}') {
+    } else if (ch === '}' && !inLiteral) {
       const frame = frames.pop();
       if (frame?.kind === 'rule') rules.push({ selector: frame.selector, body: frame.body });
       pending = '';
     } else {
-      // A `;` ends a statement — a declaration, or an at-rule such as `@import
-      // url("x");`. Without this the next selector would absorb it and the rule
-      // it names would be classified as an at-rule and dropped.
-      if (ch === ';') pending = '';
+      // Outside a literal, a `;` ends a statement — a declaration, or an
+      // at-rule such as `@import url("x");`. Without this the next selector
+      // would absorb it and the rule it names would be classified as an
+      // at-rule and dropped.
+      if (ch === ';' && !inLiteral) pending = '';
       else pending += ch;
       if (frames.length) frames[frames.length - 1].body += ch;
     }
@@ -2821,7 +2838,7 @@ function styleRules(css) {
 test('the rule scanner survives statement at-rules and nesting', () => {
   const scrollersOf = (css) =>
     styleRules(css)
-      .filter((rule) => /overflow(?:-y)?:\s*(?:auto|scroll)/.test(rule.body))
+      .filter((rule) => VERTICAL_SCROLL.test(rule.body))
       .flatMap((rule) => rule.selector.split(',').map((one) => one.trim()))
       .sort();
 
@@ -2838,6 +2855,21 @@ test('the rule scanner survives statement at-rules and nesting', () => {
     '& .c',
     '.p',
   ]);
+
+  // The `;` that ends a statement is the one outside quotes and brackets. A
+  // selector may legitimately carry one inside an attribute value, and a
+  // declaration may carry one inside a string or a `data:` URL.
+  assert.deepEqual(scrollersOf('.a[data-x="a;b"] { overflow-y: auto }'), ['.a[data-x="a;b"]']);
+  assert.deepEqual(scrollersOf(".a[data-x='a;b'] { overflow: scroll }"), [".a[data-x='a;b']"]);
+  assert.deepEqual(
+    scrollersOf('.q { background: url(data:image/svg+xml;base64,AAA) }\n.r { overflow: auto }'),
+    ['.r'],
+  );
+  assert.deepEqual(scrollersOf('.s { content: "x;y"; overflow-y: auto }'), ['.s']);
+
+  // Same reason braces inside a string no longer desynchronise the frames.
+  assert.deepEqual(scrollersOf('.t { content: "{"; overflow-y: auto }'), ['.t']);
+  assert.deepEqual(scrollersOf('.u { content: "}" } .v { overflow: auto }'), ['.v']);
 });
 
 // Only a vertical overflow paints the bar this is about; `overflow-x` does not.
