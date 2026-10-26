@@ -157,10 +157,11 @@ pasajes y es verdad persistente: quedarse falsa es peor que no existir.
   - **Verify:** `pnpm test test/app-state.test.mjs`
   - **Criteria:** CR1, CR2
   - **Resolved:** `2026-10-26T15:08:02Z`
-- [ ] Retirar la pestaña y la sección del documento
+- [x] Retirar la pestaña y la sección del documento
   - **Target:** `src/viewer/public/index.html`
   - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
   - **Criteria:** CR1
+  - **Resolved:** `2026-10-26T15:08:03Z`
 - [ ] Retirar el render, el despacho, el import y el handler
   - **Target:** `src/viewer/public/app.js`
   - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
