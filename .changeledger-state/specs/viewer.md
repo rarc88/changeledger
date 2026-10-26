@@ -23,7 +23,9 @@ transiciones humanas: esa y la devolución de trabajo entregado. La aceptación 
 tiene asiento porque no es una acción del viewer: la da el merge de la rama del
 change. Lo que sí ofrece es el **rechazo**, un panel en el detalle de un change
 `done` que no figure en ningún release registrado, con una razón obligatoria que
-devuelve el change a `in-progress` atribuido al humano; el panel no se renderiza
+devuelve el change a `in-progress` atribuido al humano; su fila de controles
+declara una pista por control que renderiza, así que el campo de razón se lleva
+el espacio libre y el botón mide su contenido; el panel no se renderiza
 sobre un change publicado y el servidor rechaza con 403 cualquier otro par
 origen–destino. La frontera de release no se reimplementa en el viewer: la
 impone la misma mutación de `status` que usa la CLI. Las cards de draft no
@@ -90,18 +92,22 @@ tombstones se mantiene independiente de él. El valor se persiste por proyecto j
 filtros. `Clear` lo desactiva y restablece tanto los statuses como la visibilidad
 `Archived`/`Discarded`;
 `Discarded` añade su lane al final del Board sin comprimir las columnas
-normales. En escritorio, `.board` mide `100dvh - var(--header-height)` y es el
-único contenedor nativo de scroll vertical y horizontal; `ResizeObserver`
-mantiene la variable sincronizada con la altura real de una topbar de una o más
-filas. Una única fila de grid toma como mínimo el alto disponible y crece hasta
-el contenido de la lane más alta, de modo que todas las columnas —incluida
+normales. La altura la posee el `body`, un contenedor flex en columna de
+`100dvh` con `overflow: hidden`: la topbar es el item rígido y la vista visible
+el elástico, con `min-height: 0` y scroll propio. Ninguna vista calcula su
+altura restando la de la topbar, porque esa resta dependía de una variable
+sincronizada por JavaScript y el redondeo a entero desbordaba el documento por
+una fracción de píxel, que el navegador pintaba como una segunda barra. En
+escritorio `.board` es el único contenedor nativo de scroll vertical y
+horizontal. Una única fila de grid toma como mínimo el alto disponible y crece
+hasta el contenido de la lane más alta, de modo que todas las columnas —incluida
 Approved vacía— comparten altura, `.column-body` rellena el espacio y el board
 absorbe el overflow de una columna larga sin sacar el scrollbar horizontal del
-borde inferior. Cada columna conserva un ancho responsive entre 190 px y 400 px
-dimensionado para que seis quepan sin scroll desde 1280 px; en vez de
-comprimirse cuando hay más lanes de las que caben, el board permite llegar a las
-restantes. Las lanes salen de los `statuses` del repo, así que con el ciclo
-canónico son las cinco vivas más la de `Discarded`, y todas caben.
+borde inferior. El ancho lo fija la pista de grid, no la columna: las pistas
+implícitas son `minmax(190px, 1fr)` y reparten el ancho libre sea cual sea el
+número de lanes, que sale de los `statuses` del repo. Con el suelo de 190 px, en
+vez de comprimirse cuando ya no caben, el board desborda en horizontal y permite
+llegar a las restantes.
 Título, id y owner de la card envuelven
 tokens largos sin espacios (`overflow-wrap: anywhere`) para no desbordar la
 card; hasta 680 px el board recupera altura natural y overflow visible, y las
@@ -196,7 +202,11 @@ Changes y specs comparten preferencias globales de presentación del detalle.
 En escritorio se puede alternar sin cerrar entre panel lateral y modal flotante,
 y elegir `Compact` (720 px), `Wide` (960 px, default) o `Full` (1280 px), siempre
 limitados al viewport seguro. El modal se centra con altura acotada y scroll
-interno; el panel conserva el contexto visual detrás. Los controles son botones
+interno; el panel conserva el contexto visual detrás. Mientras hay un detalle
+abierto, el único contenedor con barra de scroll vertical es el propio detalle:
+las vistas de debajo y los paneles del Ledger quedan bloqueados, conservando su
+desplazamiento, de modo que cerrarlo lo restituye; el detalle contiene además su
+propio encadenamiento de scroll para que la rueda no arrastre el fondo. Los controles son botones
 con grupos y estado `aria-pressed`, y cambiar un preset no reconstruye el detalle
 ni pierde su scroll. Hasta 680 px ambos modos convergen temporalmente en pantalla
 completa sin sobrescribir la preferencia de escritorio. Tablas, código y Mermaid
