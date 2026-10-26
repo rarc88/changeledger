@@ -2783,43 +2783,51 @@ test('the mobile block hands the scroll back to the page', () => {
   assert.match(mobileBody, /overflow:\s*visible/);
 });
 
-// Top-level rules only: the scanner records a rule when its closing brace
-// brings the depth back to zero, so the contents of `@media` blocks never
-// surface as rules of their own.
-function topLevelRules(css) {
+// Every style rule, including the ones nested in an at-rule: a `@media` block
+// is a container of rules, not a rule, so its contents are scanned rather than
+// skipped. Leaving them out is what hid the defect that made a whole view
+// unreachable between two breakpoints.
+function styleRules(css) {
   const rules = [];
   const source = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  const kinds = [];
   let depth = 0;
   let start = 0;
   let selector = '';
   for (let i = 0; i < source.length; i += 1) {
     if (source[i] === '{') {
-      if (depth === 0) {
-        selector = source.slice(start, i).trim();
-        start = i + 1;
-      }
+      selector = source.slice(start, i).trim();
+      kinds[depth] = selector.startsWith('@') ? 'at' : 'rule';
       depth += 1;
+      start = i + 1;
     } else if (source[i] === '}') {
       depth -= 1;
-      if (depth === 0) {
-        if (!selector.startsWith('@')) rules.push({ selector, body: source.slice(start, i) });
-        start = i + 1;
-      }
+      if (kinds[depth] === 'rule') rules.push({ selector, body: source.slice(start, i) });
+      start = i + 1;
+      selector = '';
     }
   }
   return rules;
 }
 
-const VIEW_SCROLLER =
-  /^(\.(?:board|[a-z-]+-view|ledger-content|ledger-[a-z]+-panel))(\[[^\]]*\])?$/;
+// Only a vertical overflow paints the bar this is about; `overflow-x` does not.
+const VERTICAL_SCROLL = /overflow(?:-y)?:\s*(?:auto|scroll)/;
+// A bare class, optionally qualified by one attribute. Anything else is not
+// skipped — it fails the test, because a shape nobody anticipated is exactly
+// what a silent skip turns into a second scrollbar.
+const SIMPLE_CLASS = /^(\.[a-z][a-z0-9-]*)(\[[^\]]*\])?$/;
+// What lives in FRONT of the overlay, so it is allowed to keep its scrollbar:
+// the detail itself and the diagram lightbox, which opens above everything.
+const IN_FRONT = /^\.(?:detail|diagram-)/;
 
-// The obligation, derived from the stylesheet instead of listed: anything
+// The obligation, derived from the stylesheet rather than listed: anything
 // behind the overlay that scrolls paints a bar beside the detail's, so it must
-// be in the lock. Listing it by hand is what let a view ship a second bar —
-// it was made elastic and never added to the lock.
+// be in the lock. The derivation used to recognise a hand-written family of
+// names and drop the rest without a word — which is how two panels stayed
+// unlocked and a whole `@media` block stayed unread.
 test('every scroll container behind the overlay is in the detail-open lock', () => {
   const css = fs.readFileSync(new URL('../src/viewer/public/styles.css', import.meta.url), 'utf8');
-  const rules = topLevelRules(css);
+  const rules = styleRules(css);
   const selectorsOf = (rule) => rule.selector.split(',').map((one) => one.trim());
 
   const locked = new Set(
@@ -2830,16 +2838,22 @@ test('every scroll container behind the overlay is in the detail-open lock', () 
       .flatMap(selectorsOf)
       .map((one) => one.replace(/^\.detail-open\s+/, '').replace(/\[[^\]]*\]$/, '')),
   );
-  const scrollers = new Set(
-    rules
-      .filter((rule) => /overflow(?:-y)?:\s*auto/.test(rule.body))
-      .flatMap(selectorsOf)
-      .filter((one) => VIEW_SCROLLER.test(one))
-      .map((one) => one.replace(VIEW_SCROLLER, '$1')),
+
+  const vertical = [
+    ...new Set(rules.filter((rule) => VERTICAL_SCROLL.test(rule.body)).flatMap(selectorsOf)),
+  ];
+  const unrecognised = vertical.filter((one) => !SIMPLE_CLASS.test(one));
+  assert.deepEqual(
+    unrecognised,
+    [],
+    `these selectors scroll vertically in a shape this test cannot normalise, so it cannot tell whether they are locked: ${unrecognised.join(', ')}`,
   );
 
-  assert.ok(scrollers.size >= 7, `expected the views to scroll, found ${[...scrollers]}`);
-  for (const scroller of scrollers) {
+  const behind = new Set(
+    vertical.map((one) => one.replace(SIMPLE_CLASS, '$1')).filter((one) => !IN_FRONT.test(one)),
+  );
+  assert.ok(behind.size >= 12, `expected the views and panels to scroll, found ${[...behind]}`);
+  for (const scroller of behind) {
     assert.ok(
       locked.has(scroller),
       `${scroller} scrolls but is not locked while the detail is open`,
