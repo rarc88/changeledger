@@ -19,10 +19,12 @@
 // that seat is assertable.
 import {
   CHANGE_TYPES,
+  FRONTMATTER,
   fenceTracker,
   parseChange,
   RETIRED_STAGES,
   RETIRED_TYPES,
+  stageHeadings,
 } from './change.mjs';
 import { matchLenientTaskLine } from './task.mjs';
 import { parseYaml } from './yaml.mjs';
@@ -77,7 +79,6 @@ export function hasFixableDefects(text) {
 // document order, its own headings one level deeper so the hierarchy survives.
 // An empty retired stage simply disappears. Which documents are live is the
 // caller's question (`frozenReason`): this function never sees frozen history.
-const FRONTMATTER = /^---\n([\s\S]*?)\n---\n?/;
 const TYPE_LINE = /^type:[ \t]*(["']?)([^"'\s#]+)\1([ \t]+#.*)?[ \t]*$/;
 
 export function repairLiveDocument(text) {
@@ -166,14 +167,16 @@ function foldRetiredStages(body, applied, manual) {
 // Splits a body at its `## ` headings outside code fences; joining the
 // segments back reproduces the body byte for byte.
 function splitSegments(body) {
-  const segments = [{ key: null, heading: null, lines: [] }];
-  const isFenced = fenceTracker();
-  for (const line of body.split('\n')) {
-    const heading = isFenced(line) ? null : line.match(/^##\s+(.+?)\s*$/);
-    if (heading) segments.push({ key: heading[1].toLowerCase(), heading: line, lines: [] });
-    else segments.at(-1).lines.push(line);
-  }
-  return segments;
+  const lines = body.split('\n');
+  const headings = stageHeadings(lines);
+  return [
+    { key: null, heading: null, lines: lines.slice(0, headings[0]?.start ?? lines.length) },
+    ...headings.map(({ start, end, title }) => ({
+      key: title.toLowerCase(),
+      heading: lines[start],
+      lines: lines.slice(start + 1, end),
+    })),
+  ];
 }
 
 function demoteHeadings(lines) {

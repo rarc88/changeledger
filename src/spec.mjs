@@ -1,9 +1,8 @@
 // Parses a spec file: the persistent-truth layer. Unlike changes, specs have no
 // lifecycle — just frontmatter (title, updated, tags) plus a free markdown body.
 
+import { FRONTMATTER } from './change.mjs';
 import { parseYaml } from './yaml.mjs';
-
-const FRONTMATTER = /^---\n([\s\S]*?)\n---\n?/;
 
 export function parseSpec(text) {
   const fm = text.match(FRONTMATTER);
