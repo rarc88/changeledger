@@ -2,7 +2,7 @@
 id: "20261026-143804"
 title: Un worktree de la app aborta el lint del repo padre
 type: change
-status: in-progress
+status: in-review
 created: 2026-10-26T14:38:04Z
 depends_on: []
 reviewed: true
@@ -139,3 +139,4 @@ Queda fuera:
 - **2026-10-26T14:54:36Z** `[graduation]` spec: `lifecycle.md`
 - **2026-10-26T15:06:17Z** `[status]` done → in-progress (agent)
 - **2026-10-26T15:06:22Z** `[note]` CI falló en el PR 43: la guarda `no test fixture invokes git without a sanitized environment` cazó el `spawnSync('git', …)` que introduje al sustituir la comprobación literal de `.gitignore` por `git check-ignore`. Causa de que se me escapara: cambié el candidato después de correr `pnpm verify` y solo revalidé el fichero tocado.
+- **2026-10-26T15:06:39Z** `[status]` in-progress → in-review
