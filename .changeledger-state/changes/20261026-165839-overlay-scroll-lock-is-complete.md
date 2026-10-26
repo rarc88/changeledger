@@ -241,3 +241,4 @@ práctica» es exactamente lo que dejó pasar dos defectos en
 - **2026-10-26T17:56:31Z** `[note]` Arreglado llevando estado de comillas y corchetes: el punto y coma solo cierra sentencia fuera de literales. De paso cierra una ceguera preexistente que la revision tambien nombro, la llave dentro de una cadena, que desincronizaba la pila de marcos; queda fijada con dos casos. Verificado sin regresion: 340 reglas y los mismos catorce selectores que antes.
 - **2026-10-26T17:56:38Z** `[status]` in-progress → in-review
 - **2026-10-26T18:02:02Z** `[status]` in-review → in-progress
+- **2026-10-26T18:03:14Z** `[note]` Correccion de una afirmacion anterior de este Log: el caso .u que puse como prueba de la llave dentro de una cadena pasaba tambien con el scanner previo, por accidente, asi que no probaba nada. Reescrito a .u con su propia declaracion detras de la llave, que si discrimina. La prueba real de ese arreglo era .t.
