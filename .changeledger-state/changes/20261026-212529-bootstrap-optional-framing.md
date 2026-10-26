@@ -5,6 +5,7 @@ type: change
 status: done
 created: 2026-10-26T21:25:29Z
 depends_on: []
+reviewed: true
 branch: change/20261026-212529
 related_to:
   - "20260720-212659"
@@ -271,3 +272,4 @@ al texto en vez de pincharlo.
 - **2026-10-26T22:29:51Z** `[note]` Corrección de las dos imprecisiones que señaló la tercera revisión: la ventana de CR2 se acota al punto anterior y a los dos puntos que cierran la obligación, con aserción de que no alcanza la lista; CR5 declara la exención del fixture histórico y el barrido deja de partir la cadena, que ya no hacía falta. Variante de fuga (obligación sin 'installed' más bullet que sí lo dice) rechazada
 - **2026-10-26T22:29:52Z** `[status]` in-progress → in-review
 - **2026-10-26T22:35:12Z** `[review]` in-review → done (delegated subagent, clean context)
+- **2026-10-26T22:36:20Z** `[graduation]` spec: `contract-discovery.md`
