@@ -2,7 +2,7 @@
 id: "20261026-145217"
 title: La vista Graph ocupa sitio sin ganárselo
 type: change
-status: in-review
+status: done
 created: 2026-10-26T14:52:17Z
 depends_on: ["20261026-134323"]
 branch: change/20261026-145217
@@ -202,3 +202,4 @@ pasajes y es verdad persistente: quedarse falsa es peor que no existir.
 - **2026-10-26T15:10:43Z** `[note]` CR1 y CR2 medidos en el viewer en ejecucion: la barra ofrece cinco pestanas (board, table, ledger, metrics, projects), no existen #view-graph ni #graph, y arrancar con el estado guardado en graph y la URL ?view=graph aterriza en Board; el snapshot se reescribe a board.
 - **2026-10-26T15:10:44Z** `[note]` CR6 medido: las cinco vistas rinden contenido sin un solo error de consola, el detalle abre y cierra desde Board y desde Table, y en ambos casos la unica barra vertical es la de #detail. CR3: mermaid sigue cargado y un change con diagrama rinde su SVG y su expandible.
 - **2026-10-26T15:13:54Z** `[status]` in-progress → in-review
+- **2026-10-26T15:24:50Z** `[review]` in-review → done (delegated subagent, clean context)
