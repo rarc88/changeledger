@@ -190,8 +190,9 @@ pasajes y es verdad persistente: quedarse falsa es peor que no existir.
 - [x] Recorrer las cinco vistas en el viewer en ejecución y anotar el resultado en el Log
   - **Support:** el recorrido de CR6 no lo cubre la suite; se mide con el navegador
   - **Resolved:** `2026-10-26T15:10:50Z`
-- [ ] Pasar la puerta local completa
+- [x] Pasar la puerta local completa
   - **Support:** `pnpm verify`
+  - **Resolved:** `2026-10-26T15:13:53Z`
 
 ## Log
 - **2026-10-26T14:52:17Z** `[version]` 1.0.0
