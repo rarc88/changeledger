@@ -5,6 +5,7 @@ type: change
 status: done
 created: 2026-10-26T18:41:28Z
 depends_on: []
+archived: true
 reviewed: true
 branch: change/20261026-184128
 related_to: ["20260808-151643", "20260615-222620", "20261026-165839"]
@@ -190,3 +191,4 @@ Alternativas descartadas:
 - **2026-10-26T19:22:19Z** `[review]` in-review → done (delegated subagent, clean context)
 - **2026-10-26T19:22:53Z** `[graduation]` skipped: El change solo reescribe un test: el comportamiento del CAS y su presentacion en la CLI no cambian, y las specs que los describen siguen siendo ciertas tal cual.
 - **2026-10-26T19:50:14Z** `[finding]` Los tres shims de git del repo interpolan rutas dentro de comillas dobles de shell: test/cli-bin.test.mjs via JSON.stringify, y test/edit.test.mjs y test/import.test.mjs con interpolacion directa de plantilla, que ni siquiera escapa. Una ruta temporal con $, backtick, barra invertida o comilla se expandiria mal. Hoy es inalcanzable porque scripts/run-tests.mjs fija TMPDIR a un mkdtemp changeledger-test-* y el fallo seria ruidoso, no silencioso. Arreglarlo en uno solo de los tres deja inconsistencia sin cerrar la clase: si se hace, se pasan las rutas por el entorno en los tres.
+- **2026-10-26T19:58:52Z** `[archive]` archived
