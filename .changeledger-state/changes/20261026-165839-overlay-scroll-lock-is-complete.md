@@ -2,7 +2,7 @@
 id: "20261026-165839"
 title: El bloqueo de scroll del detalle no ve todo lo que puede scrollear
 type: change
-status: in-progress
+status: in-review
 created: 2026-10-26T16:58:39Z
 depends_on: []
 reviewed: true
@@ -212,3 +212,4 @@ práctica» es exactamente lo que dejó pasar dos defectos en
 - **2026-10-26T17:35:38Z** `[finding]` 2 dropped: absorbido en este mismo change: la frontera aprobada ya cubre el patron de scrollers
 - **2026-10-26T17:41:25Z** `[note]` Absorbidos los dos findings que dejo la revision: la frontera aprobada ya cubria el scanner de reglas y el patron de scrollers, asi que se arreglan aqui en vez de en un change aparte. El scanner pasa a llevar el cuerpo de cada regla en su propio nivel —una regla anidada ya no destruye las declaraciones de la externa— y corta el selector en punto y coma, de modo que @import o @layer base; no se tragan la regla siguiente.
 - **2026-10-26T17:41:25Z** `[note]` IN_FRONT deja de ser un prefijo y pasa a ser la lista exacta de los dos que van delante. Verificado en rojo revirtiendo el prefijo: con el, .detail-sidebar, .detail-notes y .diagram-index se excluian en silencio pese a vivir detras del overlay.
+- **2026-10-26T17:41:32Z** `[status]` in-progress → in-review
