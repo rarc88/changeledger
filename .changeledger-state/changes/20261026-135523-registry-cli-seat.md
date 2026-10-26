@@ -128,6 +128,12 @@ Queda fuera:
 - **When** se ejecuta `changeledger projects --clean-missing`
 - **Then** la salida declara `removed: 1000` y el registro conserva solo la entrada viva
 
+### CR6 — `--dry-run` sin `--clean-missing` falla en vez de ignorarse
+- **Given** el binario y un registro cualquiera
+- **When** se ejecuta `changeledger projects --dry-run`
+- **Then** el comando sale con código `1` y escribe en stderr `Error: --dry-run only applies to --clean-missing`
+- **And** no imprime ningún proyecto
+
 ## Plan
 
 - [x] Extraer el sondeo de disponibilidad a `src/registry.mjs` y consumirlo
@@ -163,6 +169,11 @@ Queda fuera:
   - **Verify:** `node bin/changeledger.mjs check`
   - **Support:**
   - **Resolved:** `2026-10-26T14:08:36Z`
+- [ ] Rechazar `--dry-run` sin `--clean-missing` con un error explícito, en vez
+  de ignorar la opción en silencio
+  - **Target:** `src/commands/projects.mjs`
+  - **Verify:** `node --test test/projects-command.test.mjs test/cli-bin.test.mjs`
+  - **Criteria:** CR6
 - [x] Ejecutar el gate local completo
   - **Support:** `pnpm test`
   - **Resolved:** `2026-10-26T14:08:37Z`
