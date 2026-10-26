@@ -2783,45 +2783,164 @@ test('the mobile block hands the scroll back to the page', () => {
   assert.match(mobileBody, /overflow:\s*visible/);
 });
 
-// Top-level rules only: the scanner records a rule when its closing brace
-// brings the depth back to zero, so the contents of `@media` blocks never
-// surface as rules of their own.
-function topLevelRules(css) {
+// Every style rule, including the ones nested in an at-rule: a `@media` block
+// is a container of rules, not a rule, so its contents are scanned rather than
+// skipped. Leaving them out is what hid the defect that made a whole view
+// unreachable between two breakpoints.
+function styleRules(css) {
   const rules = [];
   const source = css.replace(/\/\*[\s\S]*?\*\//g, '');
-  let depth = 0;
-  let start = 0;
-  let selector = '';
-  for (let i = 0; i < source.length; i += 1) {
-    if (source[i] === '{') {
-      if (depth === 0) {
-        selector = source.slice(start, i).trim();
-        start = i + 1;
-      }
-      depth += 1;
-    } else if (source[i] === '}') {
-      depth -= 1;
-      if (depth === 0) {
-        if (!selector.startsWith('@')) rules.push({ selector, body: source.slice(start, i) });
-        start = i + 1;
-      }
+  // One frame per open block. A frame's body collects only the characters at
+  // its own level, so a rule that nests another keeps its own declarations and
+  // the nested one is seen in its own right.
+  const frames = [];
+  let pending = '';
+  // A `;` only ends a statement outside quotes and brackets: a selector may
+  // carry one inside an attribute value, and a declaration inside a string or
+  // a `data:` URL.
+  let quote = '';
+  let brackets = 0;
+  let escaped = false;
+  for (const ch of source) {
+    if (escaped) {
+      escaped = false;
+      if (frames.length) frames[frames.length - 1].body += ch;
+      else pending += ch;
+      continue;
+    }
+    if (quote && ch === '\\') {
+      escaped = true;
+      if (frames.length) frames[frames.length - 1].body += ch;
+      continue;
+    }
+    if (quote) {
+      if (ch === quote) quote = '';
+    } else if (ch === '"' || ch === "'") {
+      quote = ch;
+    } else if (ch === '[' || ch === '(') {
+      brackets += 1;
+    } else if (ch === ']' || ch === ')') {
+      brackets = Math.max(0, brackets - 1);
+    }
+    const inLiteral = quote !== '' || brackets > 0;
+
+    if (ch === '{' && !inLiteral) {
+      const selector = pending.trim();
+      frames.push({ kind: selector.startsWith('@') ? 'at' : 'rule', selector, body: '' });
+      pending = '';
+    } else if (ch === '}' && !inLiteral) {
+      const frame = frames.pop();
+      if (frame?.kind === 'rule') rules.push({ selector: frame.selector, body: frame.body });
+      pending = '';
+    } else {
+      // Outside a literal, a `;` ends a statement — a declaration, or an
+      // at-rule such as `@import url("x");`. Without this the next selector
+      // would absorb it and the rule it names would be classified as an
+      // at-rule and dropped.
+      if (ch === ';' && !inLiteral) pending = '';
+      else pending += ch;
+      if (frames.length) frames[frames.length - 1].body += ch;
     }
   }
+  // Anything still open means the walk lost its place, and every rule after
+  // that point is missing from the result. Say so rather than hand back a
+  // partial answer that looks complete.
+  const open = [
+    quote && `string opened with ${quote}`,
+    brackets > 0 && `${brackets} bracket(s)`,
+    frames.length && `${frames.length} block(s)`,
+  ].filter(Boolean);
+  if (open.length)
+    throw new Error(`unterminated ${open.join(', ')} — the stylesheet was not fully read`);
   return rules;
 }
 
-const VIEW_SCROLLER =
-  /^(\.(?:board|[a-z-]+-view|ledger-content|ledger-[a-z]+-panel))(\[[^\]]*\])?$/;
+// The scanner's own guards, because the sheet uses none of these constructs
+// today and a blind spot nobody exercises is a blind spot nobody notices.
+test('the rule scanner survives statement at-rules and nesting', () => {
+  const scrollersOf = (css) =>
+    styleRules(css)
+      .filter((rule) => VERTICAL_SCROLL.test(rule.body))
+      .flatMap((rule) => rule.selector.split(',').map((one) => one.trim()))
+      .sort();
 
-// The obligation, derived from the stylesheet instead of listed: anything
-// behind the overlay that scrolls paints a bar beside the detail's, so it must
-// be in the lock. Listing it by hand is what let a view ship a second bar —
-// it was made elastic and never added to the lock.
-test('every scroll container behind the overlay is in the detail-open lock', () => {
-  const css = fs.readFileSync(new URL('../src/viewer/public/styles.css', import.meta.url), 'utf8');
-  const rules = topLevelRules(css);
+  // A `;`-terminated at-rule ends a statement: the rule after it keeps its own
+  // selector instead of being absorbed into the at-rule's.
+  assert.deepEqual(scrollersOf('@import url("x");\n.a { overflow: auto }'), ['.a']);
+  assert.deepEqual(scrollersOf('@layer base;\n.b { overflow-y: scroll }'), ['.b']);
+
+  // A rule that nests another keeps its own declarations, and the nested one is
+  // seen in its own right.
+  assert.deepEqual(scrollersOf('.p { overflow-y: auto; & .c { color: red } }'), ['.p']);
+  assert.deepEqual(scrollersOf('.p { color: red; & .c { overflow: auto } }'), ['& .c']);
+  assert.deepEqual(scrollersOf('.p { overflow: auto; & .c { overflow-y: scroll } }').sort(), [
+    '& .c',
+    '.p',
+  ]);
+
+  // The `;` that ends a statement is the one outside quotes and brackets. A
+  // selector may legitimately carry one inside an attribute value, and a
+  // declaration may carry one inside a string or a `data:` URL.
+  assert.deepEqual(scrollersOf('.a[data-x="a;b"] { overflow-y: auto }'), ['.a[data-x="a;b"]']);
+  assert.deepEqual(scrollersOf(".a[data-x='a;b'] { overflow: scroll }"), [".a[data-x='a;b']"]);
+  assert.deepEqual(
+    scrollersOf('.q { background: url(data:image/svg+xml;base64,AAA) }\n.r { overflow: auto }'),
+    ['.r'],
+  );
+  assert.deepEqual(scrollersOf('.s { content: "x;y"; overflow-y: auto }'), ['.s']);
+
+  // Same reason braces inside a string no longer desynchronise the frames: the
+  // closing one used to end the rule early, so its own declaration was lost.
+  assert.deepEqual(scrollersOf('.t { content: "{"; overflow-y: auto }'), ['.t']);
+  assert.deepEqual(scrollersOf('.u { content: "}"; overflow-y: auto }'), ['.u']);
+
+  // A backslash escapes the next character, so an escaped quote does not end
+  // the string and take the rest of the sheet with it.
+  assert.deepEqual(scrollersOf('.w { content: "a\\"b"; overflow-y: auto }'), ['.w']);
+  assert.deepEqual(scrollersOf('.x { content: "a\\"b" }\n.y { overflow: auto }'), ['.y']);
+});
+
+// Everything above is about not losing a rule. This is the backstop: when the
+// scanner cannot make sense of the sheet at all it says so, instead of
+// returning the rules it managed to read and dropping the rest in silence —
+// which is the one failure mode this whole guard exists to prevent.
+test('the rule scanner refuses a sheet it could not finish reading', () => {
+  const unfinished = [
+    ['an unclosed string', '.a { content: "x }'],
+    ['an unclosed url()', '.a { background: url(foo.png; }\n.b { overflow: auto }'],
+    ['an unclosed attribute selector', '.a[x { }\n.b { overflow: auto }'],
+    ['an unclosed block', '.a { overflow: auto'],
+  ];
+  for (const [what, css] of unfinished) {
+    assert.throws(() => styleRules(css), /unterminated/i, what);
+  }
+  assert.doesNotThrow(() =>
+    styleRules(
+      fs.readFileSync(new URL('../src/viewer/public/styles.css', import.meta.url), 'utf8'),
+    ),
+  );
+});
+
+// Only a vertical overflow paints the bar this is about; `overflow-x` does not.
+const VERTICAL_SCROLL = /overflow(?:-y)?:\s*(?:auto|scroll)/;
+// A bare class, optionally qualified by one attribute. Anything else is not
+// skipped — it fails the test, because a shape nobody anticipated is exactly
+// what a silent skip turns into a second scrollbar.
+const SIMPLE_CLASS = /^(\.[a-z][a-z0-9-]*)(\[[^\]]*\])?$/;
+// What lives in FRONT of the overlay, so it is allowed to keep its scrollbar.
+// An exact list, not a prefix: `.detail-…` is a naming convention, not a
+// guarantee of sitting in front, and a prefix would exclude a future panel
+// silently. Adding a third one here is then a deliberate act.
+const IN_FRONT = new Set(['.detail', '.diagram-canvas']);
+
+// The derivation itself, over any stylesheet: what scrolls vertically behind
+// the overlay, and what the test could not classify.
+function scrollersBehindOverlay(css) {
+  const rules = styleRules(css);
   const selectorsOf = (rule) => rule.selector.split(',').map((one) => one.trim());
-
+  const vertical = [
+    ...new Set(rules.filter((rule) => VERTICAL_SCROLL.test(rule.body)).flatMap(selectorsOf)),
+  ];
   const locked = new Set(
     rules
       .filter(
@@ -2830,16 +2949,47 @@ test('every scroll container behind the overlay is in the detail-open lock', () 
       .flatMap(selectorsOf)
       .map((one) => one.replace(/^\.detail-open\s+/, '').replace(/\[[^\]]*\]$/, '')),
   );
-  const scrollers = new Set(
-    rules
-      .filter((rule) => /overflow(?:-y)?:\s*auto/.test(rule.body))
-      .flatMap(selectorsOf)
-      .filter((one) => VIEW_SCROLLER.test(one))
-      .map((one) => one.replace(VIEW_SCROLLER, '$1')),
-  );
+  return {
+    locked,
+    unrecognised: vertical.filter((one) => !SIMPLE_CLASS.test(one)),
+    behind: new Set(
+      vertical.map((one) => one.replace(SIMPLE_CLASS, '$1')).filter((one) => !IN_FRONT.has(one)),
+    ),
+  };
+}
 
-  assert.ok(scrollers.size >= 7, `expected the views to scroll, found ${[...scrollers]}`);
-  for (const scroller of scrollers) {
+// A prefix match would wave through anything merely named like the overlay's
+// own parts; only the two that really sit in front are excluded.
+test('only the panels that really sit in front of the overlay are excused', () => {
+  const sheet = (selector) => `${selector} { overflow-y: auto }`;
+
+  assert.deepEqual([...scrollersBehindOverlay(sheet('.detail')).behind], []);
+  assert.deepEqual([...scrollersBehindOverlay(sheet('.diagram-canvas')).behind], []);
+  for (const lookalike of ['.detail-sidebar', '.detail-notes', '.diagram-index']) {
+    assert.deepEqual(
+      [...scrollersBehindOverlay(sheet(lookalike)).behind],
+      [lookalike],
+      `${lookalike} only looks like it sits in front`,
+    );
+  }
+});
+
+// The obligation, derived from the stylesheet rather than listed: anything
+// behind the overlay that scrolls paints a bar beside the detail's, so it must
+// be in the lock. The derivation used to recognise a hand-written family of
+// names and drop the rest without a word — which is how two panels stayed
+// unlocked and a whole `@media` block stayed unread.
+test('every scroll container behind the overlay is in the detail-open lock', () => {
+  const css = fs.readFileSync(new URL('../src/viewer/public/styles.css', import.meta.url), 'utf8');
+  const { locked, unrecognised, behind } = scrollersBehindOverlay(css);
+
+  assert.deepEqual(
+    unrecognised,
+    [],
+    `these selectors scroll vertically in a shape this test cannot normalise, so it cannot tell whether they are locked: ${unrecognised.join(', ')}`,
+  );
+  assert.ok(behind.size >= 12, `expected the views and panels to scroll, found ${[...behind]}`);
+  for (const scroller of behind) {
     assert.ok(
       locked.has(scroller),
       `${scroller} scrolls but is not locked while the detail is open`,

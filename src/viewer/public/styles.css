@@ -1681,25 +1681,6 @@ body {
   padding: 8px;
 }
 
-/* The one detail-open lock. Locking the document is not enough: every view —
-   and, in the Ledger, its inner panels — is a scroll container of its own and
-   would paint a second vertical bar beside the detail's. Anything that scrolls
-   behind the overlay belongs on this list; the test derives the list from the
-   stylesheet so a newly elastic view cannot be left off it. The block sits
-   after every rule it overrides, so neither source order nor an equally
-   specific attribute selector can win over it, and `overflow: hidden` keeps
-   the scroll offset, so closing the detail restores the position. */
-.detail-open .board,
-.detail-open .table-view,
-.detail-open .metrics-view,
-.detail-open .global-view,
-.detail-open .projects-view,
-.detail-open .ledger-content,
-.detail-open .ledger-tree-panel,
-.detail-open .ledger-article-panel {
-  overflow: hidden;
-}
-
 @media (max-width: 1280px) {
   .topbar {
     flex-wrap: wrap;
@@ -2099,4 +2080,27 @@ body {
 .cl-prompt-input:focus {
   outline: none;
   border-color: var(--accent);
+}
+
+/* The one detail-open lock. Locking the document is not enough: every view —
+   and, in the Ledger, its inner panels — is a scroll container of its own and
+   would paint a second vertical bar beside the detail's. Anything that scrolls
+   behind the overlay belongs on this list; the test derives the list from the
+   stylesheet so a newly elastic view cannot be left off it. The block sits
+   after every rule it overrides, so neither source order nor an equally
+   specific attribute selector can win over it, and `overflow: hidden` keeps
+   the scroll offset, so closing the detail restores the position. */
+.detail-open .board,
+.detail-open .table-view,
+.detail-open .metrics-view,
+.detail-open .global-view,
+.detail-open .projects-view,
+.detail-open .projects-list,
+.detail-open .project-editor,
+.detail-open .config-migration-yaml,
+.detail-open .ledger-content,
+.detail-open .ledger-source,
+.detail-open .ledger-tree-panel,
+.detail-open .ledger-article-panel {
+  overflow: hidden;
 }
