@@ -69,7 +69,7 @@ Los ficheros son `src/viewer/public/styles.css`, `src/viewer/public/app.js` y
 
 Fuera: retirar la vista Graph, que es una decisión de producto y va en su propio
 change; cualquier otro rediseño visual del viewer; y el trabajo sin commitear de
-`#20261026-132745`, que vive en otro worktree y no se toca.
+otra sesión, que vive en otro worktree y no se toca.
 
 Preautorizado dentro: eliminar la variable `--header-height` y su
 `ResizeObserver` si el modelo de altura que los sustituye los deja sin uso, y
@@ -110,4 +110,3 @@ ajustar los tests que afirmen sobre el CSS o el DOM que esta frontera cambia.
 ## Plan
 
 ## Log
-- **2026-10-26T13:43:23Z** `[version]` 1.0.0
