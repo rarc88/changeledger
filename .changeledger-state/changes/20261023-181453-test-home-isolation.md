@@ -2,7 +2,7 @@
 id: "20261023-181453"
 title: Los tests contaminan el registro global del usuario
 type: change
-status: draft
+status: approved
 created: 2026-10-23T18:14:53Z
 depends_on: []
 related_to: ["20261007-135154", "20261023-181753"]
@@ -119,3 +119,5 @@ desechable en vez del del usuario.
 
 ## Log
 - **2026-10-23T18:14:53Z** `[version]` 0.18.0
+- **2026-10-26T12:34:45Z** `[version]` 0.18.0 → 1.0.1-dev
+- **2026-10-26T12:34:45Z** `[status]` draft → approved (human via conversation)
