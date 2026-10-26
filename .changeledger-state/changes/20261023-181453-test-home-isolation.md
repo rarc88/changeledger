@@ -106,11 +106,12 @@ desechable en vez del del usuario.
   - **Verify:** `node --test test/run-tests.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4
   - **Resolved:** `2026-10-26T12:41:33Z`
-- [ ] Escribir los cuatro criterios como tests sobre el envoltorio, reutilizando
+- [x] Escribir los cuatro criterios como tests sobre el envoltorio, reutilizando
   el `setup(t)` existente
   - **Target:** `test/run-tests.test.mjs`
   - **Verify:** `node --test test/run-tests.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4
+  - **Resolved:** `2026-10-26T12:41:34Z`
 - [ ] Crear el home desechable bajo la raíz temporal y pasarlo en el `env` del
   hijo junto a `TMPDIR`
   - **Target:** `scripts/run-tests.mjs`
