@@ -171,3 +171,4 @@ Queda fuera:
 - **2026-10-26T13:56:52Z** `[status]` draft → approved (human via conversation)
 - **2026-10-26T13:56:56Z** `[status]` approved → in-progress
 - **2026-10-26T13:56:56Z** `[branch]` set: change/20261026-135523 (auto)
+- **2026-10-26T14:08:38Z** `[note]` La verdad persistente se reconcilió en `architecture.md`, no en `viewer.md`: la sede nueva es del CLI y el párrafo que ya describía el listado del registry y su fail-closed vive allí.
