@@ -2670,3 +2670,15 @@ test('the projects command lists the registry and prunes it from the binary', ()
   assert.match(run('--clean-missing'), /Removed 1; kept 0 inconclusive\./);
   assert.deepEqual(Object.keys(JSON.parse(fs.readFileSync(registry, 'utf8'))), ['alive']);
 });
+
+test('the projects command refuses a dry run that cleans nothing', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const run = spawnSync(process.execPath, [bin, 'projects', '--dry-run'], {
+    env: { ...sanitizedEnv(), CHANGELEDGER_HOME: home },
+    encoding: 'utf8',
+  });
+
+  assert.equal(run.status, 1);
+  assert.equal(run.stderr.trim(), 'Error: --dry-run only applies to --clean-missing');
+  assert.equal(run.stdout, '');
+});

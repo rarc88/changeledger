@@ -20,6 +20,9 @@ export function inspectProjects() {
 }
 
 export function projectsCommand({ cleanMissing = false, dryRun = false } = {}) {
+  // Silently ignoring it would let someone believe a cleanup was previewed
+  // when nothing was ever going to be removed.
+  if (dryRun && !cleanMissing) throw new Error('--dry-run only applies to --clean-missing');
   const projects = inspectProjects();
   if (!cleanMissing) return { projects };
   const candidates = projects

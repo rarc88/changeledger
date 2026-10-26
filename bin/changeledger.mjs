@@ -285,7 +285,7 @@ program
   .command('projects')
   .description('list the registered projects, and prune the ones whose path is gone')
   .option('--clean-missing', 'remove every registry entry whose path is confirmed gone')
-  .option('--dry-run', 'with --clean-missing, name what would go and write nothing')
+  .option('--dry-run', 'only with --clean-missing: name what would go and write nothing')
   .action(
     action((options) => {
       const { projects, candidates, removed, skipped, dryRun } = projectsCommand({

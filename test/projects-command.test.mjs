@@ -153,3 +153,11 @@ test('a registry too dirty for the viewer is cleaned in one go', () => {
   assert.equal(result.removed, 1000);
   assert.deepEqual(Object.keys(readRegistry()), ['alive']);
 });
+
+test('a dry run without a cleanup is refused instead of ignored', () => {
+  isolatedHome();
+  assert.throws(
+    () => projectsCommand({ dryRun: true }),
+    /^Error: --dry-run only applies to --clean-missing$/,
+  );
+});
