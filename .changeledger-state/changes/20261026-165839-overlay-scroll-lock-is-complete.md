@@ -155,8 +155,9 @@ práctica» es exactamente lo que dejó pasar dos defectos en
   - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
   - **Criteria:** CR4
   - **Resolved:** `2026-10-26T17:04:29Z`
-- [ ] Comprobar el invariante en el viewer en ejecución y anotar las cifras en el Log
+- [x] Comprobar el invariante en el viewer en ejecución y anotar las cifras en el Log
   - **Support:** el layout computado no lo cubre la suite; se mide con el navegador
+  - **Resolved:** `2026-10-26T17:06:28Z`
 - [ ] Pasar la puerta local completa
   - **Support:** `pnpm verify`
 
