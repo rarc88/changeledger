@@ -2,7 +2,7 @@
 id: "20261026-134323"
 title: El board desaprovecha la pantalla y el viewer arrastra dos scrolls
 type: change
-status: in-review
+status: in-progress
 created: 2026-10-26T13:43:23Z
 depends_on: []
 branch: change/20261026-134323
@@ -204,3 +204,4 @@ libre y el botón mide su contenido.
 - **2026-10-26T13:58:52Z** `[note]` Decision no especificada en el documento: el bloqueo del fondo se hace con overflow hidden sobre los scrollers de la vista, no ocultando su barra, porque se midio que el motor conserva el scrollTop al alternar hidden y auto. Residuo no tocado, fuera de frontera: .reopen-controls en styles.css es CSS muerto desde que se retiro el comando reopen.
 - **2026-10-26T14:03:13Z** `[status]` in-progress → in-review
 - **2026-10-26T14:03:53Z** `[note]` changeledger commit sin --id resolvio el unico change in-progress, que era 20261026-135523 de otra sesion, y estampo ese id en el commit; se corrigio con git commit --amend al id correcto y changeledger check --commits quedo en verde.
+- **2026-10-26T14:11:23Z** `[review]` in-review → in-progress: CR2 roto en la vista Projects entre 681px y 900px: .projects-view quedo como item flex elastico sin overflow propio, y el bloque de max-width 900px retira los scrollers internos; medido a 800x700 el contenedor mide 566px con 6316px de contenido y overflow visible, con el body bloqueado, asi que el contenido es inalcanzable. Regresion introducida por este change.
