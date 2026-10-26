@@ -242,10 +242,11 @@ al texto en vez de pincharlo.
 - [x] Ejecutar `pnpm verify` sobre el candidato completo
   - **Support:**
   - **Resolved:** `2026-10-26T21:42:34Z`
-- [ ] Acotar la ventana de CR2 al tramo de la obligación y declarar en CR5 la exención del fixture histórico
+- [x] Acotar la ventana de CR2 al tramo de la obligación y declarar en CR5 la exención del fixture histórico
   - **Target:** `test/contract.test.mjs`
   - **Verify:** `node --test test/contract.test.mjs test/register.test.mjs`
   - **Criteria:** CR2, CR5
+  - **Resolved:** `2026-10-26T22:26:57Z`
 
 ## Log
 - **2026-10-26T21:27:11Z** `[version]` 1.0.0
