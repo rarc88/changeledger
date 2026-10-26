@@ -2,7 +2,7 @@
 id: "20261026-165839"
 title: El bloqueo de scroll del detalle no ve todo lo que puede scrollear
 type: change
-status: draft
+status: approved
 created: 2026-10-26T16:58:39Z
 depends_on: []
 related_to: ["20261026-134323"]
@@ -79,3 +79,4 @@ el test endurecido denuncie, aunque hoy no sea alcanzable.
 
 ## Log
 - **2026-10-26T16:58:39Z** `[version]` 1.0.0
+- **2026-10-26T17:01:05Z** `[status]` draft → approved (human via conversation)
