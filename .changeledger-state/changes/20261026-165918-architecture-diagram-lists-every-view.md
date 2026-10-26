@@ -81,10 +81,11 @@ decir cuáles son: quien lee el diagrama no tiene el código delante.
 
 ## Plan
 
-- [ ] Añadir `projects` a la enumeración del nodo `UI`
+- [x] Añadir `projects` a la enumeración del nodo `UI`
   - **Target:** `spec:architecture`
   - **Verify:** `changeledger check`
   - **Criteria:** CR1, CR2
+  - **Resolved:** `2026-10-26T17:23:15Z`
 - [ ] Pasar la puerta local completa
   - **Support:** `pnpm verify`
 
