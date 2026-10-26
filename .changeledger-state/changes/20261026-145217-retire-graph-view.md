@@ -147,10 +147,11 @@ pasajes y es verdad persistente: quedarse falsa es peor que no existir.
 
 ## Plan
 
-- [ ] Retirar la vista de las pruebas que la enumeran y las que solo la cubren a ella
+- [x] Retirar la vista de las pruebas que la enumeran y las que solo la cubren a ella
   - **Target:** `test/viewer-metadata.test.mjs`
   - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
   - **Criteria:** CR1, CR3, CR4
+  - **Resolved:** `2026-10-26T15:08:01Z`
 - [ ] Retirar `graph` del estado de vistas y de su validación
   - **Target:** `src/viewer/public/app-state.js`
   - **Verify:** `pnpm test test/app-state.test.mjs`
