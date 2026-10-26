@@ -5,6 +5,7 @@ type: change
 status: done
 created: 2026-10-26T16:59:18Z
 depends_on: []
+archived: true
 reviewed: true
 accepted_at: 2026-10-26T16:34:01Z
 branch: change/20261026-165918
@@ -102,3 +103,4 @@ decir cuáles son: quien lee el diagrama no tiene el código delante.
 - **2026-10-26T17:31:54Z** `[note]` El encargo de revision daba state~1 como version previa de la spec, pero la ref del ledger habia avanzado dos commits desde la edicion; el revisor localizo el commit real (6789b7a9) y comparo contra su padre. El diff es de una linea, 1 insercion y 1 borrado.
 - **2026-10-26T17:31:54Z** `[validation]` accepted (merged a8ef361)
 - **2026-10-26T17:31:54Z** `[graduation]` spec: `architecture.md`
+- **2026-10-26T19:58:52Z** `[archive]` archived
