@@ -95,7 +95,17 @@ function reflowBootstrap(text) {
 }
 
 // A formatter may leave a paragraph continuation without its quote marker.
-const LAZY_LINE = REFERENCE.split('\n')[2];
+// Anchored on "a continuation line of the lead paragraph" rather than on an
+// index: if the lead ever shrinks, an index would select the blank `>` line,
+// the replace would become a no-op, and the lazy-continuation coverage would
+// vanish while every assertion still passed.
+const LAZY_LINE = (() => {
+  const lines = REFERENCE.split('\n');
+  const lead = lines.slice(1, lines.indexOf('>'));
+  const line = lead.at(-1);
+  assert.ok(lead.length > 1 && /^> \S/.test(line), `no lead continuation to lazy-wrap: ${line}`);
+  return line;
+})();
 
 function prettierBootstrap(text) {
   return text
@@ -963,9 +973,25 @@ test('the absence clause precedes the obligation and tells the agent to work nor
   assert.match(prose, /command not found[^.]*work normally[^.]*never emulate it/);
 });
 
+// Presence of the condition is not the guard. A block reading "Installed or
+// not, running it is mandatory … run exactly this where it is installed"
+// carries the same words in a position that conditions nothing, and would pass
+// a substring check. The condition must precede the obligation inside its own
+// sentence, and no scope-widening phrase may undo it elsewhere in the block.
 test('the mandatory sentence is conditioned on the CLI being installed', () => {
-  const sentence = flat(REFERENCE).match(/[^.]*\bmandatory\b[^.]*/)[0];
-  assert.match(sentence, /where it is installed/i);
+  const prose = flat(REFERENCE);
+  const sentence = prose.match(/[^.]*\bmandatory\b[^.]*/)[0];
+  const condition = sentence.search(/\bwhere it is installed\b/i);
+  assert.ok(condition !== -1, `the mandatory sentence must name the installed case: ${sentence}`);
+  assert.ok(
+    condition < sentence.indexOf('mandatory'),
+    `the condition must govern the obligation, not trail it: ${sentence}`,
+  );
+  assert.doesNotMatch(
+    prose,
+    /installed or not|whether or not[\s\S]{0,24}installed|regardless of[\s\S]{0,32}install/i,
+    'the block must not widen the obligation back to every environment',
+  );
 });
 
 test('no versioned file still carries the unconditional mandatory phrase', () => {
@@ -981,7 +1007,13 @@ test('no versioned file still carries the unconditional mandatory phrase', () =>
     .split('\0')
     // This file embeds the retired text as the historical fixture of the v4 test.
     .filter((file) => file && file !== 'test/contract.test.mjs')
-    .filter((file) => !file.startsWith('node_modules/') && fs.existsSync(path.join(root, file)))
+    // `git ls-files` also lists submodule gitlinks and symlinks; reading one as
+    // a file throws EISDIR, so the sweep selects regular files explicitly.
+    .filter((file) => {
+      if (file.startsWith('node_modules/')) return false;
+      const stat = fs.statSync(path.join(root, file), { throwIfNoEntry: false });
+      return stat?.isFile() ?? false;
+    })
     .filter((file) => {
       const text = fs.readFileSync(path.join(root, file));
       return !text.includes(0) && text.toString('utf8').includes(retired);
