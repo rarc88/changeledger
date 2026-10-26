@@ -53,7 +53,40 @@ de `viewer.md`, que ya es correcto; y el código del visor, que no cambia.
 
 ## Specification
 
+### Proposal
+
+La línea enumera las vistas en el orden en que el visor las ofrece, así que
+`projects` entra al final, detrás de `metrics`. No se reordenan las otras ni se
+cambia la forma del nodo: el diagrama es verdad persistente sobre la
+arquitectura, no sobre la presentación, y cuanto menos se toque menos ruido
+genera en la siguiente lectura.
+
+Descartado sustituir la enumeración por algo que no haya que mantener —un
+`UI[visor]` a secas, o un recuento— porque el valor de la línea es justamente
+decir cuáles son: quien lee el diagrama no tiene el código delante.
+
+### CR1 — El diagrama nombra las cinco vistas
+
+- **Given** `spec:architecture`
+- **When** se lee la línea del nodo `UI` que enumera las vistas del visor
+- **Then** nombra `board`, `table`, `Ledger`, `metrics` y `projects`
+- **And** las cinco coinciden con `VALID_VIEWS` de `src/viewer/public/app-state.js` y con `VIEWS` de `src/viewer/public/app.js`
+
+### CR2 — El diagrama sigue siendo mermaid válido y nada más cambia
+
+- **Given** el bloque mermaid de `spec:architecture`
+- **When** se compara con su versión anterior
+- **Then** la única diferencia es el contenido entre corchetes de ese nodo: la flecha, el identificador `UI`, los `subgraph` y el resto de aristas quedan igual
+- **And** `changeledger check` pasa
+
 ## Plan
+
+- [ ] Añadir `projects` a la enumeración del nodo `UI`
+  - **Target:** `spec:architecture`
+  - **Verify:** `changeledger check`
+  - **Criteria:** CR1, CR2
+- [ ] Pasar la puerta local completa
+  - **Support:** `pnpm verify`
 
 ## Log
 - **2026-10-26T16:59:18Z** `[version]` 1.0.0
