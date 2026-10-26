@@ -130,3 +130,4 @@ Queda fuera:
 - **2026-10-26T14:40:37Z** `[note]` Probado `biome check bin src test` con rutas explícitas: 138 ficheros, exit 0, sin abort. Queda dentro de la frontera, pero duplica en `package.json` la lista de rutas que ya declara `files.includes`.
 - **2026-10-26T14:40:37Z** `[note]` Probado `vcs.useIgnoreFile` con `.claude/worktrees/` en `.gitignore`: el abort desaparece, una sola declaración y además quita el ruido de `git status`. Exige tocar `.gitignore`, que la frontera aprobada no incluye.
 - **2026-10-26T14:48:04Z** `[note]` El humano amplía la frontera a `.gitignore` y elige el arreglo con `vcs.useIgnoreFile` sobre el de rutas explícitas.
+- **2026-10-26T14:51:48Z** `[note]` CR1 verificado a mano con `.claude/worktrees/viewer-layout` presente: `pnpm lint` pasa de abortar por `Found a nested root configuration` a `Checked 140 files` sin errores. `pnpm verify` completa entero por primera vez en la sesión: lint limpio, 2256 tests, `check` válido.
