@@ -182,10 +182,11 @@ pasajes y es verdad persistente: quedarse falsa es peor que no existir.
   - **Verify:** `pnpm lint`
   - **Criteria:** CR3
   - **Resolved:** `2026-10-26T15:08:12Z`
-- [ ] Corregir los seis pasajes de `viewer.md`
+- [x] Corregir los seis pasajes de `viewer.md`
   - **Target:** `spec:viewer`
   - **Verify:** `changeledger check`
   - **Criteria:** CR5
+  - **Resolved:** `2026-10-26T15:09:16Z`
 - [ ] Recorrer las cinco vistas en el viewer en ejecución y anotar el resultado en el Log
   - **Support:** el recorrido de CR6 no lo cubre la suite; se mide con el navegador
 - [ ] Pasar la puerta local completa
