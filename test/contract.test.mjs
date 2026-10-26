@@ -745,9 +745,11 @@ test('20260728-170429 CR2/CR6: the AGENTS.md budgets paragraph names the tokeniz
   const expectedParagraph =
     'Each entry in `templates/contract/budgets.yml` declares a `tokens` ceiling ' +
     'and a `lines` ceiling: tokens are counted by a pinned reference tokenizer, ' +
-    'not by what a particular model consumes. Neither is derived from what the ' +
-    "content currently measures, and neither is the bootstrap's `head` cut, which " +
-    'is a fixed bound of its own. A ceiling is never a goal: never remove ' +
+    'not by what a particular model consumes. Neither tracks what the content ' +
+    'currently measures: a ceiling moves only by a recorded decision — lowered to ' +
+    'a measured value when a change retires content, never re-derived by the next ' +
+    "measurement — and neither is the bootstrap's `head` cut, which is a fixed " +
+    'bound of its own. A ceiling is never a goal: never remove ' +
     'normative prose to fit one, and headroom under a ceiling is never permission ' +
     'to spend it — every entry into a context is deliberate and optimized. A ' +
     'ceiling may only decrease; raising one is a human decision recorded in a ' +
