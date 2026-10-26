@@ -179,3 +179,4 @@ Queda fuera:
 - **2026-10-26T14:15:00Z** `[review]` in-review → done (delegated subagent, clean context)
 - **2026-10-26T14:15:10Z** `[graduation]` spec: `architecture.md`
 - **2026-10-26T14:18:01Z** `[status]` done → in-progress (agent)
+- **2026-10-26T14:18:07Z** `[note]` Reabierto para cerrar el alcance original: la revisión dejó sin resolver que `--dry-run` sin `--clean-missing` se ignore en silencio, y el humano decide que falle con un error claro.
