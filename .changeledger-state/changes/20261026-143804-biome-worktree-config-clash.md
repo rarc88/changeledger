@@ -98,10 +98,11 @@ Queda fuera:
 
 ## Plan
 
-- [ ] Ignorar `.claude/worktrees/` en git
+- [x] Ignorar `.claude/worktrees/` en git
   - **Target:** `.gitignore`
   - **Verify:** `node --test test/quality-gate.test.mjs`
   - **Criteria:** CR2
+  - **Resolved:** `2026-10-26T14:51:44Z`
 - [ ] Declarar la costura de VCS en Biome para que el escáner respete ese ignore
   - **Target:** `biome.json`
   - **Verify:** `node --test test/quality-gate.test.mjs`
