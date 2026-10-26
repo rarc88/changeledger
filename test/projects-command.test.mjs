@@ -59,7 +59,9 @@ function mixedRegistry(t) {
 
 const byId = (projects) => Object.fromEntries(projects.map((item) => [item.id, item]));
 
-test('the listing names every registered project with its path and health', (t) => {
+test('the listing names every registered project with its path and health', {
+  skip: process.platform === 'win32' && 'chmod 0o000 denies nothing on win32',
+}, (t) => {
   const { alpha, gone, denied } = mixedRegistry(t);
   const listed = byId(inspectProjects());
 
@@ -72,7 +74,9 @@ test('the listing names every registered project with its path and health', (t) 
   assert.equal(listed.denied.health, 'unreadable');
 });
 
-test('the cleanup removes only the confirmed absence', (t) => {
+test('the cleanup removes only the confirmed absence', {
+  skip: process.platform === 'win32' && 'chmod 0o000 denies nothing on win32',
+}, (t) => {
   const { alpha, denied } = mixedRegistry(t);
   const result = projectsCommand({ cleanMissing: true });
 
