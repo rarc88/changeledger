@@ -184,8 +184,9 @@ libre y el botón mide su contenido.
   - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
   - **Criteria:** CR5
   - **Resolved:** `2026-10-26T13:55:34Z`
-- [ ] Medir las cinco CR en el viewer en ejecución y anotar las cifras en el Log
+- [x] Medir las cinco CR en el viewer en ejecución y anotar las cifras en el Log
   - **Support:** el layout computado no lo cubre la suite; se mide con el navegador contra `changeledger view .`
+  - **Resolved:** `2026-10-26T13:58:57Z`
 - [ ] Pasar la puerta local completa
   - **Support:** `pnpm verify`
 
