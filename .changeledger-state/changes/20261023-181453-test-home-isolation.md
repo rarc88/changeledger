@@ -99,12 +99,13 @@ desechable en vez del del usuario.
 
 ## Plan
 
-- [ ] Crear la fixture que reporta el `CHANGELEDGER_HOME` observado y el
+- [x] Crear la fixture que reporta el `CHANGELEDGER_HOME` observado y el
   `registryPath()` resultante de un `register()`, inerte fuera de
   `RUN_TESTS_FIXTURE` como sus hermanas
   - **Target:** `test/fixtures/run-tests/`
   - **Verify:** `node --test test/run-tests.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4
+  - **Resolved:** `2026-10-26T12:41:33Z`
 - [ ] Escribir los cuatro criterios como tests sobre el envoltorio, reutilizando
   el `setup(t)` existente
   - **Target:** `test/run-tests.test.mjs`
