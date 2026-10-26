@@ -162,10 +162,11 @@ pasajes y es verdad persistente: quedarse falsa es peor que no existir.
   - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
   - **Criteria:** CR1
   - **Resolved:** `2026-10-26T15:08:03Z`
-- [ ] Retirar el render, el despacho, el import y el handler
+- [x] Retirar el render, el despacho, el import y el handler
   - **Target:** `src/viewer/public/app.js`
   - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
   - **Criteria:** CR1, CR3
+  - **Resolved:** `2026-10-26T15:08:04Z`
 - [ ] Retirar `graphSvg` y corregir el comentario que lo citaba como precedente
   - **Target:** `src/viewer/public/view-renderers.js`
   - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
