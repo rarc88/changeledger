@@ -132,3 +132,4 @@ Queda fuera:
 - **2026-10-26T14:48:04Z** `[note]` El humano amplía la frontera a `.gitignore` y elige el arreglo con `vcs.useIgnoreFile` sobre el de rutas explícitas.
 - **2026-10-26T14:51:48Z** `[note]` CR1 verificado a mano con `.claude/worktrees/viewer-layout` presente: `pnpm lint` pasa de abortar por `Found a nested root configuration` a `Checked 140 files` sin errores. `pnpm verify` completa entero por primera vez en la sesión: lint limpio, 2256 tests, `check` válido.
 - **2026-10-26T14:52:18Z** `[status]` in-progress → in-review
+- **2026-10-26T14:54:19Z** `[finding]` El patrón `.tmp` de `.gitignore` no está anclado, así que con `vcs.useIgnoreFile` un fichero o directorio `.tmp` bajo `bin`, `src` o `test` quedaría fuera del lint en silencio. Hoy no existe ninguno. Detectado en la revisión de este cambio; anclarlo queda fuera de su frontera.
