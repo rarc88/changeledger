@@ -80,3 +80,4 @@ Queda fuera:
 - **2026-10-26T14:39:17Z** `[status]` draft → approved (human via conversation)
 - **2026-10-26T14:39:21Z** `[status]` approved → in-progress
 - **2026-10-26T14:39:21Z** `[branch]` set: change/20261026-143804 (auto)
+- **2026-10-26T14:40:36Z** `[note]` Descartado `files.experimentalScannerIgnores: ['.claude/**']`: el abort por configuración anidada se produce igual, así que el descubrimiento de config no pasa por esa clave.
