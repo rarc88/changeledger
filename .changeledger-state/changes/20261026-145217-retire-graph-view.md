@@ -2,7 +2,7 @@
 id: "20261026-145217"
 title: La vista Graph ocupa sitio sin ganárselo
 type: change
-status: done
+status: in-progress
 created: 2026-10-26T14:52:17Z
 depends_on: ["20261026-134323"]
 branch: change/20261026-145217
@@ -227,3 +227,4 @@ pasajes y es verdad persistente: quedarse falsa es peor que no existir.
 - **2026-10-26T15:46:36Z** `[finding]` La linea 43 del diagrama de architecture.md tampoco listaba la vista projects antes de este change: enumera board, table, Ledger y metrics y el visor tiene cinco vistas. Divergencia preexistente, no causada aqui; se deja como esta en vez de reconciliarla por inferencia.
 - **2026-10-26T15:49:10Z** `[status]` in-progress → in-review
 - **2026-10-26T15:53:25Z** `[review]` in-review → done (delegated subagent, clean context)
+- **2026-10-26T16:09:44Z** `[status]` done → in-progress (agent)
