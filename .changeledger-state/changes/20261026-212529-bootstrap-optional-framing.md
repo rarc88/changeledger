@@ -2,7 +2,7 @@
 id: "20261026-212529"
 title: Reescribir el bloque bootstrap para que la opcionalidad se lea primero
 type: change
-status: in-review
+status: done
 created: 2026-10-26T21:25:29Z
 depends_on: []
 branch: change/20261026-212529
@@ -270,3 +270,4 @@ al texto en vez de pincharlo.
 - **2026-10-26T22:25:42Z** `[status]` done → in-progress (agent)
 - **2026-10-26T22:29:51Z** `[note]` Corrección de las dos imprecisiones que señaló la tercera revisión: la ventana de CR2 se acota al punto anterior y a los dos puntos que cierran la obligación, con aserción de que no alcanza la lista; CR5 declara la exención del fixture histórico y el barrido deja de partir la cadena, que ya no hacía falta. Variante de fuga (obligación sin 'installed' más bullet que sí lo dice) rechazada
 - **2026-10-26T22:29:52Z** `[status]` in-progress → in-review
+- **2026-10-26T22:35:12Z** `[review]` in-review → done (delegated subagent, clean context)
