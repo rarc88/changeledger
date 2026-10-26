@@ -69,8 +69,13 @@ retirada que cubriera otra cosa.
 ### Frontier
 
 Dentro: los seis ficheros de `src/viewer/public/` que componen la vista, las
-pruebas que la cubren o la enumeran, y la corrección de `viewer.md` en los seis
-pasajes que quedan falsos.
+pruebas que la cubren o la enumeran, y la corrección de toda spec que esta
+retirada deje falsa: los seis pasajes de `viewer.md` y la línea del diagrama de
+`architecture.md` que enumera las vistas del visor.
+
+La frontera nació acotada a `viewer.md` porque la investigación barrió `src/` y
+no el ledger entero; la revisión encontró `architecture.md` y el humano la
+amplió explícitamente para incluirla.
 
 Fuera: el comportamiento de las otras cinco vistas, que esta retirada no debe
 cambiar; la dependencia `mermaid`, que sirve a los diagramas de los documentos;
@@ -138,6 +143,13 @@ pasajes y es verdad persistente: quedarse falsa es peor que no existir.
 - **Then** ninguno de sus seis pasajes sobre el grafo —la enumeración de vistas, el reparto de `view-renderers.js`, el estado vacío, la lista de vistas sin payload, la semántica de tombstones frente a `Pending graduation` y el dibujo de dependencias y relaciones como aristas— describe ya la vista Graph
 - **And** lo que sigue siendo cierto de las otras vistas se conserva, en vez de borrarse con el pasaje
 
+### CR7 — Ninguna spec del ledger nombra ya la vista
+
+- **Given** el ledger completo —specs, documentos de proyecto y fragmentos de contrato—
+- **When** se busca la vista retirada
+- **Then** `spec:architecture` ya no la nombra en la línea `SRV --> UI[...]` de su diagrama, que enumera las vistas del visor
+- **And** ninguna otra spec la nombra, y los usos restantes de «graph» en el ledger son el grafo de dependencias, el grafo de estados del ciclo de vida, `subgraph` de mermaid y `gitGraph`
+
 ### CR6 — Recorrido completo del día después
 
 - **Given** un viewer arrancado contra un repo real, con el estado guardado pidiendo `graph`
@@ -190,6 +202,10 @@ pasajes y es verdad persistente: quedarse falsa es peor que no existir.
 - [x] Recorrer las cinco vistas en el viewer en ejecución y anotar el resultado en el Log
   - **Support:** el recorrido de CR6 no lo cubre la suite; se mide con el navegador
   - **Resolved:** `2026-10-26T15:10:50Z`
+- [ ] Corregir la línea del diagrama de `architecture.md`
+  - **Target:** `spec:architecture`
+  - **Verify:** `changeledger check`
+  - **Criteria:** CR7
 - [x] Pasar la puerta local completa
   - **Support:** `pnpm verify`
   - **Resolved:** `2026-10-26T15:13:53Z`
