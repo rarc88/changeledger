@@ -2,7 +2,7 @@
 id: "20261026-135523"
 title: La limpieza del registro no se alcanza sin el viewer
 type: change
-status: in-progress
+status: in-review
 created: 2026-10-26T13:55:23Z
 depends_on: []
 reviewed: true
@@ -191,3 +191,4 @@ Queda fuera:
 - **2026-10-26T14:15:10Z** `[graduation]` spec: `architecture.md`
 - **2026-10-26T14:18:01Z** `[status]` done → in-progress (agent)
 - **2026-10-26T14:18:07Z** `[note]` Reabierto para cerrar el alcance original: la revisión dejó sin resolver que `--dry-run` sin `--clean-missing` se ignore en silencio, y el humano decide que falle con un error claro.
+- **2026-10-26T14:23:17Z** `[status]` in-progress → in-review
