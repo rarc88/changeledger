@@ -151,11 +151,12 @@ Queda fuera:
   - **Verify:** `node --test test/view.test.mjs`
   - **Criteria:** CR5
   - **Resolved:** `2026-10-26T13:35:18Z`
-- [ ] Reconciliar en `viewer.md` el párrafo que describe la limpieza como una
+- [x] Reconciliar en `viewer.md` el párrafo que describe la limpieza como una
   única mutación
   - **Target:** `.changeledger/specs/viewer.md`
   - **Verify:** `node bin/changeledger.mjs check`
   - **Support:**
+  - **Resolved:** `2026-10-26T13:35:19Z`
 - [ ] Ejecutar el gate local completo
   - **Support:** `pnpm test`
 
