@@ -174,10 +174,11 @@ libre y el botón mide su contenido.
   - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
   - **Criteria:** CR2
   - **Resolved:** `2026-10-26T13:55:33Z`
-- [ ] Bloquear el scroller de la vista mientras el detalle está abierto
+- [x] Bloquear el scroller de la vista mientras el detalle está abierto
   - **Target:** `src/viewer/public/styles.css`
   - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
   - **Criteria:** CR4
+  - **Resolved:** `2026-10-26T13:55:33Z`
 - [ ] La fila de veredicto declara dos pistas
   - **Target:** `src/viewer/public/styles.css`
   - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
