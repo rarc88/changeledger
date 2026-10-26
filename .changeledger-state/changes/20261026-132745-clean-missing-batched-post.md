@@ -2,7 +2,7 @@
 id: "20261026-132745"
 title: La limpieza de proyectos ausentes falla justo cuando más se necesita
 type: change
-status: in-review
+status: done
 created: 2026-10-26T13:27:45Z
 depends_on: []
 branch: change/20261026-132745
@@ -171,3 +171,4 @@ Queda fuera:
 - **2026-10-26T13:35:21Z** `[note]` `MAX_BODY` pasa a exportarse en `src/viewer/server/router.mjs` para que un test pueda fijar que el presupuesto del cliente nunca lo supere, en vez de duplicar el número a ciegas.
 - **2026-10-26T13:46:22Z** `[status]` in-progress → in-review
 - **2026-10-26T13:49:01Z** `[note]` CR1 y CR4 decían 600 candidatas y los tests usan 1.000, porque 600 sintéticas caben en 64 KiB. Corregidos los criterios para que declaren lo medido; la revisión verificó los tests con 1.000.
+- **2026-10-26T13:49:09Z** `[review]` in-review → done (delegated subagent, clean context)
