@@ -1,4 +1,5 @@
 import {
+  batchCleanMissingCandidates,
   getConfigMigrationPreview,
   getGitRefs,
   getLedgerDocument,
@@ -1837,6 +1838,31 @@ async function refreshProjectRegistry(stale = () => false) {
   return true;
 }
 
+// One request per batch, aggregated into the single receipt the panel already
+// consumes. A batch that fails stops the run and keeps what the finished ones
+// removed, so the receipt stays truthful about a partial cleanup.
+async function cleanMissingInBatches(request, candidates) {
+  const aggregate = { removedIds: [], removed: 0, skipped: 0 };
+  for (const batch of batchCleanMissingCandidates(candidates)) {
+    const response = await request(true, batch);
+    const body = await response.json();
+    if (!response.ok) {
+      const reason = body?.error || 'Project update failed.';
+      return {
+        ok: true,
+        json: async () => ({
+          ...aggregate,
+          error: `${reason} ${aggregate.removed} of ${candidates.length} missing project(s) were removed before it stopped.`,
+        }),
+      };
+    }
+    aggregate.removedIds.push(...(body.removedIds ?? []));
+    aggregate.removed += body.removed ?? 0;
+    aggregate.skipped += body.skipped ?? 0;
+  }
+  return { ok: true, json: async () => aggregate };
+}
+
 export async function cleanMissingProjectsFromView(
   root,
   candidates,
@@ -1852,7 +1878,7 @@ export async function cleanMissingProjectsFromView(
   const previousTarget = captureProjectTarget(state.currentProject);
   return projectMutation(
     root,
-    () => request(true, candidates),
+    () => cleanMissingInBatches(request, candidates),
     async (body) => {
       if (!(await refresh())) return;
       if (
@@ -1863,6 +1889,10 @@ export async function cleanMissingProjectsFromView(
           throw new Error('Unable to reload the selected project after cleanup.');
       }
       await onCleaned(body);
+      // Raised only after the panel has been refreshed: a batch that failed
+      // must not read as a complete cleanup, and the entries the finished
+      // batches did remove must already be gone from the view.
+      if (body.error) throw new Error(body.error);
     },
     { errorSelector: '.project-clean-error' },
   );
