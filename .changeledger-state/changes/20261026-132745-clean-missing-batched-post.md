@@ -141,10 +141,11 @@ Queda fuera:
   - **Verify:** `node --test test/viewer-metadata.test.mjs`
   - **Criteria:** CR1, CR3, CR4
   - **Resolved:** `2026-10-26T13:35:16Z`
-- [ ] Escribir los criterios como tests
+- [x] Escribir los criterios como tests
   - **Target:** `test/viewer-metadata.test.mjs`
   - **Verify:** `node --test test/viewer-metadata.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4
+  - **Resolved:** `2026-10-26T13:35:17Z`
 - [ ] Cubrir la limpieza en lotes sucesivos contra el servidor real
   - **Target:** `test/view.test.mjs`
   - **Verify:** `node --test test/view.test.mjs`
