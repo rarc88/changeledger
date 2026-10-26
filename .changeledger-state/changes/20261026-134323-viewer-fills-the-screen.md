@@ -2,7 +2,7 @@
 id: "20261026-134323"
 title: El board desaprovecha la pantalla y el viewer arrastra dos scrolls
 type: change
-status: in-progress
+status: in-review
 created: 2026-10-26T13:43:23Z
 depends_on: []
 branch: change/20261026-134323
@@ -208,3 +208,4 @@ libre y el botón mide su contenido.
 - **2026-10-26T14:15:57Z** `[note]` Correccion del fail: .projects-view declara overflow auto y el bloque de max-width 900px deja de fijarle height auto; .graph se alinea al mismo modelo. Medido a 700, 800 y 899px la vista Projects scrollea por dentro (6334 sobre 566) y la pagina no; a 901px sigue cabiendo. Barrido de las seis vistas a 800px: ninguna recorta contenido.
 - **2026-10-26T14:15:58Z** `[note]` Decision: el min-height de .ledger-view en el bloque movil, que restaba --header-height, se retira sin sustituto en vez de reintroducir una variable; por debajo de 680px la vista puede quedar mas corta que la pantalla y el fondo lo pone el body.
 - **2026-10-26T14:15:59Z** `[note]` El test 134323 CR2 pasa a exigir a las siete vistas flex, min-height y overflow propio: la regresion fue dar a una de ellas el dimensionado elastico sin scroller.
+- **2026-10-26T14:16:06Z** `[status]` in-progress → in-review
