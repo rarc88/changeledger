@@ -938,17 +938,19 @@ test('the absence clause precedes the obligation and tells the agent to work nor
   assert.match(prose, /command not found[^.]*work normally[^.]*never emulate it/);
 });
 
-// CR2 is a semantic property — "this sentence conditions its obligation" — and
-// two review rounds proved a pattern cannot decide it: an ordering check fell
-// to "Installed or not, running it is mandatory … run exactly this where it is
-// installed", and adding the condition-leads rule fell to "Where it is
+// That the obligation conditions itself on the CLI being installed is a
+// semantic property, and two review rounds proved a pattern cannot decide it:
+// an ordering check fell to "Installed or not, running it is mandatory … run
+// exactly this where it is installed", and adding the condition-leads rule
+// fell to "Where it is
 // installed, and equally where it is not, running it is mandatory". Each fix
 // was an enumeration wearing the shape of a property, and each also rejected
 // honest rewordings. So this guard does what the repo's convention asks of a
 // test over normative prose and no more: a wording-tolerant concept guard that
 // the obligation names the installed case, plus a sweep that keeps the
 // widenings already seen in review retired. Conditionality itself is gated by
-// review, not here; the Specification of 20261026-212529 says so.
+// review, not here; the change that rewrote this block says so in its
+// Specification.
 test('the mandatory sentence names the installed case and no widening survives', () => {
   const prose = flatten(REFERENCE);
   // The obligation ends at the colon that introduces the command, and there is
