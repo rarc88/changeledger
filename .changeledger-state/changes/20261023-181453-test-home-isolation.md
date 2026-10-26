@@ -118,8 +118,9 @@ desechable en vez del del usuario.
   - **Verify:** `node --test test/run-tests.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4
   - **Resolved:** `2026-10-26T12:41:35Z`
-- [ ] Ejecutar la suite completa y comprobar que el registro del usuario no cambia
+- [x] Ejecutar la suite completa y comprobar que el registro del usuario no cambia
   - **Support:** `pnpm verify`
+  - **Resolved:** `2026-10-26T12:41:36Z`
 
 ## Log
 - **2026-10-23T18:14:53Z** `[version]` 0.18.0
