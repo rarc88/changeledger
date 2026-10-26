@@ -5,6 +5,7 @@ type: change
 status: done
 created: 2026-10-26T14:38:04Z
 depends_on: []
+reviewed: true
 branch: change/20261026-143804
 related_to: ["20260613-215319"]
 owner: raruiz-hiberuscom
@@ -135,3 +136,4 @@ Queda fuera:
 - **2026-10-26T14:54:19Z** `[finding]` El patrón `.tmp` de `.gitignore` no está anclado, así que con `vcs.useIgnoreFile` un fichero o directorio `.tmp` bajo `bin`, `src` o `test` quedaría fuera del lint en silencio. Hoy no existe ninguno. Detectado en la revisión de este cambio; anclarlo queda fuera de su frontera.
 - **2026-10-26T14:54:20Z** `[note]` Corregidos tras el informe dos guardas frágiles: el de `vcs` pasa de `deepEqual` sobre el objeto entero a comprobar sus tres claves, y el de `.gitignore` pasa de buscar una cadena literal a preguntarle a `git check-ignore` si la ruta está ignorada.
 - **2026-10-26T14:54:26Z** `[review]` in-review → done (delegated subagent, clean context)
+- **2026-10-26T14:54:36Z** `[graduation]` spec: `lifecycle.md`
