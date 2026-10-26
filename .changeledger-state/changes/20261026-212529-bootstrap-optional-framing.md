@@ -268,3 +268,4 @@ al texto en vez de pincharlo.
 - **2026-10-26T22:16:56Z** `[note]` El humano acepta el repliegue de CR2: concept guard tolerante más barrido de reaperturas, y la conditionality plena queda verificada por la revisión, no por el test
 - **2026-10-26T22:24:19Z** `[review]` in-review → done (delegated subagent, clean context)
 - **2026-10-26T22:25:42Z** `[status]` done → in-progress (agent)
+- **2026-10-26T22:29:51Z** `[note]` Corrección de las dos imprecisiones que señaló la tercera revisión: la ventana de CR2 se acota al punto anterior y a los dos puntos que cierran la obligación, con aserción de que no alcanza la lista; CR5 declara la exención del fixture histórico y el barrido deja de partir la cadena, que ya no hacía falta. Variante de fuga (obligación sin 'installed' más bullet que sí lo dice) rechazada
