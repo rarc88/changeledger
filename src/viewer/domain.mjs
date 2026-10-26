@@ -26,6 +26,7 @@ import { nowUtc, templatesDir } from '../paths.mjs';
 import {
   cleanMissingProjects as cleanMissingRegistry,
   listProjects,
+  probeProject,
   remove,
   update,
 } from '../registry.mjs';
@@ -178,18 +179,6 @@ function redactAbsolutePaths(message) {
     .split(/(\r?\n)/)
     .map((part) => (/^\r?\n$/.test(part) ? part : redactDiagnosticLine(part)))
     .join('');
-}
-
-function projectAvailability(projectPath) {
-  try {
-    fs.statSync(path.join(projectPath, '.changeledger', 'config.yml'));
-    return { alive: true, missing: false };
-  } catch (error) {
-    return {
-      alive: false,
-      missing: error?.code === 'ENOENT' || error?.code === 'ENOTDIR',
-    };
-  }
 }
 
 const LEDGER_CATEGORIES = ['project-docs', 'contract', 'templates'];
@@ -389,7 +378,7 @@ export function resolveProjects(cwd, localOnly) {
 
   const projects = listProjects().map((project) => ({
     ...project,
-    ...projectAvailability(project.path),
+    ...probeProject(project.path),
   }));
   let current = null;
   if (repoRoot) {

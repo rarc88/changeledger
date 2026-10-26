@@ -34,6 +34,7 @@ import { graduate, scaffoldSpec, skipGraduation } from '../src/commands/graduate
 import { importFromRef } from '../src/commands/import.mjs';
 import { init } from '../src/commands/init.mjs';
 import { newChange, newChangeFrom, requireType, scaffoldChange } from '../src/commands/new.mjs';
+import { projectsCommand } from '../src/commands/projects.mjs';
 import { registerRepo } from '../src/commands/register.mjs';
 import { initReleaseHistory, recordRelease, releasePlan } from '../src/commands/release.mjs';
 import { runSearch } from '../src/commands/search.mjs';
@@ -277,6 +278,30 @@ program
     action(() => {
       const dir = init();
       console.log(`Initialized ChangeLedger at ${dir}`);
+    }),
+  );
+
+program
+  .command('projects')
+  .description('list the registered projects, and prune the ones whose path is gone')
+  .option('--clean-missing', 'remove every registry entry whose path is confirmed gone')
+  .option('--dry-run', 'only with --clean-missing: name what would go and write nothing')
+  .action(
+    action((options) => {
+      const { projects, candidates, removed, skipped, dryRun } = projectsCommand({
+        cleanMissing: Boolean(options.cleanMissing),
+        dryRun: Boolean(options.dryRun),
+      });
+      for (const project of projects) {
+        const reason = project.reason ? ` — ${project.reason}` : '';
+        console.log(`${project.health.padEnd(10)} ${project.id}  ${project.path}${reason}`);
+      }
+      if (!candidates) return;
+      if (dryRun) {
+        console.log(`\nWould remove ${candidates.length}; nothing was written.`);
+        return;
+      }
+      console.log(`\nRemoved ${removed}; kept ${skipped} inconclusive.`);
     }),
   );
 
