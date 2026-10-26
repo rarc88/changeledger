@@ -169,11 +169,12 @@ Queda fuera:
   - **Verify:** `node bin/changeledger.mjs check`
   - **Support:**
   - **Resolved:** `2026-10-26T14:08:36Z`
-- [ ] Rechazar `--dry-run` sin `--clean-missing` con un error explícito, en vez
+- [x] Rechazar `--dry-run` sin `--clean-missing` con un error explícito, en vez
   de ignorar la opción en silencio
   - **Target:** `src/commands/projects.mjs`
   - **Verify:** `node --test test/projects-command.test.mjs test/cli-bin.test.mjs`
   - **Criteria:** CR6
+  - **Resolved:** `2026-10-26T14:26:32Z`
 - [x] Ejecutar el gate local completo
   - **Support:** `pnpm test`
   - **Resolved:** `2026-10-26T14:08:37Z`
