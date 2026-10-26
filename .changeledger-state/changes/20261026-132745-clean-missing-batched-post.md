@@ -5,6 +5,7 @@ type: change
 status: done
 created: 2026-10-26T13:27:45Z
 depends_on: []
+archived: true
 accepted_at: 2026-10-26T13:54:13Z
 reviewed: true
 branch: change/20261026-132745
@@ -176,3 +177,4 @@ Queda fuera:
 - **2026-10-26T13:49:09Z** `[review]` in-review → done (delegated subagent, clean context)
 - **2026-10-26T13:49:20Z** `[graduation]` spec: `viewer.md`
 - **2026-10-26T13:54:57Z** `[validation]` accepted (merged 31f769e)
+- **2026-10-26T14:32:27Z** `[archive]` archived
