@@ -165,3 +165,4 @@ práctica» es exactamente lo que dejó pasar dos defectos en
 - **2026-10-26T17:01:05Z** `[status]` draft → approved (human via conversation)
 - **2026-10-26T17:01:14Z** `[status]` approved → in-progress
 - **2026-10-26T17:01:14Z** `[branch]` set: change/20261026-165839 (auto)
+- **2026-10-26T17:06:21Z** `[note]` Derivacion endurecida: el scanner desciende a las at-rules, acepta overflow scroll y falla nombrando cualquier selector con desbordamiento vertical que no sepa normalizar, en vez de descartarlo. Medido sobre la hoja: catorce selectores con desbordamiento vertical, doce detras del overlay y dos delante (.detail y .diagram-canvas). El test en rojo senalo .projects-list antes de tocar el CSS.
