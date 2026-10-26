@@ -2800,7 +2800,19 @@ function styleRules(css) {
   // a `data:` URL.
   let quote = '';
   let brackets = 0;
+  let escaped = false;
   for (const ch of source) {
+    if (escaped) {
+      escaped = false;
+      if (frames.length) frames[frames.length - 1].body += ch;
+      else pending += ch;
+      continue;
+    }
+    if (quote && ch === '\\') {
+      escaped = true;
+      if (frames.length) frames[frames.length - 1].body += ch;
+      continue;
+    }
     if (quote) {
       if (ch === quote) quote = '';
     } else if (ch === '"' || ch === "'") {
@@ -2830,6 +2842,16 @@ function styleRules(css) {
       if (frames.length) frames[frames.length - 1].body += ch;
     }
   }
+  // Anything still open means the walk lost its place, and every rule after
+  // that point is missing from the result. Say so rather than hand back a
+  // partial answer that looks complete.
+  const open = [
+    quote && `string opened with ${quote}`,
+    brackets > 0 && `${brackets} bracket(s)`,
+    frames.length && `${frames.length} block(s)`,
+  ].filter(Boolean);
+  if (open.length)
+    throw new Error(`unterminated ${open.join(', ')} — the stylesheet was not fully read`);
   return rules;
 }
 
@@ -2867,9 +2889,36 @@ test('the rule scanner survives statement at-rules and nesting', () => {
   );
   assert.deepEqual(scrollersOf('.s { content: "x;y"; overflow-y: auto }'), ['.s']);
 
-  // Same reason braces inside a string no longer desynchronise the frames.
+  // Same reason braces inside a string no longer desynchronise the frames: the
+  // closing one used to end the rule early, so its own declaration was lost.
   assert.deepEqual(scrollersOf('.t { content: "{"; overflow-y: auto }'), ['.t']);
-  assert.deepEqual(scrollersOf('.u { content: "}" } .v { overflow: auto }'), ['.v']);
+  assert.deepEqual(scrollersOf('.u { content: "}"; overflow-y: auto }'), ['.u']);
+
+  // A backslash escapes the next character, so an escaped quote does not end
+  // the string and take the rest of the sheet with it.
+  assert.deepEqual(scrollersOf('.w { content: "a\\"b"; overflow-y: auto }'), ['.w']);
+  assert.deepEqual(scrollersOf('.x { content: "a\\"b" }\n.y { overflow: auto }'), ['.y']);
+});
+
+// Everything above is about not losing a rule. This is the backstop: when the
+// scanner cannot make sense of the sheet at all it says so, instead of
+// returning the rules it managed to read and dropping the rest in silence —
+// which is the one failure mode this whole guard exists to prevent.
+test('the rule scanner refuses a sheet it could not finish reading', () => {
+  const unfinished = [
+    ['an unclosed string', '.a { content: "x }'],
+    ['an unclosed url()', '.a { background: url(foo.png; }\n.b { overflow: auto }'],
+    ['an unclosed attribute selector', '.a[x { }\n.b { overflow: auto }'],
+    ['an unclosed block', '.a { overflow: auto'],
+  ];
+  for (const [what, css] of unfinished) {
+    assert.throws(() => styleRules(css), /unterminated/i, what);
+  }
+  assert.doesNotThrow(() =>
+    styleRules(
+      fs.readFileSync(new URL('../src/viewer/public/styles.css', import.meta.url), 'utf8'),
+    ),
+  );
 });
 
 // Only a vertical overflow paints the bar this is about; `overflow-x` does not.
