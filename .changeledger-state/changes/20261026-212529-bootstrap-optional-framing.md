@@ -220,3 +220,4 @@ al texto en vez de pincharlo.
 - **2026-10-26T21:28:04Z** `[status]` approved → in-progress
 - **2026-10-26T21:28:04Z** `[branch]` set: change/20261026-212529 (auto)
 - **2026-10-26T21:28:09Z** `[branch]` set: change/20261026-212529
+- **2026-10-26T21:42:40Z** `[finding]` prettierBootstrap en test/register.test.mjs conserva un .replace('> to continue; do not treat', ...) que no casa con ningún texto del REFERENCE vigente: código muerto previo a este cambio, fuera de su frontera
