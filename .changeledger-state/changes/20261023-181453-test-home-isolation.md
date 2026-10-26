@@ -17,6 +17,10 @@ entradas (1,5 MB) de las que solo 4 eran repos reales; el resto eran
 directorios temporales ya borrados. Con ese volumen el viewer deja de ser
 usable.
 
+El registro se limpió a mano el 2026-10-23 y quedó en 4 entradas. El
+2026-10-26 vuelve a tener 2.451, de las que 2.426 son `changeledger-seats-*`.
+El defecto se reproduce a razón de unas 800 entradas al día.
+
 ### Objective
 
 Ninguna ejecución de la suite puede escribir en el registro global del
@@ -41,8 +45,6 @@ Queda fuera:
 - Que el registro no ofrezca una purga de entradas muertas:
   `cleanMissingProjects()` solo borra entradas cuyo binding coincide con un
   candidato observado, así que no habría podido barrer esto. Es otro concern.
-- Añadir `scripts/**` a `readiness.target_patterns`, pese a que es lo que hoy
-  deja este documento en warning: ver Investigation.
 
 ### Investigation
 
@@ -69,19 +71,6 @@ llame a `init()`. El arreglo va en el envoltorio, donde ya vive el aislamiento
 hermano del temporal: un test que se aísle por su cuenta seguirá haciéndolo
 (asigna `process.env` dentro del proceso y gana), y el que no, hereda un home
 desechable en vez del del usuario.
-
-`scripts/**` no figura en `readiness.target_patterns`, pese a que el envoltorio
-de la suite vive ahí, así que la tarea que lo tiene como `Target` no supera el
-chequeo de preparación y deja este documento en warning. No se corrige aquí: la
-configuración efectiva de un repo activado vive en el state ref, no en el
-`.changeledger/config.yml` del worktree (`loadEffectiveConfig` en
-`src/config.mjs`), y `20261023-181753` —ya `approved`— retira el Definition of
-Ready entero, claves `readiness.*` incluidas. Añadirlas sería trabajar sobre una
-superficie que ese cambio borra.
-
-Specification y Plan de abajo son provisionales por el mismo motivo:
-`20261023-181753` los mueve a `in-progress`, con el código delante. Lo que se
-aprueba aquí es el Objective y la Frontier.
 
 ## Specification
 
