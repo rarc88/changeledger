@@ -169,10 +169,11 @@ libre y el botón mide su contenido.
   - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
   - **Criteria:** CR2, CR3
   - **Resolved:** `2026-10-26T13:55:32Z`
-- [ ] Retirar `--header-height` y el `ResizeObserver` que la escribía
+- [x] Retirar `--header-height` y el `ResizeObserver` que la escribía
   - **Target:** `src/viewer/public/app.js`
   - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
   - **Criteria:** CR2
+  - **Resolved:** `2026-10-26T13:55:33Z`
 - [ ] Bloquear el scroller de la vista mientras el detalle está abierto
   - **Target:** `src/viewer/public/styles.css`
   - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
