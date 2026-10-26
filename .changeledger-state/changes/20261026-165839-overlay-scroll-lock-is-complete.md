@@ -249,3 +249,4 @@ práctica» es exactamente lo que dejó pasar dos defectos en
 - **2026-10-26T18:03:24Z** `[finding]` El contador de corchetes del scanner comparte los de tipo [ y (, asi que una hoja con .a[x="1") se considera balanceada cuando no lo esta. Ningun CSS real produce esa forma y el fallo seria ruidoso por el guard de cierre; separarlos en dos contadores es trivial si alguna vez importa.
 - **2026-10-26T18:06:17Z** `[status]` in-progress → in-review
 - **2026-10-26T18:13:21Z** `[review]` in-review → done (delegated subagent, clean context)
+- **2026-10-26T18:13:33Z** `[finding]` Perdida silenciosa preexistente, no introducida aqui: los comentarios se quitan por regex antes de escanear, asi que una secuencia tipo comentario dentro de una cadena rompe el escaneo. Con .a { content: "/*" } seguido de otras reglas, las siguientes se pierden y el guard de cierre no lo ve porque el texto resultante queda balanceado. La hoja real no lo contiene.
