@@ -2634,3 +2634,51 @@ test('the day after the delegation fold: core carries delegation and the commit 
     assertWithinBudget(`context ${mode}`, out, budget);
   }
 });
+
+// The registry's CLI seat: the viewer's Projects panel needs a browser, and a
+// registry dirty enough to need pruning is also one that gets in the viewer's
+// way, so the binary has to reach the same listing and the same cleanup.
+test('the projects command lists the registry and prunes it from the binary', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const alive = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-alive-'));
+  fs.mkdirSync(path.join(alive, '.changeledger'), { recursive: true });
+  fs.writeFileSync(path.join(alive, '.changeledger', 'config.yml'), 'project_id: "alive"\n');
+  const gone = path.join(os.tmpdir(), `changeledger-cli-gone-${process.pid}`);
+  fs.rmSync(gone, { recursive: true, force: true });
+  const registry = path.join(home, '.changeledger', '.registry.json');
+  fs.mkdirSync(path.dirname(registry), { recursive: true });
+  fs.writeFileSync(
+    registry,
+    `${JSON.stringify({ alive: { name: 'Alive', path: alive }, gone: { name: 'Gone', path: gone } }, null, 2)}\n`,
+  );
+  const run = (...args) =>
+    execFileSync(process.execPath, [bin, 'projects', ...args], {
+      env: { ...sanitizedEnv(), CHANGELEDGER_HOME: home },
+      encoding: 'utf8',
+    });
+
+  const listed = run();
+  assert.ok(listed.includes(`alive  ${alive}`), listed);
+  assert.ok(listed.includes(`gone  ${gone}`), listed);
+  assert.match(listed, /^available\s+alive\b/m);
+  assert.match(listed, /^missing\s+gone\b/m);
+
+  const before = fs.readFileSync(registry, 'utf8');
+  assert.match(run('--clean-missing', '--dry-run'), /Would remove 1; nothing was written\./);
+  assert.equal(fs.readFileSync(registry, 'utf8'), before);
+
+  assert.match(run('--clean-missing'), /Removed 1; kept 0 inconclusive\./);
+  assert.deepEqual(Object.keys(JSON.parse(fs.readFileSync(registry, 'utf8'))), ['alive']);
+});
+
+test('the projects command refuses a dry run that cleans nothing', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const run = spawnSync(process.execPath, [bin, 'projects', '--dry-run'], {
+    env: { ...sanitizedEnv(), CHANGELEDGER_HOME: home },
+    encoding: 'utf8',
+  });
+
+  assert.equal(run.status, 1);
+  assert.equal(run.stderr.trim(), 'Error: --dry-run only applies to --clean-missing');
+  assert.equal(run.stdout, '');
+});

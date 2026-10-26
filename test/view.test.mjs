@@ -4051,3 +4051,41 @@ test('140242: a usage module that fails to load leaves the existing metrics and 
   const detail = await renderHost(await changeUsageTemplate(repo, BUG, failing));
   assert.deepEqual(texts(detail, '[data-usage-detail] .empty'), ['Usage analysis is unavailable.']);
 });
+
+// A cleanup too wide for one body now travels as several; the endpoint must
+// take them in sequence and leave the live entries alone.
+test('successive cleanup batches each remove their own entries', async () => {
+  isolatedHome();
+  const available = newRepo();
+  const gone = (suffix) => {
+    const dir = path.join(os.tmpdir(), `changeledger-http-batch-${process.pid}-${suffix}`);
+    fs.rmSync(dir, { recursive: true, force: true });
+    register({ id: `gone-${suffix}`, name: `Gone ${suffix}`, path: dir });
+    return dir;
+  };
+  const first = gone('1');
+  const second = gone('2');
+  const alpha = readRegistry();
+  assert.ok(Object.keys(alpha).length >= 3);
+
+  const clean = (id, dir) =>
+    memoryRequest(available, {
+      method: 'POST',
+      path: '/api/projects/clean-missing',
+      headers: { 'Content-Type': 'application/json', 'x-changeledger-token': TOKEN },
+      body: JSON.stringify({ confirm: true, candidates: [{ id, path: dir }] }),
+      localOnly: false,
+    });
+
+  const one = await clean('gone-1', first);
+  const two = await clean('gone-2', second);
+
+  assert.equal(one.status, 200);
+  assert.equal(two.status, 200);
+  assert.deepEqual(JSON.parse(one.body), { removedIds: ['gone-1'], removed: 1, skipped: 0 });
+  assert.deepEqual(JSON.parse(two.body), { removedIds: ['gone-2'], removed: 1, skipped: 0 });
+  const after = readRegistry();
+  assert.equal(after['gone-1'], undefined);
+  assert.equal(after['gone-2'], undefined);
+  assert.ok(Object.values(after).some((entry) => entry.path === available));
+});

@@ -81,7 +81,7 @@ const SECURITY_HEADERS = {
   'Cache-Control': 'no-store',
 };
 
-const MAX_BODY = 64 * 1024; // a status payload is tiny; cap to stay defensive
+export const MAX_BODY = 64 * 1024; // a status payload is tiny; cap to stay defensive
 
 function send(res, code, type, body, headers = {}) {
   res.writeHead(code, { 'Content-Type': type, ...SECURITY_HEADERS, ...headers });
