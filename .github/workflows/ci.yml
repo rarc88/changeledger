@@ -21,7 +21,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        # Pull requests run on Linux only; publish.yml runs the full matrix
+        # (macOS and Windows included) before anything is uploaded.
+        os: [ubuntu-latest]
         node: [24, 26]
     steps:
       - uses: actions/checkout@v4
@@ -38,10 +40,7 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # The diff is the same on every runner, so the Windows leg skips the
-      # check rather than rely on `sh` being on its PATH.
       - name: no ledger references outside .changeledger/
-        if: runner.os != 'Windows'
         run: |
           git fetch origin dev
           sh hooks/no-ledger-refs.sh origin/dev...HEAD
