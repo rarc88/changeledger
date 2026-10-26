@@ -6,6 +6,7 @@
 // either half alone leaves the gate broken, which is what these pin.
 
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { test } from 'node:test';
@@ -14,18 +15,25 @@ import { fileURLToPath } from 'node:url';
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (name) => fs.readFileSync(path.join(repo, name), 'utf8');
 
+// Asserted key by key rather than as a whole object: a later, unrelated `vcs`
+// setting must not cost this guard a retarget.
 test('Biome honours the repository ignore file', () => {
   const { vcs } = JSON.parse(read('biome.json'));
-  assert.deepEqual(vcs, { enabled: true, clientKind: 'git', useIgnoreFile: true });
+  assert.equal(vcs?.enabled, true);
+  assert.equal(vcs?.clientKind, 'git');
+  assert.equal(vcs?.useIgnoreFile, true);
 });
 
+// Asked of git rather than matched against the file: what has to hold is that
+// the path is ignored, not that one spelling of the pattern is present.
 test('git ignores the worktrees the app creates', () => {
-  const ignored = read('.gitignore')
-    .split('\n')
-    .map((line) => line.trim());
-  assert.ok(
-    ignored.includes('.claude/worktrees/'),
-    'without this entry Biome rediscovers the nested configuration',
+  const ignored = spawnSync('git', ['check-ignore', '-q', '.claude/worktrees/any-session'], {
+    cwd: repo,
+  });
+  assert.equal(
+    ignored.status,
+    0,
+    'the path is not ignored, so Biome rediscovers the nested configuration',
   );
 });
 
