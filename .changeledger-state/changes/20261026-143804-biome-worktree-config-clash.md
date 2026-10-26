@@ -117,8 +117,9 @@ Queda fuera:
   evidencia en el Log
   - **Support:** verify: `pnpm lint` con `.claude/worktrees/viewer-layout` presente
   - **Resolved:** `2026-10-26T14:51:46Z`
-- [ ] Ejecutar el gate local completo
+- [x] Ejecutar el gate local completo
   - **Support:** `pnpm verify`
+  - **Resolved:** `2026-10-26T14:51:47Z`
 
 ## Log
 - **2026-10-26T14:38:04Z** `[version]` 1.0.1-dev
