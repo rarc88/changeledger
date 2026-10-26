@@ -147,10 +147,11 @@ Queda fuera:
   - **Verify:** `node --test test/projects-command.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4, CR5
   - **Resolved:** `2026-10-26T14:08:34Z`
-- [ ] Declarar el comando y sus opciones en el CLI
+- [x] Declarar el comando y sus opciones en el CLI
   - **Target:** `bin/changeledger.mjs`
   - **Verify:** `node --test test/cli-bin.test.mjs`
   - **Criteria:** CR1, CR2, CR3
+  - **Resolved:** `2026-10-26T14:08:35Z`
 - [ ] Escribir los criterios como tests
   - **Target:** `test/projects-command.test.mjs`
   - **Verify:** `node --test test/projects-command.test.mjs`
