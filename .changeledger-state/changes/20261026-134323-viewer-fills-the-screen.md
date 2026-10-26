@@ -154,10 +154,11 @@ libre y el botón mide su contenido.
 
 ## Plan
 
-- [ ] Retargetear el test que fija el mecanismo retirado del board
+- [x] Retargetear el test que fija el mecanismo retirado del board
   - **Target:** `test/viewer-metadata.test.mjs`
   - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
   - **Criteria:** CR1, CR2
+  - **Resolved:** `2026-10-26T13:55:30Z`
 - [ ] El board reparte el ancho entre las pistas de grid
   - **Target:** `src/viewer/public/styles.css`
   - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
