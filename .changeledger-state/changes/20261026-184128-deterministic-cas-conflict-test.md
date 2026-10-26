@@ -2,7 +2,7 @@
 id: "20261026-184128"
 title: Hacer determinista el test de conflicto CAS de la CLI
 type: change
-status: in-review
+status: in-progress
 created: 2026-10-26T18:41:28Z
 depends_on: []
 branch: change/20261026-184128
@@ -183,3 +183,4 @@ Alternativas descartadas:
 - **2026-10-26T18:46:50Z** `[note]` Defecto reproducido antes de tocar nada: con los dos procesos en serie el test falla con la firma exacta de CI, [{"code":0,"stderr":""},{"code":0,"stderr":""}] y 2 !== 1. La precondicion de la carrera, no la asercion, es lo que estaba al azar.
 - **2026-10-26T18:49:09Z** `[note]` Test discriminante comprobado en dos direcciones: sin la espera del shim el perdedor sale en 0 y la asercion lo atrapa con actual: 0, expected: 1; sin la senal de llegada el test falla por CR3 nombrando la causa, the second writer never reached the state ref update within 20000ms. Con la barrera completa, cinco de cinco en verde.
 - **2026-10-26T18:53:10Z** `[status]` in-progress → in-review
+- **2026-10-26T19:06:20Z** `[review]` in-review → in-progress: Dos defectos verificados. 1) Falta el skip en win32: publish.yml corre la matriz completa con windows-latest y un fichero sh sin extension llamado git nunca se ejecuta alli, asi que la puerta no se alcanza y el test falla por timeout; la convencion ya existe en edit.test.mjs, cutover.test.mjs y repo.test.mjs. 2) Ningun camino de salida libera al hijo detenido: si la asercion falla antes de abrir la puerta, el sh sigue girando sobre goFile y la suite se cuelga en vez de fallar, justo en el escenario de runner cargado que este change existe para arreglar.
