@@ -281,8 +281,8 @@ test('231428: setView updates currentView and clears globalMode', async () => {
 });
 
 // A viewer that stored `graph` before the view was retired must land on Board
-// instead of on a view that no longer exists (145217 CR2).
-test('145217 CR2: a stored view the viewer no longer offers restores as board', async () => {
+// instead of on a view that no longer exists.
+test('a stored view the viewer no longer offers restores as board', async () => {
   const { VIEWER_STATE_KEY, restoreViewerState, state } = await freshState();
   const storage = memoryStorage({
     [VIEWER_STATE_KEY]: JSON.stringify({ version: 1, currentView: 'graph', projects: {} }),

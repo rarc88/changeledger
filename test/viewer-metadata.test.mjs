@@ -1099,7 +1099,7 @@ const recoveredPayloadText = () =>
     }),
   });
 
-test('20261007-172305 CR1: a failed project load shows its error in board, table, ledger and metrics', async () => {
+test('a failed project load shows its error in board, table, ledger and metrics', async () => {
   await withFailedLoadFixture(async (fixture, tick) => {
     assert.equal(await load(failingLoad), false);
     for (const view of LOAD_ERROR_VIEWS) {
@@ -2526,7 +2526,7 @@ test('105206 CR1/CR2/CR3: type and owner sets combine inclusively without a sent
   );
 });
 
-test('141643 CR3: pending graduation combines with every visible-change filter but not the tombstone rule', () => {
+test('pending graduation combines with every visible-change filter but not the tombstone rule', () => {
   const filters = {
     text: 'needle',
     types: new Set(['feature']),
@@ -3037,8 +3037,8 @@ test('111457 request: structured graduation history resolves a change for naviga
 // The Graph view was retired as a product decision: it was maintained, tested
 // and documented without being used. What it left behind — a tab, a section, a
 // renderer, a block of node/edge CSS — is gone, and nothing that served the
-// other views went with it (145217 CR1, CR3).
-test('145217 CR1/CR3: the viewer offers five views and keeps no graph surface', async () => {
+// other views went with it.
+test('the viewer offers five views and keeps no graph surface', async () => {
   const html = fs.readFileSync(new URL('../src/viewer/public/index.html', import.meta.url), 'utf8');
   const css = fs.readFileSync(new URL('../src/viewer/public/styles.css', import.meta.url), 'utf8');
   const app = fs.readFileSync(new URL('../src/viewer/public/app.js', import.meta.url), 'utf8');
