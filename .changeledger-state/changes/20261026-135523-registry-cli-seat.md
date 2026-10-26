@@ -157,10 +157,11 @@ Queda fuera:
   - **Verify:** `node --test test/projects-command.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4, CR5
   - **Resolved:** `2026-10-26T14:08:35Z`
-- [ ] Reconciliar los specs que describan el listado o la limpieza del registro
+- [x] Reconciliar los specs que describan el listado o la limpieza del registro
   - **Target:** `.changeledger/specs/viewer.md`
   - **Verify:** `node bin/changeledger.mjs check`
   - **Support:**
+  - **Resolved:** `2026-10-26T14:08:36Z`
 - [ ] Ejecutar el gate local completo
   - **Support:** `pnpm test`
 
