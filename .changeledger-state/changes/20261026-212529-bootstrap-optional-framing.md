@@ -192,10 +192,11 @@ al texto en vez de pincharlo.
   - **Verify:** `node --test test/contract.test.mjs test/register.test.mjs`
   - **Criteria:** CR1, CR2, CR5, CR7
   - **Resolved:** `2026-10-26T21:42:26Z`
-- [ ] Reescribir `REFERENCE` con la exención en primera posición y la obligación condicionada
+- [x] Reescribir `REFERENCE` con la exención en primera posición y la obligación condicionada
   - **Target:** `src/contract.mjs`
   - **Verify:** `node --test test/contract.test.mjs test/register.test.mjs`
   - **Criteria:** CR1, CR2, CR3
+  - **Resolved:** `2026-10-26T21:42:27Z`
 - [ ] Cubrir que el bloque `v4` anterior se reporta como desactualizado y se reescribe sin cambiar de versión
   - **Target:** `test/contract.test.mjs`
   - **Verify:** `node --test test/contract.test.mjs`
