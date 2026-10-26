@@ -2,7 +2,7 @@
 id: "20261026-134323"
 title: El board desaprovecha la pantalla y el viewer arrastra dos scrolls
 type: change
-status: draft
+status: approved
 created: 2026-10-26T13:43:23Z
 depends_on: []
 related_to: ["20260703-220013", "20261018-131621"]
@@ -110,3 +110,5 @@ ajustar los tests que afirmen sobre el CSS o el DOM que esta frontera cambia.
 ## Plan
 
 ## Log
+- **2026-10-26T13:47:14Z** `[version]` 1.0.0
+- **2026-10-26T13:47:14Z** `[status]` draft → approved (human via conversation)
