@@ -227,3 +227,4 @@ al texto en vez de pincharlo.
 - **2026-10-26T21:42:46Z** `[status]` in-progress → in-review
 - **2026-10-26T21:55:22Z** `[version]` 1.0.0 → 1.1.0
 - **2026-10-26T21:55:22Z** `[review]` in-review → in-progress: El guard de CR2 no comprueba que la condición gobierne la obligación: un bloque que diga «Installed or not, running it is mandatory … run exactly this where it is installed» pasa los 67 tests. Reproducido de forma independiente
+- **2026-10-26T21:58:58Z** `[note]` Corrección tras el fail: el guard de CR2 pasa de comprobar presencia a comprobar que la condición precede a 'mandatory' dentro de su frase, más un barrido contra frases que reabren el alcance ('installed or not'). Verificado en rojo con el contraejemplo del revisor. De paso, LAZY_LINE deja de ser posicional y el barrido de CR5 selecciona sólo ficheros regulares
