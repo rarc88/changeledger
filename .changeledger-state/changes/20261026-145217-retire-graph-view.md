@@ -2,9 +2,10 @@
 id: "20261026-145217"
 title: La vista Graph ocupa sitio sin ganárselo
 type: change
-status: approved
+status: in-progress
 created: 2026-10-26T14:52:17Z
 depends_on: ["20261026-134323"]
+branch: change/20261026-145217
 related_to: []
 owner: raruiz-hiberuscom
 release_impact: minor
@@ -86,3 +87,5 @@ las reglas CSS que solo usaba el grafo.
 ## Log
 - **2026-10-26T14:52:17Z** `[version]` 1.0.0
 - **2026-10-26T14:57:49Z** `[status]` draft → approved (human via conversation)
+- **2026-10-26T14:58:21Z** `[status]` approved → in-progress
+- **2026-10-26T14:58:21Z** `[branch]` set: change/20261026-145217 (auto)
