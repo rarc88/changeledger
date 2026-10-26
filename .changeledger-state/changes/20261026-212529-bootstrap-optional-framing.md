@@ -202,10 +202,11 @@ al texto en vez de pincharlo.
   - **Verify:** `node --test test/contract.test.mjs`
   - **Criteria:** CR4
   - **Resolved:** `2026-10-26T21:42:28Z`
-- [ ] Re-registrar el `AGENTS.md` de este repositorio
+- [x] Re-registrar el `AGENTS.md` de este repositorio
   - **Target:** `AGENTS.md`
   - **Verify:** `changeledger check`
   - **Criteria:** CR6
+  - **Resolved:** `2026-10-26T21:42:31Z`
 - [ ] Revisar `README.md` y la spec `contract-discovery` con el texto nuevo delante y corregir sólo lo que haya quedado falso
   - **Support:**
 - [ ] Ejecutar `pnpm verify` sobre el candidato completo
