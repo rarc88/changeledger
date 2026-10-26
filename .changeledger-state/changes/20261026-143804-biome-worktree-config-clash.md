@@ -63,8 +63,11 @@ configuración.
 
 ### Frontier
 
-Entra la configuración del gate de calidad: `biome.json` y, si el arreglo lo
-exige, los scripts `lint` y `verify` de `package.json`.
+Entra la configuración del gate de calidad: `biome.json`, `.gitignore` y, si el
+arreglo lo exige, los scripts `lint` y `verify` de `package.json`. `.gitignore`
+lo autorizó el humano al elegir el arreglo, una vez las pruebas registradas en
+el Log mostraron que el camino que cabía en la frontera original duplicaba la
+lista de rutas.
 
 Queda pre-autorizado dentro de esa frontera cubrir el caso con un test, si la
 superficie elegida admite uno que no dependa de crear un worktree real.
@@ -74,6 +77,44 @@ Queda fuera:
 - Borrar, mover o gestionar los worktrees que crea la app.
 - `hooks/pre-commit` y la configuración de `lint-staged`, que no están rotos.
 - Cambiar qué rutas se lintean: `files.includes` se conserva como está.
+
+## Specification
+
+### CR1 — El lint no aborta con un worktree de la app presente
+- **Given** un checkout con al menos un directorio bajo `.claude/worktrees/` que contiene su propio `biome.json`
+- **When** se ejecuta `pnpm lint`
+- **Then** termina con el resultado del análisis de `bin/**`, `src/**` y `test/**`, sin el error `Found a nested root configuration`
+
+### CR2 — Las dos mitades del arreglo se conservan juntas
+- **Given** `biome.json` y `.gitignore` del repositorio
+- **When** se leen
+- **Then** `biome.json` declara `vcs.enabled: true`, `vcs.clientKind: "git"` y `vcs.useIgnoreFile: true`
+- **And** `.gitignore` ignora `.claude/worktrees/`
+
+### CR3 — Las rutas analizadas no cambian
+- **Given** `biome.json`
+- **When** se lee
+- **Then** `files.includes` sigue siendo `["bin/**", "src/**", "test/**", "!src/viewer/public/vendor"]`
+
+## Plan
+
+- [ ] Ignorar `.claude/worktrees/` en git
+  - **Target:** `.gitignore`
+  - **Verify:** `node --test test/quality-gate.test.mjs`
+  - **Criteria:** CR2
+- [ ] Declarar la costura de VCS en Biome para que el escáner respete ese ignore
+  - **Target:** `biome.json`
+  - **Verify:** `node --test test/quality-gate.test.mjs`
+  - **Criteria:** CR1, CR2, CR3
+- [ ] Escribir los criterios como tests
+  - **Target:** `test/quality-gate.test.mjs`
+  - **Verify:** `node --test test/quality-gate.test.mjs`
+  - **Criteria:** CR1, CR2, CR3
+- [ ] Comprobar a mano que `pnpm lint` pasa con el worktree presente, y dejar la
+  evidencia en el Log
+  - **Support:** verify: `pnpm lint` con `.claude/worktrees/viewer-layout` presente
+- [ ] Ejecutar el gate local completo
+  - **Support:** `pnpm verify`
 
 ## Log
 - **2026-10-26T14:38:04Z** `[version]` 1.0.1-dev
