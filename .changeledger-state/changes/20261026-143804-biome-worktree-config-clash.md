@@ -2,7 +2,7 @@
 id: "20261026-143804"
 title: Un worktree de la app aborta el lint del repo padre
 type: change
-status: draft
+status: approved
 created: 2026-10-26T14:38:04Z
 depends_on: []
 related_to: ["20260613-215319"]
@@ -76,3 +76,4 @@ Queda fuera:
 
 ## Log
 - **2026-10-26T14:38:04Z** `[version]` 1.0.1-dev
+- **2026-10-26T14:39:17Z** `[status]` draft → approved (human via conversation)
