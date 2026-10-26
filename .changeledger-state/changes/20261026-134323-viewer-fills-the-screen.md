@@ -5,6 +5,7 @@ type: change
 status: done
 created: 2026-10-26T13:43:23Z
 depends_on: []
+archived: true
 reviewed: true
 branch: change/20261026-134323
 related_to: ["20260703-220013", "20261018-131621"]
@@ -222,3 +223,4 @@ libre y el botón mide su contenido.
 - **2026-10-26T16:08:57Z** `[status]` in-progress → in-review
 - **2026-10-26T16:20:54Z** `[review]` in-review → done (delegated subagent, clean context)
 - **2026-10-26T16:46:56Z** `[graduation]` spec: `viewer.md`
+- **2026-10-26T16:50:09Z** `[archive]` archived
