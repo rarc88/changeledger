@@ -166,3 +166,4 @@ práctica» es exactamente lo que dejó pasar dos defectos en
 - **2026-10-26T17:01:14Z** `[status]` approved → in-progress
 - **2026-10-26T17:01:14Z** `[branch]` set: change/20261026-165839 (auto)
 - **2026-10-26T17:06:21Z** `[note]` Derivacion endurecida: el scanner desciende a las at-rules, acepta overflow scroll y falla nombrando cualquier selector con desbordamiento vertical que no sepa normalizar, en vez de descartarlo. Medido sobre la hoja: catorce selectores con desbordamiento vertical, doce detras del overlay y dos delante (.detail y .diagram-canvas). El test en rojo senalo .projects-list antes de tocar el CSS.
+- **2026-10-26T17:06:22Z** `[note]` Faltaban cuatro en la lista, no dos: .projects-list, .project-editor, .ledger-source y .config-migration-yaml. Los dos ultimos probablemente no desborden hoy, pero se bloquean igual porque juzgar caso por caso lo que no scrollea en la practica es lo que dejo pasar los dos defectos de 20261026-134323.
