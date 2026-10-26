@@ -170,3 +170,4 @@ Queda fuera:
 - **2026-10-26T13:35:21Z** `[note]` 600 candidatas sintéticas todavía caben en un cuerpo de 64 KiB porque sus rutas son más cortas que las reales; los tests usan 1.000 para cruzar el tope de verdad.
 - **2026-10-26T13:35:21Z** `[note]` `MAX_BODY` pasa a exportarse en `src/viewer/server/router.mjs` para que un test pueda fijar que el presupuesto del cliente nunca lo supere, en vez de duplicar el número a ciegas.
 - **2026-10-26T13:46:22Z** `[status]` in-progress → in-review
+- **2026-10-26T13:49:01Z** `[note]` CR1 y CR4 decían 600 candidatas y los tests usan 1.000, porque 600 sintéticas caben en 64 KiB. Corregidos los criterios para que declaren lo medido; la revisión verificó los tests con 1.000.
