@@ -625,7 +625,6 @@ antes de investigar desde cero para reutilizar decisiones ya registradas.
 - [Validación (changeledger check)](validation.md)
 - [Trazabilidad git](git-traceability.md)
 - [Discovery del contrato](contract-discovery.md)
-- [Definition of Ready](readiness.md) — registro de su retirada
 - [Política de idioma](language.md)
 - [Viewer y presentación](viewer.md)
 - [Política de dependencias](dependencies.md)
