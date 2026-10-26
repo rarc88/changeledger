@@ -124,3 +124,4 @@ Queda fuera:
 - **2026-10-26T14:40:36Z** `[note]` Descartado `files.experimentalScannerIgnores: ['.claude/**']`: el abort por configuración anidada se produce igual, así que el descubrimiento de config no pasa por esa clave.
 - **2026-10-26T14:40:37Z** `[note]` Probado `biome check bin src test` con rutas explícitas: 138 ficheros, exit 0, sin abort. Queda dentro de la frontera, pero duplica en `package.json` la lista de rutas que ya declara `files.includes`.
 - **2026-10-26T14:40:37Z** `[note]` Probado `vcs.useIgnoreFile` con `.claude/worktrees/` en `.gitignore`: el abort desaparece, una sola declaración y además quita el ruido de `git status`. Exige tocar `.gitignore`, que la frontera aprobada no incluye.
+- **2026-10-26T14:48:04Z** `[note]` El humano amplía la frontera a `.gitignore` y elige el arreglo con `vcs.useIgnoreFile` sobre el de rutas explícitas.
