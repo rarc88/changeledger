@@ -11,6 +11,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { sanitizedEnv } from './helpers/git-env.mjs';
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (name) => fs.readFileSync(path.join(repo, name), 'utf8');
@@ -29,6 +30,7 @@ test('Biome honours the repository ignore file', () => {
 test('git ignores the worktrees the app creates', () => {
   const ignored = spawnSync('git', ['check-ignore', '-q', '.claude/worktrees/any-session'], {
     cwd: repo,
+    env: sanitizedEnv(),
   });
   assert.equal(
     ignored.status,
