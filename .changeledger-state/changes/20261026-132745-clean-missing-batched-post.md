@@ -146,10 +146,11 @@ Queda fuera:
   - **Verify:** `node --test test/viewer-metadata.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4
   - **Resolved:** `2026-10-26T13:35:17Z`
-- [ ] Cubrir la limpieza en lotes sucesivos contra el servidor real
+- [x] Cubrir la limpieza en lotes sucesivos contra el servidor real
   - **Target:** `test/view.test.mjs`
   - **Verify:** `node --test test/view.test.mjs`
   - **Criteria:** CR5
+  - **Resolved:** `2026-10-26T13:35:18Z`
 - [ ] Reconciliar en `viewer.md` el párrafo que describe la limpieza como una
   única mutación
   - **Target:** `.changeledger/specs/viewer.md`
