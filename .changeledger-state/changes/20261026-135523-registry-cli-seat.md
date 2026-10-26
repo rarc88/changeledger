@@ -135,11 +135,12 @@ Queda fuera:
   - **Verify:** `node --test test/registry.test.mjs test/view.test.mjs`
   - **Criteria:** CR1, CR2
   - **Resolved:** `2026-10-26T14:08:32Z`
-- [ ] Dar a `listProjects` un modo tolerante que devuelva el motivo en vez de
+- [x] Dar a `listProjects` un modo tolerante que devuelva el motivo en vez de
   relanzar, sin alterar su comportamiento actual
   - **Target:** `src/registry.mjs`
   - **Verify:** `node --test test/registry.test.mjs`
   - **Criteria:** CR4
+  - **Resolved:** `2026-10-26T14:08:33Z`
 - [ ] Escribir el comando que lista y, con `--clean-missing`, pasa las
   candidatas observadas a `cleanMissingProjects`
   - **Target:** `src/commands/projects.mjs`
