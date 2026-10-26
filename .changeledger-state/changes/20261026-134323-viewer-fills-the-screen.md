@@ -164,10 +164,11 @@ libre y el botón mide su contenido.
   - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
   - **Criteria:** CR1
   - **Resolved:** `2026-10-26T13:55:31Z`
-- [ ] El body es el contenedor flex de altura y las vistas son su item elástico
+- [x] El body es el contenedor flex de altura y las vistas son su item elástico
   - **Target:** `src/viewer/public/styles.css`
   - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
   - **Criteria:** CR2, CR3
+  - **Resolved:** `2026-10-26T13:55:32Z`
 - [ ] Retirar `--header-height` y el `ResizeObserver` que la escribía
   - **Target:** `src/viewer/public/app.js`
   - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
