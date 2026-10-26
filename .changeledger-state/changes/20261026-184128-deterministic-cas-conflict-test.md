@@ -2,7 +2,7 @@
 id: "20261026-184128"
 title: Hacer determinista el test de conflicto CAS de la CLI
 type: change
-status: draft
+status: approved
 created: 2026-10-26T18:41:28Z
 depends_on: []
 related_to: ["20260808-151643", "20260615-222620", "20261026-165839"]
@@ -86,3 +86,4 @@ no se asume por iniciativa del agente.
 
 ## Log
 - **2026-10-26T18:41:28Z** `[version]` 1.0.0
+- **2026-10-26T18:43:34Z** `[status]` draft → approved (human via conversation)
