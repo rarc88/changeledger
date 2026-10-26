@@ -5,6 +5,7 @@ type: change
 status: done
 created: 2026-10-23T18:14:53Z
 depends_on: []
+reviewed: true
 branch: change/20261023-181453
 related_to: ["20261007-135154", "20261023-181753"]
 owner: raruiz-hiberuscom
@@ -132,3 +133,4 @@ desechable en vez del del usuario.
 - **2026-10-26T12:41:37Z** `[note]` `pnpm verify` no completa por una causa ajena a este cambio: biome aborta con `Found a nested root configuration` porque `.claude/worktrees/feature-20261023-181753/biome.json` convive con el del raíz. El gate se ejecutó por partes: biome sobre los ficheros tocados, `pnpm test` (2240 pass, 0 fail) y `changeledger check`.
 - **2026-10-26T12:41:43Z** `[status]` in-progress → in-review
 - **2026-10-26T12:43:41Z** `[review]` in-review → done (delegated subagent, clean context)
+- **2026-10-26T12:45:00Z** `[graduation]` spec: `lifecycle.md`
