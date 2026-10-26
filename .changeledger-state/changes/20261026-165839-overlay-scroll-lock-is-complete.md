@@ -227,3 +227,4 @@ práctica» es exactamente lo que dejó pasar dos defectos en
 - **2026-10-26T17:41:32Z** `[status]` in-progress → in-review
 - **2026-10-26T17:51:55Z** `[status]` in-review → in-progress
 - **2026-10-26T17:56:30Z** `[note]` La revision encontro una regresion que introdujo mi propia reescritura: el reset de pending en cada punto y coma cortaba tambien un selector con punto y coma dentro del valor de un atributo, que la version anterior resolvia bien. Era fail-loud —el resto corrupto caia en unrecognised— y la construccion no esta en la hoja, pero es regresion igual.
+- **2026-10-26T17:56:31Z** `[note]` Arreglado llevando estado de comillas y corchetes: el punto y coma solo cierra sentencia fuera de literales. De paso cierra una ceguera preexistente que la revision tambien nombro, la llave dentro de una cadena, que desincronizaba la pila de marcos; queda fijada con dos casos. Verificado sin regresion: 340 reglas y los mismos catorce selectores que antes.
