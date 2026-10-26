@@ -224,3 +224,4 @@ pasajes y es verdad persistente: quedarse falsa es peor que no existir.
 - **2026-10-26T15:44:18Z** `[status]` done → in-progress (agent)
 - **2026-10-26T15:46:07Z** `[finding]` 1 dropped: el humano amplio la frontera para incluir architecture.md y la linea quedo corregida dentro de este mismo change
 - **2026-10-26T15:46:29Z** `[note]` Correccion de la linea 43 de architecture.md: SRV --> UI[visor: board / table / Ledger / metrics]. Solo se retira la vista; la linea tampoco listaba projects antes de este change, y esa divergencia es preexistente, asi que se reporta en vez de reconciliarse por inferencia.
+- **2026-10-26T15:46:36Z** `[finding]` La linea 43 del diagrama de architecture.md tampoco listaba la vista projects antes de este change: enumera board, table, Ledger y metrics y el visor tiene cinco vistas. Divergencia preexistente, no causada aqui; se deja como esta en vez de reconciliarla por inferencia.
