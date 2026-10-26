@@ -128,7 +128,85 @@ el contenido de `templates/contract/` y sus presupuestos; el comportamiento de
 
 ## Specification
 
+El bloque vigente ordena sus enunciados por antigüedad, no por la política que
+hoy rige. Reordenarlo es suficiente: la exención por ausencia del CLI pasa a la
+primera frase y la obligación queda explícitamente condicionada al entorno que sí
+tiene el ejecutable. El protocolo de validez no se toca.
+
+`BOOTSTRAP_VERSION` se queda en `4`. El salto de versión existe para forzar la
+detección de cambios que `applyBootstrap` no distinguiría por sí solo; aquí no
+hace falta, porque `replaceDelimited` ya clasifica como `replaced` cualquier
+interior v4 distinto del publicado y `checkContract` lo reporta. Subirlo sólo
+añadiría una migración a todos los repositorios consumidores sin ganar detección.
+
+Los fixtures de `test/contract.test.mjs` y `test/register.test.mjs` mutan el
+primer tramo en negrita del bloque escribiéndolo a mano. Esa literalidad es lo
+que convierte cada reescritura de la prosa en una ronda de retargeting; se
+sustituye por una derivación del propio `REFERENCE`, de modo que el fixture siga
+al texto en vez de pincharlo.
+
+### CR1 — La exención se lee antes que la obligación
+- **Given** el bloque publicado en `REFERENCE` de `src/contract.mjs`
+- **When** se localizan en su prosa la condición de ausencia `command not found` y el término que expresa obligación `mandatory`
+- **Then** la condición de ausencia aparece en una posición estrictamente anterior
+- **And** esa condición ordena seguir trabajando con normalidad y no emular la herramienta
+
+### CR2 — La obligación queda condicionada al entorno que tiene el CLI
+- **Given** el bloque publicado en `REFERENCE`
+- **When** se aísla la frase que contiene `mandatory`
+- **Then** esa misma frase condiciona la obligación a que `changeledger` esté instalado
+- **And** sigue exigiendo ejecutar el comando antes de planificar, investigar, responder o editar
+
+### CR3 — El protocolo de validez sobrevive íntegro
+- **Given** el bloque publicado en `REFERENCE`
+- **When** se lee su prosa aplanada
+- **Then** publica literalmente `changeledger context 2>&1 | head -400`, condiciona la validez de la captura al centinela `CHANGELEDGER CONTEXT END`, explica la re-ejecución con `head -<lines>` leída de la línea `BEGIN`, distingue el fallo del ejecutable de su ausencia pidiendo decisión humana, y ordena repetir la carga como primera acción tras una compactación
+
+### CR4 — La reescritura no necesita subir la versión del bloque
+- **Given** un `AGENTS.md` con el bloque delimitado `v4` en su formulación anterior
+- **When** se ejecuta `checkContract` sobre ese repositorio
+- **Then** devuelve exactamente `AGENTS.md has an outdated ChangeLedger reference — run \`changeledger register\``
+- **And** tras `ensureReference` el fichero contiene el nuevo texto y conserva el marcador `<!-- CHANGELEDGER BOOTSTRAP BEGIN v4 -->`
+
+### CR5 — La formulación retirada no sobrevive en el árbol
+- **Given** el repositorio excluyendo `node_modules`
+- **When** se busca la cadena `it is mandatory, not optional`
+- **Then** no aparece en ningún fichero versionado
+
+### CR6 — El `AGENTS.md` de este repositorio queda instalado y válido
+- **Given** este repositorio tras ejecutar `changeledger register`
+- **When** se compara el bloque instalado en `AGENTS.md` con `REFERENCE`
+- **Then** el bloque es byte-idéntico al publicado
+- **And** `changeledger check` no reporta ningún error sobre `AGENTS.md`
+
+### CR7 — Los fixtures derivan su anclaje en vez de escribirlo
+- **Given** `test/contract.test.mjs` y `test/register.test.mjs`
+- **When** un fixture necesita mutar o reflowar el primer tramo en negrita del bloque
+- **Then** obtiene ese tramo de `REFERENCE` en tiempo de ejecución
+- **And** ningún fixture de esos dos ficheros contiene ese tramo escrito a mano
+
 ## Plan
+
+- [ ] Derivar el anclaje de los fixtures desde `REFERENCE` y reapuntar los guards a la nueva formulación, dejándolos en rojo
+  - **Target:** `test/contract.test.mjs`, `test/register.test.mjs`
+  - **Verify:** `node --test test/contract.test.mjs test/register.test.mjs`
+  - **Criteria:** CR1, CR2, CR5, CR7
+- [ ] Reescribir `REFERENCE` con la exención en primera posición y la obligación condicionada
+  - **Target:** `src/contract.mjs`
+  - **Verify:** `node --test test/contract.test.mjs test/register.test.mjs`
+  - **Criteria:** CR1, CR2, CR3
+- [ ] Cubrir que el bloque `v4` anterior se reporta como desactualizado y se reescribe sin cambiar de versión
+  - **Target:** `test/contract.test.mjs`
+  - **Verify:** `node --test test/contract.test.mjs`
+  - **Criteria:** CR4
+- [ ] Re-registrar el `AGENTS.md` de este repositorio
+  - **Target:** `AGENTS.md`
+  - **Verify:** `changeledger check`
+  - **Criteria:** CR6
+- [ ] Revisar `README.md` y la spec `contract-discovery` con el texto nuevo delante y corregir sólo lo que haya quedado falso
+  - **Support:**
+- [ ] Ejecutar `pnpm verify` sobre el candidato completo
+  - **Support:**
 
 ## Log
 - **2026-10-26T21:27:11Z** `[version]` 1.0.0
