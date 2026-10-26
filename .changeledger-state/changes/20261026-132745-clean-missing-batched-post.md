@@ -2,9 +2,10 @@
 id: "20261026-132745"
 title: La limpieza de proyectos ausentes falla justo cuando más se necesita
 type: change
-status: approved
+status: in-progress
 created: 2026-10-26T13:27:45Z
 depends_on: []
+branch: change/20261026-132745
 related_to: ["20260815-133442", "20261023-181453"]
 owner: raruiz-hiberuscom
 ---
@@ -100,3 +101,5 @@ Queda fuera:
 ## Log
 - **2026-10-26T13:27:45Z** `[version]` 1.0.1-dev
 - **2026-10-26T13:29:35Z** `[status]` draft → approved (human via conversation)
+- **2026-10-26T13:29:49Z** `[status]` approved → in-progress
+- **2026-10-26T13:29:49Z** `[branch]` set: change/20261026-132745 (auto)
