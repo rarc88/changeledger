@@ -237,3 +237,4 @@ pasajes y es verdad persistente: quedarse falsa es peor que no existir.
 - **2026-10-26T16:47:08Z** `[graduation]` spec: `viewer.md`
 - **2026-10-26T16:47:08Z** `[graduation]` spec: `architecture.md`
 - **2026-10-26T16:50:28Z** `[archive]` archived
+- **2026-10-26T16:59:51Z** `[finding]` 2 promoted #20261026-165918
