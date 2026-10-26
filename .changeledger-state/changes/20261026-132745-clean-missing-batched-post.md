@@ -135,11 +135,12 @@ Queda fuera:
   - **Verify:** `node --test test/viewer-metadata.test.mjs`
   - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-10-26T13:35:15Z`
-- [ ] Emitir una petición por lote y agregar `removedIds`, `removed` y `skipped`
+- [x] Emitir una petición por lote y agregar `removedIds`, `removed` y `skipped`
   en un único cuerpo para la UI, informando del fallo tras refrescar
   - **Target:** `src/viewer/public/app.js`
   - **Verify:** `node --test test/viewer-metadata.test.mjs`
   - **Criteria:** CR1, CR3, CR4
+  - **Resolved:** `2026-10-26T13:35:16Z`
 - [ ] Escribir los criterios como tests
   - **Target:** `test/viewer-metadata.test.mjs`
   - **Verify:** `node --test test/viewer-metadata.test.mjs`
