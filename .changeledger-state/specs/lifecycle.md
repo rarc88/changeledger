@@ -402,7 +402,15 @@ vacío antes de cualquier exec); los scripts `test` y `verify` lo fijan, así qu
 la suite es hermética por construcción — ningún test alcanza la red por esta
 vía aunque no inyecte resolver. Los scripts usan una asignación de entorno
 inline y el workspace de pnpm habilita `shellEmulator`, por lo que ese
-kill-switch se aplica también cuando pnpm ejecuta la suite en Windows. El
+kill-switch se aplica también cuando pnpm ejecuta la suite en Windows. El gate de calidad lintea con Biome desde la raíz del repo, y el escáner de
+Biome se niega a correr si encuentra un `biome.json` anidado bajo otro: los
+worktrees que la app de escritorio crea bajo `.claude/worktrees/` son checkouts
+de este mismo repositorio, así que llevan su copia del fichero versionado y
+abortaban `pnpm lint` —y con él `pnpm verify`— antes de leer una línea de
+código. `.gitignore` ignora esa ruta y `biome.json` declara
+`vcs.useIgnoreFile`, de modo que el escáner la respeta; ninguna de las dos
+mitades sirve sola, y `files.includes` no interviene porque el fallo es de
+descubrimiento de configuración, no de selección de ficheros. El
 script `test` lanza `node --test` a través de `scripts/run-tests.mjs`, que da a
 cada ejecución una raíz temporal propia (`TMPDIR`, `TEMP` y `TMP`) y, dentro de
 ella, un `CHANGELEDGER_HOME` desechable: `registryDir()` cae en `os.homedir()`
