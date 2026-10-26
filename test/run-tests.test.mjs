@@ -168,3 +168,74 @@ for (const [signal, code] of [
     await waitFor(() => !alive(pid), 'the test process to end');
   });
 }
+
+// --- The wrapper also isolates the global registry ------------------------
+//
+// `registryDir()` resolves `CHANGELEDGER_HOME || os.homedir()`, so a test that
+// calls `init()` without setting that variable registers its throwaway repo in
+// the real user's `~/.changeledger/.registry.json`. Isolating it per test file
+// is what let one file slip; the wrapper isolates it for every child, next to
+// the system temp it already isolates.
+
+const homeReport = (t, extra = {}) => {
+  const { sandbox, report, env } = setup(t);
+  delete env.CHANGELEDGER_HOME;
+  Object.assign(env, extra);
+  const run = spawnSync(process.execPath, [wrapper, fixture('home')], {
+    env,
+    cwd: repo,
+    encoding: 'utf8',
+  });
+  assert.equal(run.status, 0, run.stderr);
+  return { sandbox, ...readReport(report) };
+};
+
+test('the child gets a throwaway CHANGELEDGER_HOME inside the run root', (t) => {
+  const { sandbox, home, homedir } = homeReport(t);
+  assert.ok(home, 'the child saw no CHANGELEDGER_HOME');
+  assert.ok(
+    home.startsWith(sandbox + path.sep),
+    `${home} is outside the wrapper's temp root ${sandbox}`,
+  );
+  assert.notEqual(home, homedir);
+});
+
+test('an inherited CHANGELEDGER_HOME does not reach the child', (t) => {
+  const outside = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-outside-')));
+  t.after(() => fs.rmSync(outside, { recursive: true, force: true }));
+  const { sandbox, home } = homeReport(t, { CHANGELEDGER_HOME: outside });
+  assert.notEqual(home, outside);
+  assert.ok(
+    home.startsWith(sandbox + path.sep),
+    `${home} is outside the wrapper's temp root ${sandbox}`,
+  );
+});
+
+test('the throwaway home is removed with the run root', (t) => {
+  const { sandbox, home } = homeReport(t);
+  assert.equal(fs.existsSync(home), false, `${home} outlived the run`);
+  assert.deepEqual(fs.readdirSync(sandbox), []);
+});
+
+// The real registry is compared before and after rather than probed for the
+// fixture's own id: a leftover entry from an earlier failing run would make an
+// id check fail for good, and "gained nothing" is the claim that matters.
+const realRegistry = () => {
+  const file = path.join(os.homedir(), '.changeledger', '.registry.json');
+  try {
+    return Object.keys(JSON.parse(fs.readFileSync(file, 'utf8'))).sort();
+  } catch {
+    return null;
+  }
+};
+
+test('a register() in a test lands in the throwaway registry, not the real one', (t) => {
+  const before = realRegistry();
+  const { sandbox, registry, entries } = homeReport(t);
+  assert.ok(
+    registry.startsWith(sandbox + path.sep),
+    `${registry} is outside the wrapper's temp root ${sandbox}`,
+  );
+  assert.ok(entries.includes('cr4'), `the fixture's entry is missing from ${registry}`);
+  assert.deepEqual(realRegistry(), before, 'the run changed the real registry');
+});
