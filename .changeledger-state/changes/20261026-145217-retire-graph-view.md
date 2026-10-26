@@ -172,10 +172,11 @@ pasajes y es verdad persistente: quedarse falsa es peor que no existir.
   - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
   - **Criteria:** CR3
   - **Resolved:** `2026-10-26T15:08:04Z`
-- [ ] Retirar el bloque CSS del grafo y sus reglas de nodo y arista
+- [x] Retirar el bloque CSS del grafo y sus reglas de nodo y arista
   - **Target:** `src/viewer/public/styles.css`
   - **Verify:** `pnpm test test/viewer-metadata.test.mjs`
   - **Criteria:** CR3
+  - **Resolved:** `2026-10-26T15:08:05Z`
 - [ ] Corregir el comentario de `state.js` que nombra al grafo
   - **Target:** `src/viewer/public/state.js`
   - **Verify:** `pnpm lint`
