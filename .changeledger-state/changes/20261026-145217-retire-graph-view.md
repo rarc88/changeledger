@@ -5,6 +5,7 @@ type: change
 status: done
 created: 2026-10-26T14:52:17Z
 depends_on: ["20261026-134323"]
+reviewed: true
 branch: change/20261026-145217
 related_to: []
 owner: raruiz-hiberuscom
@@ -232,3 +233,4 @@ pasajes y es verdad persistente: quedarse falsa es peor que no existir.
 - **2026-10-26T16:16:03Z** `[status]` in-progress → in-review
 - **2026-10-26T16:21:01Z** `[review]` in-review → done (delegated subagent, clean context)
 - **2026-10-26T16:27:59Z** `[note]` dev avanzo con la fusion del PR 44 y del PR 43 de otra sesion; se trajo origin/dev a la rama y la fusion salio limpia, sin conflictos, porque dev ya contenia el commit del arreglo de esta rama. La fusion incorpora .gitignore, biome.json y test/quality-gate.test.mjs del PR 43. pnpm verify en verde con 2258 tests.
+- **2026-10-26T16:47:08Z** `[graduation]` spec: `viewer.md`
