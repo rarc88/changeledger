@@ -187,8 +187,9 @@ libre y el botón mide su contenido.
 - [x] Medir las cinco CR en el viewer en ejecución y anotar las cifras en el Log
   - **Support:** el layout computado no lo cubre la suite; se mide con el navegador contra `changeledger view .`
   - **Resolved:** `2026-10-26T13:58:57Z`
-- [ ] Pasar la puerta local completa
+- [x] Pasar la puerta local completa
   - **Support:** `pnpm verify`
+  - **Resolved:** `2026-10-26T14:03:08Z`
 
 ## Log
 - **2026-10-26T13:47:14Z** `[version]` 1.0.0
